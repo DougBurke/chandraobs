@@ -9,6 +9,12 @@ module Main where
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Control.Concurrent.STM (STM, TVar
+                              , atomically, newTVar, readTVar
+                              , writeTVar)
+
+import Control.Monad.IO.Class (liftIO)
+
 import Data.Default (def)
 import Data.Monoid ((<>))
 
@@ -62,16 +68,21 @@ main = do
  
   case eopts of
     Left emsg -> uerror emsg
-    Right opts -> scottyOpts opts webapp
+    Right opts -> do
+      ctrV <- newCounter
+      scottyOpts opts $ webapp ctrV
 
-webapp :: ScottyM ()
-webapp = do
+webapp :: TVar Counter -> ScottyM ()
+webapp ctrV = do
 
     -- middleware logStdoutDev-- An invalid port number foe
 
 
     get "/" $ redirect "/index.html"
-    get "/index.html" $ fromBlaze intro
+    get "/index.html" $ do
+      ctr <- liftIO . atomically . incCounter $ ctrV
+      fromBlaze $ intro ctr
+
     -- TODO: is this correct for HEAD; or should it just 
     --       set the redirect header?
     addroute HEAD "/" $ standardResponse >> redirect "/index.html"
@@ -89,12 +100,14 @@ standardResponse :: ActionM ()
 standardResponse = return ()
 
 -- The uninformative landing page
-intro :: H.Html
-intro =
+intro :: Counter -> H.Html
+intro (Counter ctr) =
   H.docTypeHtml $
     H.head (H.title "Welcome")
     <>
-    H.body (H.p "Hello world!")
+    H.body (H.p "Hello world!" <>
+            H.p ("The current count is: " <>
+                 H.toHtml ctr))
 
 -- The uninformative about page  
 about :: H.Html
@@ -105,3 +118,25 @@ about =
        lnk = "Back " <> (H.a H.! A.href "/index.html" $ "home") <> "."
    in H.body $ 
       H.p txt <> H.p lnk
+
+-- | A simple counter that is persistent within a session but
+--   not between sessions.
+--
+newtype Counter = Counter Integer
+  deriving (Eq, Ord, Show)
+
+-- | Return a new counter, set to 0
+newCounter :: IO (TVar Counter)
+newCounter = atomically $ newTVar $ Counter 0
+
+-- | Increase the value by 1  and return
+--   the new counter.
+incCounter :: TVar Counter -> STM Counter
+incCounter ctrV = do
+  -- could use modifyTVar' but want to return
+  -- the new value
+  Counter oval <- readTVar ctrV
+  let n = Counter $! oval + 1
+  writeTVar ctrV n
+  return n
+

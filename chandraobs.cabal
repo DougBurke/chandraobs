@@ -39,7 +39,9 @@ executable webserver
     , data-default == 0.5.*
     , http-types == 0.8.*
     , scotty == 0.7.*
+    , stm == 2.4.*
     , text >= 1.0 && < 1.2
+    , transformers >= 0.3 && < 0.5
     , warp == 2.1.*
     -- , wai-extra == 2.1.*
 
