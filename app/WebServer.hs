@@ -9,8 +9,6 @@ module Main where
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Control.Monad (liftM)
-
 import Data.Default (def)
 import Data.Monoid ((<>))
 
@@ -19,28 +17,58 @@ import Network.HTTP.Types (StdMethod(HEAD))
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
+import System.Exit (exitFailure)
+import System.IO (hFlush, hPutStrLn, stderr)
 
 import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
+readInt :: String -> Maybe Int
+readInt s = case reads s of
+              [(v,[])] -> Just v
+              _ -> Nothing
+
+production :: 
+  Int  -- ^ The port number to use
+  -> Options
+production p = def { verbose = 0
+                   , settings = setPort p defaultSettings }
+
+development :: Options
+development = def
+
+uerror :: String -> IO ()
+uerror msg = do
+  hPutStrLn stderr $ "ERROR: " ++ msg
+  hFlush stderr
+  exitFailure
+
+-- I use the presence of the PORT environment variable to decide
+-- between production and test environments. The Scotty documentations
+-- suggest calling setFdCacheDuration on the settings field, to change
+-- the value from 0, but do not really explain the implications of why
+-- it is set to 0 in the first place.
+--
 main :: IO ()
 main = do
-  -- Use presence of PORT argument to decide between production and
-  -- test environments. The Scotty documentations suggest calling
-  -- setFdCacheDuration on the settings field, to change the value from
-  -- 0, but do not really explain the implications of why it is
-  -- set to 0 in the first place.
-  --
   mports <- lookupEnv "PORT"
-  let opts = case read `liftM` mports of
-               Just port -> def { verbose = 0
-                                , settings = setPort port defaultSettings }
-               _ -> def
- 
-  scottyOpts opts $ do
+  let eopts = case mports of
+                Just ports -> case readInt ports of
+                                Just port -> Right $ production port
+                                _ -> Left $ "Invalid PORT argument: " ++ ports
 
-    -- middleware logStdoutDev
+                _ -> Right development
+ 
+  case eopts of
+    Left emsg -> uerror emsg
+    Right opts -> scottyOpts opts webapp
+
+webapp :: ScottyM ()
+webapp = do
+
+    -- middleware logStdoutDev-- An invalid port number foe
+
 
     get "/" $ redirect "/index.html"
     get "/index.html" $ fromBlaze intro

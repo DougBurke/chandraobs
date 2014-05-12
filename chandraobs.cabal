@@ -1,11 +1,23 @@
 name:                chandraobs
 version:             0.0.1
+stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
--- homepage:            https://github.com/yourName/repoName
 license:             PublicDomain
 author:              Doug Burke
 maintainer:          dburke.gw@gmail.com
 category:            Web
+
+description:
+  Eventually I want a web page describing what the Chandra
+  X-Ray observatory is currently doing, including links to
+  related observations, press releases, the ADS output of
+  the Principal Investigator, a link to the source 
+  viewable in WorldWideTelescope, etc.
+  .
+  At present it is just a technology tester.
+
+-- homepage:            https://github.com/yourName/repoName
+
 build-type:          Simple
 cabal-version:       >=1.8
 
@@ -13,49 +25,45 @@ flag tools
   description: build the command-line tools (currently unavailable)
   default: False
 
-flag webserver
-  description: build the web server
-  default: True
-
+-- remove the flag on the webserver since it seems to be making
+-- 'cabal build' confused
 executable webserver
   main-is:             WebServer.hs
   hs-source-dirs:      app/
 
-  if flag(webserver)
-    build-depends:     base == 4.6.*
-                       , blaze-html == 0.7.*
-                       , data-default == 0.5.*
-                       , http-types == 0.8.*
-                       , scotty == 0.7.*
-                       , text >= 1.0 && < 1.2
-                       , warp == 2.1.*
-                       -- , wai-extra == 2.1.*
-
-  else
-    buildable:  False
-
   ghc-options: -Wall
+
+  build-depends:
+    base >= 4.6 && < 4.8
+    , blaze-html == 0.7.*
+    , data-default == 0.5.*
+    , http-types == 0.8.*
+    , scotty == 0.7.*
+    , text >= 1.0 && < 1.2
+    , warp == 2.1.*
+    -- , wai-extra == 2.1.*
 
 -- This is not yet added to the repository
-executable hackdata
-  main-is:             Hack.hs
-  hs-source-dirs:      tools/
-  other-modules:       PersistentTypes
-                       Types
-                       HackData
-
-  if flag(tools)
-    build-depends:     base == 4.6.*
-                       , monad-logger == 0.3.*
-                       , persistent == 1.3.*
-                       , persistent-postgresql == 1.3.*
-                       , persistent-template == 1.3.*
-                       , resourcet == 1.1.*
-                       , text >= 1.0 && < 1.2
-                       , transformers >= 0.3 && < 0.5
-
-  else
-    buildable:  False
-
-  ghc-options: -Wall
-
+-- executable hackdata
+--   main-is:             Hack.hs
+--   hs-source-dirs:      tools/
+--   other-modules:       PersistentTypes
+--                        Types
+--                        HackData
+-- 
+--   ghc-options: -Wall
+-- 
+--   if flag(tools)
+--     build-depends:
+--       base >= 4.6 && < 4.8
+--       , monad-logger == 0.3.*
+--       , persistent == 1.3.*
+--       , persistent-postgresql == 1.3.*
+--       , persistent-template == 1.3.*
+--       , resourcet == 1.1.*
+--       , text >= 1.0 && < 1.2
+--       , transformers >= 0.3 && < 0.5
+-- 
+--   else
+--     buildable:  False
+-- 
