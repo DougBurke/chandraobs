@@ -1,0 +1,58 @@
+name:                chandraobs
+version:             0.0.1
+synopsis:            What is the Chandra Observatory doing?
+-- homepage:            https://github.com/yourName/repoName
+license:             PublicDomain
+author:              Doug Burke
+maintainer:          dburke.gw@gmail.com
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.8
+
+flag tools
+  description: build the command-line tools (currently unavailable)
+  default: False
+
+flag webserver
+  description: build the web server
+  default: True
+
+executable webserver
+  main-is:             WebServer.hs
+  hs-source-dirs:      app/
+
+  if flag(webserver)
+    build-depends:     base == 4.6.*
+                       , scotty == 0.7.*
+                       , blaze-html == 0.7.*
+                       , http-types == 0.8.*
+                       , text >= 1.0 && < 1.2
+                       , wai-extra == 2.1.*
+
+  else
+    buildable:  False
+
+  ghc-options: -Wall
+
+executable hackdata
+  main-is:             Hack.hs
+  hs-source-dirs:      tools/
+  other-modules:       PersistentTypes
+                       Types
+                       HackData
+
+  if flag(tools)
+    build-depends:     base == 4.6.*
+                       , monad-logger == 0.3.*
+                       , persistent == 1.3.*
+                       , persistent-template == 1.3.*
+                       , persistent-postgresql == 1.3.*
+                       , transformers >= 0.3 && < 0.5
+                       , resourcet == 1.1.*
+                       , text >= 1.0 && < 1.2
+
+  else
+    buildable:  False
+
+  ghc-options: -Wall
+
