@@ -1,0 +1,43 @@
+
+div.links {
+  width: 680;
+  height: 680;
+}
+
+/* Selected view (DSS/RASS/PSPC) */
+
+img.inactive {
+  display: none;
+}
+
+img.active {
+  display: block;
+}
+
+/* The radio buttons are styled to appear more like
+   HTML buttons than the default, and rely on the
+   fact we use <input type=button..><label></label>
+ */
+
+div.radiobuttons {
+  padding: 0.5em 1em;
+}
+
+div.radiobuttons input[type='radio'] {
+  display: none;
+}
+
+div.radiobuttons input[type='radio']:checked + label {
+  background-color: #bbb;
+}
+
+div.radiobuttons label {
+  display: inline-block;
+  background-color: #eee;
+  padding: 0.1em 0.5em;
+  margin-left: 0.1em;
+  margin-right: 0.1em;
+  font-size: larger;
+  font-family: serif;
+}
+

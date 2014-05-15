@@ -29,7 +29,10 @@ flag tools
 -- 'cabal build' confused
 executable webserver
   main-is:             WebServer.hs
+  other-modules:       PersistentTypes
+                       HackData
   hs-source-dirs:      app/
+                       tools/
 
   ghc-options: -Wall
 
@@ -38,12 +41,16 @@ executable webserver
     , blaze-html == 0.7.*
     , data-default == 0.5.*
     , http-types == 0.8.*
+    , persistent == 1.3.*
+    -- , persistent-postgresql == 1.3.*
+    , persistent-template == 1.3.*
     , scotty == 0.7.*
     , stm == 2.4.*
     , text >= 1.0 && < 1.2
     , transformers >= 0.3 && < 0.5
-    , warp == 2.1.*
+    , wai-middleware-static == 0.5.*
     -- , wai-extra == 2.1.*
+    , warp == 2.1.*
 
 -- This is not yet added to the repository
 -- executable hackdata
