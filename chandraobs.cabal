@@ -31,6 +31,12 @@ executable webserver
   main-is:             WebServer.hs
   other-modules:       PersistentTypes
                        HackData
+                       Database
+                       Utils
+                       Views.About
+                       Views.Index
+                       Views.Record
+                       Views.WWT
   hs-source-dirs:      app/
                        tools/
 
