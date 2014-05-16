@@ -32,6 +32,10 @@ instance H.ToMarkup ObsName where
   toMarkup (SpecialObs s) = H.toMarkup s
   toMarkup (ObsId i)      = H.toMarkup i
 
+instance H.ToValue ObsName where
+  toValue (SpecialObs s) = H.toValue s
+  toValue (ObsId i)      = H.toValue i
+
 instance PersistField Instrument where
   toPersistValue = PersistText . T.pack . show
   fromPersistValue (PersistText s) = case T.unpack s of
