@@ -29,9 +29,9 @@ import System.IO (hFlush, hPutStrLn, stderr)
 
 import Web.Scotty
 
-import Database (currentRecord, getRecord, getObsInfo, getObsId, getSpecialObs)
+import Database (getRecord, getObsInfo, getObsId, getSpecialObs)
 import Types (ObsName(..))
-import Utils (fromBlaze, standardResponse)
+import Utils (ObsInfo(..), fromBlaze, standardResponse)
 
 readInt :: String -> Maybe Int
 readInt s = case reads s of
@@ -97,7 +97,11 @@ webapp = do
     get "/about.html" $ fromBlaze About.aboutPage
     addroute HEAD "/about.html" standardResponse
 
-    get "/wwt.html" $ fromBlaze (WWT.wwtPage True currentRecord)
+    get "/wwt.html" $ do
+      mobs <- liftIO getObsInfo
+      case mobs of 
+        Just obs -> fromBlaze (WWT.wwtPage True (oiCurrentObs obs))
+        _ -> fromBlaze Index.noDataPage
 
     get "/obs/:special" $ do
       sobs <- param "special"

@@ -2,13 +2,14 @@
 
 -- | Simple database access shims.
 
-module Database ( currentRecord
-                , getObsInfo
+module Database ( getObsInfo
                 , findObsName
                 , getSpecialObs
                 , getObsId
                 , getRecord
                 ) where
+
+import Data.Time (getCurrentTime)
 
 import Safe (headMay, lastMay)
 
@@ -18,33 +19,35 @@ import PersistentTypes
 import Types (ObsName(..))
 import Utils (ObsInfo(..))
 
--- How to display a record? For now, just pick one
--- in the middle (ie that length testSchedule > 5).
---
--- assume that currentRecord occurs within testShedule
---
-currentRecord :: Record
-currentRecord = testSchedule !! 2
-
--- | Find the current observation. At present this is a stub.
+-- | Find the current observation.
 --
 --   Allow for the possibility of there being no observation; e.g.
 --   because the data base hasn't been updated.
+--
+--   TODO: should check for some overlap of the observation date +
+--         exposure time to the current date, so can suggest that
+--         slewing (or if at end that run out of data...)
+--
 getObsInfo :: IO (Maybe ObsInfo)
-getObsInfo = 
-  let nextObs = headMay $ drop 1 $ dropWhile (/= currentRecord) testSchedule
-      prevObs = lastMay $ takeWhile (/= currentRecord) testSchedule
-  in return . Just $ ObsInfo currentRecord prevObs nextObs
+getObsInfo = do
+  now <- getCurrentTime
+  -- assume that testSchedule is in ascending time order
+  let (prevs, nexts) = span ((<= now) . recordStartTime) testSchedule
+  case reverse prevs of
+    [] -> return Nothing
+    (current:cs) -> return . Just $ ObsInfo current
+                                            (headMay cs)
+                                            (headMay nexts)
 
 findObsName :: ObsName -> IO (Maybe ObsInfo)
 findObsName oName = 
   let notObsName = (/= oName) . recordObsname
-  in case headMay $ dropWhile notObsName testSchedule of
-       Just currObs -> 
-         let nextObs = headMay $ drop 1 $ dropWhile notObsName testSchedule
-             prevObs = lastMay $ takeWhile notObsName testSchedule
-         in return . Just $ ObsInfo currObs prevObs nextObs
-       _ -> return Nothing
+      (prevs, nexts) = span notObsName testSchedule
+  in case nexts of
+    [] -> return Nothing
+    (current:cs) -> return . Just $ ObsInfo current
+                                            (lastMay prevs)
+                                            (headMay cs)
 
 -- | Return the requested "special" observation.
 getSpecialObs :: String -> IO (Maybe ObsInfo)
@@ -54,8 +57,12 @@ getSpecialObs = findObsName . SpecialObs
 getObsId :: Int -> IO (Maybe ObsInfo)
 getObsId = findObsName . ObsId
 
+-- | Return the record of the given observation, if it
+--   exists.
 getRecord :: ObsName -> IO (Maybe Record)
-getRecord oName = 
-  let notObsName = (/= oName) . recordObsname
-  in return $ headMay $ dropWhile notObsName testSchedule
+getRecord oName = do
+  mobs <- findObsName oName
+  case mobs of
+    Just (ObsInfo current _ _) -> return $ Just current
+    _ -> return Nothing
 
