@@ -12,6 +12,7 @@
 module PersistentTypes where
 
 import Database.Persist.TH
+import Data.Time (UTCTime)
 
 import Types
 
@@ -21,7 +22,7 @@ Record
   obsname ObsName
   contraint Int Maybe
   target String
-  startTime String
+  startTime UTCTime
   time Double
   instrument Instrument Maybe
   grating Grating Maybe

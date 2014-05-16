@@ -10,6 +10,7 @@ module Utils (
      , obsURI
      , renderRecord
      , standardResponse
+     , showExpTime
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -62,12 +63,72 @@ renderRecord f rs =
             else renderSpecial rs
   in (H.div H.! A.class_ "observation") cts
 
+-- TODO:
+--
+--   should times be recorded as "in 3 days", "2 months ago" ?
+--   this would need some sort of fuzzy time library (possibly
+--   in Javascript)
+
+-- | Convert a more "friendly" exposure time value.
+--
+--   As the minimum time appears to be 0.1 ks we do not
+--   have to deal with sub minute values, but include
+--   just in case. Assume that max is ~ 100ks, which is
+--   ~ 28 hours, so need to deal with days.
+--
+--   The rounding may be a bit surprising, since
+--   1 day + 1 minute will get reported as
+--   "1 day 1 hour".
+--
+showExpTime :: Double -> String
+showExpTime tks = 
+  let s = tks * 1000
+      m = s / 60
+      h = m / 60
+
+  in if s < 3600
+     then showUnits s 60 "minute" "second"
+     else if h < 24
+          then showUnits m 60 "hour" "minute"
+          else showUnits h 24 "day" "hour"
+
+-- | Make a nice readable value; ie
+--   "x unit1 y unit2"
+--
+showUnits :: 
+  Double      -- value in units of unit2
+  -> Int      -- scale value
+  -> String   -- unit1: singular unit (scale * unit2)
+  -> String   -- unit2: unit 
+  -> String
+showUnits v s u1 u2 = 
+  let v1 = ceiling v :: Int -- round up
+      (a, b) = v1 `divMod` s
+
+      units 0 _ = ""
+      units 1 u = "1 " ++ u
+      units x u = show x ++ " " ++ u ++ "s"
+
+      astr = units a u1
+      bstr = units b u2
+
+      sep = if null astr || null bstr then "" else " "
+
+  in astr ++ sep ++ bstr
+
+showExp :: Record -> H.Html
+showExp = H.toHtml . showExpTime . recordTime
+
 -- The flag is true if this is the current observation
 renderObsId :: Bool -> Record -> H.Html
 renderObsId f rs = 
   H.p ("Target: " <> H.toHtml (recordTarget rs))
   <>
   H.p ("ObsId: " <> H.toHtml (recordObsname rs))
+  <>
+  H.p ("Date: " <> H.toHtml (show (recordStartTime rs)))
+  <>
+  H.p ("Length: " <> showExp rs)
   <>
   renderLocation rs
   <>
@@ -78,6 +139,10 @@ renderSpecial rs =
   H.p ("Target: " <> H.toHtml (recordTarget rs))
   <>
   H.p ("Name: " <> H.toHtml (recordObsname rs))
+  <>
+  H.p ("Date: " <> H.toHtml (show (recordStartTime rs)))
+  <>
+  H.p ("Length: " <> showExp rs)
   <>
   renderLocation rs
 
