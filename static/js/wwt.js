@@ -47,18 +47,37 @@ function resetLocation() {
     wwt.gotoRaDecZoom(raPos, decPos, fov, false);
 }
 
-// Hack up an approximate field of view; at present use
-// ACIS-I (approximate)
-//
-// TODO: send in instrument
+// Hack up an approximate field of view; this does
+// not account for any offset between the given
+// position and the aimpoint of the instrument.
 //
 // TODO: handle overlap at ra=0/360 boundary?
 //
-function shiftFOV(ra, dec, roll) {
+function shiftFOV(ra, dec, roll, instrument) {
   // assume center is at 0,0; units are in degrees,
-  // no roll. For now ~ ACIS-I.
-  var w = 8.0/60.0; // width of ACIS chip in degrees
-  var p0 = [[-w, -w], [-w, w], [w,w], [w,-w], [-w,-w]];
+  // no roll.
+  var aw = 8.0/60.0; // width of ACIS chip in degrees
+  var hiw = 30.0/60.0; // width of HRC-I chip in degrees
+  var aw2 = aw/2;
+  var hiw2 = hiw/2;
+  var hsw = 99.0 / 60.0;
+  var hsh = 6.0 / 60.0; // if use 3.4 then need to deal with offset
+  var hsw2 = hsw / 2;
+  var hsh2 = hsh / 2;
+  var p0;
+  if (instrument === "ACIS-S") {
+    p0 = [[-3*aw,-aw2], [-3*aw,aw2], [3*aw,aw2], [3*aw,-aw2], [-3*aw,-aw2]];
+  } else if (instrument === "HRC-I") {
+    // TODO: what is the orientation at roll=0?
+    p0 = [[-hiw2,-hiw2], [-hiw2,hiw2], [hiw2,hiw2], [hiw2,-hiw2], [-hiw2,-hiw2]];
+  } else if (instrument === "HRC-S") {
+    // TODO: what is the orientation at roll=0?
+    p0 = [[-hsw2,-hsh2], [-hsw2,hsh2], [hsw2,hsh2], [hsw2,-hsh2], [-hsw2,-hsh2]];
+  } else {
+    // fall back to ACIS-I
+    p0 = [[-aw,-aw], [-aw,aw], [aw,aw], [aw,-aw], [-aw,-aw]];
+  }
+
   var p1 = new Array(p0.length);
 
   // how is roll defined? clockwise? where is roll=0?
@@ -82,9 +101,9 @@ function shiftFOV(ra, dec, roll) {
   return p1;
 }
 
-function addFOV(ra, dec, roll, name) {
+function addFOV(ra, dec, roll, instrument, name) {
 
-  var points = shiftFOV(ra, dec, roll);
+  var points = shiftFOV(ra, dec, roll, instrument);
   var fov = wwt.createPolyLine(true);
   fov.set_id("fov");
   fov.set_label(name);
@@ -102,7 +121,7 @@ function addFOV(ra, dec, roll, name) {
 }
 
 
-function wwtReadyFunc(ra, dec, roll, name) {
+function wwtReadyFunc(ra, dec, roll, instrument, name) {
   raPos = ra;
   decPos = dec;
   return function () {
@@ -110,14 +129,14 @@ function wwtReadyFunc(ra, dec, roll, name) {
     wwt.settings.set_showConstellationFigures(displayConstellations);
     wwt.settings.set_showConstellationBoundries(displayBoundaries);
     wwt.hideUI(true);
-    addFOV(raPos, decPos, roll, name);
+    addFOV(raPos, decPos, roll, instrument, name);
     wwt.gotoRaDecZoom(raPos, decPos, startFOV, false);
   }
 }
 
-function initialize(ra, dec, roll, name) {
+function initialize(ra, dec, roll, instrument, name) {
     wwt = wwtlib.WWTControl.initControl("WWTCanvas");
-    wwt.add_ready(wwtReadyFunc(ra, dec, roll, name));
+    wwt.add_ready(wwtReadyFunc(ra, dec, roll, instrument, name));
     wwt.endInit();
 }
 

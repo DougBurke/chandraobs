@@ -10,11 +10,13 @@ import Prelude (($))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
+import Types (Instrument(..))
 import PersistentTypes
 import Utils (defaultMeta, obsURI)
 
@@ -38,7 +40,18 @@ wwtPage f rs =
       dec = recordDec rs
       roll = recordRoll rs
       name = recordTarget rs
-      initialize = "initialize(" <> toValue ra <> "," <> toValue dec <> "," <> toValue roll <> ",\"" <> toValue name <> "\")" 
+      inst = fromMaybe ACISI (recordInstrument rs)
+      iName = case inst of
+                ACISI -> "ACIS-I"
+                ACISS -> "ACIS-S"
+                HRCI  -> "HRC-I"
+                HRCS  -> "HRC-S"
+
+      initialize = "initialize(" <> toValue ra <> "," 
+                                 <> toValue dec <> "," 
+                                 <> toValue roll <> ",\"" 
+                                 <> toValue inst <> "\",\"" 
+                                 <> toValue name <> "\")" 
 
       host = (div ! id "WorldWideTelescopeControlHost") 
                $ (div ! id "WWTCanvas" 
@@ -98,7 +111,7 @@ wwtPage f rs =
     (body ! onload initialize)
      (mconcat 
         [ p ("Observation: " <> toHtml name <> ". " <> obsLink)
-        , p "The instrument outline is ACIS-I (approx)"
+        , p ("The instrument outline approximates that of the " <> iName <> ".")
         , (div ! style "float: left;") userInput
         , host
         ])

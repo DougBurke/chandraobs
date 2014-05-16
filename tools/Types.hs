@@ -18,6 +18,18 @@ import Database.Persist.Sql
 -- | The instrument being used.
 data Instrument = ACISS | ACISI | HRCI | HRCS deriving (Eq, Show)
 
+instance H.ToMarkup Instrument where
+  toMarkup ACISI = "ACIS-I"
+  toMarkup ACISS = "ACIS-S"
+  toMarkup HRCI  = "HRC-I"
+  toMarkup HRCS  = "HRC-S"
+
+instance H.ToValue Instrument where
+  toValue ACISI = "ACIS-I"
+  toValue ACISS = "ACIS-S"
+  toValue HRCI  = "HRC-I"
+  toValue HRCS  = "HRC-S"
+
 -- | The grating to be used.
 data Grating = LETG | HETG | NONE deriving (Eq, Show)
 
