@@ -66,5 +66,28 @@ testSchedule = [
  , Record (Just 801315) (ObsId 15190) (Just 0) "A1612" (toTime "2014:138:04:14:01.209")  29.1 (Just ACISI) (Just NONE) 191.9626  (-2.7668) 229.62 135.10  18.40
 
  , Record Nothing (SpecialObs "T_E41") Nothing "CAL-ER (52766)" (toTime "2014:138:13:12:14.645")   0.1 Nothing Nothing 219.7761 (-42.5475) 334.00 153.64 101.50
- 
+
+ -- this has lost the P1 identifier from 502218 / 15985
+
+ , Record Nothing   (SpecialObs "GG_41") Nothing     "CAL-ER (52765)" (toTime "2014:138:16:08:30.968")  10.0 Nothing Nothing 237.0000  10.0000 176.47 150.36 164.87
+ , Record Nothing   (SpecialObs "G1_41") Nothing     "CAL-ER (52764)" (toTime "2014:138:19:03:40.968")  10.0 Nothing Nothing 237.0000  10.0000 176.74 150.33   0.26
+ , Record Nothing   (SpecialObs "T_X42") Nothing     "CAL-ER (52763)" (toTime "2014:138:22:58:55.645")   0.1 Nothing Nothing 258.0000 (-45.0000)  43.72 148.52 145.40
+ , Record (Just 601090)    (ObsId 15384) (Just 0)             "ngc6744" (toTime "2014:139:01:19:16.645")  53.5 (Just ACISI) (Just NONE) 287.4564 (-63.8721)  67.01 123.91  25.07
+ , Record (Just 702973)    (ObsId 16082) (Just 0)            "3C 220.3" (toTime "2014:139:17:03:11.601")  21.0 (Just ACISS) (Just NONE) 144.7309  83.2744 280.12  70.20 165.37
+ , Record (Just 502218)    (ObsId 15985) (Just 0)      "PSR J2307+2225" (toTime "2014:139:23:25:56.652")   3.5 (Just ACISS) (Just NONE) 346.9388  22.4116 102.03  64.31  77.63
+ , Record (Just 601126)    (ObsId 16214) (Just 3)              "Sgr A*" (toTime "2014:140:01:00:39.977")  50.0 (Just ACISS) (Just NONE) 266.4253 (-29.0313)  80.00 151.37  94.00
+ , Record (Just 801381)    (ObsId 16524) (Just 0)         "Abell S0295" (toTime "2014:140:15:31:09.620")  43.8 (Just ACISI) (Just NONE)  41.3979 (-53.0335) 152.03  74.27  97.47
+ , Record Nothing   (SpecialObs "T_E42") Nothing     "CAL-ER (52761)" (toTime "2014:141:04:25:19.493")   0.1 Nothing Nothing 244.0000 (-50.0000)  11.91 149.68  75.93
+ , Record Nothing   (SpecialObs "GG_42") Nothing     "CAL-ER (52760)" (toTime "2014:141:07:14:35.865")  10.0 Nothing Nothing 270.0000 (-27.0000)  83.86 149.77  62.49
+ , Record Nothing   (SpecialObs "G1_42") Nothing     "CAL-ER (52759)" (toTime "2014:141:10:36:51.599")   0.1 Nothing Nothing 224.0000 (-47.0000) 332.39 150.88  90.38
+ , Record Nothing   (SpecialObs "G2_42") Nothing     "CAL-ER (52758)" (toTime "2014:141:11:16:55.400")   3.0 Nothing Nothing  95.5000 (-15.0000) 227.43  50.98 103.04
+ , Record Nothing   (SpecialObs "G3_42") Nothing     "CAL-ER (52757)" (toTime "2014:141:12:45:19.039")   3.0 Nothing Nothing 224.0000 (-47.0000) 332.19 150.85 103.02
+ , Record Nothing   (SpecialObs "T_X43") Nothing     "CAL-ER (52756)" (toTime "2014:141:13:53:30.726")   0.1 Nothing Nothing 233.0000 (-54.0000) 351.45 145.97  15.24
+ , Record (Just 901099)    (ObsId 16159) (Just 0)       "CL J1449+0856" (toTime "2014:141:16:38:46.130")  96.0 (Just ACISS) (Just NONE) 222.3214   8.9591 208.04 146.91 145.04
+ , Record (Just 401442)    (ObsId 14609) (Just 2)                 "M22" (toTime "2014:142:20:03:50.934")  85.9 (Just ACISS) (Just NONE) 279.1145 (-23.9246)  92.54 143.10 133.11
+ , Record Nothing   (SpecialObs "T_E43") Nothing     "CAL-ER (52754)" (toTime "2014:143:20:43:44.271")   0.1 Nothing Nothing  22.0000 (-19.0000) 134.59  54.60  93.70
+ , Record Nothing   (SpecialObs "T_X44") Nothing     "CAL-ER (52753)" (toTime "2014:143:22:00:00.000")   0.1 Nothing Nothing 277.0001 (-85.0000)  37.86 114.63  72.50
+ , Record (Just 901116)    (ObsId 16195) (Just 0)          "30 Doradus" (toTime "2014:144:14:28:00.000")  45.0 (Just ACISI) (Just NONE)  84.7062 (-69.0842) 201.98  91.43  26.04
+ , Record (Just 401568)    (ObsId 15771) (Just 2)     "Holmberg II X-1" (toTime "2014:145:03:47:33.062")  13.0 (Just ACISS) (Just NONE) 124.8168  70.7224 288.60  61.63 153.23
+
  ]
