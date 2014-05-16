@@ -10,14 +10,13 @@ import Prelude (($))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (isJust)
-import Data.Monoid ((<>), mempty)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import PersistentTypes
-import Utils (ObsInfo(..), defaultMeta, obsURI, renderRecord)
+import Utils (ObsInfo(..), defaultMeta, navLinks, renderRecord)
 
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
@@ -25,25 +24,10 @@ import Utils (ObsInfo(..), defaultMeta, obsURI, renderRecord)
 -- be flagged as such when using this view?)
 --
 recordPage :: ObsInfo -> Html
-recordPage (ObsInfo currentObs mPrevObs mNextObs) =
+recordPage oi@(ObsInfo currentObs _ _) =
   let initialize = "initialize()"
 
       obsName = recordObsname currentObs
-
-      prevLink = case mPrevObs of
-        P.Just prevObs -> a ! href (toValue (obsURI prevObs))
-                            $ "Previous observation."
-        _ -> mempty
-
-      nextLink = case mNextObs of
-        P.Just nextObs -> a ! href (toValue (obsURI nextObs))
-                            $ "Next observation."
-        _ -> mempty
-
-      navLinks = let cts = prevLink <> nextLink
-                 in if isJust mPrevObs P.|| isJust mNextObs
-                    then p cts
-                    else mempty
 
   in docTypeHtml $
     head (H.title ("Chandra observation: " <> toHtml obsName) <>
@@ -58,7 +42,7 @@ recordPage (ObsInfo currentObs mPrevObs mNextObs) =
     <>
     (body ! onload initialize)
      (-- p "Hello world!" <>
-      navLinks <>
+      navLinks P.False oi <>
       -- p "The current observation is:" <>
       renderRecord P.False currentObs
      )

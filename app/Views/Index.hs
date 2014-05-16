@@ -10,13 +10,12 @@ import Prelude (($))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (isJust)
-import Data.Monoid ((<>), mempty)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (ObsInfo(..), defaultMeta, obsURI, renderRecord)
+import Utils (ObsInfo(..), defaultMeta, navLinks, renderRecord)
 
 -- The uninformative error page
 noDataPage :: Html
@@ -34,24 +33,8 @@ noDataPage =
 
 -- The uninformative landing page; TODO: avoid duplication with recordPage
 introPage :: ObsInfo -> Html
-introPage (ObsInfo currentObs mPrevObs mNextObs) =
+introPage oi@(ObsInfo currentObs _ _) =
   let initialize = "initialize()"
-
-      prevLink = case mPrevObs of
-        P.Just prevObs -> a ! href (toValue (obsURI prevObs))
-                            $ "Previous observation."
-        _ -> mempty
-
-      nextLink = case mNextObs of
-        P.Just nextObs -> a ! href (toValue (obsURI nextObs))
-                            $ "Next observation."
-        _ -> mempty
-
-      navLinks = let cts = prevLink <> nextLink
-                 in if isJust mPrevObs P.|| isJust mNextObs
-                    then p cts
-                    else mempty
-
   in docTypeHtml $
     head (H.title "What is Chandra doing?" <>
           defaultMeta <>
@@ -64,11 +47,11 @@ introPage (ObsInfo currentObs mPrevObs mNextObs) =
           )
     <>
     (body ! onload initialize)
-     (p "Hello world!" <>
-      navLinks <>
-      p "The current observation is:" <>
-      renderRecord P.True currentObs <>
-      p ("Information on " <> 
-         (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html") "Astronomical coordinate systems" <>
+     ((div ! class_ "container")
+      (navLinks P.True oi <>
+       p "The current observation is:" <>
+       renderRecord P.True currentObs <>
+       p ("Information on " <> 
+          (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html") "Astronomical coordinate systems" <>
          ".")
-     )
+      ))

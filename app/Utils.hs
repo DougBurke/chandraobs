@@ -6,6 +6,7 @@ module Utils (
      ObsInfo(..)
      , defaultMeta
      , fromBlaze
+     , navLinks
      , obsURI
      , renderRecord
      , standardResponse
@@ -15,7 +16,7 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Maybe (isJust)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>), mconcat, mempty)
 
 import Text.Blaze.Html.Renderer.Text
 import Text.Printf
@@ -117,6 +118,36 @@ renderLocation rs =
        H.span ("Roll: " <> H.toHtml roll) <>
        H.span ("Pitch: " <> H.toHtml pitch) <>
        H.span ("Slew: " <> H.toHtml slew))
+
+
+-- | Create the forward/backward links for observation pages.
+--
+navLinks :: 
+  Bool -- True if this is the current observation
+  -> ObsInfo 
+  -> H.Html
+navLinks f (ObsInfo _ mPrevObs mNextObs) =
+  let prevLink = case mPrevObs of
+        Just prevObs -> H.a H.! A.href (H.toValue (obsURI prevObs))
+                            H.! A.class_ "prev"
+                            $ "Previous observation"
+        _ -> mempty
+
+      nextLink = case mNextObs of
+        Just nextObs -> H.a H.! A.href (H.toValue (obsURI nextObs))
+                            H.! A.class_ "next"
+                            $ "Next observation"
+        _ -> mempty
+
+      thisLink = if f
+                 then H.span H.! A.class_ "current"
+                        $ "Current observation"
+                 else H.a H.! A.href "/index.html"
+                          H.! A.class_ "current"
+                          $ "Current observation"
+
+  in H.p H.! A.class_ "navlinks"
+      $ mconcat [ prevLink, " ", thisLink, " ", nextLink ]
 
 safeObsId :: ObsName -> Maybe Int
 safeObsId (ObsId i) = Just i

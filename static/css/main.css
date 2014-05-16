@@ -1,7 +1,27 @@
 
+// Since the GIFs have a fixed size, use that to drive the
+// page setup.
+
+div.container {
+  width: 700 px;
+  height: 700 px;
+}
+
+p.navlinks {
+}
+
+a.prev {
+}
+
+a.current {
+}
+
+a.next {
+}
+
 div.links {
-  width: 680;
-  height: 680;
+  width: 680 px;
+  height: 680 px;
 }
 
 /* Selected view (DSS/RASS/PSPC) */
