@@ -119,12 +119,37 @@ showUnits v s u1 u2 =
 showExp :: Record -> H.Html
 showExp = H.toHtml . showExpTime . recordTime
 
+-- TODO:
+-- Ideally we would link to something a bit more readable than the
+-- archive page (ie its use of frames), and also present the link
+-- in a more-friendly manner than as a link from the obsid or
+-- sequence number.
+--
+obsIdLink, seqLink :: Int -> H.AttributeValue
+obsIdLink obsId =
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=" ++ show obsId
+
+seqLink obsId =
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show obsId
+
+mkInfoLinks :: Record -> H.Html
+mkInfoLinks rs = 
+  case (recordSequence rs, recordObsname rs) of
+    (Just seqNum, ObsId obsId) -> 
+      H.p ("ObsId: " <> 
+           (H.a H.! A.href (obsIdLink obsId)) (H.toHtml obsId) <>
+           " Sequence: " <>
+           (H.a H.! A.href (seqLink obsId)) (H.toHtml seqNum)
+          )
+
+    _ -> mempty
+
 -- The flag is true if this is the current observation
 renderObsId :: Bool -> Record -> H.Html
-renderObsId f rs = 
+renderObsId f rs =
   H.p ("Target: " <> H.toHtml (recordTarget rs))
   <>
-  H.p ("ObsId: " <> H.toHtml (recordObsname rs))
+  mkInfoLinks rs
   <>
   H.p ("Date: " <> H.toHtml (show (recordStartTime rs)))
   <>
@@ -170,6 +195,13 @@ showDec dec =
   in printf "%c%dd %d' %.1f\"" c d m s
 
 -- Display the location fields
+--
+-- Could try and link to the roll/pitch/slew GIF - e.g.
+-- http://cxc.harvard.edu/targets/601090/601090.rollvis.gif
+-- but it is not obvious how valid it is (since the above
+-- does not cover May 2014 when the target is scheduled),
+-- and it is rather meaningless to anyone but an expert.
+--
 renderLocation :: Record -> H.Html
 renderLocation rs = 
   let roll = recordRoll rs
