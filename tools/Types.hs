@@ -33,6 +33,16 @@ instance H.ToValue Instrument where
 -- | The grating to be used.
 data Grating = LETG | HETG | NONE deriving (Eq, Show)
 
+instance H.ToMarkup Grating where
+  toMarkup LETG = "Low Energy Transmission Grating (LETG)"
+  toMarkup HETG = "High Energy Transmission Grating (HETG)"
+  toMarkup NONE = "No grating"
+
+instance H.ToValue Grating where
+  toValue LETG = "Low Energy Transmission Grating (LETG)"
+  toValue HETG = "High Energy Transmission Grating (HETG)"
+  toValue NONE = "No grating"
+
 -- | This can not be called ObsId since then the TH stuff
 -- used by persistent thinks it's an Id field and so
 -- falls over as bits and pieces are missing for that to

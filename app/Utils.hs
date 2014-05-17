@@ -16,7 +16,7 @@ module Utils (
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (isJust)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 
 import Text.Blaze.Html.Renderer.Text
@@ -25,7 +25,7 @@ import Text.Printf
 import Web.Scotty
 
 import PersistentTypes
-import Types (ObsName(..))
+import Types (ObsName(..), Grating(..))
 
 -- | I just want a simple way of passing around 
 --   useful information about an observation.
@@ -144,10 +144,23 @@ mkInfoLinks rs =
 
     _ -> mempty
 
+targetInfo :: Record -> H.Html
+targetInfo rs =
+  let name = recordTarget rs
+      instInfo = fromMaybe "" $ do
+        inst <- recordInstrument rs
+        grat <- recordGrating rs
+        return $ " observed by " <> H.toHtml inst <>
+                 if grat == NONE
+                 then mempty
+                 else " and the " <> H.toHtml grat
+
+  in H.p $ "Target: " <> H.toHtml name <> instInfo
+
 -- The flag is true if this is the current observation
 renderObsId :: Bool -> Record -> H.Html
 renderObsId f rs =
-  H.p ("Target: " <> H.toHtml (recordTarget rs))
+  targetInfo rs
   <>
   mkInfoLinks rs
   <>
