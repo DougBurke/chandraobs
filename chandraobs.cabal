@@ -33,7 +33,6 @@ executable webserver
                        HackData
                        Database
                        Utils
-                       Views.About
                        Views.Index
                        Views.Record
                        Views.WWT

@@ -1,23 +1,143 @@
 
+body {
+  font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+}
+
 // Since the GIFs have a fixed size, use that to drive the
 // page setup.
 
 div.container {
-  width: 700 px;
-  height: 700 px;
+  width: 700px;
+  height: 700px;
 }
 
-p.navlinks {
+div.observation {
+  width: 700px;
 }
 
-a.prev {
+nav.main {
+  border-bottom: 1px solid #999999;
+  display: block;
+  padding: 0.2em 0.5em 0.2em 0.5em;
+  overflow: hidden;
+  width: 100%;
 }
 
-a.current {
+nav.main ul {
+  margin: 0;
+  padding: 0;
 }
 
-a.next {
+nav.main ul li {
+  float: left;
+  list-style-type: none;
+
+  -webkit-transition: all 0.2s;
+  -moz-transition: all 0.2s;
+  -ms-transition: all 0.2s;
+  -o-transition: all 0.2s;
+  transition: all 0.2s; 
 }
+
+nav.main > ul > li > a {
+  color: #aaa;
+  line-height: 2em;
+  padding: 0 0.5em;
+  text-decoration: none;
+}
+
+nav.main > ul > li:hover {
+  background-color: rgb(40, 44, 47);
+}
+
+nav.main > ul > li:hover > a {
+  color: rgb(255, 255, 255);
+}
+
+/* From: http://www.adam-bray.com/blog/91/Easy+HTML+5+%26+CSS+3+Navigation+Menu/ */
+nav.obslinks {
+  background-color: #fff;
+  border: 1px solid #dedede;
+  border-radius: 4px;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.055);
+  color: #888;
+  display: block;
+  margin: 0.5em 1em 0.5em 1em;
+  overflow: hidden;
+  width: 90%; 
+}
+
+nav.obslinks ul {
+  margin: 0;
+  padding: 0;
+}
+
+nav.obslinks ul li {
+  list-style-type: none;
+
+  -webkit-transition: all 0.2s;
+  -moz-transition: all 0.2s;
+  -ms-transition: all 0.2s;
+  -o-transition: all 0.2s;
+  transition: all 0.2s; 
+}
+
+nav.obslinks ul li.prevLink { float: left; }
+nav.obslinks ul li.nextLink { float: right; }
+
+/* draw arrows; not happy with the spacing between the arrow and the text */
+li.prevLink:before { 
+  border-right: 0.5em solid #aaa;
+  border-top: 0.5em solid transparent;
+  border-bottom: 0.5em solid transparent; 
+  content: "";
+  display: inline-block;
+  height: 0;
+  width: 0;
+  vertical-align: middle;
+
+  margin-left: 1em;
+
+  -webkit-transition: color 0.1s linear;
+  -moz-transition: color 0.1s linear;
+  -o-transition: color 0.1s linear;
+  transition: color 0.1s linear; 
+}
+
+li.nextLink:after { 
+  border-left: 0.5em solid #aaa;
+  border-top: 0.5em solid transparent;
+  border-bottom: 0.5em solid transparent; 
+  content: "";
+  display: inline-block;
+  height: 0;
+  width: 0;
+  vertical-align: middle;
+
+  margin-right: 1em;
+
+  -webkit-transition: color 0.1s linear;
+  -moz-transition: color 0.1s linear;
+  -o-transition: color 0.1s linear;
+  transition: color 0.1s linear; 
+}
+
+nav.obslinks > ul > li > a {
+  color: #aaa;
+  line-height: 2em;
+  padding: 0 0.2em;
+  text-decoration: none;
+}
+
+nav.obslinks > ul > li:hover {
+  background-color: rgb(40, 44, 47);
+}
+
+nav.obslinks > ul > li:hover > a {
+  color: rgb(255, 255, 255);
+}
+
+/* end of nav links */
 
 div.links {
   width: 680 px;

@@ -4,6 +4,7 @@
 
 module Utils (
      ObsInfo(..)
+     , ObsStatus(..)
      , defaultMeta
      , fromBlaze
      , navLinks
@@ -11,6 +12,10 @@ module Utils (
      , renderRecord
      , standardResponse
      , showExpTime
+     , showExp
+     , detailsLink, abstractLink
+     , getObsStatus, getTimes
+     , renderLinks
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -18,6 +23,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
+import Data.Time (UTCTime, addUTCTime)
 
 import Text.Blaze.Html.Renderer.Text
 import Text.Printf
@@ -131,6 +137,10 @@ obsIdLink obsId =
 
 seqLink obsId =
   H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show obsId
+
+detailsLink, abstractLink :: Int -> H.AttributeValue
+detailsLink = obsIdLink
+abstractLink = seqLink 
 
 mkInfoLinks :: Record -> H.Html
 mkInfoLinks rs = 
@@ -329,4 +339,27 @@ renderLinks f rs =
           (link "DSS" "dss" True <>
            link "PSPC" "pspc" False <>
            link "RASS" "rass" False) 
+
+
+getTimes ::
+  Record
+  -> (UTCTime, UTCTime) -- start and end times
+getTimes rs =
+  let sTime = recordStartTime rs
+      expTime = fromInteger . ceiling $ 1000 * recordTime rs
+      eTime = addUTCTime expTime sTime
+  in (sTime, eTime)
+
+data ObsStatus = Done | Doing | Todo deriving Eq
+
+getObsStatus :: 
+  (UTCTime, UTCTime) -- observation start and end times
+  -> UTCTime        -- current time
+  -> ObsStatus
+getObsStatus (sTime,eTime) cTime = 
+  if cTime < sTime
+  then Todo
+  else if cTime <= eTime
+       then Doing
+       else Done
 

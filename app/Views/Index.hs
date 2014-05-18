@@ -11,11 +11,13 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Monoid ((<>))
+import Data.Time (UTCTime)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (ObsInfo(..), defaultMeta, navLinks, renderRecord)
+import Utils (ObsInfo(..), defaultMeta, renderLinks)
+import Views.Record (renderStuff)
 
 -- The uninformative error page
 noDataPage :: Html
@@ -32,9 +34,19 @@ noDataPage =
      )
 
 -- The uninformative landing page; TODO: avoid duplication with recordPage
-introPage :: ObsInfo -> Html
-introPage oi@(ObsInfo currentObs _ _) =
+introPage :: 
+  UTCTime     -- current time
+  -> ObsInfo 
+  -> Html
+introPage cTime oi@(ObsInfo currentObs _ _) =
   let initialize = "initialize()"
+
+      {-
+           p ("Information on " <> 
+              (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html") "Astronomical coordinate systems" <>
+             ".")
+      -}
+
   in docTypeHtml $
     head (H.title "What is Chandra doing?" <>
           defaultMeta <>
@@ -47,11 +59,4 @@ introPage oi@(ObsInfo currentObs _ _) =
           )
     <>
     (body ! onload initialize)
-     ((div ! class_ "container")
-      (navLinks P.True oi <>
-       p "The current observation is:" <>
-       renderRecord P.True currentObs <>
-       p ("Information on " <> 
-          (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html") "Astronomical coordinate systems" <>
-         ".")
-      ))
+     (renderStuff cTime oi <> renderLinks P.True currentObs) 

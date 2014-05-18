@@ -9,7 +9,6 @@
 --
 module Main where
 
-import qualified Views.About as About
 import qualified Views.Index as Index
 import qualified Views.Record as Record
 import qualified Views.WWT as WWT
@@ -17,6 +16,7 @@ import qualified Views.WWT as WWT
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Default (def)
+import Data.Time (getCurrentTime)
 
 import Network.HTTP.Types (StdMethod(HEAD), status404)
 -- import Network.Wai.Middleware.RequestLogger
@@ -83,19 +83,20 @@ webapp = do
     middleware $ staticPolicy (noDots >-> addBase "static")
 
     get "/" $ redirect "/index.html"
+    get "/about.html" $ redirect "/about/index.html"
+    get "/about" $ redirect "/about/index.html"
+
     get "/index.html" $ do
       mobs <- liftIO getObsInfo
+      cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Index.introPage obs
+        Just obs -> fromBlaze $ Index.introPage cTime obs
         _        -> fromBlaze Index.noDataPage
 
     -- TODO: is this correct for HEAD; or should it just 
     --       set the redirect header?
     addroute HEAD "/" $ standardResponse >> redirect "/index.html"
     addroute HEAD "/index.html" standardResponse
-
-    get "/about.html" $ fromBlaze About.aboutPage
-    addroute HEAD "/about.html" standardResponse
 
     get "/wwt.html" $ do
       mobs <- liftIO getObsInfo
@@ -106,15 +107,17 @@ webapp = do
     get "/obs/:special" $ do
       sobs <- param "special"
       mobs <- liftIO $ getSpecialObs sobs
+      cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Record.recordPage obs
+        Just obs -> fromBlaze $ Record.recordPage cTime obs
         _        -> status status404 -- TODO: want an error page
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
       mobs <- liftIO $ getObsId obsid
+      cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Record.recordPage obs
+        Just obs -> fromBlaze $ Record.recordPage cTime obs
         _        -> status status404 -- TODO: want an error page
 
     get "/obsid/:obsid/wwt" $ do
@@ -123,6 +126,5 @@ webapp = do
       case mrecord of
         Just record -> fromBlaze $ WWT.wwtPage False record
         _           -> status status404 -- TODO: want an error page
-
 
 

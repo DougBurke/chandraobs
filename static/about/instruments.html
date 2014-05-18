@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+  <title>Instruments on the Chandra X-ray Observatory</title>
+  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default" media="all">
+ </head>
+ <body>
+  <nav class="main">
+   <ul>
+    <li><a href="/index.html">What is Chandra doing?</a></li>
+    <li><a href="/about/insruments.html">Chandra Instruments</a></li>
+    <li><a href="/about/index.html">About</a></li>
+   </ul>
+  </nav>
+
+  <div class="explanation">
+   <h1>Instruments on the Chandra X-Ray Observatory</h1>
+
+   <p><strong>TODO:</strong> add example images.</p>
+
+   <p>
+     There are two detectors on Chandra - 
+     <a href="#ACIS">ACIS</a> and <a href="#HRC">HRC</a> -
+     that can be used either with or without
+     one of the two grating arrays:
+     <a href="#LETG">LETG</a> or <a href="#HETG">HETG</a>.
+     The ACIS and HRC instruments are mounted on 
+     the <abbr title="Science Instrument Module">SIM</abbr>,
+     which can be moved to place either of them at the 
+     focal plane of the telescope (for some observations -
+     mostly for calibration but sometimes when extremely bright
+     sources are being observed - the instrument is moved
+     so that the instrument is not at the center of the
+     focal plane; the instruments can also be placed in
+     a safe position, shielded by the rest of the telescope,
+     when the particle background is high).
+     The gratings are mounted behind the Chandra mirrors,
+     and can be inserted into the light path when needed.
+   </p>
+
+   <p>
+     As a rule of thumb, the instruments are used for
+     the following science cases:
+   </p>
+
+   <dl>
+    <dt>Observing many sources or a large source</dt>
+    <dd>
+     <p>
+      The ACIS-I array is often used because of its size
+      and energy resolution. The HRC-I array covers a larger
+      area, but is less sensitive and has very-limited
+      spectral resolution.
+     </p>
+    </dd>
+
+    <dt>High spectral resolution of bright sources</dt>
+    <dd>
+     <p>
+      For those sources where high spectral resolution is required,
+      a grating is used. Although any grating can be used with
+      any instrument, the following two combinations are preferred,
+      since they provide the best performance:
+      HRC-I with the LETG or ACIS-S with the HETG.
+     </p>
+    </dd>
+
+    <dt>High spectral resolution of faint sources</dt>
+    <dd>
+     <p>
+      As using gratings reduces the efficiciency of the
+      telescope, they are not used with faint sources.
+      In this situation the common option is to use
+      ACIS-S with no grating.
+     </p>
+    </dd>
+
+    <dt>High spatial resolution</dt>
+    <dd>
+     <p>
+      The HRC-I is used when spatial resolution
+      is important.
+     </p>
+    </dd>
+
+   </dl>
+
+   <p>
+     There are specialized modes of operation
+     possible, such as <abbr title="Continuous Clocking">CC</abbr>
+     mode, which continuously reads out the ACIS chips to greatly
+     improve the time resolution but at the loss of 1 dimension
+     of imaging data, or using a sub-array to read out only a
+     subset of a chip.
+     These are not commonly used, as they
+     require specific conditions - normally a very-bright source -
+     and so are not described further here.
+   </p>
+
+   <h2 name="ACIS">ACIS</h1>
+
+   <p>
+     The <abbr title=" Advanced CCD Imaging Spectrometer">ACIS</abbr> instrument
+     on the Chandra X-ray Observatory
+     contains 10
+     <abbr title="Charge Coupled Devices">CCDs</abbr>
+     arranged into two shapes (4 and 6 chips).
+     Although there is a great deal of flexibility in which chips
+     can used in an observation - due to telemetry limits
+     only a maximum of 6 chips could be used
+     at the start of the mission and this has now dropped to
+     5 due to thermal constraints
+     - observations with ACIS are split into two categories:
+     ACIS-I and ACIS-S.
+   </p>
+   <p>
+     Of the ten chips, eight of them
+     are front illuminated (FI), with the remaining two
+     - both in the ACIS-S array - being back illuminated (BI).
+     The general characteristics of the two different types of
+     chip are the same - that is pixel size (0.492 arcsecond
+     square) and number of pixels (1024 by 1024) - with the
+     main differences being:
+   </p>
+
+   <dl>
+    <dt>energy resolution</dt>
+    <dd>
+     <p>
+      At launch the BI chips had higher spectral resolution -
+      that is they were better at distinguishing between
+      X-ray photons with similar wavelengths. 
+      This means that observing a source with a BI chip
+      is likely to lead to a more accurate model for
+      sources with a lot of structure - such as line
+      emission - in their spectra.
+      However, the difference
+      in resolution between the BI and FI chips has decreased
+      with time due to radiation damage during the early
+      part of the observation.
+     </p>
+    </dd>
+
+    <dt>sensitivity</dt>
+    <dd>
+     <p>
+      The BI chips are more sensitive at low energies (below about
+      1 keV), which means that they are often used for observing
+      "softer" sources: X-ray astronomers use the term "soft" to mean
+      sources with most of their emission at low energies (longer
+      wavelength) and
+      "hard" for sources with more emission at high energies (shorter
+      wavelengths),
+      in a similar manner to how optical astronomers use
+      the terms "red" and "blue".
+     </p>
+    </dd>
+
+    <dt>background level</dt>
+    <dd>
+     <p>
+       The background counts detected by the BI chips - which is a
+       combination of instrumental, particle, and cosmic components - 
+       is higher than that of the FI chips in the same observation.
+     </p>
+    </dd>
+   </dl>
+
+   <p>
+    The standard mode of operating the ACIS chips is to read them out
+    every 3.4 seconds. The combination of source flux and instrument
+    sensitivity means that most pixels do not detect any counts in
+    each readout period, which means that when we detect a count
+    we can generally assume it represents a single photon.
+    An estimate of the energy of the incoming photon is found
+    by measuring the amount of electrons in the pixel (the "count").
+    If the source is bright enough then there is the possibility of
+    detecting two or more counts in a single readout; this is
+    referred to as "pile up" and results in strange behavior
+    (the source spectrum is artificially hardened - i.e. it contains
+     more high-energy counts than it should - and in the most
+     extreme cases images of the source become "cratered",
+     as the counts in the center of the source are lost).
+     One way to detect the presence of a bright source is to look
+     for "read out streaks": since there is no shutter on the
+     ACIS cameras, the detectors are still taking data during the
+     time it takes to read out a frame (this read out time is
+     about 0.04 seconds) which causes the whole column
+     to contain extra counts.
+   </p>
+
+   <h3 name="ACIS-I">ACIS-I</h2>
+
+   <p>
+     The ACIS-I array contains four chips arranged into a square.
+     Since each chip is 8 arcminutes square, the ACIS-I array
+     covers a square 16 arcminutes on a side (the orientation
+     depends on the roll-angle of the telescope at the time
+     of the observation). All four chips are front illuminated (FI),
+     and are referred to as ACIS-I0 to ACIS-I3 or ACIS-0 to ACIS-3.
+     This set up is optimised for imaging experiments, and is
+     rarely used with a <a href="#grating">grating</a>.
+   </p>
+
+   <h3 name="ACIS-S">ACIS-S</h2>
+
+   <p>
+     The ACIS-S array contains 6 chips in a single row, so
+     it is 8 arcminutes wide by 36 arcminutes long. The full
+     array of chips is generally only used with the 
+     <a href="#HETG">HETG grating</a>, but the central
+     chip (known as ACIS-S3 or ACIS-7) is often used
+     for imaging observations (i.e. with no grating), since
+     it is a back-illuminated (BI) chip.
+     The ACIS-S chips are referred to as ACIS-S0 to ACIS-S5
+     or ACIS-4 to ACIS-9.
+   </p>
+
+   <h2 name="HRC">HRC</h1>
+
+   <p>
+    The <abbr title="High Resolution Camera">HRC</abbr> instrument 
+    on the Chandra X-ray Observatory contains
+    Micro Channel Plates that detect X-ray photons
+    by ... <strong>TODO: finish this!</strong>
+   </p>
+
+   <h3 name="HRC-I">HRC-I</h2>
+
+   <p>
+     This detector is used when either the largest field of view
+     (30 by 30 arcminutes) or the highest spatial resolution
+     is required.
+   </p>
+
+   <h3 name="HRC-S">HRC-S</h2>
+
+   <p>
+     This detector is primarily used with the
+     <a href="#LETG">LETG</a> spectrometer.
+   </p>
+
+   <h1 name="grating">The Chandra gratings</h1>
+
+   <p>
+    While the ACIS chips have some energy resolution - provided by
+    measuring the number of electrons in each "count" - the highest
+    spectral resolution is provided by the grating arrays. When used,
+    one of the two arrays is moved into the light path behind the mirrors 
+    and the light is diffracted by the transmission gratings in the array
+    onto the detector (normally either ACIS-S or HRC-S).
+    Since the light has been diffracted, the location of the count on the
+    detector can be used to determine the energy - or wavelength - of the
+    incoming photon. The gratings provide an energy resolution of
+    approximately one part in a thousand.
+   </p>
+
+   <h2 name="LETG">LETG</h2>
+
+   <p>
+    The <abbr title="Low Energy Transmission Grating">LETG</abbr> spectrometer
+    contains regularly-spaced wires of gold and are designed for observing
+    sources in the 0.08 to 2 keV energy range, or 6 to 150 Angstroms.
+    The LETG is primarily used with the HRC-S.
+   </p>
+
+   <h2 name="HETG">HETG</h2>
+
+   <p>
+    The <abbr title="High Energy Transmission Grating">HETG</abbr> spectrometer
+    contains two gratings, arranged at different angles so that the dispersed
+    spectra form an "X" pattern on the detector, which is normally ACIS-S.
+    The gratings are also made of gold but with much smaller spacings between
+    the wires, so that the energy range covered is 0.4 to 8 keV, or
+    to 1.5 to 30 Angstroms.
+   </p>
+
+   <h1 name="further">Further information</h1>
+
+   <p>
+     More information on the instruments
+     within Chandra is provided on the
+     <a href="http://chandra.harvard.edu/about/science_instruments.html">Science Instruments</a>
+     page over at the
+     <a href="http://chandra.harvard.edu/">Chandra X-ray Observatory</a>
+     home page.
+   </p>
+  </div>
+ </body>
+</html>
