@@ -18,7 +18,7 @@ import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
 import Types (Instrument(..))
 import PersistentTypes
-import Utils (defaultMeta, obsURI)
+import Utils (defaultMeta, obsURI, demo)
 
 {-
 
@@ -105,12 +105,19 @@ wwtPage f rs =
      (H.title "View in the World Wide Telescope" <>
       defaultMeta <>
       (script ! src "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx") "" <>
-      (script ! src "/js/wwt.js") ""
+      (script ! src "/js/wwt.js") "" <>
+      link ! href   "/css/main.css"
+           ! type_  "text/css" 
+           ! rel    "stylesheet"
+           ! A.title  "Default"
+           ! media  "all"
+
      )
     <>
     (body ! onload initialize)
      (mconcat 
-        [ p ("Observation: " <> toHtml name <> ". " <> obsLink)
+        [ demo
+        , p ("Observation: " <> toHtml name <> ". " <> obsLink)
         , p ("The instrument outline approximates that of the " <> iName <> ".")
         , (div ! style "float: left;") userInput
         , host

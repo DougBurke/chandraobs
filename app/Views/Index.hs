@@ -16,7 +16,7 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (ObsInfo(..), defaultMeta, renderLinks)
+import Utils (ObsInfo(..), demo, defaultMeta, renderLinks)
 import Views.Record (renderStuff)
 
 -- The uninformative error page
@@ -28,7 +28,8 @@ noDataPage =
           )
     <>
     body
-     (p "Hello world!" <>
+     (demo <>
+      p "Hello world!" <>
       p ("Unfortunately there is no new observation found in my database, " <>
          "which likely means that something has gone wrong somewhere.")
      )
@@ -59,4 +60,4 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
           )
     <>
     (body ! onload initialize)
-     (renderStuff cTime oi <> renderLinks P.True currentObs) 
+     (demo <> renderStuff cTime oi <> renderLinks P.True currentObs) 

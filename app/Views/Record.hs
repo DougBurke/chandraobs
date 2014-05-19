@@ -24,7 +24,7 @@ import Types (ObsName(..), Instrument, Grating(..))
 import Utils ( ObsInfo(..), ObsStatus(..)
              , abstractLink, defaultMeta
              , obsURI, renderLinks, showExp
-             , getObsStatus, getTimes)
+             , getObsStatus, getTimes, demo)
 
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
@@ -49,7 +49,7 @@ recordPage cTime oi@(ObsInfo currentObs _ _) =
             )
     <>
     (body ! onload initialize)
-     (renderStuff cTime oi <> renderLinks P.False currentObs) 
+     (demo <> renderStuff cTime oi <> renderLinks P.False currentObs) 
 
 -- | A redesign of the page.
 --

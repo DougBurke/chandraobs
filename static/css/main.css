@@ -1,4 +1,13 @@
 
+div.watermark {
+  position: absolute;
+  color: red;
+  font-size: 32em;
+  opacity: 0.2; 
+  text-align: center;
+  z-index: -1000;
+}
+
 body {
   font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
 }

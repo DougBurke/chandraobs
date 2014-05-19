@@ -16,6 +16,7 @@ module Utils (
      , detailsLink, abstractLink
      , getObsStatus, getTimes
      , renderLinks
+     , demo
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -362,4 +363,7 @@ getObsStatus (sTime,eTime) cTime =
   else if cTime <= eTime
        then Doing
        else Done
+
+demo :: H.Html
+demo = H.div H.! A.class_ "watermark" $ "Demo"
 
