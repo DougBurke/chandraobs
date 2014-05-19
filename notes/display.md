@@ -18,3 +18,8 @@
 
  - archive link to existing Chandra data
 
+ - display constellation
+
+ - a simple search box - name, prob not a cone search?
+   also: view all HRC-I obs/... page?
+

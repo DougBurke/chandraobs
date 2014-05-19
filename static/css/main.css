@@ -38,7 +38,7 @@ nav.main ul {
 }
 
 nav.main ul li {
-  float: left;
+  float: right;
   list-style-type: none;
 
   -webkit-transition: all 0.2s;
@@ -48,6 +48,14 @@ nav.main ul li {
   transition: all 0.2s; 
 }
 
+nav.main ul li:first-child {
+  float: left;
+}
+
+/*
+ * Can we add a small gap between the last of the
+ * links and the right-hand edge?
+ */
 nav.main > ul > li > a {
   color: #aaa;
   line-height: 2em;
@@ -55,12 +63,17 @@ nav.main > ul > li > a {
   text-decoration: none;
 }
 
-nav.main > ul > li:hover {
+nav.main > ul > li:hover , nav.main > ul > li.chosen:hover {
   background-color: rgb(40, 44, 47);
 }
 
 nav.main > ul > li:hover > a {
   color: rgb(255, 255, 255);
+}
+
+/* How to get a bar drawn a la Twitter? */
+nav.main > ul > li.chosen {
+  background-color: rgba(40, 44, 47, 0.2);
 }
 
 /* From: http://www.adam-bray.com/blog/91/Easy+HTML+5+%26+CSS+3+Navigation+Menu/ */

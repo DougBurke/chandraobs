@@ -73,10 +73,12 @@ renderStuff cTime oi =
                  fromMaybe mempty (navPrev <$> prevObs) <>
                  fromMaybe mempty (navNext <$> nextObs)
 
+      -- since using float: right need to do all but the first in right-to-left
+      -- order
       navBar = nav ! class_ "main" $ ul $
-                 li (a ! href "/index.html" $ "What is Chandra doing?") <>
-                 li (a ! href "/about/instruments.html" $ "Chandra Instruments") <>
-                 li (a ! href "/about/index.html" $ "About")
+                 (li ! class_ "chosen") (a ! href "/index.html" $ "What is Chandra doing?") <>
+                 li (a ! href "/about/index.html" $ "About") <>
+                 li (a ! href "/about/instruments.html" $ "Chandra Instruments") 
 
       obs = div ! class_ "observation" $
               obsBar <> if isJust (recordSequence rs)
