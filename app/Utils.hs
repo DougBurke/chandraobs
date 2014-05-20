@@ -13,6 +13,8 @@ module Utils (
      , standardResponse
      , showExpTime
      , showExp
+     , showTimeDeltaFwd
+     , showTimeDeltaBwd
      , detailsLink, abstractLink
      , getObsStatus, getTimes
      , renderLinks
@@ -24,7 +26,9 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
-import Data.Time (UTCTime, addUTCTime)
+import Data.Time (UTCTime, addUTCTime, diffUTCTime, formatTime)
+
+import System.Locale (defaultTimeLocale)
 
 import Text.Blaze.Html.Renderer.Text
 import Text.Printf
@@ -70,12 +74,6 @@ renderRecord f rs =
             else renderSpecial rs
   in (H.div H.! A.class_ "observation") cts
 
--- TODO:
---
---   should times be recorded as "in 3 days", "2 months ago" ?
---   this would need some sort of fuzzy time library (possibly
---   in Javascript)
-
 -- | Convert a more "friendly" exposure time value.
 --
 --   As the minimum time appears to be 0.1 ks we do not
@@ -119,9 +117,78 @@ showUnits v s u1 u2 =
       astr = units a u1
       bstr = units b u2
 
-      sep = if null astr || null bstr then "" else " "
+      sep = if null astr || null bstr then "" else " and "
 
   in astr ++ sep ++ bstr
+
+plural :: Int -> String
+plural i = if i > 1 then "s" else ""
+
+-- | Come up with a string representing the time difference. It
+--   is probably not general enough, since it adds in a
+--   prefix (here, "in"), in most cases. So, this is to be
+--   used for time differences in the future.
+showTimeDeltaFwd ::
+  UTCTime     -- time 1
+  -> UTCTime  -- time 2, >= time 1
+  -> String   -- time1 relative to time2
+showTimeDeltaFwd t1 t2 = 
+  let delta = diffUTCTime t2 t1
+      m = delta / 60
+      h = delta / 3600
+      d = delta / (24 * 3600)
+      nm = round m -- ceiling or round
+      nh = round h
+      nd = round d
+
+      mins = "in " <> show nm <> " minute" <> plural nm
+      hours = "in " <> show nh <> " hour" <> plural nh
+      days = "in " <> show nd <> " day" <> plural nd
+
+      other = formatTime defaultTimeLocale "%A, %B %Y" t2
+
+  in if delta < 60
+     then "now"
+     else if m < 60
+            then mins
+            else if h < 24
+                 then hours
+                 else if d < 7
+                      then days
+                      else "on " <> other
+
+-- | Come up with a string representing the time difference.  This is
+--   to be used for time differences in the future; see also
+--   showTimeDeltaBwd.
+showTimeDeltaBwd ::
+  UTCTime     -- time 1
+  -> UTCTime  -- time 2, >= time 1
+  -> String   -- time1 relative to time2
+showTimeDeltaBwd t1 t2 = 
+  let delta = diffUTCTime t2 t1
+      m = delta / 60
+      h = delta / 3600
+      d = delta / (24 * 3600)
+      nm = round m -- ceiling or round
+      nh = round h
+      nd = round d
+
+      mins = show nm <> " minute" <> plural nm <> " ago"
+      hours = show nh <> " hour" <> plural nh <> " ago"
+      days = show nd <> " day" <> plural nd <> " ago"
+
+      other = formatTime defaultTimeLocale "%A, %B %Y" t2
+
+  in if delta < 60
+     then "now"
+     else if m < 60
+            then mins
+            else if h < 24
+                 then hours
+                 else if d < 7
+                      then days
+                      else "on " <> other
+
 
 showExp :: Record -> H.Html
 showExp = H.toHtml . showExpTime . recordTime

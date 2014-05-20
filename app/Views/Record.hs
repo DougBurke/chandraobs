@@ -5,7 +5,7 @@
 module Views.Record (recordPage, renderStuff) where
 
 import qualified Prelude as P
-import Prelude (($), (==), return, show)
+import Prelude (($), (==), return)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -13,7 +13,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Control.Applicative ((<$>))
 
 import Data.Maybe (fromMaybe, isJust)
-import Data.Monoid ((<>), mempty)
+import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
 import Text.Blaze.Html5 hiding (title)
@@ -24,6 +24,8 @@ import Types (ObsName(..), Instrument, Grating(..))
 import Utils ( ObsInfo(..), ObsStatus(..)
              , abstractLink, defaultMeta
              , obsURI, renderLinks, showExp
+             , showTimeDeltaFwd
+             , showTimeDeltaBwd
              , getObsStatus, getTimes, demo)
 
 -- The specific page for this observation. At present I have not
@@ -122,34 +124,6 @@ targetInfo cTime rs =
 
       (sTime, eTime) = getTimes rs
       obsStatus = getObsStatus (sTime, eTime) cTime 
-      obsVal = case obsStatus of
-                 Todo  -> "will be observed by"
-                 Doing -> "is being observed by"
-                 Done  -> "was observed by"
-
-      endVal = toHtml $ case obsStatus of
-                 Todo  -> ", and will end at " 
-                 Doing -> ", and will end at "
-                 Done  -> ", ending at "
-               <> show eTime
-                 
-      -- TODO Add in a nice display of UTCTime
-
-      lenVal = showExp rs
-
-      tName = toHtml targetStr
-      instInfo = fromMaybe mempty $ do
-        inst <- recordInstrument rs
-        grat <- recordGrating rs
-        return $ " " <> obsVal <> " " <> instLink inst <>
-                   if grat == NONE
-                   then mempty
-                   else " and the " <> toHtml grat
-
-      targetP = p ! class_ "targetInfo"
-                   $ tName <> instInfo <> " for " <> lenVal <>
-                     endVal <> "."
-
       abstractVal = toHtml targetStr <> case obsStatus of
                       Todo  -> " will be observed"
                       Doing -> " is being observed"
@@ -160,7 +134,7 @@ targetInfo cTime rs =
                            $ toHtml abstractVal)
                         <> "."
 
-  in targetP <> abstract
+  in statusPara (P.True, sTime, eTime, rs) cTime obsStatus <> abstract
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 
@@ -169,32 +143,63 @@ otherInfo ::
              -- ie it will crash if it is not sent one.
   -> Html
 otherInfo cTime rs = 
-  let targetStr = recordTarget rs
-
-      (sTime, eTime) = getTimes rs
+  let (sTime, eTime) = getTimes rs
       obsStatus = getObsStatus (sTime, eTime) cTime 
-      obsVal = case obsStatus of
-                 Todo  -> "will be run"
-                 Doing -> "is being run"
-                 Done  -> "was run"
+  in statusPara (P.False, sTime, eTime, rs) cTime obsStatus
 
-      endVal = toHtml $ case obsStatus of
-                 Todo  -> ", and will end at " 
-                 Doing -> ", and will end at "
-                 Done  -> ", ending at "
-               <> show eTime
+-- | Create the paragraph describing the observing status -
+--   i.e. if it has been, will be, or is being, observed.
+--
+statusPara :: 
+  (P.Bool, UTCTime, UTCTime, Record) 
+  -- ^ True if science obs/False if not,
+  --   start time, end time, record
+  -> UTCTime    -- ^ current time
+  -> ObsStatus     -- ^ status of observation
+  -> Html
+statusPara (science, sTime, eTime, rs) cTime obsStatus = 
+  let cts Todo = 
+        mconcat [ targetName
+                , " will be observed ", instInfo
+                , " for ", lenVal, ". It will start "
+                , toHtml (showTimeDeltaFwd cTime eTime)
+                , "."
+                ]
+      cts Doing = 
+        mconcat [ targetName
+                , " is being observed ", instInfo
+                , " for ", lenVal
+                , ". The observation started "
+                , toHtml (showTimeDeltaBwd sTime cTime)
+                , " and ends "
+                , toHtml (showTimeDeltaFwd cTime eTime)
+                , "."
+                ]
+                  
+      cts Done = 
+        mconcat [ targetName
+                , " was observed ", instInfo
+                , " for ", lenVal, ", and ended "
+                , toHtml (showTimeDeltaBwd eTime cTime)
+                , "."
+                ]
+
+      instInfo = fromMaybe mempty $ do
+        inst <- recordInstrument rs
+        grat <- recordGrating rs
+        return $ "by " <> instLink inst <>
+                   if grat == NONE
+                   then mempty
+                   else " and the " <> toHtml grat
+
+      prefix = if science then "" else "The calibration observation "
+      targetName = toHtml $ prefix <> recordTarget rs
                  
       -- TODO Add in a nice display of UTCTime
 
       lenVal = showExp rs
 
-      tName = toHtml targetStr
-
-      targetP = p ! class_ "targetInfo"
-                   $ "The observation " <> tName <> " " <>
-                     obsVal <> " for " <> lenVal <> endVal <> "."
-
-  in targetP
+  in p ! class_ "targetInfo" $ cts obsStatus
 
 -- TODO: now include some observation details - link to page and the ra/dec/... set up
 
