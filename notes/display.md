@@ -20,6 +20,10 @@
 
  - display constellation
 
+ - can we have a simple view showing Earth/Moon(?)/orbit and
+   path during osbservation; for ongoing obs perhaps even the
+   position of Chandra within the orbit and its direction?
+
  - a simple search box - name, prob not a cone search?
    also: view all HRC-I obs/... page?
 

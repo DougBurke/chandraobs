@@ -4,8 +4,8 @@
 
 module Views.Index (introPage, noDataPage) where
 
-import qualified Prelude as P
-import Prelude (($))
+-- import qualified Prelude as P
+import Prelude (($), Bool(..), Maybe(..))
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -60,4 +60,6 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
           )
     <>
     (body ! onload initialize)
-     (demo <> renderStuff cTime oi <> renderLinks P.True currentObs) 
+     (demo <> 
+      renderStuff cTime (Just currentObs) oi <> 
+      renderLinks True currentObs) 

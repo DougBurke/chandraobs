@@ -2,12 +2,15 @@
 
 -- | Simple database access shims.
 
-module Database ( getObsInfo
+module Database ( getCurrentObs
+                , getObsInfo
                 , findObsName
                 , getSpecialObs
                 , getObsId
                 , getRecord
                 ) where
+
+import Control.Monad (liftM)
 
 import Data.Time (getCurrentTime)
 
@@ -18,6 +21,10 @@ import PersistentTypes
 
 import Types (ObsName(..))
 import Utils (ObsInfo(..))
+
+-- | Return the current observation
+getCurrentObs :: IO (Maybe Record)
+getCurrentObs = (liftM . liftM) oiCurrentObs getObsInfo
 
 -- | Find the current observation.
 --

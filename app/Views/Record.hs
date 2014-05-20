@@ -5,7 +5,7 @@
 module Views.Record (recordPage, renderStuff) where
 
 import qualified Prelude as P
-import Prelude (($), (==), return)
+import Prelude (($), (==), (&&), Bool(..), Maybe(..), return)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -33,11 +33,15 @@ import Utils ( ObsInfo(..), ObsStatus(..)
 -- the current observation (i.e. should the current observation
 -- be flagged as such when using this view?)
 --
-recordPage :: UTCTime -> ObsInfo -> Html
-recordPage cTime oi@(ObsInfo currentObs _ _) =
+recordPage :: 
+  UTCTime  -- the current time
+  -> Maybe Record -- the currently running observation
+  -> ObsInfo  -- the observation being displayed
+  -> Html
+recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
   let initialize = "initialize()"
 
-      obsName = recordObsname currentObs
+      obsName = recordObsname thisObs
 
   in docTypeHtml $
     head (H.title ("Chandra observation: " <> toHtml obsName) <>
@@ -51,7 +55,9 @@ recordPage cTime oi@(ObsInfo currentObs _ _) =
             )
     <>
     (body ! onload initialize)
-     (demo <> renderStuff cTime oi <> renderLinks P.False currentObs) 
+     (demo <> 
+      renderStuff cTime mObs oi <> 
+      renderLinks False thisObs) 
 
 -- | A redesign of the page.
 --
@@ -61,24 +67,30 @@ recordPage cTime oi@(ObsInfo currentObs _ _) =
 --   but it may not be present on all web browsers.
 --
 renderStuff :: 
-  UTCTime     -- Current time
+  UTCTime           -- Current time
+  -> Maybe Record   -- the current observation
   -> ObsInfo 
   -> Html
-renderStuff cTime oi = 
+renderStuff cTime mObs oi = 
   let rs = oiCurrentObs oi
       prevObs = oiPrevObs oi
       nextObs = oiNextObs oi
 
-      -- does blaze not have role?
+      flag = Just rs == mObs
+      pFlag = isJust prevObs && prevObs == mObs
+      nFlag = isJust nextObs && nextObs == mObs
+
+      -- does blaze not have the role attribute?
       -- navBar = nav ! role "navigation" $ ul $
       obsBar = nav ! class_ "obslinks" $ ul $
-                 fromMaybe mempty (navPrev <$> prevObs) <>
-                 fromMaybe mempty (navNext <$> nextObs)
+                 fromMaybe mempty (navPrev pFlag <$> prevObs) <>
+                 fromMaybe mempty (navNext nFlag <$> nextObs)
 
-      -- since using float: right need to do all but the first in right-to-left
-      -- order
+      -- since using float: right need to do all but the first in
+      -- right-to-left order
+      li1 = if flag then li ! class_ "chosen" else li
       navBar = nav ! class_ "main" $ ul $
-                 (li ! class_ "chosen") (a ! href "/index.html" $ "What is Chandra doing?") <>
+                 li1 (a ! href "/index.html" $ "What is Chandra doing?") <>
                  li (a ! href "/about/index.html" $ "About") <>
                  li (a ! href "/about/instruments.html" $ "Chandra Instruments") 
 
@@ -89,19 +101,25 @@ renderStuff cTime oi =
 
   in navBar <> obs
 
--- | TODO: should it link to "/index.html" if the previous observation is current? 
-navPrev :: Record -> Html
-navPrev rs = 
-    li ! class_ "prevLink"
-     $ a ! href (toValue (obsURI rs))
-         $ "Previous observation"
+navPrev :: 
+  Bool   -- True if the previous link is the currently-executed observation
+  -> Record 
+  -> Html
+navPrev f rs =
+    let uri = if f then "/index.html" else toValue (obsURI rs)
+    in li ! class_ "prevLink"
+       $ a ! href uri
+           $ "Previous observation"
 
--- | TODO: should it link to "/index.html" if the next observation is current? 
-navNext :: Record -> Html
-navNext rs = 
-    li ! class_ "nextLink"
-     $ a ! href (toValue (obsURI rs))
-       $ "Next observation"
+navNext ::
+  Bool   -- True if the previous link is the currently-executed observation
+  -> Record 
+  -> Html
+navNext f rs = 
+    let uri = if f then "/index.html" else toValue (obsURI rs)
+    in li ! class_ "nextLink"
+       $ a ! href uri
+         $ "Next observation"
 
 -- | Add in a link to a "what is this" page for the
 --   instrument.

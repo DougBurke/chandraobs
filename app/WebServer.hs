@@ -29,7 +29,7 @@ import System.IO (hFlush, hPutStrLn, stderr)
 
 import Web.Scotty
 
-import Database (getRecord, getObsInfo, getObsId, getSpecialObs)
+import Database (getCurrentObs, getRecord, getObsInfo, getObsId, getSpecialObs)
 import Types (ObsName(..))
 import Utils (ObsInfo(..), fromBlaze, standardResponse)
 
@@ -107,17 +107,19 @@ webapp = do
     get "/obs/:special" $ do
       sobs <- param "special"
       mobs <- liftIO $ getSpecialObs sobs
+      mCurrent <- liftIO getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Record.recordPage cTime obs
+        Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs
         _        -> status status404 -- TODO: want an error page
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
       mobs <- liftIO $ getObsId obsid
+      mCurrent <- liftIO getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Record.recordPage cTime obs
+        Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs
         _        -> status status404 -- TODO: want an error page
 
     get "/obsid/:obsid/wwt" $ do
