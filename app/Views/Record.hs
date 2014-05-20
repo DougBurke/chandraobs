@@ -43,7 +43,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
 
       obsName = recordObsname thisObs
 
-  in docTypeHtml $
+  in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsName) <>
             defaultMeta <>
             (script ! src "/js/main.js") "" <>
@@ -90,10 +90,11 @@ renderStuff cTime mObs oi =
       -- right-to-left order
       li1 = if flag then li ! class_ "chosen" else li
       navBar = nav ! class_ "main" $ ul $
-                 li1 (a ! href "/index.html" $ "What is Chandra doing?") <>
-                 li (a ! href "/about/index.html" $ "About") <>
-                 li (a ! href "/about/instruments.html" $ "Chandra Instruments") 
-
+                 li1 (a ! href "/index.html" $ "What is Chandra doing?")
+                 <> li (a ! href "/about/index.html" $ "About")
+                 <> li (a ! href "/about/instruments.html" $ "Chandra Instruments")
+                 <> li (a ! href "/about/views.html" $ "Views")
+ 
       obs = div ! class_ "observation" $
               obsBar <> if isJust (recordSequence rs)
                         then targetInfo cTime rs

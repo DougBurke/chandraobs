@@ -18,7 +18,7 @@
 
  - archive link to existing Chandra data
 
- - display constellation
+ - display constellation name
 
  - can we have a simple view showing Earth/Moon(?)/orbit and
    path during osbservation; for ongoing obs perhaps even the
@@ -29,3 +29,4 @@
 
  - a 'tour this page' option a la the ADS 
    http://adslabs.org/adsabs/search/
+     -> http://bootstraptour.com/

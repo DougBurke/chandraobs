@@ -100,7 +100,13 @@ wwtPage f rs =
                    then a ! href "/" $ cts
                    else a ! href (obsURI rs) $ cts
 
-  in docTypeHtml $
+      navBar = nav ! class_ "main" $ ul $
+                 li (a ! href "/index.html" $ "What is Chandra doing?")
+                 <> li (a ! href "/about/index.html" $ "About")
+                 <> li (a ! href "/about/instruments.html" $ "Chandra Instruments")
+                 <> li (a ! href "/about/views.html" $ "Views")
+
+  in docTypeHtml ! lang "en-US" $
     head 
      (H.title "View in the World Wide Telescope" <>
       defaultMeta <>
@@ -117,6 +123,7 @@ wwtPage f rs =
     (body ! onload initialize)
      (mconcat 
         [ demo
+        , navBar
         , p ("Observation: " <> toHtml name <> ". " <> obsLink)
         , p ("The instrument outline approximates that of the " <> iName <> ".")
         , (div ! style "float: left;") userInput
