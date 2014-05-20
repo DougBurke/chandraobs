@@ -93,11 +93,6 @@ webapp = do
         Just obs -> fromBlaze $ Index.introPage cTime obs
         _        -> fromBlaze Index.noDataPage
 
-    -- TODO: is this correct for HEAD; or should it just 
-    --       set the redirect header?
-    addroute HEAD "/" $ standardResponse >> redirect "/index.html"
-    addroute HEAD "/index.html" standardResponse
-
     get "/wwt.html" $ do
       mobs <- liftIO getObsInfo
       case mobs of 
@@ -129,4 +124,38 @@ webapp = do
         Just record -> fromBlaze $ WWT.wwtPage False record
         _           -> status status404 -- TODO: want an error page
 
+    -- HEAD requests
+    -- TODO: is this correct for HEAD; or should it just 
+    --       set the redirect header?
+    addroute HEAD "/" $ standardResponse >> redirect "/index.html"
+    addroute HEAD "/index.html" standardResponse
 
+    addroute HEAD "/wwt.html" standardResponse
+
+    addroute HEAD "/about" $ standardResponse >> redirect "/about/index.html"
+
+    -- TODO: does the staticPolicy middleware deal with this?
+    -- addroute HEAD "/about/index.html" standardResponse
+    -- addroute HEAD "/about/instruments.html" standardResponse
+    -- addroute HEAD "/about/views.html" standardResponse
+
+    addroute HEAD "/obs/:special" $ do
+      sobs <- param "special"
+      mobs <- liftIO $ getSpecialObs sobs
+      case mobs of
+        Just _ -> standardResponse
+        _      -> status status404
+
+    addroute HEAD "/obsid/:obsid" $ do
+      obsid <- param "obsid"
+      mobs <- liftIO $ getObsId obsid
+      case mobs of
+        Just _ -> standardResponse
+        _      -> status status404
+
+    addroute HEAD "/obsid/:obsid/wwt" $ do
+      obsid <- param "obsid"
+      mrecord <- liftIO $ getRecord (ObsId obsid)
+      case mrecord of
+        Just _ -> standardResponse
+        _      -> status status404
