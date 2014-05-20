@@ -11,7 +11,10 @@
    landing page
 
  - information on the target (e.g. wikipedia) since I think
-   NED/SIMBAD would be a bit too much
+   NED/SIMBAD would be a bit too much. Actually, trying out
+   a SIMBAD search; perhaps should include positional information
+   in the search (definitely need to protect/hide characters in
+   the name).
 
  - ADS view of papers about this object/class of object/...
    by this PI

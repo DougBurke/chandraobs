@@ -148,10 +148,26 @@ targetInfo cTime rs =
                       Doing -> " is being observed"
                       Done  -> " was observed"
       abstract = p ! class_ "obsdetails"
-                     $ "Find out why " <> 
-                        (a ! href (abstractLink obsId)
-                           $ toHtml abstractVal)
-                        <> "."
+                     $ "Find out why "
+                        <> (a ! href (abstractLink obsId)
+                             $ toHtml abstractVal)
+                        <> ". Use SIMBAD to find out about "
+                        <> (a ! href simbadLink $ toHtml targetStr)
+                        <> " (this is not guaranteed to find the "
+                        <> "correct source since it relies on an "
+                        <> "identifiable string being used as the "
+                        <> "observation target name, which isn't always "
+                        <> "the case)."
+
+      -- Does blaze quote/protect URLs? It appears not,
+      -- or perhaps I just didn't look correctly.
+      -- TODO: I do need to protect + characters since
+      --   PSR J2307+2225 ends up having the + disappear
+      simbadLink = 
+        toValue $
+          "http://simbad.harvard.edu/simbad/sim-id?Ident=" <> 
+          targetStr <> 
+          "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
 
   in statusPara (P.True, sTime, eTime, rs) cTime obsStatus <> abstract
 
