@@ -224,7 +224,7 @@ statusPara (science, sTime, eTime, rs) cTime obsStatus =
         mconcat [ targetName
                 , " will be observed ", instInfo
                 , " for ", lenVal, ". It will start "
-                , toHtml (showTimeDeltaFwd cTime eTime)
+                , toHtml (showTimeDeltaFwd cTime sTime)
                 , "."
                 ]
       cts Doing = 
