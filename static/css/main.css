@@ -205,7 +205,7 @@ div.radiobuttons label:hover {
 /* details about an observation */
 
 div#Details {
-  width: 680px;
+  width: 660px; /* using 680px is too wide: padding/margin? */
   padding: 1em 0.5em;
   border: solid 1px #dedede; /* rgb(40,40,47); */
   border-radius: 4px;
