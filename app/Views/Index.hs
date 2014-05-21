@@ -16,8 +16,9 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (ObsInfo(..), demo, defaultMeta, renderLinks)
-import Views.Record (CurrentPage(..), renderStuff, renderTwitter, mainNavBar)
+import Utils (ObsInfo(..), defaultMeta, renderLinks)
+import Views.Record (CurrentPage(..), renderStuff, renderTwitter
+                    , mainNavBar, obsNavBar)
 
 noDataPage :: Html
 noDataPage =
@@ -32,8 +33,7 @@ noDataPage =
           )
     <>
     body
-     (demo
-      <> mainNavBar CPIndex
+     (mainNavBar CPIndex
       <> (div ! class_ "error")  
         ("Unfortunately there is no new observation found in my database, " <>
          "which likely means that something has gone wrong somewhere.")
@@ -65,9 +65,9 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
           )
     <>
     (body ! onload initialize)
-     (demo
-      <> mainNavBar CPIndex
+     (mainNavBar CPIndex
+      <> obsNavBar (Just currentObs) oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime (Just currentObs) oi
+         (renderStuff cTime currentObs
           <> renderLinks True currentObs)
       <> (div ! id "otherBar") renderTwitter)

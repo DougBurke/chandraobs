@@ -6,7 +6,9 @@ module Views.Record (CurrentPage(..)
                      , recordPage
                      , renderStuff
                      , renderTwitter
-                     , mainNavBar) where
+                     , mainNavBar
+                     , obsNavBar
+                     ) where
 
 import qualified Prelude as P
 import Prelude (($), (==), (&&), Eq, Bool(..), Maybe(..), otherwise, return)
@@ -31,7 +33,7 @@ import Utils ( ObsInfo(..), ObsStatus(..)
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getObsStatus, getTimes
-             , demo)
+             )
 
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
@@ -60,10 +62,10 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
             )
     <>
     (body ! onload initialize)
-     (demo 
-      <> mainNavBar CPOther
+     (mainNavBar CPOther
+      <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime mObs oi
+         (renderStuff cTime thisObs
           <> renderLinks False thisObs)
       <> (div ! id "otherBar") renderTwitter)
 
@@ -76,31 +78,13 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
 --
 renderStuff :: 
   UTCTime           -- Current time
-  -> Maybe Record   -- the current observation
-  -> ObsInfo 
+  -> Record 
   -> Html
-renderStuff cTime mObs oi = 
-  let rs = oiCurrentObs oi
-      prevObs = oiPrevObs oi
-      nextObs = oiNextObs oi
-
-      -- flag = Just rs == mObs
-      pFlag = isJust prevObs && prevObs == mObs
-      nFlag = isJust nextObs && nextObs == mObs
-
-      -- does blaze not have the role attribute?
-      -- navBar = nav ! role "navigation" $ ul $
-      obsBar = nav ! class_ "obslinks" $ ul $
-                 fromMaybe mempty (navPrev pFlag <$> prevObs) <>
-                 fromMaybe mempty (navNext nFlag <$> nextObs)
-
-      obs = div ! class_ "observation" $
-              obsBar <> if isJust (recordSequence rs)
-                        then targetInfo cTime rs
-                        else otherInfo cTime rs
-
-  -- in mainNavBar (if flag then CPIndex else CPOther) <> obs
-  in obs
+renderStuff cTime rs = 
+  div ! class_ "observation" $
+    if isJust (recordSequence rs)
+    then targetInfo cTime rs
+    else otherInfo cTime rs
 
 -- | What is the page being viewed?
 data CurrentPage = 
@@ -126,6 +110,22 @@ mainNavBar cp =
        <> mkLi CPAbout aboutA
        <> mkLi CPInstruments instA
        <> mkLi CPView viewA
+
+-- | Display the observation navigation bar
+obsNavBar :: 
+  Maybe Record   -- the current observation
+  -> ObsInfo 
+  -> Html
+obsNavBar mObs oi = 
+  let prevObs = oiPrevObs oi
+      nextObs = oiNextObs oi
+
+      pFlag = isJust prevObs && prevObs == mObs
+      nFlag = isJust nextObs && nextObs == mObs
+
+  in nav ! class_ "obslinks" ! customAttribute "role" "navigation" $ ul $
+        fromMaybe mempty (navPrev pFlag <$> prevObs) <>
+        fromMaybe mempty (navNext nFlag <$> nextObs)
 
 navPrev :: 
   Bool   -- True if the previous link is the currently-executed observation
@@ -262,25 +262,6 @@ statusPara (science, sTime, eTime, rs) cTime obsStatus =
       lenVal = showExp rs
 
   in p ! class_ "targetInfo" $ cts obsStatus
-
--- TODO: now include some observation details - link to page and the ra/dec/... set up
-
-{- 
-renderSpecial2 :: Record -> Html
-renderSpecial2 rs =
-  navLeft oi <>
-   
-  p ("Target: " <> toHtml (recordTarget rs))
-  <>
-  p ("Name: " <> toHtml (recordObsname rs))
-  <>
-  p ("Date: " <> toHtml (show (recordStartTime rs)))
-  <>
-  p ("Length: " <> showExp rs)
-  <>
-  renderLocation rs
-
--}
 
 renderTwitter :: Html
 renderTwitter = 

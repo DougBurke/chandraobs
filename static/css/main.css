@@ -11,15 +11,6 @@ body > div {
   margin: 0.5em;
 }
 
-div.watermark {
-  position: absolute;
-  color: red;
-  font-size: 24em;
-  opacity: 0.2; 
-  text-align: center;
-  z-index: -1000;
-}
-
 // Since the GIFs have a fixed size, use that to drive the
 // page setup. Is this a good idea?
 
@@ -235,15 +226,15 @@ div#Details br { clear: both; }
 
 /* TODO: need better positioning than this */
 
-/** this does not work since the top navbar is included in mainBar
 div#mainBar {
   float: left;
+  width: 680px; /* width of images */
+  margin-right: 1em;
 }
 
 div#otherBar {
-  float: right;
+  /* float: right; */
 }
-**/
 
 div.tweetstream {
   /* float: right; */

@@ -34,4 +34,3 @@
    http://adslabs.org/adsabs/search/
      -> http://bootstraptour.com/
 
- - twitter feed of @chandraxray

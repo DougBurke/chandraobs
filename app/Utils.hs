@@ -7,7 +7,6 @@ module Utils (
      , ObsStatus(..)
      , defaultMeta
      , fromBlaze
-     , navLinks
      , obsURI
      , standardResponse
      , showExpTime
@@ -17,7 +16,6 @@ module Utils (
      , detailsLink, abstractLink
      , getObsStatus, getTimes
      , renderLinks
-     , demo
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -293,35 +291,6 @@ showDec dec =
       c = if dec < 0 then '-' else '+'
   in printf "%c%dd %d' %.1f\"" c d m s
 
--- | Create the forward/backward links for observation pages.
---
-navLinks :: 
-  Bool -- True if this is the current observation
-  -> ObsInfo 
-  -> H.Html
-navLinks f (ObsInfo _ mPrevObs mNextObs) =
-  let prevLink = case mPrevObs of
-        Just prevObs -> H.a H.! A.href (H.toValue (obsURI prevObs))
-                            H.! A.class_ "prev"
-                            $ "Previous observation"
-        _ -> mempty
-
-      nextLink = case mNextObs of
-        Just nextObs -> H.a H.! A.href (H.toValue (obsURI nextObs))
-                            H.! A.class_ "next"
-                            $ "Next observation"
-        _ -> mempty
-
-      thisLink = if f
-                 then H.span H.! A.class_ "current"
-                        $ "Current observation"
-                 else H.a H.! A.href "/index.html"
-                          H.! A.class_ "current"
-                          $ "Current observation"
-
-  in H.p H.! A.class_ "navlinks"
-      $ mconcat [ prevLink, " ", thisLink, " ", nextLink ]
-
 safeObsId :: ObsName -> Maybe Int
 safeObsId (ObsId i) = Just i
 safeObsId _         = Nothing
@@ -420,7 +389,4 @@ getObsStatus (sTime,eTime) cTime =
   else if cTime <= eTime
        then Doing
        else Done
-
-demo :: H.Html
-demo = H.div H.! A.class_ "watermark" $ "Demo"
 

@@ -18,7 +18,7 @@ import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
 import Types (Instrument(..))
 import PersistentTypes
-import Utils (defaultMeta, obsURI, demo)
+import Utils (defaultMeta, obsURI)
 
 {-
 
@@ -122,8 +122,7 @@ wwtPage f rs =
     <>
     (body ! onload initialize)
      (mconcat 
-        [ demo
-        , navBar
+        [ navBar
         , p ("Observation: " <> toHtml name <> ". " <> obsLink)
         , p ("The instrument outline approximates that of the " <> iName <> ".")
         , (div ! style "float: left;") userInput
