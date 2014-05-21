@@ -32,8 +32,8 @@ nav.main {
   display: block;
   padding: 0.2em 0.5em 0.2em 0.5em;
   overflow: hidden;
-  /* background-color: rgba(153,153,153,0.2);  gray */
-  background-color: rgba(0, 131, 179, 0.2); /* blue */
+  background-color: rgba(153,153,153,0.2);  /* gray */
+  /* background-color: rgba(0, 131, 179, 0.2);  blue */
 }
 
 nav.main ul {

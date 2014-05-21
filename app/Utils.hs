@@ -385,7 +385,7 @@ renderLinks f rs =
            link lbl frag af = 
              let uri = urlHead <> frag <> ".gif"
              in H.img H.! A.src    (H.toValue uri)
-                      H.! A.alt    (H.toValue lbl)
+                      H.! A.alt    (H.toValue ("The instrument field-of-view on top of the " <> lbl <> " image of the source."))
                       H.! A.width  (H.toValue (680::Int))
                       H.! A.height (H.toValue (680::Int))
                       H.! A.id     (H.toValue lbl)
