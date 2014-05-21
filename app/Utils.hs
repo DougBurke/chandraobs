@@ -199,37 +199,17 @@ seqLink obsId =
 
 detailsLink, abstractLink :: Int -> H.AttributeValue
 detailsLink = obsIdLink
-abstractLink = seqLink 
-
-{-
-mkInfoLinks :: Record -> H.Html
-mkInfoLinks rs = 
-  case (recordSequence rs, recordObsname rs) of
-    (Just seqNum, ObsId obsId) -> 
-      H.p ("ObsId: " <> 
-           (H.a H.! A.href (obsIdLink obsId)) (H.toHtml obsId) <>
-           " Sequence: " <>
-           (H.a H.! A.href (seqLink obsId)) (H.toHtml seqNum)
-          )
-
-    _ -> mempty
-
-targetInfo :: Record -> H.Html
-targetInfo rs =
-  let name = recordTarget rs
-      instInfo = fromMaybe "" $ do
-        inst <- recordInstrument rs
-        grat <- recordGrating rs
-        return $ " observed by " <> H.toHtml inst <>
-                 if grat == NONE
-                 then mempty
-                 else " and the " <> H.toHtml grat
-
-  in H.p $ "Target: " <> H.toHtml name <> instInfo
--}
+abstractLink obsId = 
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show obsId
 
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.
+--
+--   Could try and link to the roll/pitch/slew GIF - e.g.
+--   http://cxc.harvard.edu/targets/601090/601090.rollvis.gif
+--   but it is not obvious how valid it is (since the above
+--   does not cover May 2014 when that target was scheduled),
+--   and it is rather meaningless to anyone but an expert.
 --
 renderObsIdDetails :: 
   Record     -- it is assumed this is for an ObsId and not SpecialObs
@@ -257,9 +237,21 @@ renderObsIdDetails rs =
            $ "Show details ..."
       -}
 
+      -- These are not total; they require the record to
+      -- be a science observation.
+      Just seqNum = recordSequence rs
+      ObsId obsId = recordObsname rs
+
+      oLink = H.a H.! A.href (obsIdLink obsId) $ H.toHtml obsId
+      sLink = H.a H.! A.href (seqLink obsId)   $ H.toHtml seqNum
+
   in -- showDetails <>
      (H.div H.! A.class_ "details" H.! A.id "details") 
-      (keyVal "Target:" (H.toHtml name)
+      (keyVal "Observation Details:" oLink
+       <>
+       keyVal "Sequence Summary:" sLink
+       <>
+       keyVal "Target:" (H.toHtml name)
        <>
        keyVal "Instrument:" instInfo
        <>
@@ -277,34 +269,6 @@ renderObsIdDetails rs =
        <>
        keyVal "Slew:" (H.toHtml (recordSlew rs))
        )
-
-{-
-H.p ("Target: " <> H.toHtml name <> instInfo
-
-  targetInfo rs
-  <>
-  mkInfoLinks rs
-  <>
-  H.p ("Date: " <> H.toHtml (show (recordStartTime rs)))
-  <>
-  H.p ("Length: " <> showExp rs)
-  <>
-  renderLocation rs
--}
-
-{-
-renderSpecial :: Record -> H.Html
-renderSpecial rs = 
-  H.p ("Target: " <> H.toHtml (recordTarget rs))
-  <>
-  H.p ("Name: " <> H.toHtml (recordObsname rs))
-  <>
-  H.p ("Date: " <> H.toHtml (show (recordStartTime rs)))
-  <>
-  H.p ("Length: " <> showExp rs)
-  <>
-  renderLocation rs
--}
 
 showRA :: Double -> String
 showRA ra = 
@@ -328,29 +292,6 @@ showDec dec =
       s = r2 * 60
       c = if dec < 0 then '-' else '+'
   in printf "%c%dd %d' %.1f\"" c d m s
-
--- Display the location fields
---
--- Could try and link to the roll/pitch/slew GIF - e.g.
--- http://cxc.harvard.edu/targets/601090/601090.rollvis.gif
--- but it is not obvious how valid it is (since the above
--- does not cover May 2014 when the target is scheduled),
--- and it is rather meaningless to anyone but an expert.
---
-renderLocation :: Record -> H.Html
-renderLocation rs = 
-  let roll = recordRoll rs
-      pitch = recordPitch rs
-      slew = recordSlew rs
-      ra = recordRa rs
-      dec = recordDec rs
-  in (H.div H.! A.class_ "location") 
-      (H.span ("RA: " <> H.toHtml (showRA ra)) <>
-       H.span ("Dec: " <> H.toHtml (showDec dec)) <>
-       H.span ("Roll: " <> H.toHtml roll) <>
-       H.span ("Pitch: " <> H.toHtml pitch) <>
-       H.span ("Slew: " <> H.toHtml slew))
-
 
 -- | Create the forward/backward links for observation pages.
 --

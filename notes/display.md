@@ -33,3 +33,5 @@
  - a 'tour this page' option a la the ADS 
    http://adslabs.org/adsabs/search/
      -> http://bootstraptour.com/
+
+ - twitter feed of @chandraxray
