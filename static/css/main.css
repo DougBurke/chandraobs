@@ -28,11 +28,12 @@ div.observation {
 }
 
 nav.main {
-  margin-top: 0.5em;
-  border-bottom: 1px solid #999999;
+  border-bottom: 1px solid rgb(153,153,153);
   display: block;
   padding: 0.2em 0.5em 0.2em 0.5em;
   overflow: hidden;
+  /* background-color: rgba(153,153,153,0.2);  gray */
+  background-color: rgba(0, 131, 179, 0.2); /* blue */
 }
 
 nav.main ul {
@@ -82,7 +83,7 @@ nav.main > ul > li:hover > a {
 
 /* From: http://www.adam-bray.com/blog/91/Easy+HTML+5+%26+CSS+3+Navigation+Menu/ */
 nav.obslinks {
-  background-color: #fff;
+  /* background-color: #fff; */
   border: 1px solid #dedede;
   border-radius: 4px;
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.055);
