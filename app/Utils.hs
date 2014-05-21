@@ -246,7 +246,7 @@ renderObsIdDetails rs =
       sLink = H.a H.! A.href (seqLink obsId)   $ H.toHtml seqNum
 
   in -- showDetails <>
-     (H.div H.! A.class_ "details" H.! A.id "details") 
+     (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       (keyVal "Observation Details:" oLink
        <>
        keyVal "Sequence Summary:" sLink

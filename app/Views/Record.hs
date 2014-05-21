@@ -2,7 +2,7 @@
 
 -- | The record page.
 
-module Views.Record (recordPage, renderStuff) where
+module Views.Record (recordPage, renderStuff, renderTwitter) where
 
 import qualified Prelude as P
 import Prelude (($), (==), (&&), Bool(..), Maybe(..), return)
@@ -56,9 +56,11 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
             )
     <>
     (body ! onload initialize)
-     (demo <> 
-      renderStuff cTime mObs oi <> 
-      renderLinks False thisObs) 
+     (demo 
+      <> (div ! id "mainBar") 
+         (renderStuff cTime mObs oi
+          <> renderLinks False thisObs)
+      <> (div ! id "otherBar") renderTwitter)
 
 -- | A redesign of the page.
 --
@@ -257,3 +259,13 @@ renderSpecial2 rs =
   renderLocation rs
 
 -}
+
+renderTwitter :: Html
+renderTwitter = 
+  (div ! class_ "tweetstream") (
+    a ! class_ "twitter-timeline"
+      ! href "https://twitter.com/chandraxray" 
+      ! dataAttribute "widget-id" "469095554312450049" $ "Tweets by @chandraxray"   )
+  <>
+  script "!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','twitter-wjs');"
+

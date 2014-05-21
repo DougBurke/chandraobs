@@ -212,7 +212,7 @@ div.radiobuttons label:hover {
 
 /* details about an observation */
 
-div.details {
+div#Details {
   width: 680px;
   padding: 1em 0.5em;
   border: solid 1px #dedede; /* rgb(40,40,47); */
@@ -220,12 +220,30 @@ div.details {
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.055);
 }
 
-div.details span.key {
+div#Details span.key {
   float: left;
 }
 
-div.details span.value {
+div#Details span.value {
   float: right;
 }
 
-div.details br { clear: both; }
+div#Details br { clear: both; }
+
+/* Twitter bar */
+
+/* TODO: need better positioning than this */
+
+/** this does not work since the top navbar is included in mainBar
+div#mainBar {
+  float: left;
+}
+
+div#otherBar {
+  float: right;
+}
+**/
+
+div.tweetstream {
+  /* float: right; */
+}
