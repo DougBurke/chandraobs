@@ -2,10 +2,14 @@
 
 -- | The record page.
 
-module Views.Record (recordPage, renderStuff, renderTwitter) where
+module Views.Record (CurrentPage(..)
+                     , recordPage
+                     , renderStuff
+                     , renderTwitter
+                     , mainNavBar) where
 
 import qualified Prelude as P
-import Prelude (($), (==), (&&), Bool(..), Maybe(..), return)
+import Prelude (($), (==), (&&), Eq, Bool(..), Maybe(..), otherwise, return)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -57,6 +61,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
     <>
     (body ! onload initialize)
      (demo 
+      <> mainNavBar CPOther
       <> (div ! id "mainBar") 
          (renderStuff cTime mObs oi
           <> renderLinks False thisObs)
@@ -79,7 +84,7 @@ renderStuff cTime mObs oi =
       prevObs = oiPrevObs oi
       nextObs = oiNextObs oi
 
-      flag = Just rs == mObs
+      -- flag = Just rs == mObs
       pFlag = isJust prevObs && prevObs == mObs
       nFlag = isJust nextObs && nextObs == mObs
 
@@ -89,21 +94,38 @@ renderStuff cTime mObs oi =
                  fromMaybe mempty (navPrev pFlag <$> prevObs) <>
                  fromMaybe mempty (navNext nFlag <$> nextObs)
 
-      -- since using float: right need to do all but the first in
-      -- right-to-left order
-      li1 = if flag then li ! class_ "chosen" else li
-      navBar = nav ! class_ "main" $ ul $
-                 li1 (a ! href "/index.html" $ "What is Chandra doing?")
-                 <> li (a ! href "/about/index.html" $ "About")
-                 <> li (a ! href "/about/instruments.html" $ "Chandra Instruments")
-                 <> li (a ! href "/about/views.html" $ "Views")
- 
       obs = div ! class_ "observation" $
               obsBar <> if isJust (recordSequence rs)
                         then targetInfo cTime rs
                         else otherInfo cTime rs
 
-  in navBar <> obs
+  -- in mainNavBar (if flag then CPIndex else CPOther) <> obs
+  in obs
+
+-- | What is the page being viewed?
+data CurrentPage = 
+  CPIndex | CPAbout | CPInstruments | CPView | CPOther
+  deriving Eq
+
+-- | Display the main navigation bar.
+mainNavBar :: CurrentPage -> Html
+mainNavBar cp = 
+  let mkLi pg | pg == cp  = li ! class_ "chosen"
+              | otherwise = li
+  
+      indexA = a ! href "/index.html" $ "What is Chandra doing?"
+      aboutA = a ! href "/about/index.html" $ "About"
+      instA  = a ! href "/about/instruments.html" $ "Chandra Instruments"
+      viewA  = a ! href "/about/views.html" $ "Views"
+
+      -- since using float: right need to do all but the first in
+      -- right-to-left order
+
+  in nav ! class_ "main" $ ul $
+       mkLi CPIndex indexA
+       <> mkLi CPAbout aboutA
+       <> mkLi CPInstruments instA
+       <> mkLi CPView viewA
 
 navPrev :: 
   Bool   -- True if the previous link is the currently-executed observation

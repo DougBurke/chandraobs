@@ -17,17 +17,11 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Utils (ObsInfo(..), demo, defaultMeta, renderLinks)
-import Views.Record (renderStuff, renderTwitter)
+import Views.Record (CurrentPage(..), renderStuff, renderTwitter, mainNavBar)
 
 noDataPage :: Html
 noDataPage =
-  let navBar = nav ! class_ "main" $ ul $
-           li (a ! href "/index.html" $ "What is Chandra doing?")
-           <> li (a ! href "/about/index.html" $ "About")
-           <> li (a ! href "/about/instruments.html" $ "Chandra Instruments")
-           <> li (a ! href "/about/views.html" $ "Views")
-
-  in docTypeHtml ! lang "en-US" $
+  docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing? I am not sure!" <>
           defaultMeta <>
            link ! href   "/css/main.css"
@@ -39,7 +33,7 @@ noDataPage =
     <>
     body
      (demo
-      <> navBar
+      <> mainNavBar CPIndex
       <> (div ! class_ "error")  
         ("Unfortunately there is no new observation found in my database, " <>
          "which likely means that something has gone wrong somewhere.")
@@ -72,6 +66,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
     <>
     (body ! onload initialize)
      (demo
+      <> mainNavBar CPIndex
       <> (div ! id "mainBar") 
          (renderStuff cTime (Just currentObs) oi
           <> renderLinks True currentObs)
