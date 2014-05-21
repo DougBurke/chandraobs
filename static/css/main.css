@@ -164,13 +164,13 @@ div.links {
   height: 680 px;
 }
 
-/* Selected view (DSS/RASS/PSPC) */
+/* Selected view (DSS/RASS/PSPC/Details) */
 
-img.inactive {
+.inactive {
   display: none;
 }
 
-img.active {
+.active {
   display: block;
 }
 
@@ -209,3 +209,23 @@ div.radiobuttons label:hover {
   border-bottom-color: rgb(0,131,179); /* twitter */
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
 }
+
+/* details about an observation */
+
+div.details {
+  width: 680px;
+  padding: 1em 0.5em;
+  border: solid 1px #dedede; /* rgb(40,40,47); */
+  border-radius: 4px;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.055);
+}
+
+div.details span.key {
+  float: left;
+}
+
+div.details span.value {
+  float: right;
+}
+
+div.details br { clear: both; }

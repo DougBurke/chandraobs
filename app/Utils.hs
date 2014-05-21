@@ -9,7 +9,6 @@ module Utils (
      , fromBlaze
      , navLinks
      , obsURI
-     , renderRecord
      , standardResponse
      , showExpTime
      , showExp
@@ -24,7 +23,7 @@ module Utils (
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, addUTCTime, diffUTCTime, formatTime)
 
@@ -65,14 +64,6 @@ standardResponse = return ()
 defaultMeta :: H.Html
 defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
                      H.! A.content "text/html; charset=UTF-8"
-
--- The flag is true if this is the current observation
-renderRecord :: Bool -> Record -> H.Html
-renderRecord f rs = 
-  let cts = if isJust (recordSequence rs)
-            then renderObsId f rs
-            else renderSpecial rs
-  in (H.div H.! A.class_ "observation") cts
 
 -- | Convert a more "friendly" exposure time value.
 --
@@ -210,6 +201,7 @@ detailsLink, abstractLink :: Int -> H.AttributeValue
 detailsLink = obsIdLink
 abstractLink = seqLink 
 
+{-
 mkInfoLinks :: Record -> H.Html
 mkInfoLinks rs = 
   case (recordSequence rs, recordObsname rs) of
@@ -234,10 +226,61 @@ targetInfo rs =
                  else " and the " <> H.toHtml grat
 
   in H.p $ "Target: " <> H.toHtml name <> instInfo
+-}
 
--- The flag is true if this is the current observation
-renderObsId :: Bool -> Record -> H.Html
-renderObsId f rs =
+-- | Display detailed information about a science observation,
+--   for those that just need to know the details.
+--
+renderObsIdDetails :: 
+  Record     -- it is assumed this is for an ObsId and not SpecialObs
+  -> H.Html
+renderObsIdDetails rs =
+  let name = recordTarget rs
+      instInfo = fromMaybe "" $ do
+        inst <- recordInstrument rs
+        grat <- recordGrating rs
+        return $ H.toHtml inst <>
+                 if grat == NONE
+                 then mempty
+                 else ", " <> H.toHtml grat
+
+      left = (H.span H.! A.class_ "key")
+      right = (H.span H.! A.class_ "value")
+
+      keyVal k v = left k <> " " <> right v <> H.br
+
+      {-
+      showDetails =
+         H.div H.! A.class_ "showdetails"
+               H.! A.id "showdetails"
+               H.! A.onclick "showDetails()"
+           $ "Show details ..."
+      -}
+
+  in -- showDetails <>
+     (H.div H.! A.class_ "details" H.! A.id "details") 
+      (keyVal "Target:" (H.toHtml name)
+       <>
+       keyVal "Instrument:" instInfo
+       <>
+       keyVal "Date:" (H.toHtml (show (recordStartTime rs)))
+       <>
+       keyVal "Exposure:" (H.toHtml (show (recordTime rs) ++ " ks"))
+       <>
+       keyVal "Right Ascension:" (H.toHtml (showRA (recordRa rs)))
+       <>
+       keyVal "Declination:" (H.toHtml (showDec (recordDec rs)))
+       <>
+       keyVal "Roll:" (H.toHtml (recordRoll rs))
+       <>
+       keyVal "Pitch:" (H.toHtml (recordPitch rs))
+       <>
+       keyVal "Slew:" (H.toHtml (recordSlew rs))
+       )
+
+{-
+H.p ("Target: " <> H.toHtml name <> instInfo
+
   targetInfo rs
   <>
   mkInfoLinks rs
@@ -247,9 +290,9 @@ renderObsId f rs =
   H.p ("Length: " <> showExp rs)
   <>
   renderLocation rs
-  <>
-  renderLinks f rs
+-}
 
+{-
 renderSpecial :: Record -> H.Html
 renderSpecial rs = 
   H.p ("Target: " <> H.toHtml (recordTarget rs))
@@ -261,6 +304,7 @@ renderSpecial rs =
   H.p ("Length: " <> showExp rs)
   <>
   renderLocation rs
+-}
 
 showRA :: Double -> String
 showRA ra = 
@@ -349,6 +393,9 @@ safeObsId _         = Nothing
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.rass.gif
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.pspc.gif
 --
+-- We now also display the observational details as a text box
+-- as part of this section. This is an experiment.
+--
 renderLinks :: 
   Bool -- True if current obs
   -> Record 
@@ -359,15 +406,15 @@ renderLinks f rs =
         obsId <- safeObsId $ recordObsname rs
         return (seqNum, obsId)
 
-      imgSel :: String -> Bool -> H.Html
-      imgSel lbl cf = 
+      optSel :: String -> Bool -> H.Html
+      optSel lbl cf = 
         let idName = H.toValue (lbl++"button")
             base = H.input H.! A.type_ "radio"
-                           H.! A.name  "imgtype"
+                           H.! A.name  "opttype"
                            H.! A.value (H.toValue lbl)
                            H.! A.id idName
                            H.! A.onclick
-                               ("switchImage('" <> H.toValue lbl <> "')")
+                               ("switchOption('" <> H.toValue lbl <> "')")
         in (if cf then base H.! A.checked "checked" else base)
            <> (H.label H.! A.for idName) (H.toHtml lbl)
 
@@ -377,9 +424,10 @@ renderLinks f rs =
 
       form = H.div H.! A.class_ "radiobuttons" $
               mconcat [ "View: "
-                      , imgSel "DSS" True
-                      , imgSel "RASS" False
-                      , imgSel "PSPC" False
+                      , optSel "DSS" True
+                      , optSel "RASS" False
+                      , optSel "PSPC" False
+                      , optSel "Details" False
                       , " or in "
                       , wwtLink
                       ]
@@ -406,7 +454,8 @@ renderLinks f rs =
          (H.div H.! A.class_ "links")
           (link "DSS" "dss" True <>
            link "PSPC" "pspc" False <>
-           link "RASS" "rass" False) 
+           link "RASS" "rass" False <>
+           renderObsIdDetails rs) 
 
 
 getTimes ::

@@ -26,7 +26,8 @@ import Utils ( ObsInfo(..), ObsStatus(..)
              , obsURI, renderLinks, showExp
              , showTimeDeltaFwd
              , showTimeDeltaBwd
-             , getObsStatus, getTimes, demo)
+             , getObsStatus, getTimes
+             , demo)
 
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
@@ -169,7 +170,9 @@ targetInfo cTime rs =
           targetStr <> 
           "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
 
-  in statusPara (P.True, sTime, eTime, rs) cTime obsStatus <> abstract
+  in statusPara (P.True, sTime, eTime, rs) cTime obsStatus 
+     <> abstract
+     -- <> renderObsIdDetails rs
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 
