@@ -18,8 +18,6 @@
   <div class="explanation">
    <h1>Viewing the observation</h1>
 
-   <p><strong>TODO:</strong> add example images.</p>
-
    <p>
      We provide five views of the science observations:
    </p>
@@ -40,9 +38,62 @@
        <a href="http://en.wikipedia.org/wiki/Digitized_Sky_Survey">Wikipedia
 	 article on Digitized Sky Surveys</a> for more information.
      </p>
+
+     <p><strong>TODO</strong>: what is the field of view of these images?</p>
+
+     <div style="float: left; margin-right: 0.5em;">
+       <img width="340" alt="DSS view of M22 with the field of view of ACIS-S drawn on top." src="http://asc.harvard.edu/targets/401442/401442.14609.soe.dss.gif">
+     </div>
+
+     <p>
+       This is a DSS image of an ACIS-S imaging-mode
+       observation of the
+       <a href="http://en.wikipedia.org/wiki/Globular_cluster">Globular Cluster</a>
+       <a href="http://en.wikipedia.org/wiki/Messier_22">M22</a>.
+       The aim point of the telescope is shown by the red cross and the
+       six squares labelled 0 to 5 show the locations of the
+       <a href="instruments.html#ACIS-S">ACIS-S chips</a>
+       during the observation (the orientation is determined by the choice of
+       aim point and the roll angle of the spacecraft during the
+       observation). The four chips in a two-by-two arrangement to the
+       left of the ACIS-S array shows the location of the
+       <a href="instruments.html#ACIS-I">ACIS-I array</a>
+       chips during the observation. The choice of chips that
+       are turned on during an observation is made by the observer:
+       for this observation they are the central four ACIS-S
+       chips (labelled as 1 to 4 in red), although the outer two
+       (labelled with green numerals) are optional and may be
+       turned off if observational constraints require it.
+     </p>
+
+     <p>
+       Also labelled are the stars used to keep track of the telescope
+       pointing during an observation (the
+       <a href="http://en.wikipedia.org/wiki/Guide_star">Guide Stars</a>)
+       and those stars used after the telescope slew to ensure that
+       the field has been correctly identified (the acquisition stars).
+     </p>
+
+     <p>
+       Additional labels and rectangles may be drawn for more complicated
+       observations, such as those using only a fraction of a chip - the
+       "sub-array mode" - in order to observer very bright sources.
+     </p>
+
+     <p>
+       The labels 
+       <span class="labels">YOFF</span>,
+       <span class="labels">ZOFF</span>,
+       <span class="labels">ZSIM</span>,
+       and
+       <span class="labels">ACIS PB</span> <!-- TODO: HRC obs -->
+       indicate parameter values used in the observation, such 
+       as the location of the instrument bench which holds
+       the ACIS and HRC detectors.
+     </p>
     </dd>
 
-    <dt>RASS</dt>
+    <dt style="clear: both">RASS</dt>
     <dd>
      <p>
        This shows the 
@@ -60,9 +111,20 @@
        <abbr title="Point Spread Function">PSF</abbr>
        than Chandra.
      </p>
+
+     <div style="float: left; margin-right: 0.5em;">
+       <img width="340" alt="RASS view of M22 with the field of view of ACIS-S drawn on top." src="http://asc.harvard.edu/targets/401442/401442.14609.soe.rass.gif">
+     </div>
+
+     <p>
+       The RASS view shows the same outline as the DSS image, but
+       does not include the location of the stars used for
+       acquisition and monitoring (they are generally not strong
+       X-ray emitters).
+     </p>
     </dd>
 
-    <dt>PSPC</dt>
+    <dt style="clear: both;">PSPC</dt>
     <dd>
      <p>
        This view shows the ROSAT 
@@ -81,18 +143,45 @@
        size is slightly smaller than, the 
        <abbr title="ROSAT All Sky Survey">RASS</abbr>.
      </p>
+
+     <div style="float: left; margin-right: 0.5em;">
+       <img width="340" alt="PSPC view of M22 with the field of view of ACIS-S drawn on top." src="http://asc.harvard.edu/targets/401442/401442.14609.soe.pspc.gif">
+     </div>
+
+     <p>
+       In this case there were two PSPC observations of the
+       field, one centered on M22 and one wich just overlapped
+       it to the right. Both observations were significantly
+       longer than the RASS observation - shown by the larger
+       number of counts in the background and the fact that
+       some sources can just be seen near M22 
+       that are not obvious in the RASS data. As with Chandra,
+       PSPC observations have a spatially-varying PSF; as you 
+       move further from the center of the observation, the
+       PSF increases (this does not happen for the RASS observations
+       due to the way those observations were taken). This
+       can be seen by viewing the source seen in both the RASS
+       and PSPC images; it is far off axis in the PSPC case which
+       means its PSF is larger, and shows more structure,
+       than if it were on axis.
+       <!-- Not sure where I am going with this -->
+     </p>
     </dd>
 
-    <dt>Details</dt>
+    <dt style="clear: both;">Details</dt>
     <dd>
      <p>
        A list of the observation details is displayed;
        this includes more information than provided by
        default, and is considered an "expert" view.
      </p>
+
+     <div style="float: left; margin-right: 0.5em;">
+       <img width="340" alt="The details view of the observation." src="details.png">
+     </div>
     </dd>
 
-    <dt>WWT</dt>
+    <dt style="clear: both;">WWT</dt>
     <dd>
      <p>
        The 
@@ -107,16 +196,29 @@
        <a href="http://www.worldwidetelescope.org/webclient/">full
 	 HTML5 web client</a>.
      </p>
+
+     <div style="float: left; margin-right: 0.5em;">
+       <img width="340" alt="The World Wide Telescope view of the observation." src="wwt.png">
+     </div>
+
+     <p>
+       This shows an optical image of the sky - like the DSS version above
+       but much deeper - with an approximate overlay of the instrument,
+       as the green outline. Please note that this outline does not 
+       exactly match that
+       shown in the DSS/RASS/PSPC views: it does not account for the
+       exact positioning of the instrument in the focal plane of the
+       telescope and - for ACIS - only shows either the ACIS-S or
+       ACIS-I array.
+       The red lines at the bottom of the image show the nearest
+       constellation; not shown are the yellow lines indicating the
+       boundaries of the constellations. Both of the constellation
+       views can be toggled on or off.
+     </p>
     </dd>
 
    </dl>
 
-   <h2 id="fov">Observation outlines</h2>
-
-   <p>
-    Wherein I write some scintillating text explaining what all
-    the boxes mean.
-   </p>
   </div>
  </body>
 </html>

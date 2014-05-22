@@ -35,6 +35,7 @@ nav.main ul {
 nav.main ul li {
   float: right;
   list-style-type: none;
+  margin-right: 0.2em;
 
   -webkit-transition: all 0.2s;
   -moz-transition: all 0.2s;
