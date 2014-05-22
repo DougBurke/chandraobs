@@ -240,6 +240,12 @@ div.tweetstream {
   /* float: right; */
 }
 
+/* force the main paragraph of text for WWT pages to
+ * have the same width as div#wwtControls */
+nav.main + p {
+  width: 700px;
+}
+
 div#wwtControls {
   width: 700px;
 }

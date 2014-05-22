@@ -91,8 +91,8 @@ wwtPage f rs =
                           , crossHair, constellation, boundaries]
 
       obsLink = if f
-                then a ! href "/" $ targetName
-                else a ! href (obsURI rs) $ targetName
+                then a ! href "/" $ "observation page"
+                else a ! href (obsURI rs) $ "observation page"
 
       targetName = H.toHtml $ recordTarget rs
       titleVal =
@@ -118,6 +118,7 @@ wwtPage f rs =
         [ mainNavBar CPOther
         , p ("The instrument outline approximates that of the " 
              <> iName <> " observation of " 
+             <> targetName <> ". Return to the "
              <> obsLink <> "."
             )
         , (div ! id "wwtControls") userInput
