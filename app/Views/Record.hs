@@ -81,7 +81,7 @@ renderStuff ::
   -> Record 
   -> Html
 renderStuff cTime rs = 
-  div ! class_ "observation" $
+  div ! id "observation" $
     if isJust (recordSequence rs)
     then targetInfo cTime rs
     else otherInfo cTime rs
@@ -100,16 +100,17 @@ mainNavBar :: CurrentPage -> Html
 mainNavBar cp = 
   let mkLi pg | pg == cp  = li ! class_ "chosen"
               | otherwise = li
-  
-      indexA = a ! href "/index.html" $ "What is Chandra doing now?"
-      aboutA = a ! href "/about/index.html" $ "About"
-      instA  = a ! href "/about/instruments.html" $ "Chandra Instruments"
-      viewA  = a ! href "/about/views.html" $ "Views"
+
+      mkA ix u t = a ! id ix ! href u $ t
+      indexA = mkA "home"  "/index.html"             "What is Chandra doing now?"
+      aboutA = mkA "about" "/about/index.html"       "About"
+      instA  = mkA "insts" "/about/instruments.html" "Instruments"
+      viewA  = mkA "views" "/about/views.html"       "Views"
 
       -- since using float: right need to do all but the first in
       -- right-to-left order
 
-  in nav ! class_ "main" ! customAttribute "role" "navigation" $ ul $
+  in nav ! customAttribute "role" "navigation" $ ul $
        mkLi CPIndex indexA
        <> mkLi CPAbout aboutA
        <> mkLi CPInstruments instA
@@ -127,7 +128,7 @@ obsNavBar mObs oi =
       pFlag = isJust prevObs && prevObs == mObs
       nFlag = isJust nextObs && nextObs == mObs
 
-  in nav ! class_ "obslinks" $ ul $
+  in nav ! id "obslinks" $ ul $
         fromMaybe mempty (navPrev pFlag <$> prevObs) <>
         fromMaybe mempty (navNext nFlag <$> nextObs)
 
@@ -176,17 +177,16 @@ targetInfo cTime rs =
                       Todo  -> " will be observed"
                       Doing -> " is being observed"
                       Done  -> " was observed"
-      abstract = p ! class_ "obsdetails"
-                     $ "Find out why "
-                        <> (a ! href (abstractLink obsId)
-                             $ toHtml abstractVal)
-                        <> ". Use SIMBAD to find out about "
-                        <> (a ! href simbadLink $ toHtml targetStr)
-                        <> " (this is not guaranteed to find the "
-                        <> "correct source since it relies on an "
-                        <> "identifiable string being used as the "
-                        <> "observation target name, which isn't always "
-                        <> "the case)."
+      abstract = p $ "Find out why "
+                      <> (a ! href (abstractLink obsId)
+                           $ toHtml abstractVal)
+                      <> ". Use SIMBAD to find out about "
+                      <> (a ! href simbadLink $ toHtml targetStr)
+                      <> " (this is not guaranteed to find the "
+                      <> "correct source since it relies on an "
+                      <> "identifiable string being used as the "
+                      <> "observation target name, which isn't always "
+                      <> "the case)."
 
       -- Does blaze quote/protect URLs? It appears not,
       -- or perhaps I just didn't look correctly.
@@ -265,7 +265,7 @@ statusPara (science, sTime, eTime, rs) cTime obsStatus =
 
       lenVal = showExp rs
 
-  in p ! class_ "targetInfo" $ cts obsStatus
+  in p $ cts obsStatus
 
 renderTwitter :: Html
 renderTwitter = 

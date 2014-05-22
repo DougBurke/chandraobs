@@ -10,7 +10,7 @@ import Prelude (($), Bool(..), Maybe(..))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>))
+import Data.Monoid ((<>), mconcat)
 import Data.Time (UTCTime)
 
 import Text.Blaze.Html5 hiding (title)
@@ -25,6 +25,7 @@ noDataPage =
   docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing? I am not sure!" <>
           defaultMeta <>
+          (script ! src "/js/tour.js") "" <>
            link ! href   "/css/main.css"
                 ! type_  "text/css" 
                 ! rel    "stylesheet"
@@ -40,12 +41,25 @@ noDataPage =
       <> renderTwitter
      )
 
+tourElements :: Html
+tourElements =
+  mconcat [
+    (script ! src "http://code.jquery.com/jquery-1.11.1.min.js") ""
+    , (script ! src "/js/bootstrap-tour-standalone-0.9.3.min.js") ""
+    , link ! href   "/css/bootstrap-tour-standalone-0.9.3.min.css"
+           ! type_  "text/css" 
+           ! rel    "stylesheet"
+           ! A.title  "Default"
+           ! media  "all"
+    , (script ! src "/js/tour.js") ""
+    ]
+
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
   -> Html
 introPage cTime oi@(ObsInfo currentObs _ _) =
-  let initialize = "initialize()"
+  let initialize = "initialize(); addTour();"
 
       {-
            p ("Information on " <> 
@@ -56,6 +70,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>
           defaultMeta <>
+          tourElements <>
           (script ! src "/js/main.js") "" <>
            link ! href   "/css/main.css"
                 ! type_  "text/css" 
