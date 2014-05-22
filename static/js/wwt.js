@@ -11,7 +11,8 @@ var wwt;
 var displayCrosshairs = true;
 var displayConstellations = true;
 var displayBoundaries = true;
-var displayFOV = true;
+
+/* var displayFOV = true; */
 
 var raPos, decPos;
 
@@ -33,6 +34,7 @@ function toggleBoundaries() {
   wwt.settings.set_showConstellationBoundries(displayBoundaries);
 }
 
+/*
 function toggleFOV() {
   displayFOV = !displayFOV;
   if (displayFOV) {
@@ -41,6 +43,7 @@ function toggleFOV() {
     wwt.removeAnnotation(fovAnnotation);
   }
 }
+*/
 
 function resetLocation() {
     var fov = wwt.get_fov();
