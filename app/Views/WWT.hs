@@ -86,7 +86,7 @@ wwtPage f rs =
       constellation = cBox "Show constellations" "constellations" "toggleConstellations();"
       boundaries = cBox "Show constellation boundaries" "boundaries" "toggleBoundaries();"
 
-      userInput = mconcat [ zoomSource,
+      userInput = mconcat [ zoomSource
                           -- , fov
                           , crossHair, constellation, boundaries]
 
