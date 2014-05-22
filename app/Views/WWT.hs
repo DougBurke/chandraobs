@@ -19,6 +19,7 @@ import Text.Blaze.Html5.Attributes hiding (span, title, name)
 import Types (Instrument(..))
 import PersistentTypes
 import Utils (defaultMeta, obsURI)
+import Views.Record (CurrentPage(..), mainNavBar)
 
 {-
 
@@ -30,7 +31,12 @@ http://www.worldwidetelescope.org/docs/Samples/displaycode.htm?codeExample=WWTWe
 
 -}
 
--- | Create a WWT view of the observation
+-- | Create a WWT view of the observation.
+--
+--   Thought about a next/prev link to take you through the
+--   WWT views, but this is complicated, since we do not
+--   provide WWT links for cal/non-science observations.
+--
 wwtPage :: 
   P.Bool -- ^ True if this is the current observation
   -> Record
@@ -53,9 +59,10 @@ wwtPage f rs =
                                  <> toValue inst <> "\",\"" 
                                  <> toValue name <> "\")" 
 
+      -- apparently width/height need to be given inline not via CSS
       host = (div ! id "WorldWideTelescopeControlHost") 
-               $ (div ! id "WWTCanvas" 
-                    ! style "width: 700px; height: 700px; border-style: none; border-width: 0px") ""
+               $ (div ! style "width: 700px; height: 700px;"
+                      ! id "WWTCanvas") ""
 
       zoomSource = 
         button ! id "jump"
@@ -65,67 +72,55 @@ wwtPage f rs =
                ! onclick "resetLocation();"
            $ "Jump to Source"
 
-      fov = 
-        span "View Instrument outline" <>
-        input ! id "fov" 
-              ! type_ "checkbox"
-              ! checked "checked"
-              ! onclick "toggleFOV();"
+      -- can we use label rather than span here?
+      cBox :: P.String -> AttributeValue -> AttributeValue -> Html
+      cBox lbl idVal oClick =
+        H.label $ H.toHtml (lbl <> " ") <>
+                  input ! id idVal
+                        ! type_ "checkbox"
+                        ! checked "checked"
+                        ! onclick oClick
 
-      crossHair = 
-        span "View cross hair" <>
-        input ! id "crosshairs" 
-              ! type_ "checkbox"
-              ! checked "checked"
-              ! onclick "toggleCrosshairs();"
+      -- fov = cBox "View Instrument outline" "fov" "toggleFOV();"
+      crossHair = cBox "Show cross hair" "crosshairs" "toggleCrosshairs();"
+      constellation = cBox "Show constellations" "constellations" "toggleConstellations();"
+      boundaries = cBox "Show constellation boundaries" "boundaries" "toggleBoundaries();"
 
-      constellation = 
-        span "Show constellations" <>
-        input ! id "constellations" 
-              ! type_ "checkbox"
-              ! checked "checked"
-              ! onclick "toggleConstellations();"
+      userInput = mconcat [ zoomSource,
+                          -- , fov
+                          , crossHair, constellation, boundaries]
 
-      boundaries = 
-        span "Show constellation boundaries" <>
-        input ! id "boundaries" 
-              ! type_ "checkbox"
-              ! checked "checked"
-              ! onclick "toggleBoundaries();"
+      obsLink = if f
+                then a ! href "/" $ targetName
+                else a ! href (obsURI rs) $ targetName
 
-      userInput = mconcat [zoomSource, fov, crossHair, constellation, boundaries]
-
-      obsLink = let cts = "Observation details."
-                in if f
-                   then a ! href "/" $ cts
-                   else a ! href (obsURI rs) $ cts
-
-      navBar = nav ! class_ "main" $ ul $
-                 li (a ! href "/index.html" $ "What is Chandra doing?")
-                 <> li (a ! href "/about/index.html" $ "About")
-                 <> li (a ! href "/about/instruments.html" $ "Chandra Instruments")
-                 <> li (a ! href "/about/views.html" $ "Views")
+      targetName = H.toHtml $ recordTarget rs
+      titleVal =
+          H.toHtml ("The World Wide Telescope view of " :: P.String)
+          <> targetName
 
   in docTypeHtml ! lang "en-US" $
     head 
-     (H.title "View in the World Wide Telescope" <>
-      defaultMeta <>
-      (script ! src "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx") "" <>
-      (script ! src "/js/wwt.js") "" <>
-      link ! href   "/css/main.css"
-           ! type_  "text/css" 
-           ! rel    "stylesheet"
-           ! A.title  "Default"
-           ! media  "all"
+     (H.title titleVal
+      <> defaultMeta
+      <> (script ! src "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx") ""
+      <> (script ! src "/js/wwt.js") ""
+      <> link ! href   "/css/main.css"
+              ! type_  "text/css" 
+              ! rel    "stylesheet"
+              ! A.title  "Default"
+              ! media  "all"
 
      )
     <>
     (body ! onload initialize)
      (mconcat 
-        [ navBar
-        , p ("Observation: " <> toHtml name <> ". " <> obsLink)
-        , p ("The instrument outline approximates that of the " <> iName <> ".")
-        , (div ! style "float: left;") userInput
+        [ mainNavBar CPOther
+        , p ("The instrument outline approximates that of the " 
+             <> iName <> " observation of " 
+             <> obsLink <> "."
+            )
+        , (div ! id "wwtControls") userInput
         , host
         ])
 

@@ -87,6 +87,10 @@ renderStuff cTime rs =
     else otherInfo cTime rs
 
 -- | What is the page being viewed?
+--
+--   The CPOther category is for WWT/specific obsid/special obs
+--   pages, since separating out these is currently un-needed.
+--
 data CurrentPage = 
   CPIndex | CPAbout | CPInstruments | CPView | CPOther
   deriving Eq

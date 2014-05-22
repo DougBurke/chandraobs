@@ -6,8 +6,8 @@ body {
   margin: 0;
 }
 
-/* restore margin, at least for divs */
-body > div {
+/* restore margin, at least for divs and paragraphs */
+body > div , body > p {
   margin: 0.5em;
 }
 
@@ -238,4 +238,12 @@ div#otherBar {
 
 div.tweetstream {
   /* float: right; */
+}
+
+div#wwtControls {
+  width: 700px;
+}
+
+div#wwtControls > label {
+  margin-left: 0.5em;
 }
