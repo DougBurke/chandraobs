@@ -109,7 +109,7 @@ mainNavBar cp =
       -- since using float: right need to do all but the first in
       -- right-to-left order
 
-  in nav ! class_ "main" $ ul $
+  in nav ! class_ "main" ! customAttribute "role" "navigation" $ ul $
        mkLi CPIndex indexA
        <> mkLi CPAbout aboutA
        <> mkLi CPInstruments instA
@@ -127,7 +127,7 @@ obsNavBar mObs oi =
       pFlag = isJust prevObs && prevObs == mObs
       nFlag = isJust nextObs && nextObs == mObs
 
-  in nav ! class_ "obslinks" ! customAttribute "role" "navigation" $ ul $
+  in nav ! class_ "obslinks" $ ul $
         fromMaybe mempty (navPrev pFlag <$> prevObs) <>
         fromMaybe mempty (navNext nFlag <$> nextObs)
 
