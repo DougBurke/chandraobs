@@ -54,7 +54,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
       -}
 
   in docTypeHtml ! lang "en-US" $
-    head (H.title "What is Chandra doing?" <>
+    head (H.title "What is Chandra doing now?" <>
           defaultMeta <>
           (script ! src "/js/main.js") "" <>
            link ! href   "/css/main.css"

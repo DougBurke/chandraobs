@@ -101,7 +101,7 @@ mainNavBar cp =
   let mkLi pg | pg == cp  = li ! class_ "chosen"
               | otherwise = li
   
-      indexA = a ! href "/index.html" $ "What is Chandra doing?"
+      indexA = a ! href "/index.html" $ "What is Chandra doing now?"
       aboutA = a ! href "/about/index.html" $ "About"
       instA  = a ! href "/about/instruments.html" $ "Chandra Instruments"
       viewA  = a ! href "/about/views.html" $ "Views"
