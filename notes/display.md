@@ -30,7 +30,13 @@
  - a simple search box - name, prob not a cone search?
    also: view all HRC-I obs/... page?
 
+ - a condensed version of the observation schedule, with some form
+   of pagination
+
+Done
+
  - a 'tour this page' option a la the ADS 
    http://adslabs.org/adsabs/search/
      -> http://bootstraptour.com/
 
+  
