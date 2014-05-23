@@ -11,7 +11,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude (($), (==), (&&), Eq, Bool(..), Maybe(..), otherwise, return)
+import Prelude (($), (==), (&&), Eq, Bool(..), Maybe(..), return)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -98,10 +98,10 @@ data CurrentPage =
 -- | Display the main navigation bar.
 mainNavBar :: CurrentPage -> Html
 mainNavBar cp = 
-  let mkLi pg | pg == cp  = li ! class_ "chosen"
-              | otherwise = li
+  let mkA ix u t pg = 
+        let aa = if pg == cp then a ! class_ "chosen" else a
+        in aa ! id ix ! href u $ t
 
-      mkA ix u t = a ! id ix ! href u $ t
       indexA = mkA "home"  "/index.html"             "What is Chandra doing now?"
       aboutA = mkA "about" "/about/index.html"       "About"
       instA  = mkA "insts" "/about/instruments.html" "Instruments"
@@ -111,10 +111,10 @@ mainNavBar cp =
       -- right-to-left order
 
   in nav ! customAttribute "role" "navigation" $ ul $
-       mkLi CPIndex indexA
-       <> mkLi CPAbout aboutA
-       <> mkLi CPInstruments instA
-       <> mkLi CPView viewA
+       li (indexA CPIndex)
+       <> li (aboutA CPAbout)
+       <> li (instA CPInstruments)
+       <> li (viewA CPView)
 
 -- | Display the observation navigation bar
 obsNavBar :: 

@@ -36,37 +36,34 @@ nav ul li {
   float: right;
   list-style-type: none;
   margin-right: 0.2em;
-
-  -webkit-transition: all 0.2s;
-  -moz-transition: all 0.2s;
-  -ms-transition: all 0.2s;
-  -o-transition: all 0.2s;
-  transition: all 0.2s; 
-
-  border-bottom: 4px solid rgba(0,0,0,0);
 }
 
 nav ul li:first-child {
   float: left;
 }
 
-nav > ul > li.chosen {
-  border-bottom-color: rgb(0,131,179); /* twitter */
+nav > ul > li > a.chosen {
+  border-bottom-color: rgb(0,131,179); /* twitter color */
 }
 
-/*
- * Can we add a small gap between the last of the
- * links and the right-hand edge?
- */
 nav > ul > li > a {
   color: #aaa;
   line-height: 2em;
+  font-size: larger;
   text-decoration: none;
   padding: 0 0.5em;
+
+  border-bottom: 4px solid rgba(0,0,0,0);
+
+  -webkit-transition: all 0.2s ease-in-out;
+  -moz-transition: all 0.2s ease-in-out;
+  -ms-transition: all 0.2s ease-in-out;
+  -o-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out; 
 }
 
-nav > ul > li:hover , nav > ul > li.chosen:hover {
-  border-bottom-color: rgb(0,131,179); /* twitter */
+nav > ul > li:hover > a {
+  border-bottom-color: rgb(0,131,179); /* twitter color */
 }
 
 nav > ul > li:hover > a {
