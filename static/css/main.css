@@ -15,7 +15,7 @@ body > div , body > p {
    page setup. Is this a good idea? */
 
 div#observation {
-  width: 700px;
+  /* width: 700px; - seems to be unneeded now */
 }
 
 nav {
