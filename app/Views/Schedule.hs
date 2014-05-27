@@ -5,36 +5,42 @@
 module Views.Schedule (schedPage) where
 
 -- import qualified Prelude as P
-import Prelude ((.), ($), (==), Integer, Maybe(..), Show, String, mapM_, return, show, truncate)
+import Prelude ((.), ($), (==), Integer, Maybe(..), Show, String, map, mapM_, return, show, take, truncate)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
+
+import Control.Monad (void)
 
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 
-import Text.Blaze.Html5 hiding (title)
+import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Database (Schedule(..))
 import PersistentTypes
 import Types (Grating(..))
-import Utils (defaultMeta, obsURI, showExp, showTimeDeltaFwd, showTimeDeltaBwd)
+import Utils (defaultMeta, obsURI, showExp, showTimeDeltaFwd, showTimeDeltaBwd, projectMollweide)
 import Views.Record (CurrentPage(..), mainNavBar)
+
+jsScript :: AttributeValue -> Html
+jsScript uri = script ! src uri $ ""
 
 schedPage :: 
   Schedule
   -> Html
 schedPage sched =
   docTypeHtml ! lang "en-US" $
-    head (H.title "The Chandra schedule" <>
-          defaultMeta <>
-          (script ! src "http://code.jquery.com/jquery-1.11.1.min.js") "" <>
-          -- (script ! src "/js/jquery-for-tablesorter.js") "" <>
-          (script ! src "/js/jquery.tablesorter.min.js") "" <>
-          (script ! src "/js/table.js") ""
+    head (H.title "The Chandra schedule" 
+          <> defaultMeta 
+          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
+          <> jsScript "http://d3js.org/d3.v3.min.js"
+          <> jsScript "/js/jquery.tablesorter.min.js"
+          <> jsScript "/js/table.js"
+          <> jsScript "/js/projection.js"
           <> link ! href   "/css/tablesorter.css"
                ! type_  "text/css" 
                ! rel    "stylesheet"
@@ -47,7 +53,7 @@ schedPage sched =
                ! media  "all"
           )
     <>
-    body
+    (body ! onload "projectionMollweide(obsinfo);")
      (mainNavBar CPSchedule
       <> (div ! id "schedule") 
          (renderSchedule sched)
@@ -67,7 +73,7 @@ renderSchedule ::
   -> Html
 renderSchedule (Schedule _ _ _ Nothing _) =
   div ! A.id "schedule" $ 
-    p $ "There seems to be a problem, in that I do not know what the current observation is!"
+    p "There seems to be a problem, in that I do not know what the current observation is!"
 
 renderSchedule (Schedule cTime ndays done (Just doing) todo) =
   let conv :: Show a => a -> Html
@@ -93,7 +99,20 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
       nRow r = toRow (showTimeDeltaFwd cTime) r ! A.class_ "next"
 
+      getLongLat r = (recordRa r, recordDec r)
 
+      -- gah - manual conversion to JSON
+      dataRow :: String -> Record -> Html
+      dataRow s r =
+        let (x, y) = projectMollweide . getLongLat $ r
+        in mconcat [" { x: ", toHtml x, ", y: ", toHtml y,
+                    ", texp: ", toHtml (recordTime r),
+                    ", id: '", toHtml (recordObsname r), "'",
+                    ", label: ", conv (recordTarget r),
+                    ", status: ", conv s
+                   , " }, "
+                   ]
+      
   in div ! A.id "scheduleBlock" $ do
     p $ mconcat 
         [ "This page shows ", conv ndays
@@ -114,4 +133,12 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
         cRow doing
         mapM_ nRow todo
 
-    
+    -- Set up the coordinates
+    script ! type_ "text/javascript" $ do
+      void $ "var obsinfo = ["
+      mapM_ (dataRow "done") done
+      dataRow "doing" doing
+      mapM_ (dataRow "todo") todo
+      " ];"
+      
+    div ! id "map" $ ""

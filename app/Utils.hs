@@ -16,11 +16,13 @@ module Utils (
      , detailsLink, abstractLink
      , getObsStatus, getTimes
      , renderLinks
+     , projectMollweide  
      ) where
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, addUTCTime, diffUTCTime, formatTime)
@@ -390,3 +392,47 @@ getObsStatus (sTime,eTime) cTime =
        then Doing
        else Done
 
+-- | Convert a longitude,latitude to x,y coordinates using the Mollweide
+--   projection, <http://en.wikipedia.org/wiki/Mollweide_projection>.
+--
+--   The central meridian is at longitude=180.
+projectMollweide ::
+  (Double, Double) -- ^ longitude (degrees, 0 to 360), latitude (degrees, -90 to 90)
+  -> (Double, Double) -- ^ x,y values
+projectMollweide (long,lat) =
+  let rlat = lat * pi / 180.0
+      rlong = long * pi / 180.0
+      
+      theta = getTheta rlat
+      rlong0 = pi
+      x = 2 * sqrt 2 * (rlong - rlong0) * cos theta / pi
+      y = sqrt 2 * sin theta
+      
+  in (x, y)
+
+-- | Calculate the auxilliary angle used in the Mollweide projection,
+--   using a simple scheme outlined in
+--   <http://en.wikipedia.org/wiki/Mollweide_projection>.
+--
+getTheta :: Double -> Double
+getTheta phi =
+  let pole = pi / 2
+
+      nextAngle told = let told2 = 2 * told
+                       in told - (told2 + sin told2 - pi * sin phi) / (2 + 2 * cos told2)
+
+      -- convergence for speed rather than accuracy; should there be some
+      -- protection against excessive looping as well?
+      converged told = let tnew = nextAngle told
+                       in if abs (tnew - told) < 1e-3 then Nothing else Just (tnew, tnew)
+
+      -- if phi=0 then unfoldr converged 0 == []
+      mlast [] = 0.0
+      mlast xs = last xs
+      
+  in if phi >= pole
+     then pole
+     else if phi <= -pole
+          then -pole
+          else mlast $ unfoldr converged 0
+               
