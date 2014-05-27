@@ -48,6 +48,12 @@ var tour = new Tour({
     content: "This link will take you to the current observation."
   },
   {
+    element: "#sched",
+    placement: "bottom",
+    title: "Schedule",
+    content: "The Chandra schedule (several days in the past and planned observations)."
+  },
+  {
     element: "#views",
     placement: "bottom",
     title: "Views",
