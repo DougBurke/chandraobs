@@ -35,6 +35,7 @@ executable webserver
                        Utils
                        Views.Index
                        Views.Record
+                       Views.Schedule
                        Views.WWT
   hs-source-dirs:      app/
                        tools/

@@ -2,17 +2,19 @@
 
 -- | Simple database access shims.
 
-module Database ( getCurrentObs
+module Database ( Schedule(..)
+                , getCurrentObs
                 , getObsInfo
                 , findObsName
                 , getSpecialObs
                 , getObsId
                 , getRecord
+                , getSchedule
                 ) where
 
 import Control.Monad (liftM)
 
-import Data.Time (getCurrentTime)
+import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
 import Safe (headMay, lastMay)
 
@@ -72,4 +74,41 @@ getRecord oName = do
   case mobs of
     Just (ObsInfo current _ _) -> return $ Just current
     _ -> return Nothing
+
+-- | Store the schedule.
+data Schedule = 
+   Schedule
+   { scTime  :: UTCTime      -- ^ the date when the schedule search was made
+   , scDays  :: Int          -- ^ number of days used for the search
+   , scDone  :: [Record]     -- ^ those that were done (ascending time order)
+   , scDoing :: Maybe Record -- ^ current observation
+   , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
+   }
+
+getSchedule ::
+  Int    -- ^ Number of days to go back/forward
+  -> IO Schedule
+getSchedule ndays = do
+  now <- getCurrentTime
+  -- assume that testSchedule is in ascending time order
+  -- and only consider the start time when comparing to the 
+  -- number of days from now
+  --
+  let dayNow = utctDay now
+      dayEnd = addDays (fromIntegral ndays + 1) dayNow
+      dayStart = ModifiedJulianDay $ toModifiedJulianDay dayNow - fromIntegral ndays
+
+      tStart = UTCTime dayStart 0
+      tEnd   = UTCTime dayEnd 0
+
+      tfilter rs = let t = recordStartTime rs
+                   in t >= tStart && t < tEnd
+      (prevs, nexts) = span ((<= now) . recordStartTime) $ filter tfilter testSchedule
+
+      (mobs, todos) = case nexts of
+         [] -> (Nothing, [])
+         (x:xs) -> (Just x, xs)
+
+  return $ Schedule now ndays prevs mobs todos
+
 

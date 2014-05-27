@@ -92,7 +92,7 @@ renderStuff cTime rs =
 --   pages, since separating out these is currently un-needed.
 --
 data CurrentPage = 
-  CPIndex | CPAbout | CPInstruments | CPView | CPOther
+  CPIndex | CPSchedule | CPAbout | CPInstruments | CPView | CPOther
   deriving Eq
 
 -- | Display the main navigation bar.
@@ -103,6 +103,7 @@ mainNavBar cp =
         in aa ! id ix ! href u $ t
 
       indexA = mkA "home"  "/index.html"             "What is Chandra doing now?"
+      schedA = mkA "sched" "/schedule/index.html"    "Schedule"
       aboutA = mkA "about" "/about/index.html"       "About"
       instA  = mkA "insts" "/about/instruments.html" "Instruments"
       viewA  = mkA "views" "/about/views.html"       "Views"
@@ -112,6 +113,7 @@ mainNavBar cp =
 
   in nav ! customAttribute "role" "navigation" $ ul $
        li (indexA CPIndex)
+       <> li (schedA CPSchedule)
        <> li (aboutA CPAbout)
        <> li (instA CPInstruments)
        <> li (viewA CPView)

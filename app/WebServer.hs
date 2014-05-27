@@ -11,6 +11,7 @@ module Main where
 
 import qualified Views.Index as Index
 import qualified Views.Record as Record
+import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
 import Control.Monad.IO.Class (liftIO)
@@ -29,7 +30,7 @@ import System.IO (hFlush, hPutStrLn, stderr)
 
 import Web.Scotty
 
-import Database (getCurrentObs, getRecord, getObsInfo, getObsId, getSpecialObs)
+import Database (getCurrentObs, getRecord, getObsInfo, getObsId, getSpecialObs, getSchedule)
 import Types (ObsName(..))
 import Utils (ObsInfo(..), fromBlaze, standardResponse)
 
@@ -123,6 +124,11 @@ webapp = do
       case mrecord of
         Just record -> fromBlaze $ WWT.wwtPage False record
         _           -> status status404 -- TODO: want an error page
+
+    get "/schedule" $ redirect "/schedule/index.html"
+    get "/schedule/index.html" $ do
+      sched <- liftIO $ getSchedule 3
+      fromBlaze $ Schedule.schedPage sched
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
