@@ -2,6 +2,10 @@
  * plot up data using the Aitoff projection
  */
 
+var baseOpacity = 0.6;
+var unselOpacity = 0.3;
+var selOpacity = 0.8;
+
 // coords is an array of objects with
 // ra/dec attributes in degrees (0-360 and -90 to 90)
 // as well as other attributes useful for labelling
@@ -112,15 +116,24 @@ function createMap(coords) {
       .attr("r", function(d) { return tscale(d.texp); })
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; })
-      .attr("opacity", 0.6)
+      .attr("opacity", baseOpacity)
       .style("fill", function(d) { return color(d.status); })
-    .on('mouseover', function(d) {
-        d3.select('#' + d.idname).classed('selrow', true);
-      })
-    .on('mouseout', function(d) {
-        d3.select('#' + d.idname).classed('selrow', false);
-      })
+    .on('mouseover', function(d) { selectObs(d.idname); })
+    .on('mouseout', function(d) { deselectObs(d.idname); })
     .append("title")
       .text(function(d) { return d.label; });  
 
+}
+
+/* Highlight the given object in the sky map */
+function selectObs(lbl) {
+  d3.select('#' + lbl).classed('selrow', true);
+  var idlbl = 'gfx-' + lbl;
+  d3.selectAll('.obs').transition().attr("opacity", function () { return (this.id === idlbl) ? selOpacity : unselOpacity; });
+}
+
+/* Return it to normal */
+function deselectObs(lbl) {
+  d3.select('#' + lbl).classed('selrow', false);
+  d3.selectAll('.obs').transition().attr("opacity", baseOpacity);
 }

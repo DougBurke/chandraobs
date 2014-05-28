@@ -103,9 +103,14 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       -- convert UTCTime to an integer
       aTime :: Record -> AttributeValue
       aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . recordStartTime
-        
+
+      hover r = let lbl = toValue $ idLabel r
+                in tr ! id (toValue lbl)
+                      ! onmouseover ("selectObs('" <> lbl <> "');")
+                      ! onmouseout  ("deselectObs('" <> lbl <> "');")
+      
       toRow :: (UTCTime -> String) -> Record -> Html
-      toRow ct r = (tr ! id (toValue (idLabel r))) $ do
+      toRow ct r = hover r $ do
          td $ linkToRecord r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
