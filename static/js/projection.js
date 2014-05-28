@@ -1,17 +1,13 @@
 /*
- * plot up data using the Mollweide projection
+ * plot up data using the Aitoff projection
  */
 
-// coords is an array of objects with x/y attributes
-// in the range -pi to pi (x) and -pi/2 to pi (y)
+// coords is an array of objects with
+// ra/dec attributes in degrees (0-360 and -90 to 90)
+// as well as other attributes useful for labelling
+// and identifying the targets
 //
-// TODO: transform to using the d3 geo projection plugin at
-//       http://bl.ocks.org/mbostock/3734336
-//
-function projectionMollweide(coords) {
-  // var margin = { top: 20, right: 20, bottom: 20, left: 20 };
-  // var width = 600;
-  // var height = width / 2;
+function createMap(coords) {
   var width = 960;
   var height = 500;
 
@@ -31,8 +27,8 @@ function projectionMollweide(coords) {
      .attr("width", width)
      .attr("height", height);
 
-  var projection = d3.geo.mollweide()
-      .scale(165)
+  var projection = d3.geo.aitoff()
+      .scale(150)
       .translate([width / 2, height / 2])
       .precision(.1);
 
@@ -89,7 +85,7 @@ function projectionMollweide(coords) {
       .attr("r", function(d) { return tscale(d.texp); })
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; })
-      .attr("opacity", 0.8)
+      .attr("opacity", 0.6)
       .style("fill", function(d) { return color(d.status); })
     .on('mouseover', function(d) {
         d3.select('#' + d.idname).classed('selrow', true);

@@ -61,7 +61,7 @@ schedPage sched =
                ! media  "all"
           )
     <>
-    (body ! onload "projectionMollweide(obsinfo);")
+    (body ! onload "createMap(obsinfo);")
      (mainNavBar CPSchedule
       <> (div ! id "schedule") 
          (renderSchedule sched)

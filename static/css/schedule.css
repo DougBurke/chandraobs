@@ -27,7 +27,7 @@ div#map svg {
 .stroke {
   fill: none;
   stroke: rgb(0, 131, 179); /* #fff; */ /* #000; */
-  stroke-width: 3px;
+  stroke-width: 7px;
 }
 
 .fill {

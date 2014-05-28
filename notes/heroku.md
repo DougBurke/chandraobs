@@ -85,10 +85,20 @@ packages, which resulted in a broken build. So
   but for now do not do this. The problem came because of a new version
   of Scotty (0.7.3 versus 0.7.2) which just bumps some constraints.
 
-  Now do a 'git push keroku master' and then, if that builds, we can clear
-  the variable with
+  Now do a 'git push heroku master' and you will see
+
+    -----> Fetching custom git buildpack... done
+    -----> Haskell app detected
+    -----> Exporting config vars
+           CLEAR_CACHE
+    -----> Clearing the buildpack cache
+
+  After the build, clear the variable with
 
   % heroku config:unset CLEAR_CACHE
   Unsetting CLEAR_CACHE and restarting chandraobs-devel... done, v39
 
+  NOTE: from looking at the heroku output, it may be that the
+  cabal installation of the dependencies does not use --reorder-goals,
+  so it is possible that a different set of packages is being used.
 
