@@ -37,6 +37,12 @@ function createMap(coords) {
 
   var graticule = d3.geo.graticule();
 
+  // Longitude every 2 hours, latitude every 15 degrees,
+  // and change the latitude mionor extent so that the
+  // -75/75 values are terminated by a longitude graticule
+  graticule.minorStep([30, 15]);
+  graticule.minorExtent([[-180, -75.01], [180, 75.01]]);
+
   svg.append("defs").append("path")
     .datum({type: "Sphere"})
     .attr("id", "sphere")
@@ -55,6 +61,38 @@ function createMap(coords) {
     .attr("class", "graticule")
     .attr("d", path);
 
+  // label graticules; could make it adaptive but hard code
+  var longvals = d3.range(1, 6).map(function (d) { 
+      var pos = projection([180 - d * 60, 0]);
+      var lbl = d * 4 + "h"; // how to get a superscript?
+      return { x: pos[0], y: pos[1], lbl: lbl };
+    });
+  svg.selectAll(".long")
+      .data(longvals)
+    .enter().append("text")
+      .attr("class", "label long")
+      .attr("x", function(d) { return d.x; })
+      .attr("y", function(d) { return d.y; })
+      .attr("text-anchor", "middle")
+      .attr("dy", "1.4em")
+      .text(function(d) { return d.lbl; });
+
+  var latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
+      var pos = projection([0, d]);
+      var lbl = d + "\u00B0"; // how to get a degrees character?
+      return { x: pos[0], y: pos[1], lbl: lbl };
+    });
+  svg.selectAll(".lat")
+      .data(latvals)
+    .enter().append("text")
+      .attr("class", "label lat")
+      .attr("x", function(d) { return d.x; })
+      .attr("y", function(d) { return d.y; })
+      .attr("text-anchor", "end")
+      .attr("dx", "-0.4em")
+      .attr("dy", "0.35em")
+      .text(function(d) { return d.lbl; });
+
   // mark the observations
   // TODO: highlight the table row when an observation is hovered over
 
@@ -65,17 +103,6 @@ function createMap(coords) {
       d.y = pos[1];
       return d;
     });
-
-  // changing the font size is not visually appealing, since it
-  // causes a lot of visual changes
-  /*
-  var selStyle = 'font-size';
-  var selOn = '150%';
-  var selOff = '100%';
-  */
-  var selStyle = 'font-weight';
-  var selOn = 'bold';
-  var selOff = 'normal';
 
   svg.selectAll(".obs")
       .data(points)
