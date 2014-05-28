@@ -30,9 +30,14 @@
  - a simple search box - name, prob not a cone search?
    also: view all HRC-I obs/... page?
 
+ - in the schedule view, show the region of the sky that is
+   inaccessible (roll angle + .. constraints)
+
+Doing
+
  - a condensed version of the observation schedule, with some form
    of pagination
-
+   
 Done
 
  - a 'tour this page' option a la the ADS 

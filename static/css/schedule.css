@@ -1,0 +1,42 @@
+
+/* Handle the schedule-specific parts */
+
+table#scheduledObs tr.current td.starttime {
+  background-color: rgba(245, 245, 245, 0.8); /* #f5f5f5 */
+}
+
+table#scheduledObs tr.prev td.starttime {
+  background-color: rgba(216, 179, 101, 0.8); /* #d8b365 */
+}
+
+table#scheduledObs tr.next td.starttime {
+  background-color: rgba(90, 180, 172, 0.8); /* #5ab4ac; */
+}
+
+table#scheduledObs tr.selrow td {
+  background-color: rgba(0, 131, 179, 0.2);
+}
+
+/* plot */
+
+div#map svg {
+  background-color: rgba(0, 131, 179, 0.2);
+  border-radius: 20px;
+}
+
+.stroke {
+  fill: none;
+  stroke: rgb(0, 131, 179); /* #fff; */ /* #000; */
+  stroke-width: 3px;
+}
+
+.fill {
+  fill: #000; /* #fff; */
+}
+
+.graticule {
+  fill: none;
+  stroke: #777;
+  stroke-width: .5px;
+  stroke-opacity: .5;
+}

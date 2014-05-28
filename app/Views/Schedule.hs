@@ -5,7 +5,7 @@
 module Views.Schedule (schedPage) where
 
 -- import qualified Prelude as P
-import Prelude ((.), ($), (==), Integer, Maybe(..), Show, String, map, mapM_, return, show, take, truncate)
+import Prelude ((.), ($), (==), (-), Integer, Maybe(..), Show, String, mapM_, return, show, truncate)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -22,8 +22,10 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Database (Schedule(..))
 import PersistentTypes
-import Types (Grating(..))
-import Utils (defaultMeta, obsURI, showExp, showTimeDeltaFwd, showTimeDeltaBwd, projectMollweide)
+import Types (ObsName(..), Grating(..))
+import Utils (defaultMeta, obsURI,
+              showExp, showTimeDeltaFwd, showTimeDeltaBwd,
+              showRA, showDec)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 jsScript :: AttributeValue -> Html
@@ -38,10 +40,16 @@ schedPage sched =
           <> defaultMeta 
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
           <> jsScript "http://d3js.org/d3.v3.min.js"
+          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
           <> jsScript "/js/jquery.tablesorter.min.js"
           <> jsScript "/js/table.js"
           <> jsScript "/js/projection.js"
           <> link ! href   "/css/tablesorter.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+          <> link ! href   "/css/schedule.css"
                ! type_  "text/css" 
                ! rel    "stylesheet"
                -- ! A.title  "Default (TableSorter)"
@@ -63,6 +71,14 @@ linkToRecord :: Record -> Html
 linkToRecord r = 
   let uri = obsURI r
   in a ! href uri $ toHtml $ recordTarget r
+
+-- | Convert the obsname of a record to an identifier
+--   used in the HTML to identify riw/object.
+idLabel :: Record -> String
+idLabel = lbl . recordObsname
+  where
+    lbl (ObsId ival) = "i" <> show ival
+    lbl (SpecialObs sval) = sval
 
 -- | The previous schedule could be displayed if there is
 --   no current schedule, but let's just have a simple display
@@ -89,13 +105,20 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . recordStartTime
         
       toRow :: (UTCTime -> String) -> Record -> Html
-      toRow ct r = tr $ do
+      toRow ct r = (tr ! id (toValue (idLabel r))) $ do
          td $ linkToRecord r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
-         td ! dataAttribute "sortvalue" (aTime r) $ toHtml $ ct $ recordStartTime r
+         td ! dataAttribute "sortvalue" (aTime r)
+            ! class_ "starttime" 
+              $ toHtml $ ct $ recordStartTime r
          td $ instVal r
+         let ra = recordRa r
+             dec = recordDec r
+         td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml $ showRA ra
+         td ! dataAttribute "sortvalue" (toValue dec) $ toHtml $ showDec dec
 
-      cRow r = toRow (showTimeDeltaBwd cTime) r ! A.id "current" -- TODO: check Fwd/Bwd
+      -- TODO: for current row, check whether should be using DeltaBwd/DeltaFwd
+      cRow r = toRow (showTimeDeltaBwd cTime) r ! A.class_ "current"
       pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
       nRow r = toRow (showTimeDeltaFwd cTime) r ! A.class_ "next"
 
@@ -104,10 +127,11 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       -- gah - manual conversion to JSON
       dataRow :: String -> Record -> Html
       dataRow s r =
-        let (x, y) = projectMollweide . getLongLat $ r
-        in mconcat [" { x: ", toHtml x, ", y: ", toHtml y,
+        let (x, y) = getLongLat $ r
+        in mconcat [" { longitude: ", toHtml (180 - x),
+                    ", latitude: ", toHtml y,
                     ", texp: ", toHtml (recordTime r),
-                    ", id: '", toHtml (recordObsname r), "'",
+                    ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),
                     ", status: ", conv s
                    , " }, "
@@ -122,17 +146,6 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
         , "."
         ]
 
-    table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
-      thead $ tr $ do
-        th "Target"
-        th "Exposure time"
-        th "Start"
-        th "Instrument"
-      tbody $ do
-        mapM_ pRow done
-        cRow doing
-        mapM_ nRow todo
-
     -- Set up the coordinates
     script ! type_ "text/javascript" $ do
       void $ "var obsinfo = ["
@@ -142,3 +155,16 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       " ];"
       
     div ! id "map" $ ""
+    table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
+      thead $ tr $ do
+        th "Target"
+        th "Exposure time"
+        th "Start"
+        th "Instrument"
+        th "Right Ascension"
+        th "Declination"
+      tbody $ do
+        mapM_ pRow done
+        cRow doing
+        mapM_ nRow todo
+

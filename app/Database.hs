@@ -28,6 +28,22 @@ import Utils (ObsInfo(..))
 getCurrentObs :: IO (Maybe Record)
 getCurrentObs = (liftM . liftM) oiCurrentObs getObsInfo
 
+-- | Given a list of observations, return
+--   (past observations in reverse order, 
+--    current observation,
+--    future observations).
+--
+splitObs :: 
+  UTCTime     -- ^ the current time
+  -> [Record] -- ^ observation list, must be time sorted (ascending) and finite
+  -> ([Record], Maybe Record, [Record])
+splitObs cTime xs =
+  let (aprevs, nexts) = span ((<= cTime) . recordStartTime) xs
+      (mobs, rprevs) = case reverse aprevs of
+        [] -> (Nothing, [])
+        (current:cs) -> (Just current, cs)
+  in (rprevs, mobs, nexts)
+
 -- | Find the current observation.
 --
 --   Allow for the possibility of there being no observation; e.g.
@@ -40,13 +56,10 @@ getCurrentObs = (liftM . liftM) oiCurrentObs getObsInfo
 getObsInfo :: IO (Maybe ObsInfo)
 getObsInfo = do
   now <- getCurrentTime
-  -- assume that testSchedule is in ascending time order
-  let (prevs, nexts) = span ((<= now) . recordStartTime) testSchedule
-  case reverse prevs of
-    [] -> return Nothing
-    (current:cs) -> return . Just $ ObsInfo current
-                                            (headMay cs)
-                                            (headMay nexts)
+  let (rprevs, mobs, nexts) = splitObs now testSchedule
+  return $ case mobs of
+    Just obs -> Just $ ObsInfo obs (headMay rprevs) (headMay nexts)
+    _ -> Nothing
 
 findObsName :: ObsName -> IO (Maybe ObsInfo)
 findObsName oName = 
@@ -101,14 +114,13 @@ getSchedule ndays = do
       tStart = UTCTime dayStart 0
       tEnd   = UTCTime dayEnd 0
 
+      -- TODO: should use dropWhile/takeWhile as know testSchedule
+      --       is in ascending time order
       tfilter rs = let t = recordStartTime rs
                    in t >= tStart && t < tEnd
-      (prevs, nexts) = span ((<= now) . recordStartTime) $ filter tfilter testSchedule
 
-      (mobs, todos) = case nexts of
-         [] -> (Nothing, [])
-         (x:xs) -> (Just x, xs)
+      (rprevs, mobs, nexts) = splitObs now $ filter tfilter testSchedule
 
-  return $ Schedule now ndays prevs mobs todos
+  return $ Schedule now ndays (reverse rprevs) mobs nexts
 
 
