@@ -18,6 +18,7 @@ module Utils (
      , detailsLink, abstractLink
      , getObsStatus, getTimes
      , renderLinks
+     , getFact
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -28,6 +29,7 @@ import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, addUTCTime, diffUTCTime, formatTime)
 
 import System.Locale (defaultTimeLocale)
+import System.Random (Random(..), getStdRandom)
 
 import Text.Blaze.Html.Renderer.Text
 import Text.Printf
@@ -391,3 +393,26 @@ getObsStatus (sTime,eTime) cTime =
   else if cTime <= eTime
        then Doing
        else Done
+
+-- | Return a "random" Chandra fact. The HTML is inserted into
+--   a div with class of "fact".
+--
+getFact :: IO H.Html
+getFact = do
+  n <- getStdRandom (randomR (0, length facts - 1))
+  return $ facts !! n
+
+facts :: [H.Html]
+facts = [
+  "Chandra flies 200 times higher than Hubble - more than 1/3 of the way to the moon!"
+  , "Chandra can observe X-rays from clouds of gas so vast that it takes light five million years to go from one side to the other!"
+  , "During maneuvers from one target to the next, Chandra slews more slowly than the minute hand on a clock."
+  , "At 45 feet long, Chandra is the largest satellite the shuttle has ever launched."
+  , "If Colorado were as smooth as Chandra's mirrors, Pikes Peak would be less than one inch tall!"
+  , "Chandra's resolving power is equivalent to the ability to read a stop sign at a distance of twelve miles."
+  , "The electrical power required to operate the Chandra spacecraft and instruments is 2 kilowatts, about the same power as a hair dryer."
+  , "The light from some of the quasars observed by Chandra will have been traveling through space for ten billion years."
+  , "STS-93, the space mission that deployed Chandra, was the first NASA shuttle mission commanded by a woman."
+  , "Chandra can observe X-rays from particles up to the last second before they fall into a black hole!!!"
+  ]
+

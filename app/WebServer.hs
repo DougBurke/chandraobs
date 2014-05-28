@@ -10,10 +10,12 @@
 module Main where
 
 import qualified Views.Index as Index
+import qualified Views.NotFound as NotFound
 import qualified Views.Record as Record
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Default (def)
@@ -32,7 +34,7 @@ import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo, getObsId, getSpecialObs, getSchedule)
 import Types (ObsName(..))
-import Utils (ObsInfo(..), fromBlaze, standardResponse)
+import Utils (ObsInfo(..), fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
 readInt s = case reads s of
@@ -130,6 +132,26 @@ webapp = do
       sched <- liftIO $ getSchedule 3
       fromBlaze $ Schedule.schedPage sched
 
+    get "/schedule/day" $ do
+      sched <- liftIO $ getSchedule 1
+      fromBlaze $ Schedule.schedPage sched
+
+    get "/schedule/day/:ndays" $ do
+      ndays <- param "ndays"
+      when (ndays <= 0) next  -- TODO: better error message
+      sched <- liftIO $ getSchedule ndays
+      fromBlaze $ Schedule.schedPage sched
+
+    get "/schedule/week" $ do
+      sched <- liftIO $ getSchedule 7
+      fromBlaze $ Schedule.schedPage sched
+
+    get "/schedule/week/:nweeks" $ do
+      nweeks <- param "nweeks"
+      when (nweeks <= 0) next  -- TODO: better error message
+      sched <- liftIO $ getSchedule (7 * nweeks)
+      fromBlaze $ Schedule.schedPage sched
+
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
     --       set the redirect header?
@@ -165,3 +187,19 @@ webapp = do
       case mrecord of
         Just _ -> standardResponse
         _      -> status status404
+
+    {-
+    get "/404" $ redirect "/404.html"
+    get "/404.html" $ do
+      fact <- liftIO getFact
+      fromBlaze $ NotFound.notFoundPage fact
+      status status404
+
+    notFound $ redirect "/404.html"
+    -}
+
+    notFound $ do
+      fact <- liftIO getFact
+      fromBlaze $ NotFound.notFoundPage fact
+      status status404
+

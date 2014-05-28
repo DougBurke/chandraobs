@@ -98,6 +98,9 @@ data Schedule =
    , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
    }
 
+-- | TODO: handle the case when the current observation, which has
+--   just started, has an exposure time > ndays.
+--
 getSchedule ::
   Int    -- ^ Number of days to go back/forward
   -> IO Schedule
