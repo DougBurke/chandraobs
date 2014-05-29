@@ -23,7 +23,8 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Database (Schedule(..))
 import PersistentTypes
 import Types (ObsName(..), Grating(..))
-import Utils (defaultMeta, obsURI, obsURIString,
+import Utils (ChandraTime(..),
+              defaultMeta, obsURI, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,
               showRA, showDec)
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -148,7 +149,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
         [ "This page shows ", conv ndays
         , " days of the Chandra schedule around today. "
         , "The current time is: "
-        , conv cTime
+        , toHtml (ChandraTime cTime)
         , "."
         ]
 

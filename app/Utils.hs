@@ -5,6 +5,8 @@
 module Utils (
      ObsInfo(..)
      , ObsStatus(..)
+     , ChandraTime(..)
+     , showCTime
      , defaultMeta
      , fromBlaze
      , obsURI
@@ -47,6 +49,29 @@ data ObsInfo = ObsInfo {
   , oiPrevObs  :: Maybe Record
   , oiNextObs  :: Maybe Record
   }
+
+-- | A wrapper around `UTCTime` so that we can use our
+--   own `ToMarkup` and `ToValue` instances.
+--
+newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
+  deriving (Eq, Ord)
+
+-- | Create a \"nice\" display of the time:
+--   \"HH:MM Day, DN Month, Year (UTC)\", where Day and Month
+--   are the (full) names and DN is the day number within
+--   the month.
+--
+--   This does not correct for time zones.
+showCTime :: ChandraTime -> String
+showCTime ct = 
+  let utc = _toUTCTime ct
+  in formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc
+
+instance H.ToMarkup ChandraTime where
+  toMarkup = H.toMarkup . showCTime
+
+instance H.ToValue ChandraTime where
+  toValue = H.toValue . showCTime
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -142,7 +167,7 @@ showTimeDeltaFwd t1 t2 =
       hours = "in " <> show nh <> " hour" <> plural nh
       days = "in " <> show nd <> " day" <> plural nd
 
-      other = formatTime defaultTimeLocale "%A, %B %Y" t2
+      other = formatTime defaultTimeLocale "%A, %B %e, %Y" t2
 
   in if delta < 60
      then "now"
@@ -174,7 +199,7 @@ showTimeDeltaBwd t1 t2 =
       hours = show nh <> " hour" <> plural nh <> " ago"
       days = show nd <> " day" <> plural nd <> " ago"
 
-      other = formatTime defaultTimeLocale "%A, %B %Y" t2
+      other = formatTime defaultTimeLocale "%A, %B %e, %Y" t2
 
   in if delta < 60
      then "now"
