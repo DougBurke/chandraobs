@@ -110,7 +110,10 @@ function createMap(coords) {
 
   svg.selectAll(".obs")
       .data(points)
-    .enter().append("circle")
+    .enter()
+    .append("a")
+      .attr("xlink:href", function(d) { return d.urifrag; })
+    .append("circle")
       .attr("class", "obs")
       .attr("id", function(d) { return "gfx-" + d.idname; })
       .attr("r", function(d) { return tscale(d.texp); })

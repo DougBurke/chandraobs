@@ -8,6 +8,7 @@ module Utils (
      , defaultMeta
      , fromBlaze
      , obsURI
+     , obsURIString
      , standardResponse
      , showExpTime
      , showExp
@@ -50,10 +51,13 @@ data ObsInfo = ObsInfo {
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
 obsURI :: Record -> H.AttributeValue
-obsURI rs = 
+obsURI = H.toValue . obsURIString
+
+obsURIString :: Record -> String
+obsURIString rs = 
   case recordObsname rs of
-    ObsId i -> "/obsid/" <> H.toValue i
-    SpecialObs s -> "/obs/" <> H.toValue s
+    ObsId i -> "/obsid/" <> show i
+    SpecialObs s -> "/obs/" <> s
 
 fromBlaze :: H.Html -> ActionM ()
 fromBlaze = html . renderHtml

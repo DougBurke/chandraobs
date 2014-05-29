@@ -23,7 +23,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Database (Schedule(..))
 import PersistentTypes
 import Types (ObsName(..), Grating(..))
-import Utils (defaultMeta, obsURI,
+import Utils (defaultMeta, obsURI, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,
               showRA, showDec)
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -138,6 +138,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
                     ", texp: ", toHtml (recordTime r),
                     ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),
+                    ", urifrag: ", conv (obsURIString r),
                     ", status: ", conv s
                    , " }, "
                    ]
