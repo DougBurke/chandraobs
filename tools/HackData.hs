@@ -145,5 +145,35 @@ testSchedule = [
  , toR Nothing (SpecialObs "T_X47") Nothing "CAL-ER (52738)" "2014:152:02:09:26.364"   0.1 Nothing Nothing  222.6617 (-15.5862) 251.42 154.54 122.33   
  , toR (Just 502102) (ObsId 15869) (Just 0) "SN 2010jl" "2014:152:06:24:29.221"  40.0 (Just ACISS) (Just NONE) 145.7188   9.5194 249.67  74.29  80.25
 
+ , toR (Just 801377)    (ObsId 16123) (Just 0) "RXJ1416.4+2315 Offse" "2014:152:18:01:31.984"   5.0 (Just ACISI) (Just NONE) 214.1596  23.4419 219.63 123.03  66.96
+ , toR (Just 702978)    (ObsId 16088) (Just 0) "SDSSJ162210.11+07021" "2014:152:19:50:08.984"  65.8 (Just ACISS) (Just NONE) 245.5584   7.0526 194.00 150.64  38.21
+ , toR (Just 702737)    (ObsId 14500) (Just 1)      "SDSS1004+4112" "2014:153:14:43:02.164"  25.0 (Just ACISS) (Just NONE) 151.1333  41.2359 258.45  68.95  89.64
+ , toR (Just 702990)    (ObsId 16102) (Just 0)   "J011341.1+010608" "2014:153:22:30:21.065"  15.0 (Just ACISS) (Just NONE)  18.4413   1.0879 116.60  54.90 158.17
+ , toR (Just 601122)    (ObsId 16210) (Just 3)             "Sgr A*" "2014:154:03:20:13.610"  18.7 (Just ACISS) (Just NONE) 266.4234 (-29.0318)  76.00 164.39 109.69
+ , toR Nothing     (SpecialObs "I6561") Nothing       "CAL-ER (52736)" "2014:154:08:51:04.836"   0.3 Nothing Nothing  289.0000 (-26.0000)  92.11 145.28  20.96   
+ , toR Nothing     (SpecialObs "T_E47") Nothing       "CAL-ER (52734)" "2014:154:10:03:16.248"   0.1 Nothing Nothing  289.0000 (-26.0000)  92.10 145.33   0.01   
+ , toR Nothing     (SpecialObs "GG_47") Nothing       "CAL-ER (52733)" "2014:154:11:35:08.830"   0.8 Nothing Nothing  280.0000 (-15.0000) 109.36 151.77  24.64   
+ , toR Nothing     (SpecialObs "G1_47") Nothing       "CAL-ER (52732)" "2014:154:14:17:00.106"   8.0 Nothing Nothing  337.0000 (-27.5000) 108.30 103.68  58.62   
+ , toR Nothing     (SpecialObs "G2_47") Nothing       "CAL-ER (52731)" "2014:154:17:10:41.320"   1.0 Nothing Nothing  255.1291  40.9430 176.16 116.63 111.74   
+ , toR Nothing     (SpecialObs "G3_47") Nothing       "CAL-ER (52730)" "2014:154:17:57:05.398"   3.0 Nothing Nothing   74.0000  75.0000 357.02  52.68  64.06   
+ , toR Nothing     (SpecialObs "T_X48") Nothing       "CAL-ER (52729)" "2014:154:19:47:57.325"   0.1 Nothing Nothing  151.3000  31.5000 255.34  70.20  64.42   
+ , toR (Just 901116)    (ObsId 16616) (Just 0)         "30 Doradus" "2014:154:22:59:13.248"  35.0 (Just ACISI) (Just NONE)  84.7063 (-69.0842) 201.85  91.92 112.38
+ , toR (Just 401587)    (ObsId 15790) (Just 0)    "IGR J15335-5420" "2014:155:09:10:44.942"   5.0 (Just ACISI) (Just NONE) 233.3392 (-54.3595) 328.74 145.04  57.13
+ , toR (Just 901100)    (ObsId 16160) (Just 0)          "4C -00.62" "2014:155:11:17:54.093"  63.0 (Just ACISI) (Just NONE) 240.3061  (-0.4712) 212.00 155.21 127.44
+ , toR (Just 702960)    (ObsId 16066) (Just 0)            "3C293.1" "2014:156:05:13:11.093"  12.0 (Just ACISS) (Just NONE) 208.6765  16.2713 229.42 121.87  37.62
+ , toR (Just 801409)    (ObsId 16534) (Just 0)  "Centaurus cluster" "2014:156:09:05:02.197"  56.1 (Just ACISS) (Just NONE) 192.1895 (-41.3113) 270.66 126.14  73.58
+ , toR Nothing     (SpecialObs "T_E48") Nothing       "CAL-ER (52727)" "2014:157:01:42:23.998"   0.1 Nothing Nothing  305.0000  (-3.0000) 116.15 126.73 157.96   
+ , toR Nothing     (SpecialObs "GG_48") Nothing       "CAL-ER (52726)" "2014:157:02:20:48.558"   4.3 Nothing Nothing  280.0609 (-14.1395) 112.66 153.77  27.02   
+ , toR Nothing     (SpecialObs "G1_48") Nothing       "CAL-ER (52725)" "2014:157:05:09:58.991"   1.0 Nothing Nothing  247.0000   2.0000 195.06 154.46  92.04   
+ , toR Nothing     (SpecialObs "G2_48") Nothing       "CAL-ER (52724)" "2014:157:05:51:01.052"   8.0 Nothing Nothing  224.1527  34.8886 210.69 115.89  39.94   
+ , toR Nothing     (SpecialObs "G3_48") Nothing       "CAL-ER (52723)" "2014:157:08:30:49.632"   1.0 Nothing Nothing  168.5000  25.0000 247.64  84.32  49.13   
+ , toR Nothing     (SpecialObs "T_X49") Nothing       "CAL-ER (52722)" "2014:157:10:27:58.804"   0.1 Nothing Nothing  168.5000  25.0000 247.68  84.24   0.04   
+ , toR (Just 901116)    (ObsId 16197) (Just 0)         "30 Doradus" "2014:157:13:05:14.804"  68.7 (Just ACISI) (Just NONE)  84.7063 (-69.0842) 201.85  92.03 111.22
+ , toR (Just 601112)    (ObsId 16024) (Just 1)                "M83" "2014:158:08:44:05.154"  30.0 (Just ACISI) (Just NONE) 204.2366 (-29.8521) 266.40 134.13  82.53
+ , toR (Just 901100)    (ObsId 16619) (Just 0)          "4C -00.62" "2014:158:17:36:45.631"  37.0 (Just ACISI) (Just NONE) 240.3061  (-0.4712) 212.00 153.26  77.29
+ , toR (Just 702958)    (ObsId 16064) (Just 0)            "3C288.1" "2014:159:04:23:46.723"  12.0 (Just ACISS) (Just NONE) 205.5699  60.3855 225.34  87.34  66.83
+ , toR (Just 702755)    (ObsId 14518) (Just 1)         "Q2237+0305" "2014:159:08:23:06.084"  29.9 (Just ACISS) (Just NONE) 340.1454   3.3425 113.17  94.25 107.20
+ , toR Nothing     (SpecialObs "T_E49") Nothing       "CAL-ER (52720)" "2014:159:17:48:48.557"   0.1 Nothing Nothing  283.4306 (-11.8645) 116.89 152.18  58.93   
+
  ]
 
