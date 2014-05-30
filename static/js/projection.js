@@ -68,7 +68,7 @@ function createMap(coords) {
   // label graticules; could make it adaptive but hard code
   var longvals = d3.range(1, 6).map(function (d) { 
       var pos = projection([180 - d * 60, 0]);
-      var lbl = d * 4 + "h"; // how to get a superscript?
+      var lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
       return { x: pos[0], y: pos[1], lbl: lbl };
     });
   svg.selectAll(".long")
@@ -83,7 +83,7 @@ function createMap(coords) {
 
   var latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
       var pos = projection([0, d]);
-      var lbl = d + "\u00B0"; // how to get a degrees character?
+      var lbl = d + "\u00B0";
       return { x: pos[0], y: pos[1], lbl: lbl };
     });
   svg.selectAll(".lat")
