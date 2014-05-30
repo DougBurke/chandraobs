@@ -11,18 +11,19 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude (($), (==), (&&), Eq, Bool(..), Maybe(..), return)
+import Prelude (($), (==), (&&), (++), Eq, Bool(..), Maybe(..), null, return, show)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Applicative ((<$>))
 
+import Data.List (intersperse)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
-import Text.Blaze.Html5 hiding (title)
+import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import PersistentTypes
@@ -33,6 +34,7 @@ import Utils ( ObsInfo(..), ObsStatus(..)
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getObsStatus, getTimes
+             , linkToRecordA
              )
 
 -- The specific page for this observation. At present I have not
@@ -65,7 +67,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
      (mainNavBar CPOther
       <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime thisObs
+         (renderStuff cTime thisObs []
           <> renderLinks False thisObs)
       <> (div ! id "otherBar") renderTwitter)
 
@@ -78,12 +80,13 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
 --
 renderStuff :: 
   UTCTime           -- Current time
-  -> Record 
+  -> Record
+  -> [Record]       -- possibly related observations 
   -> Html
-renderStuff cTime rs = 
+renderStuff cTime rs matches = 
   div ! id "observation" $
     if isJust (recordSequence rs)
-    then targetInfo cTime rs
+    then targetInfo cTime rs matches
     else otherInfo cTime rs
 
 -- | What is the page being viewed?
@@ -166,8 +169,9 @@ targetInfo ::
   UTCTime    -- current time
   -> Record  -- this is assumed to be for an ObsId, not SpecialObs
              -- ie it will crash if it is not sent one.
+  -> [Record] -- possibly-related observations
   -> Html
-targetInfo cTime rs = 
+targetInfo cTime rs matches = 
   let targetStr = recordTarget rs
 
       -- assume this pattern match can not fail
@@ -189,6 +193,18 @@ targetInfo cTime rs =
                       <> "identifiable string being used as the "
                       <> "observation target name, which isn't always "
                       <> "the case)."
+                      <> otherMatches
+
+      otherMatches = 
+        if null matches
+        then mempty
+        else mconcat $ (" See related observations: " : matchLinks) ++ ["."]
+
+      getObsId r = case recordObsname r of
+                       (ObsId ival) -> show ival
+                       (SpecialObs s) -> s -- do not expect to get this here
+      mkLabel r = mconcat [ recordTarget r, " (", getObsId r, ")"]
+      matchLinks = intersperse "; " $ P.map (linkToRecordA mkLabel) matches
 
       -- Does blaze quote/protect URLs? It appears not,
       -- or perhaps I just didn't look correctly.
@@ -200,7 +216,7 @@ targetInfo cTime rs =
           targetStr <> 
           "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
 
-  in statusPara (P.True, sTime, eTime, rs) cTime obsStatus 
+  in statusPara (True, sTime, eTime, rs) cTime obsStatus 
      <> abstract
      -- <> renderObsIdDetails rs
 
@@ -213,13 +229,13 @@ otherInfo ::
 otherInfo cTime rs = 
   let (sTime, eTime) = getTimes rs
       obsStatus = getObsStatus (sTime, eTime) cTime 
-  in statusPara (P.False, sTime, eTime, rs) cTime obsStatus
+  in statusPara (False, sTime, eTime, rs) cTime obsStatus
 
 -- | Create the paragraph describing the observing status -
 --   i.e. if it has been, will be, or is being, observed.
 --
 statusPara :: 
-  (P.Bool, UTCTime, UTCTime, Record) 
+  (Bool, UTCTime, UTCTime, Record) 
   -- ^ True if science obs/False if not,
   --   start time, end time, record
   -> UTCTime    -- ^ current time

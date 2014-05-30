@@ -17,6 +17,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Utils (ObsInfo(..), defaultMeta, renderLinks)
+import PersistentTypes
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
 
@@ -57,8 +58,9 @@ tourElements =
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
+  -> [Record]  -- records with a similar name
   -> Html
-introPage cTime oi@(ObsInfo currentObs _ _) =
+introPage cTime oi@(ObsInfo currentObs _ _) matches =
   let initialize = "initialize(); addTour();"
 
       {-
@@ -83,6 +85,6 @@ introPage cTime oi@(ObsInfo currentObs _ _) =
      (mainNavBar CPIndex
       <> obsNavBar (Just currentObs) oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime currentObs
+         (renderStuff cTime currentObs matches
           <> renderLinks True currentObs)
       <> (div ! id "otherBar") renderTwitter)

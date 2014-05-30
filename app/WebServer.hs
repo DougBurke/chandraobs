@@ -32,7 +32,10 @@ import System.IO (hFlush, hPutStrLn, stderr)
 
 import Web.Scotty
 
-import Database (getCurrentObs, getRecord, getObsInfo, getObsId, getSpecialObs, getSchedule)
+import Database (getCurrentObs, getRecord, getObsInfo,
+                 getObsId, getSpecialObs, getSchedule,
+                 matchName)
+import PersistentTypes
 import Types (ObsName(..))
 import Utils (ObsInfo(..), fromBlaze, standardResponse, getFact)
 
@@ -93,7 +96,9 @@ webapp = do
       mobs <- liftIO getObsInfo
       cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Index.introPage cTime obs
+        Just obs -> do
+          matches <- liftIO $ matchName $ recordTarget $ oiCurrentObs obs
+          fromBlaze $ Index.introPage cTime obs (filter (/= oiCurrentObs obs) matches)
         _        -> fromBlaze Index.noDataPage
 
     get "/wwt.html" $ do

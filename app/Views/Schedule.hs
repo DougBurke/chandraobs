@@ -24,9 +24,10 @@ import Database (Schedule(..))
 import PersistentTypes
 import Types (ObsName(..), Grating(..))
 import Utils (ChandraTime(..),
-              defaultMeta, obsURI, obsURIString,
+              defaultMeta, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,
-              showRA, showDec)
+              showRA, showDec,
+              linkToRecord)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 jsScript :: AttributeValue -> Html
@@ -67,11 +68,6 @@ schedPage sched =
       <> (div ! id "schedule") 
          (renderSchedule sched)
      )
-
-linkToRecord :: Record -> Html
-linkToRecord r = 
-  let uri = obsURI r
-  in a ! href uri $ toHtml $ recordTarget r
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.

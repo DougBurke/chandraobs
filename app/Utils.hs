@@ -22,6 +22,8 @@ module Utils (
      , getObsStatus, getTimes
      , renderLinks
      , getFact
+     , linkToRecord
+     , linkToRecordA
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -444,4 +446,12 @@ facts = [
   , "STS-93, the space mission that deployed Chandra, was the first NASA shuttle mission commanded by a woman."
   , "Chandra can observe X-rays from particles up to the last second before they fall into a black hole!!!"
   ]
+
+linkToRecord :: Record -> H.Html
+linkToRecord = linkToRecordA recordTarget
+
+linkToRecordA :: (Record -> String) -> Record -> H.Html
+linkToRecordA f r = 
+  let uri = obsURI r
+  in H.a H.! A.href uri $ H.toHtml $ f r
 

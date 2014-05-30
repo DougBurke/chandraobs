@@ -47,6 +47,7 @@ executable webserver
     base >= 4.6 && < 4.8
     , blaze-html == 0.7.*
     , data-default == 0.5.*
+    , edit-distance == 0.2.*
     , http-types == 0.8.*
     , old-locale == 1.0.*
     , persistent == 1.3.*

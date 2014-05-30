@@ -10,6 +10,7 @@ module Database ( Schedule(..)
                 , getObsId
                 , getRecord
                 , getSchedule
+                , matchName
                 ) where
 
 import Control.Monad (liftM)
@@ -17,6 +18,8 @@ import Control.Monad (liftM)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
 import Safe (headMay, lastMay)
+
+import Text.EditDistance (defaultEditCosts, restrictedDamerauLevenshteinDistance)
 
 import HackData
 import PersistentTypes
@@ -126,4 +129,20 @@ getSchedule ndays = do
 
   return $ Schedule now ndays (reverse rprevs) mobs nexts
 
+-- | Use the  restricted Damerau-Levenshtein edit distance to look for similar
+--   strings. Since the field names are short, we use an edit distance of 3
+--   as the cut off (needs verification).
+--
+similarName :: 
+  String     -- ^ user-supplied name
+  -> String  -- ^ target name
+  -> Bool    -- ^ @True@ if they are similar
+similarName name1 name2 = 
+  restrictedDamerauLevenshteinDistance defaultEditCosts name1 name2 <= 3
+
+-- | Find observations with a similar name.
+matchName :: String -> IO [Record]
+matchName name = 
+  let matches = filter (similarName name . recordTarget) testSchedule
+  in return matches
 
