@@ -3,11 +3,7 @@
 -- | general routines
 
 module Utils (
-     ObsInfo(..)
-     , ObsStatus(..)
-     , ChandraTime(..)
-     , showCTime
-     , defaultMeta
+     defaultMeta
      , fromBlaze
      , obsURI
      , obsURIString
@@ -19,7 +15,7 @@ module Utils (
      , showTimeDeltaFwd
      , showTimeDeltaBwd
      , detailsLink, abstractLink
-     , getObsStatus, getTimes
+     , getTimes
      , renderLinks
      , getFact
      , linkToRecord
@@ -42,37 +38,6 @@ import Text.Printf
 import Web.Scotty
 
 import Types (Record(..), ObsName(..), Grating(..))
-
--- | I just want a simple way of passing around 
---   useful information about an observation.
-data ObsInfo = ObsInfo {
-  oiCurrentObs :: Record
-  , oiPrevObs  :: Maybe Record
-  , oiNextObs  :: Maybe Record
-  }
-
--- | A wrapper around `UTCTime` so that we can use our
---   own `ToMarkup` and `ToValue` instances.
---
-newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
-  deriving (Eq, Ord)
-
--- | Create a \"nice\" display of the time:
---   \"HH:MM Day, DN Month, Year (UTC)\", where Day and Month
---   are the (full) names and DN is the day number within
---   the month.
---
---   This does not correct for time zones.
-showCTime :: ChandraTime -> String
-showCTime ct = 
-  let utc = _toUTCTime ct
-  in formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc
-
-instance H.ToMarkup ChandraTime where
-  toMarkup = H.toMarkup . showCTime
-
-instance H.ToValue ChandraTime where
-  toValue = H.toValue . showCTime
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -410,19 +375,6 @@ getTimes rs =
       expTime = fromInteger . ceiling $ 1000 * recordTime rs
       eTime = addUTCTime expTime sTime
   in (sTime, eTime)
-
-data ObsStatus = Done | Doing | Todo deriving Eq
-
-getObsStatus :: 
-  (UTCTime, UTCTime) -- observation start and end times
-  -> UTCTime        -- current time
-  -> ObsStatus
-getObsStatus (sTime,eTime) cTime = 
-  if cTime < sTime
-  then Todo
-  else if cTime <= eTime
-       then Doing
-       else Done
 
 -- | Return a "random" Chandra fact. The HTML is inserted into
 --   a div with class of "fact".

@@ -2,15 +2,23 @@
 
 -- | Set up some types for representing Chandra observations.
 
-module Types (Record(..),
-              Instrument(..),
-              Grating(..),
-              ObsName(..)
+module Types (Record(..)
+              , Instrument(..)
+              , Grating(..)
+              , ObsName(..)
+              , ObsInfo(..)
+              , ObsStatus(..)
+              , ChandraTime(..)
+              , getObsStatus
+              , showCTime
+
   ) where
 
 import qualified Text.Blaze.Html5 as H
 
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, formatTime)
+
+import System.Locale (defaultTimeLocale)
 
 -- | The instrument being used.
 data Instrument = ACISS | ACISI | HRCI | HRCS deriving (Eq, Show)
@@ -67,3 +75,48 @@ data Record = Record {
   , recordPitch :: Double
   , recordSlew :: Double
   } deriving (Eq, Show)
+
+-- | I just want a simple way of passing around 
+--   useful information about an observation.
+data ObsInfo = ObsInfo {
+  oiCurrentObs :: Record
+  , oiPrevObs  :: Maybe Record
+  , oiNextObs  :: Maybe Record
+  }
+
+-- | A wrapper around `UTCTime` so that we can use our
+--   own `ToMarkup` and `ToValue` instances.
+--
+newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
+  deriving (Eq, Ord)
+
+-- | Create a \"nice\" display of the time:
+--   \"HH:MM Day, DN Month, Year (UTC)\", where Day and Month
+--   are the (full) names and DN is the day number within
+--   the month.
+--
+--   This does not correct for time zones.
+showCTime :: ChandraTime -> String
+showCTime ct = 
+  let utc = _toUTCTime ct
+  in formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc
+
+instance H.ToMarkup ChandraTime where
+  toMarkup = H.toMarkup . showCTime
+
+instance H.ToValue ChandraTime where
+  toValue = H.toValue . showCTime
+
+data ObsStatus = Done | Doing | Todo deriving Eq
+
+getObsStatus :: 
+  (UTCTime, UTCTime) -- observation start and end times
+  -> UTCTime        -- current time
+  -> ObsStatus
+getObsStatus (sTime,eTime) cTime = 
+  if cTime < sTime
+  then Todo
+  else if cTime <= eTime
+       then Doing
+       else Done
+

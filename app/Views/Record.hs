@@ -26,13 +26,16 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Record(..), ObsName(..), Instrument, Grating(..))
-import Utils ( ObsInfo(..), ObsStatus(..)
-             , abstractLink, defaultMeta
+import Types (Record(..), ObsName(..),
+              Instrument, Grating(..),
+              ObsInfo(..), ObsStatus(..),
+              getObsStatus)
+import Utils ( 
+             abstractLink, defaultMeta
              , obsURI, renderLinks, showExp
              , showTimeDeltaFwd
              , showTimeDeltaBwd
-             , getObsStatus, getTimes
+             , getTimes
              , linkToRecordA
              )
 

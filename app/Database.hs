@@ -21,8 +21,7 @@ import Safe (headMay, lastMay)
 
 import HackData
 
-import Types (Record(..), ObsName(..))
-import Utils (ObsInfo(..))
+import Types (Record(..), ObsName(..), ObsInfo(..))
 
 -- | Return the current observation
 getCurrentObs :: IO (Maybe Record)

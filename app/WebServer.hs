@@ -35,8 +35,8 @@ import Web.Scotty
 import Database (getCurrentObs, getRecord, getObsInfo,
                  getObsId, getSpecialObs, getSchedule,
                  matchSeqNum)
-import Types (ObsName(..))
-import Utils (ObsInfo(..), fromBlaze, standardResponse, getFact)
+import Types (ObsName(..), ObsInfo(..))
+import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
 readInt s = case reads s of

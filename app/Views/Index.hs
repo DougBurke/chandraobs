@@ -16,8 +16,8 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Record(..))
-import Utils (ObsInfo(..), defaultMeta, renderLinks)
+import Types (Record(..), ObsInfo(..))
+import Utils (defaultMeta, renderLinks)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
 
