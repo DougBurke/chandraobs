@@ -117,7 +117,7 @@ plural i = if i > 1 then "s" else ""
 getTimeElems ::
   UTCTime     -- time 1
   -> UTCTime  -- time 2, >= time 1
-  -> (NominalDiffTime, Int, Int, Int, NominalDiffTime, NominalDiffTime, NominalDiffTime, String)
+  -> (NominalDiffTime, Int, Int, Int, NominalDiffTime, NominalDiffTime, NominalDiffTime)
 getTimeElems t1 t2 = 
   let delta = diffUTCTime t2 t1
       m = delta / 60
@@ -127,9 +127,12 @@ getTimeElems t1 t2 =
       nh = round h
       nd = round d
 
-      other = formatTime defaultTimeLocale "%A, %B %e, %Y" t2
+  in (delta, nd, nh, nm, d, h, m)
 
-  in (delta, nd, nh, nm, d, h, m, other)
+-- | Report a day that's more than about a week in the
+--   future or past.
+showTime :: UTCTime -> String
+showTime = formatTime defaultTimeLocale "%A, %B %e, %Y"
 
 -- | Come up with a string representing the time difference. It
 --   is probably not general enough, since it adds in a
@@ -140,11 +143,12 @@ showTimeDeltaFwd ::
   -> ChandraTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
 showTimeDeltaFwd t1 (ChandraTime t2) = 
-  let (delta, nd, nh, nm, d, h, m, other) = getTimeElems t1 t2
+  let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       mins = "in " <> show nm <> " minute" <> plural nm
       hours = "in " <> show nh <> " hour" <> plural nh
       days = "in " <> show nd <> " day" <> plural nd
+      other = showTime t2
 
   in if delta < 60
      then "now"
@@ -164,11 +168,12 @@ showTimeDeltaBwd ::
   -> UTCTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
 showTimeDeltaBwd (ChandraTime t1) t2 = 
-  let (delta, nd, nh, nm, d, h, m, other) = getTimeElems t1 t2
+  let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       mins = show nm <> " minute" <> plural nm <> " ago"
       hours = show nh <> " hour" <> plural nh <> " ago"
       days = show nd <> " day" <> plural nd <> " ago"
+      other = showTime t1
 
   in if delta < 60
      then "now"
