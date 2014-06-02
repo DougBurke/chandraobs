@@ -38,7 +38,8 @@ import Text.Printf
 
 import Web.Scotty
 
-import Types (Record(..), ObsName(..), Sequence(..), Grating(..), RA(..), Dec(..), ChandraTime(..))
+import Types (ObsName(..), ObsIdVal(..), Sequence(..), Grating(..), RA(..), Dec(..), ChandraTime(..), TimeKS(..))
+import Types (Record, recordSequence, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, recordRoll, recordPitch, recordSlew)
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -48,7 +49,7 @@ obsURI = H.toValue . obsURIString
 obsURIString :: Record -> String
 obsURIString rs = 
   case recordObsname rs of
-    ObsId i -> "/obsid/" <> show i
+    ObsId (ObsIdVal i) -> "/obsid/" <> show i
     SpecialObs s -> "/obs/" <> s
 
 fromBlaze :: H.Html -> ActionM ()
@@ -74,8 +75,8 @@ defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
 --   1 day + 1 minute will get reported as
 --   "1 day 1 hour".
 --
-showExpTime :: Double -> String
-showExpTime tks = 
+showExpTime :: TimeKS -> String
+showExpTime (TimeKS tks) = 
   let s = tks * 1000
       m = s / 60
       h = m / 60
@@ -189,17 +190,18 @@ showExp = H.toHtml . showExpTime . recordTime
 -- in a more-friendly manner than as a link from the obsid or
 -- sequence number.
 --
-obsIdLink, seqLink :: Int -> H.AttributeValue
+obsIdLink :: ObsIdVal -> H.AttributeValue
 obsIdLink obsId =
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=" ++ show obsId
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=" ++ show (fromObsId obsId)
 
+seqLink :: ObsIdVal -> H.AttributeValue
 seqLink obsId =
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show obsId
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show (fromObsId obsId)
 
-detailsLink, abstractLink :: Int -> H.AttributeValue
+detailsLink, abstractLink :: ObsIdVal -> H.AttributeValue
 detailsLink = obsIdLink
 abstractLink obsId = 
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show obsId
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show (fromObsId obsId)
 
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.
@@ -292,7 +294,7 @@ showDec (Dec dec) =
       c = if dec < 0 then '-' else '+'
   in printf "%c%dd %d' %.1f\"" c d m s
 
-safeObsId :: ObsName -> Maybe Int
+safeObsId :: ObsName -> Maybe ObsIdVal
 safeObsId (ObsId i) = Just i
 safeObsId _         = Nothing
 
@@ -344,8 +346,7 @@ renderLinks f rs =
                       ]
 
   in case mrec of
-    Nothing -> ""
-    Just (Sequence seqNum, obsId) ->
+    Just (Sequence seqNum, ObsIdVal obsId) ->
        let urlHead = mconcat [ "http://asc.harvard.edu/targets/"
                              , show seqNum, "/", show seqNum, "."
                              , show obsId, ".soe."
@@ -368,13 +369,14 @@ renderLinks f rs =
            link "RASS" "rass" False <>
            renderObsIdDetails rs) 
 
+    Nothing -> mempty
 
 getTimes ::
   Record
   -> (ChandraTime, ChandraTime) -- start and end times
 getTimes rs =
   let sTime = _toUTCTime $ recordStartTime rs
-      expTime = fromInteger . ceiling $ 1000 * recordTime rs
+      expTime = fromInteger . ceiling $ 1000 * _toS (recordTime rs)
       eTime = addUTCTime expTime sTime
   in (ChandraTime sTime, ChandraTime eTime)
 

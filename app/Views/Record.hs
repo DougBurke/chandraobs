@@ -27,11 +27,12 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Record(..), ObsName(..),
+import Types (ObsName(..), ObsIdVal(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
               getObsStatus)
+import Types (Record, recordSequence, recordObsname, recordTarget, recordInstrument, recordGrating)
 import Utils ( 
              abstractLink, defaultMeta
              , obsURI, renderLinks, showExp
@@ -184,7 +185,7 @@ groupProposal matches =
       grps = groupBy ((==) `on` fst) obs
 
       -- special case knowledge of URI mapping, should be abstracted out
-      toURI o = toValue $ "/obsid/" ++ show o
+      toURI (ObsIdVal o) = toValue $ "/obsid/" ++ show o
       toLink o = a ! href (toURI o) $ toHtml o
 
       tgtLinks [] = mempty -- should not happen

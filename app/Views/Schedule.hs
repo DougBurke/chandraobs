@@ -19,7 +19,8 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Record(..), ObsName(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..))
+import Types (ObsName(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..), TimeKS(..))
+import Types (Record, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec)
 import Utils (defaultMeta, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,
               showRA, showDec,
@@ -70,7 +71,7 @@ schedPage sched =
 idLabel :: Record -> String
 idLabel = lbl . recordObsname
   where
-    lbl (ObsId ival) = "i" <> show ival
+    lbl (ObsId (ObsIdVal ival)) = "i" <> show ival
     lbl (SpecialObs sval) = sval
 
 -- | The previous schedule could be displayed if there is
@@ -126,9 +127,11 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       dataRow :: String -> Record -> Html
       dataRow s r =
         let (x, y) = getLongLat r
+        -- we want to store the raw values, so extract numeric values from
+        -- RA/Dec/time/... where appropriate    
         in mconcat [" { longitude: ", toHtml (180 - _unRA x),
                     ", latitude: ", toHtml (_unDec y),
-                    ", texp: ", toHtml (recordTime r),
+                    ", texp: ", toHtml (_toS (recordTime r)),
                     ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),
                     ", urifrag: ", conv (obsURIString r),

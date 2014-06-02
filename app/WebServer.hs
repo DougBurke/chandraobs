@@ -35,7 +35,7 @@ import Web.Scotty
 import Database (getCurrentObs, getRecord, getObsInfo,
                  getObsId, getSpecialObs, getSchedule,
                  matchSeqNum)
-import Types (ObsName(..), ObsInfo(..))
+import Types (ObsName(..), ObsInfo(..), ObsIdVal(..))
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -113,25 +113,25 @@ webapp = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs []
-        _        -> status status404 -- TODO: want an error page
+        _        -> status status404
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
-      mobs <- liftIO $ getObsId obsid
+      mobs <- liftIO $ getObsId $ ObsIdVal obsid
       mCurrent <- liftIO getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
           matches <- liftIO $ matchSeqNum $ oiCurrentObs obs
           fromBlaze $ Record.recordPage cTime mCurrent obs matches
-        _        -> status status404 -- TODO: want an error page
+        _        -> status status404
 
     get "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mrecord <- liftIO $ getRecord (ObsId obsid)
+      mrecord <- liftIO $ getRecord $ ObsId $ ObsIdVal obsid
       case mrecord of
         Just record -> fromBlaze $ WWT.wwtPage False record
-        _           -> status status404 -- TODO: want an error page
+        _           -> status status404
 
     get "/schedule" $ redirect "/schedule/index.html"
     get "/schedule/index.html" $ do
@@ -182,14 +182,14 @@ webapp = do
 
     addroute HEAD "/obsid/:obsid" $ do
       obsid <- param "obsid"
-      mobs <- liftIO $ getObsId obsid
+      mobs <- liftIO $ getObsId $ ObsIdVal obsid
       case mobs of
         Just _ -> standardResponse
         _      -> status status404
 
     addroute HEAD "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mrecord <- liftIO $ getRecord (ObsId obsid)
+      mrecord <- liftIO $ getRecord $ ObsId $ ObsIdVal obsid
       case mrecord of
         Just _ -> standardResponse
         _      -> status status404

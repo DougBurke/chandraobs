@@ -2,25 +2,34 @@
 
 -- | Set up some types for representing Chandra observations.
 
-module Types ( Record(..)
-              , ScheduleItem(..)
+module Types ( ScheduleItem(..)
               , Schedule(..)
               , Sequence(..)
               , RA(..), Dec(..)
               , Instrument(..)
               , Grating(..)
               , ObsName(..)
+              , ObsIdVal(..)
               , ObsInfo(..)
               , ObsStatus(..)
               , ChandraTime(..)
+              , TimeKS(..)
+              , ScienceObs(..)
+              , ConstrainedObs(..)
+              , NonScienceObs(..)
               , getObsStatus
               , toCTime
               , showCTime
+              , endCTime
+
+                -- * Temporary types and routines
+              , Record
+              , recordSequence, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, recordRoll, recordPitch, recordSlew
   ) where
 
 import qualified Text.Blaze.Html5 as H
 
-import Data.Time (UTCTime, formatTime, readTime)
+import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
 import System.Locale (defaultTimeLocale)
 
@@ -52,7 +61,21 @@ instance H.ToValue Grating where
   toValue HETG = "High Energy Transmission Grating (HETG)"
   toValue NONE = "No grating"
 
-data ObsName = SpecialObs String | ObsId Int deriving (Eq, Show)
+-- | Represent an observation identifier.
+--
+--   Due to a clash with @ObsName@ we use @ObsIdVal@
+--   for now, but it's planned to move to @ObsId@.
+newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
+  deriving (Eq, Show)
+
+instance H.ToMarkup ObsIdVal where
+  toMarkup (ObsIdVal i) = H.toMarkup i
+
+instance H.ToValue ObsIdVal where
+  toValue (ObsIdVal i) = H.toValue i
+
+-- | This is likely being deleted, or the @ObsId@ constructor renamed.
+data ObsName = SpecialObs String | ObsId ObsIdVal deriving (Eq, Show)
 
 instance H.ToMarkup ObsName where
   toMarkup (SpecialObs s) = H.toMarkup s
@@ -64,13 +87,14 @@ instance H.ToValue ObsName where
 
 -- | Represent an entry in the short-term schedule.
 --
+{-
 data Record = Record {
   recordSequence :: Maybe Sequence
   , recordObsname :: ObsName
   , recordContraint :: Maybe Int
   , recordTarget :: String
   , recordStartTime :: ChandraTime
-  , recordTime :: Double
+  , recordTime :: TimeKS
   , recordInstrument :: Maybe Instrument
   , recordGrating :: Maybe Grating
   , recordRa :: RA
@@ -79,6 +103,48 @@ data Record = Record {
   , recordPitch :: Double
   , recordSlew :: Double
   } deriving (Eq, Show)
+-}
+
+type Record = Either NonScienceObs ScienceObs
+
+-- hacks for quickly converting old code
+
+recordSequence :: Record -> Maybe Sequence
+recordSequence = either (const Nothing) (Just . soSequence)
+
+recordObsname :: Record -> ObsName
+recordObsname = either (SpecialObs . nsName) (ObsId . soObsId)
+
+recordTarget :: Record -> String
+recordTarget = either nsTarget soTarget
+
+recordStartTime :: Record -> ChandraTime
+recordStartTime = either nsStartTime soStartTime
+
+recordTime :: Record -> TimeKS
+recordTime = either nsTime soTime
+
+recordInstrument :: Record -> Maybe Instrument
+recordInstrument = either (const Nothing) (Just . soInstrument)
+
+recordGrating :: Record -> Maybe Grating
+recordGrating = either (const Nothing) (Just . soGrating)
+
+recordRa :: Record -> RA
+recordRa = either nsRa soRa 
+
+recordDec :: Record -> Dec
+recordDec = either nsDec soDec 
+
+recordRoll :: Record -> Double
+recordRoll = either nsRoll soRoll
+
+recordPitch :: Record -> Double
+recordPitch = either nsPitch soPitch
+
+recordSlew :: Record -> Double
+recordSlew = either nsSlew soSlew 
+
 
 -- | I just want a simple way of passing around 
 --   useful information about an observation.
@@ -86,7 +152,7 @@ data ObsInfo = ObsInfo {
   oiCurrentObs :: Record
   , oiPrevObs  :: Maybe Record
   , oiNextObs  :: Maybe Record
-  }
+  } deriving (Eq, Show)
 
 -- | A wrapper around `UTCTime` so that we can use our
 --   own `ToMarkup` and `ToValue` instances.
@@ -121,6 +187,11 @@ showCTime :: ChandraTime -> String
 showCTime ct = 
   let utc = _toUTCTime ct
   in formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc
+
+endCTime :: ChandraTime -> TimeKS -> ChandraTime
+endCTime (ChandraTime start) (TimeKS elen) =
+  let delta = fromRational . toRational $ 1000 * elen
+  in ChandraTime $ addUTCTime delta start
 
 instance H.ToMarkup ChandraTime where
   toMarkup = H.toMarkup . showCTime
@@ -173,11 +244,60 @@ data Schedule =
    , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
    }
 
+-- | Represent a value in kiloseconds.
+newtype TimeKS = TimeKS { _toS :: Double } deriving (Eq, Show)
+
+instance H.ToMarkup TimeKS where
+  toMarkup = H.toMarkup . _toS
+
+instance H.ToValue TimeKS where
+  toValue = H.toValue . _toS
+
 -- | A scheduled observation (may be in the past, present, or future).
 --
-data ScheduleItem = ScheduledItem {
-    siObsId :: ObsName
-    , siSequence :: Maybe Sequence
+--   The information is taken from <http://cxc.cfa.harvard.edu/target_lists/stscheds/>,
+--   and contains information we store elsewhere.
+data ScheduleItem = ScheduleItem {
+    siObsName :: ObsName
+    , siStart :: ChandraTime
+    , siEnd :: ChandraTime     -- approx end time
+    , siDuration :: TimeKS
     } deriving (Eq, Show)
 
-               
+-- | Represent a science observation.
+data ScienceObs = ScienceObs {
+  soSequence :: Sequence
+  , soObsId :: ObsIdVal
+  , soTarget :: String
+  , soStartTime :: ChandraTime
+  , soTime :: TimeKS
+  , soInstrument :: Instrument
+  , soGrating :: Grating
+  , soRa :: RA
+  , soDec :: Dec
+  , soRoll :: Double
+  , soPitch :: Double
+  , soSlew :: Double
+  , soContraint :: [ConstrainedObs] -- do we ever have multiple constraints?
+  } deriving (Eq, Show)
+
+-- | An observation at another facility that overlaps in time with
+--   a Chandra observation.
+data ConstrainedObs = ConstrainedObs {
+  coFacility :: String    -- name of facility
+  , coTime :: TimeKS      -- observation length
+  } deriving (Eq, Show)
+
+-- | Represent a non-science/cal observation.
+data NonScienceObs = NonScienceObs {
+  nsName :: String             -- the STS has a string identifier; where does this come from?
+  , nsObsId :: ObsIdVal
+  , nsTarget :: String
+  , nsStartTime :: ChandraTime
+  , nsTime :: TimeKS
+  , nsRa :: RA
+  , nsDec :: Dec
+  , nsRoll :: Double
+  , nsPitch :: Double
+  , nsSlew :: Double
+  } deriving (Eq, Show)
