@@ -3,6 +3,8 @@
 --
 module HackData (testSchedule) where
 
+import Control.Applicative ((<$>))
+
 import Data.Time (UTCTime, readTime)
 
 import System.Locale (defaultTimeLocale)
@@ -53,7 +55,7 @@ toR ::
   -> Double     -- slew
   -> Record
 toR mseq obs mcon tgt stTime = 
-  Record mseq obs mcon tgt (toTime stTime)
+  Record (Sequence <$> mseq) obs mcon tgt (toTime stTime)
 
 testSchedule :: [Record]
 testSchedule = [

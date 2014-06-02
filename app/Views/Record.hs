@@ -11,14 +11,16 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude (($), (==), (&&), (++), Eq, Bool(..), Maybe(..), null, return, show)
+import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Maybe(..), fst, null, return, show, snd)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Applicative ((<$>))
+import Control.Arrow ((&&&))
 
-import Data.List (intersperse)
+import Data.Function (on)
+import Data.List (groupBy, intersperse)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -36,7 +38,6 @@ import Utils (
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
-             , linkToRecordA
              )
 
 -- The specific page for this observation. At present I have not
@@ -167,6 +168,28 @@ instLink inst =
   let iLink = "/about/instruments.html#" <> toValue inst
   in a ! href iLink $ toHtml inst
 
+-- | Given a list of observations from a proposal, group them by target name.
+--
+groupProposal ::
+  [Record]  -- these are expected to be science observations
+  -> Html
+groupProposal matches =
+  let obs = P.map (recordTarget &&& getObsId) matches
+      getObsId r = case recordObsname r of
+                       (ObsId ival) -> show ival
+                       (SpecialObs s) -> s -- do not expect to get this here
+
+      grps = groupBy ((==) `on` fst) obs
+
+      -- special case knowledge of URI mapping, should be abstracted out
+      toURI o = toValue $ "/obsid/" ++ o
+      toLink o = a ! href (toURI o) $ toHtml o
+
+      tgtLinks [] = mempty -- should not happen
+      tgtLinks xs@(x:_) = mconcat $ [toHtml (fst x), " ("] ++ intersperse ", " (P.map (toLink . snd) xs) ++ [")"]
+
+  in mconcat $ intersperse "; " $ P.map tgtLinks grps
+     
 -- | Display information for a \"science\" observation.
 targetInfo :: 
   UTCTime    -- current time
@@ -201,13 +224,7 @@ targetInfo cTime rs matches =
       otherMatches = 
         if null matches
         then mempty
-        else mconcat $ (" See related observations: " : matchLinks) ++ ["."]
-
-      getObsId r = case recordObsname r of
-                       (ObsId ival) -> show ival
-                       (SpecialObs s) -> s -- do not expect to get this here
-      mkLabel r = mconcat [ recordTarget r, " (", getObsId r, ")"]
-      matchLinks = intersperse "; " $ P.map (linkToRecordA mkLabel) matches
+        else mconcat [" See related observations: ", groupProposal matches, "."]
 
       -- Does blaze quote/protect URLs? It appears not,
       -- or perhaps I just didn't look correctly.

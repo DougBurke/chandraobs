@@ -2,7 +2,9 @@
 
 -- | Set up some types for representing Chandra observations.
 
-module Types (Record(..)
+module Types ( Record(..)
+              , ScheduleItem(..)
+              , Sequence(..)  
               , Instrument(..)
               , Grating(..)
               , ObsName(..)
@@ -61,7 +63,7 @@ instance H.ToValue ObsName where
 -- | Represent an entry in the short-term schedule.
 --
 data Record = Record {
-  recordSequence :: Maybe Int
+  recordSequence :: Maybe Sequence
   , recordObsname :: ObsName
   , recordContraint :: Maybe Int
   , recordTarget :: String
@@ -118,3 +120,17 @@ getObsStatus (sTime,eTime) cTime
   | cTime <= eTime   = Doing
   | otherwise        = Done
 
+-- | Represent a Chandra sequence number.
+newtype Sequence = Sequence { _unSequence :: Int } deriving (Eq, Show)
+
+instance H.ToMarkup Sequence where
+  toMarkup = H.toMarkup . _unSequence
+
+-- | A scheduled observation (may be in the past, present, or future).
+--
+data ScheduleItem = ScheduledItem {
+    siObsId :: ObsName
+    , siSequence :: Maybe Sequence
+    } deriving (Eq, Show)
+
+               

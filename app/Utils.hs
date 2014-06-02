@@ -37,7 +37,7 @@ import Text.Printf
 
 import Web.Scotty
 
-import Types (Record(..), ObsName(..), Grating(..))
+import Types (Record(..), ObsName(..), Sequence(..), Grating(..))
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -344,7 +344,7 @@ renderLinks f rs =
 
   in case mrec of
     Nothing -> ""
-    Just (seqNum, obsId) ->
+    Just (Sequence seqNum, obsId) ->
        let urlHead = mconcat [ "http://asc.harvard.edu/targets/"
                              , show seqNum, "/", show seqNum, "."
                              , show obsId, ".soe."
