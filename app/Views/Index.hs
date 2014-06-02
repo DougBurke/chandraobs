@@ -58,7 +58,7 @@ tourElements =
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
-  -> [Record]  -- records with a similar name
+  -> [Record]  -- records with the same sequence number
   -> Html
 introPage cTime oi@(ObsInfo currentObs _ _) matches =
   let initialize = "initialize(); addTour();"

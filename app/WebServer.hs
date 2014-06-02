@@ -34,8 +34,7 @@ import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo,
                  getObsId, getSpecialObs, getSchedule,
-                 matchName)
-import PersistentTypes
+                 matchSeqNum)
 import Types (ObsName(..))
 import Utils (ObsInfo(..), fromBlaze, standardResponse, getFact)
 
@@ -97,8 +96,8 @@ webapp = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          matches <- liftIO $ matchName $ recordTarget $ oiCurrentObs obs
-          fromBlaze $ Index.introPage cTime obs (filter (/= oiCurrentObs obs) matches)
+          matches <- liftIO $ matchSeqNum $ oiCurrentObs obs
+          fromBlaze $ Index.introPage cTime obs matches
         _        -> fromBlaze Index.noDataPage
 
     get "/wwt.html" $ do
@@ -113,7 +112,7 @@ webapp = do
       mCurrent <- liftIO getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs
+        Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs []
         _        -> status status404 -- TODO: want an error page
 
     get "/obsid/:obsid" $ do
@@ -122,7 +121,9 @@ webapp = do
       mCurrent <- liftIO getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
-        Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs
+        Just obs -> do
+          matches <- liftIO $ matchSeqNum $ oiCurrentObs obs
+          fromBlaze $ Record.recordPage cTime mCurrent obs matches
         _        -> status status404 -- TODO: want an error page
 
     get "/obsid/:obsid/wwt" $ do

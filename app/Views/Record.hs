@@ -46,8 +46,9 @@ recordPage ::
   UTCTime  -- the current time
   -> Maybe Record -- the currently running observation
   -> ObsInfo  -- the observation being displayed
+  -> [Record] -- related observations (same sequence number)
   -> Html
-recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
+recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
   let initialize = "initialize()"
 
       obsName = recordObsname thisObs
@@ -67,7 +68,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
      (mainNavBar CPOther
       <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime thisObs []
+         (renderStuff cTime thisObs matches
           <> renderLinks False thisObs)
       <> (div ! id "otherBar") renderTwitter)
 
@@ -81,7 +82,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) =
 renderStuff :: 
   UTCTime           -- Current time
   -> Record
-  -> [Record]       -- possibly related observations 
+  -> [Record]       -- observations with the same sequence number
   -> Html
 renderStuff cTime rs matches = 
   div ! id "observation" $
@@ -169,7 +170,7 @@ targetInfo ::
   UTCTime    -- current time
   -> Record  -- this is assumed to be for an ObsId, not SpecialObs
              -- ie it will crash if it is not sent one.
-  -> [Record] -- possibly-related observations
+  -> [Record] -- observations with the same sequence number
   -> Html
 targetInfo cTime rs matches = 
   let targetStr = recordTarget rs
