@@ -113,10 +113,8 @@ getObsStatus ::
   (UTCTime, UTCTime) -- observation start and end times
   -> UTCTime        -- current time
   -> ObsStatus
-getObsStatus (sTime,eTime) cTime = 
-  if cTime < sTime
-  then Todo
-  else if cTime <= eTime
-       then Doing
-       else Done
+getObsStatus (sTime,eTime) cTime 
+  | cTime < sTime    = Todo
+  | cTime <= eTime   = Doing
+  | otherwise        = Done
 

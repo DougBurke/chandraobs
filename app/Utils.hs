@@ -27,7 +27,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
-import Data.Time (UTCTime, addUTCTime, diffUTCTime, formatTime)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 
 import System.Locale (defaultTimeLocale)
 import System.Random (Random(..), getStdRandom)
@@ -112,6 +112,23 @@ showUnits v s u1 u2 =
 plural :: Int -> String
 plural i = if i > 1 then "s" else ""
 
+getTimeElems ::
+  UTCTime     -- time 1
+  -> UTCTime  -- time 2, >= time 1
+  -> (NominalDiffTime, Int, Int, Int, NominalDiffTime, NominalDiffTime, NominalDiffTime, String)
+getTimeElems t1 t2 = 
+  let delta = diffUTCTime t2 t1
+      m = delta / 60
+      h = delta / 3600
+      d = delta / (24 * 3600)
+      nm = round m -- ceiling or round
+      nh = round h
+      nd = round d
+
+      other = formatTime defaultTimeLocale "%A, %B %e, %Y" t2
+
+  in (delta, nd, nh, nm, d, h, m, other)
+
 -- | Come up with a string representing the time difference. It
 --   is probably not general enough, since it adds in a
 --   prefix (here, "in"), in most cases. So, this is to be
@@ -121,19 +138,11 @@ showTimeDeltaFwd ::
   -> UTCTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
 showTimeDeltaFwd t1 t2 = 
-  let delta = diffUTCTime t2 t1
-      m = delta / 60
-      h = delta / 3600
-      d = delta / (24 * 3600)
-      nm = round m -- ceiling or round
-      nh = round h
-      nd = round d
+  let (delta, nd, nh, nm, d, h, m, other) = getTimeElems t1 t2
 
       mins = "in " <> show nm <> " minute" <> plural nm
       hours = "in " <> show nh <> " hour" <> plural nh
       days = "in " <> show nd <> " day" <> plural nd
-
-      other = formatTime defaultTimeLocale "%A, %B %e, %Y" t2
 
   in if delta < 60
      then "now"
@@ -153,19 +162,11 @@ showTimeDeltaBwd ::
   -> UTCTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
 showTimeDeltaBwd t1 t2 = 
-  let delta = diffUTCTime t2 t1
-      m = delta / 60
-      h = delta / 3600
-      d = delta / (24 * 3600)
-      nm = round m -- ceiling or round
-      nh = round h
-      nd = round d
+  let (delta, nd, nh, nm, d, h, m, other) = getTimeElems t1 t2
 
       mins = show nm <> " minute" <> plural nm <> " ago"
       hours = show nh <> " hour" <> plural nh <> " ago"
       days = show nd <> " day" <> plural nd <> " ago"
-
-      other = formatTime defaultTimeLocale "%A, %B %e, %Y" t2
 
   in if delta < 60
      then "now"

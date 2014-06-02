@@ -127,7 +127,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       -- gah - manual conversion to JSON
       dataRow :: String -> Record -> Html
       dataRow s r =
-        let (x, y) = getLongLat $ r
+        let (x, y) = getLongLat r
         in mconcat [" { longitude: ", toHtml (180 - x),
                     ", latitude: ", toHtml y,
                     ", texp: ", toHtml (recordTime r),
@@ -149,7 +149,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
 
     -- Set up the coordinates
     script ! type_ "text/javascript" $ do
-      void $ "var obsinfo = ["
+      void "var obsinfo = ["
       mapM_ (dataRow "done") done
       dataRow "doing" doing
       mapM_ (dataRow "todo") todo
