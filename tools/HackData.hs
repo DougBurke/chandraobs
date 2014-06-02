@@ -5,23 +5,7 @@ module HackData (testSchedule) where
 
 import Control.Applicative ((<$>))
 
-import Data.Time (UTCTime, readTime)
-
-import System.Locale (defaultTimeLocale)
-
 import Types
-
--- Convert values like "2014:132:03:08:49.668"
--- to a time. This is 
---    year number : day number : hh :: mm :: ss.sss
--- in UTC (I guess)
---
--- for now assume all inputs are valid. Hopefully the DOY
--- values are all zero-padded to three characters and
--- start at 1
---
-toTime :: String -> UTCTime
-toTime =  readTime defaultTimeLocale "%Y:%j:%T%Q"
 
 {-
 -- | This requires CIAO, since it uses prop_precess. It would
@@ -44,7 +28,7 @@ toR ::
   -> ObsName
   -> Maybe Int  -- number of constraints; probably dropping
   -> String     -- target name
-  -> String     -- start time (passed to toTime)
+  -> String     -- start time (passed to toCTime)
   -> Double     -- exposure time
   -> Maybe Instrument
   -> Maybe Grating
@@ -55,7 +39,7 @@ toR ::
   -> Double     -- slew
   -> Record
 toR mseq obs mcon tgt stTime eval minst mgrat ra dec = 
-  Record (Sequence <$> mseq) obs mcon tgt (toTime stTime) eval minst mgrat (RA ra) (Dec dec)
+  Record (Sequence <$> mseq) obs mcon tgt (toCTime stTime) eval minst mgrat (RA ra) (Dec dec)
 
 testSchedule :: [Record]
 testSchedule = [

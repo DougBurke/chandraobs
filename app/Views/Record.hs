@@ -30,6 +30,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (Record(..), ObsName(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
+              ChandraTime(..),
               getObsStatus)
 import Utils ( 
              abstractLink, defaultMeta
@@ -256,7 +257,7 @@ otherInfo cTime rs =
 --   i.e. if it has been, will be, or is being, observed.
 --
 statusPara :: 
-  (Bool, UTCTime, UTCTime, Record) 
+  (Bool, ChandraTime, ChandraTime, Record) 
   -- ^ True if science obs/False if not,
   --   start time, end time, record
   -> UTCTime    -- ^ current time

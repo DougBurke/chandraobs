@@ -38,7 +38,7 @@ import Text.Printf
 
 import Web.Scotty
 
-import Types (Record(..), ObsName(..), Sequence(..), Grating(..), RA(..), Dec(..))
+import Types (Record(..), ObsName(..), Sequence(..), Grating(..), RA(..), Dec(..), ChandraTime(..))
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -136,9 +136,9 @@ getTimeElems t1 t2 =
 --   used for time differences in the future.
 showTimeDeltaFwd ::
   UTCTime     -- time 1
-  -> UTCTime  -- time 2, >= time 1
+  -> ChandraTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
-showTimeDeltaFwd t1 t2 = 
+showTimeDeltaFwd t1 (ChandraTime t2) = 
   let (delta, nd, nh, nm, d, h, m, other) = getTimeElems t1 t2
 
       mins = "in " <> show nm <> " minute" <> plural nm
@@ -159,10 +159,10 @@ showTimeDeltaFwd t1 t2 =
 --   to be used for time differences in the future; see also
 --   showTimeDeltaBwd.
 showTimeDeltaBwd ::
-  UTCTime     -- time 1
+  ChandraTime     -- time 1
   -> UTCTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
-showTimeDeltaBwd t1 t2 = 
+showTimeDeltaBwd (ChandraTime t1) t2 = 
   let (delta, nd, nh, nm, d, h, m, other) = getTimeElems t1 t2
 
       mins = show nm <> " minute" <> plural nm <> " ago"
@@ -371,12 +371,12 @@ renderLinks f rs =
 
 getTimes ::
   Record
-  -> (UTCTime, UTCTime) -- start and end times
+  -> (ChandraTime, ChandraTime) -- start and end times
 getTimes rs =
-  let sTime = recordStartTime rs
+  let sTime = _toUTCTime $ recordStartTime rs
       expTime = fromInteger . ceiling $ 1000 * recordTime rs
       eTime = addUTCTime expTime sTime
-  in (sTime, eTime)
+  in (ChandraTime sTime, ChandraTime eTime)
 
 -- | Return a "random" Chandra fact. The HTML is inserted into
 --   a div with class of "fact".

@@ -13,13 +13,13 @@ module Types ( Record(..)
               , ObsStatus(..)
               , ChandraTime(..)
               , getObsStatus
+              , toCTime
               , showCTime
-
   ) where
 
 import qualified Text.Blaze.Html5 as H
 
-import Data.Time (UTCTime, formatTime)
+import Data.Time (UTCTime, formatTime, readTime)
 
 import System.Locale (defaultTimeLocale)
 
@@ -68,7 +68,7 @@ data Record = Record {
   , recordObsname :: ObsName
   , recordContraint :: Maybe Int
   , recordTarget :: String
-  , recordStartTime :: UTCTime
+  , recordStartTime :: ChandraTime
   , recordTime :: Double
   , recordInstrument :: Maybe Instrument
   , recordGrating :: Maybe Grating
@@ -91,7 +91,24 @@ data ObsInfo = ObsInfo {
 --   own `ToMarkup` and `ToValue` instances.
 --
 newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
+
+-- | Convert values like "2014:132:03:08:49.668"
+-- to a time. This is
+--
+--  year number : day number : hh : mm : ss.sss
+--
+-- in UTC (I guess)
+--
+-- For now assume all inputs are valid. Hopefully the DOY
+-- values are all zero-padded to three characters and
+-- start at 1.
+--
+-- This will cause an exception if the input string is
+-- incorrectly formatted.
+--
+toCTime :: String -> ChandraTime
+toCTime = ChandraTime . readTime defaultTimeLocale "%Y:%j:%T%Q"
 
 -- | Create a \"nice\" display of the time:
 --   \"HH:MM Day, DN Month, Year (UTC)\", where Day and Month
@@ -113,10 +130,10 @@ instance H.ToValue ChandraTime where
 data ObsStatus = Done | Doing | Todo deriving Eq
 
 getObsStatus :: 
-  (UTCTime, UTCTime) -- observation start and end times
+  (ChandraTime, ChandraTime) -- observation start and end times
   -> UTCTime        -- current time
   -> ObsStatus
-getObsStatus (sTime,eTime) cTime 
+getObsStatus (ChandraTime sTime, ChandraTime eTime) cTime 
   | cTime < sTime    = Todo
   | cTime <= eTime   = Doing
   | otherwise        = Done

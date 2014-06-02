@@ -21,7 +21,7 @@ import Safe (headMay, lastMay)
 
 import HackData
 
-import Types (Record(..), ObsName(..), ObsInfo(..))
+import Types (Record(..), ObsName(..), ObsInfo(..), ChandraTime(..))
 
 -- | Return the current observation
 getCurrentObs :: IO (Maybe Record)
@@ -37,7 +37,7 @@ splitObs ::
   -> [Record] -- ^ observation list, must be time sorted (ascending) and finite
   -> ([Record], Maybe Record, [Record])
 splitObs cTime xs =
-  let (aprevs, nexts) = span ((<= cTime) . recordStartTime) xs
+  let (aprevs, nexts) = span ((<= cTime) . _toUTCTime . recordStartTime) xs
       (mobs, rprevs) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, cs)
@@ -113,8 +113,8 @@ getSchedule ndays = do
       dayEnd = addDays (fromIntegral ndays + 1) dayNow
       dayStart = ModifiedJulianDay $ toModifiedJulianDay dayNow - fromIntegral ndays
 
-      tStart = UTCTime dayStart 0
-      tEnd   = UTCTime dayEnd 0
+      tStart = ChandraTime $ UTCTime dayStart 0
+      tEnd   = ChandraTime $ UTCTime dayEnd 0
 
       -- TODO: should use dropWhile/takeWhile as know testSchedule
       --       is in ascending time order

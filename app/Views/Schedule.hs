@@ -14,7 +14,6 @@ import Control.Monad (void)
 
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
-import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -97,14 +96,14 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
 
       -- convert UTCTime to an integer
       aTime :: Record -> AttributeValue
-      aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . recordStartTime
+      aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . _toUTCTime . recordStartTime
 
       hover r = let lbl = toValue $ idLabel r
                 in tr ! id (toValue lbl)
                       ! onmouseover ("selectObs('" <> lbl <> "');")
                       ! onmouseout  ("deselectObs('" <> lbl <> "');")
       
-      toRow :: (UTCTime -> String) -> Record -> Html
+      toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
          td $ linkToRecord r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
@@ -118,7 +117,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
          td ! dataAttribute "sortvalue" (toValue dec) $ toHtml $ showDec dec
 
       -- TODO: for current row, check whether should be using DeltaBwd/DeltaFwd
-      cRow r = toRow (showTimeDeltaBwd cTime) r ! A.class_ "current"
+      cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
       pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
       nRow r = toRow (showTimeDeltaFwd cTime) r ! A.class_ "next"
 
