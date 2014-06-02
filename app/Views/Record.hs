@@ -26,8 +26,7 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import PersistentTypes
-import Types (ObsName(..), Instrument, Grating(..))
+import Types (Record(..), ObsName(..), Instrument, Grating(..))
 import Utils ( ObsInfo(..), ObsStatus(..)
              , abstractLink, defaultMeta
              , obsURI, renderLinks, showExp

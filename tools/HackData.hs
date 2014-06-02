@@ -8,7 +8,6 @@ import Data.Time (UTCTime, readTime)
 import System.Locale (defaultTimeLocale)
 
 import Types
-import PersistentTypes
 
 -- Convert values like "2014:132:03:08:49.668"
 -- to a time. This is 

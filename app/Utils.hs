@@ -41,8 +41,7 @@ import Text.Printf
 
 import Web.Scotty
 
-import PersistentTypes
-import Types (ObsName(..), Grating(..))
+import Types (Record(..), ObsName(..), Grating(..))
 
 -- | I just want a simple way of passing around 
 --   useful information about an observation.

@@ -29,8 +29,7 @@ flag tools
 -- 'cabal build' confused
 executable webserver
   main-is:             WebServer.hs
-  other-modules:       PersistentTypes
-                       HackData
+  other-modules:       HackData
                        Database
                        Utils
                        Views.Index
@@ -50,9 +49,9 @@ executable webserver
     -- , edit-distance == 0.2.*
     , http-types == 0.8.*
     , old-locale == 1.0.*
-    , persistent == 1.3.*
+    -- , persistent == 1.3.*
     -- , persistent-postgresql == 1.3.*
-    , persistent-template == 1.3.*
+    -- , persistent-template == 1.3.*
     , random == 1.0.*
     , safe >= 0.2 && < 0.4
     , scotty == 0.7.*

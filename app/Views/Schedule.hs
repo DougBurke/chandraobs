@@ -21,8 +21,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Database (Schedule(..))
-import PersistentTypes
-import Types (ObsName(..), Grating(..))
+import Types (Record(..), ObsName(..), Grating(..))
 import Utils (ChandraTime(..),
               defaultMeta, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,

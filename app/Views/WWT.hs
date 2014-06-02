@@ -16,8 +16,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
-import Types (Instrument(..))
-import PersistentTypes
+import Types (Record(..), Instrument(..))
 import Utils (defaultMeta, obsURI)
 import Views.Record (CurrentPage(..), mainNavBar)
 

@@ -20,9 +20,8 @@ import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 import Safe (headMay, lastMay)
 
 import HackData
-import PersistentTypes
 
-import Types (ObsName(..))
+import Types (Record(..), ObsName(..))
 import Utils (ObsInfo(..))
 
 -- | Return the current observation
