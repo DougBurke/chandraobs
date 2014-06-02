@@ -19,8 +19,7 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Database (Schedule(..))
-import Types (Record(..), ObsName(..), Grating(..), ChandraTime(..), RA(..), Dec(..))
+import Types (Record(..), ObsName(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..))
 import Utils (defaultMeta, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,
               showRA, showDec,

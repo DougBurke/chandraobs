@@ -2,8 +2,7 @@
 
 -- | Simple database access shims.
 
-module Database ( Schedule(..)
-                , getCurrentObs
+module Database ( getCurrentObs
                 , getObsInfo
                 , findObsName
                 , getSpecialObs
@@ -21,7 +20,7 @@ import Safe (headMay, lastMay)
 
 import HackData
 
-import Types (Record(..), ObsName(..), ObsInfo(..), ChandraTime(..))
+import Types (Record(..), ObsName(..), ObsInfo(..), ChandraTime(..), Schedule(..))
 
 -- | Return the current observation
 getCurrentObs :: IO (Maybe Record)
@@ -86,16 +85,6 @@ getRecord oName = do
   case mobs of
     Just (ObsInfo current _ _) -> return $ Just current
     _ -> return Nothing
-
--- | Store the schedule.
-data Schedule = 
-   Schedule
-   { scTime  :: UTCTime      -- ^ the date when the schedule search was made
-   , scDays  :: Int          -- ^ number of days used for the search
-   , scDone  :: [Record]     -- ^ those that were done (ascending time order)
-   , scDoing :: Maybe Record -- ^ current observation
-   , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
-   }
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.

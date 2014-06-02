@@ -4,6 +4,7 @@
 
 module Types ( Record(..)
               , ScheduleItem(..)
+              , Schedule(..)
               , Sequence(..)
               , RA(..), Dec(..)
               , Instrument(..)
@@ -161,6 +162,16 @@ instance H.ToValue RA where
 
 instance H.ToValue Dec where
   toValue = H.toValue . _unDec
+
+-- | Store the schedule.
+data Schedule = 
+   Schedule
+   { scTime  :: UTCTime      -- ^ the date when the schedule search was made
+   , scDays  :: Int          -- ^ number of days used for the search
+   , scDone  :: [Record]     -- ^ those that were done (ascending time order)
+   , scDoing :: Maybe Record -- ^ current observation
+   , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
+   }
 
 -- | A scheduled observation (may be in the past, present, or future).
 --
