@@ -21,7 +21,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Database (Schedule(..))
-import Types (Record(..), ObsName(..), Grating(..), ChandraTime(..))
+import Types (Record(..), ObsName(..), Grating(..), ChandraTime(..), RA(..), Dec(..))
 import Utils (defaultMeta, obsURIString,
               showExp, showTimeDeltaFwd, showTimeDeltaBwd,
               showRA, showDec,
@@ -128,8 +128,8 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
       dataRow :: String -> Record -> Html
       dataRow s r =
         let (x, y) = getLongLat r
-        in mconcat [" { longitude: ", toHtml (180 - x),
-                    ", latitude: ", toHtml y,
+        in mconcat [" { longitude: ", toHtml (180 - _unRA x),
+                    ", latitude: ", toHtml (_unDec y),
                     ", texp: ", toHtml (recordTime r),
                     ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),

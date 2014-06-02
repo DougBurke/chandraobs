@@ -20,6 +20,7 @@ module Utils (
      , getFact
      , linkToRecord
      , linkToRecordA
+     , safeObsId
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -37,7 +38,7 @@ import Text.Printf
 
 import Web.Scotty
 
-import Types (Record(..), ObsName(..), Sequence(..), Grating(..))
+import Types (Record(..), ObsName(..), Sequence(..), Grating(..), RA(..), Dec(..))
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -268,8 +269,8 @@ renderObsIdDetails rs =
        keyVal "Slew:" (H.toHtml (recordSlew rs))
        )
 
-showRA :: Double -> String
-showRA ra = 
+showRA :: RA -> String
+showRA (RA ra) = 
   let rah = ra / 15.0
       h, m :: Int
       r1, r2 :: Double
@@ -279,8 +280,8 @@ showRA ra =
       s = r2 * 60
   in printf "%dh %dm %.1fs" h m s
 
-showDec :: Double -> String
-showDec dec = 
+showDec :: Dec -> String
+showDec (Dec dec) = 
   let dabs = abs dec
       d, m :: Int
       r1, r2 :: Double

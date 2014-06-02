@@ -17,11 +17,10 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Applicative ((<$>))
-import Control.Arrow ((&&&))
 
 import Data.Function (on)
 import Data.List (groupBy, intersperse)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe, isJust, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
@@ -38,6 +37,7 @@ import Utils (
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
+             , safeObsId
              )
 
 -- The specific page for this observation. At present I have not
@@ -174,15 +174,16 @@ groupProposal ::
   [Record]  -- these are expected to be science observations
   -> Html
 groupProposal matches =
-  let obs = P.map (recordTarget &&& getObsId) matches
-      getObsId r = case recordObsname r of
-                       (ObsId ival) -> show ival
-                       (SpecialObs s) -> s -- do not expect to get this here
-
+  let obs = mapMaybe getObs matches
+      getObs r = do
+        let n = recordTarget r
+        o <- safeObsId (recordObsname r)
+        return (n, o)
+        
       grps = groupBy ((==) `on` fst) obs
 
       -- special case knowledge of URI mapping, should be abstracted out
-      toURI o = toValue $ "/obsid/" ++ o
+      toURI o = toValue $ "/obsid/" ++ show o
       toLink o = a ! href (toURI o) $ toHtml o
 
       tgtLinks [] = mempty -- should not happen

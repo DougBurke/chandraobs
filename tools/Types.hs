@@ -4,7 +4,8 @@
 
 module Types ( Record(..)
               , ScheduleItem(..)
-              , Sequence(..)  
+              , Sequence(..)
+              , RA(..), Dec(..)
               , Instrument(..)
               , Grating(..)
               , ObsName(..)
@@ -71,8 +72,8 @@ data Record = Record {
   , recordTime :: Double
   , recordInstrument :: Maybe Instrument
   , recordGrating :: Maybe Grating
-  , recordRa :: Double
-  , recordDec :: Double
+  , recordRa :: RA
+  , recordDec :: Dec
   , recordRoll :: Double
   , recordPitch :: Double
   , recordSlew :: Double
@@ -125,6 +126,24 @@ newtype Sequence = Sequence { _unSequence :: Int } deriving (Eq, Show)
 
 instance H.ToMarkup Sequence where
   toMarkup = H.toMarkup . _unSequence
+
+-- | Simple wrappers to avoid mixing up RA and Dec.
+
+newtype RA = RA { _unRA :: Double } deriving (Eq, Show)  
+
+newtype Dec = Dec { _unDec :: Double } deriving (Eq, Show)  
+
+instance H.ToMarkup RA where
+  toMarkup = H.toMarkup . _unRA
+
+instance H.ToMarkup Dec where
+  toMarkup = H.toMarkup . _unDec
+
+instance H.ToValue RA where
+  toValue = H.toValue . _unRA
+
+instance H.ToValue Dec where
+  toValue = H.toValue . _unDec
 
 -- | A scheduled observation (may be in the past, present, or future).
 --

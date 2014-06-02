@@ -54,8 +54,8 @@ toR ::
   -> Double     -- pitch
   -> Double     -- slew
   -> Record
-toR mseq obs mcon tgt stTime = 
-  Record (Sequence <$> mseq) obs mcon tgt (toTime stTime)
+toR mseq obs mcon tgt stTime eval minst mgrat ra dec = 
+  Record (Sequence <$> mseq) obs mcon tgt (toTime stTime) eval minst mgrat (RA ra) (Dec dec)
 
 testSchedule :: [Record]
 testSchedule = [
