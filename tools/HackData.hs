@@ -57,7 +57,7 @@ toNS (STS _ (SpecialObs obsname) _ tgt stTime eval _ _ ra dec roll pitch slew) =
       tks = TimeKS eval
       raV = RA ra
       decV = Dec dec
-      obsid = getObsIdValue obsname
+      obsid = getObsIdValue tgt
   in Just $ NonScienceObs obsname obsid tgt t1 tks raV decV roll pitch slew
 
 -- Assume the name is "CAL-ER (xxx)" and xxx is a valid Int
