@@ -93,8 +93,8 @@ executable webserver
 --     buildable:  False
 -- 
 
-executable hackdata
-  main-is:             Test.hs
+executable initdb
+  main-is:             InitDB.hs
   hs-source-dirs:      tools/
   other-modules:       Types
                        HackData
