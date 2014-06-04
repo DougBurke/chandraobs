@@ -32,10 +32,10 @@ import Types (ObsName(..), ObsIdVal(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
               getObsStatus)
-import Types (Record, recordSequence, recordObsname, recordTarget, recordInstrument, recordGrating)
+import Types (Record, recordSequence, recordObsname, recordTarget, recordInstrument, recordGrating, showExp)
 import Utils ( 
              abstractLink, defaultMeta
-             , obsURI, renderLinks, showExp
+             , obsURI, renderLinks
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes

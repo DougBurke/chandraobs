@@ -20,10 +20,9 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ObsName(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..), TimeKS(..))
-import Types (Record, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec)
+import Types (Record, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (defaultMeta, obsURIString,
-              showExp, showTimeDeltaFwd, showTimeDeltaBwd,
-              showRA, showDec,
+              showTimeDeltaFwd, showTimeDeltaBwd,
               linkToRecord)
 import Views.Record (CurrentPage(..), mainNavBar)
 

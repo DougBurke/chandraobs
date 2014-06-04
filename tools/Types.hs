@@ -31,6 +31,10 @@ module Types ( ScheduleItem(..)
               , toCTime
               , showCTime
               , endCTime
+              , showExpTime
+              , showExp
+              , showRA
+              , showDec
 
               , handleMigration
 
@@ -65,6 +69,8 @@ import Database.Groundhog.TH
 import Database.Groundhog.Postgresql
 
 import System.Locale (defaultTimeLocale)
+
+import Text.Printf
 
 -- | The instrument being used.
 data Instrument = ACISS | ACISI | HRCI | HRCS deriving (Eq, Show, Read)
@@ -283,12 +289,36 @@ newtype RA = RA { _unRA :: Double } deriving (Eq, Show)
 
 newtype Dec = Dec { _unDec :: Double } deriving (Eq, Show)  
 
+showRA :: RA -> String
+showRA (RA ra) = 
+  let rah = ra / 15.0
+      h, m :: Int
+      r1, r2 :: Double
+      (h, r1) = properFraction rah
+      ram = r1 * 60
+      (m, r2) = properFraction ram
+      s = r2 * 60
+  in printf "%dh %dm %.1fs" h m s
+
+showDec :: Dec -> String
+showDec (Dec dec) = 
+  let dabs = abs dec
+      d, m :: Int
+      r1, r2 :: Double
+      (d, r1) = properFraction dabs
+      dm = r1 * 60
+      (m, r2) = properFraction dm
+      s = r2 * 60
+      c = if dec < 0 then '-' else '+'
+  in printf "%c%dd %d' %.1f\"" c d m s
+
 instance H.ToMarkup RA where
-  toMarkup = H.toMarkup . _unRA
+  toMarkup = H.toMarkup . showRA
 
 instance H.ToMarkup Dec where
-  toMarkup = H.toMarkup . _unDec
+  toMarkup = H.toMarkup . showDec
 
+-- I could imagine we might want these to be the decimal values
 instance H.ToValue RA where
   toValue = H.toValue . _unRA
 
@@ -308,6 +338,57 @@ data Schedule =
 -- | Represent a value in kiloseconds.
 newtype TimeKS = TimeKS { _toS :: Double } deriving (Eq, Show)
 
+-- | Convert a more "friendly" exposure time value.
+--
+--   As the minimum time appears to be 0.1 ks we do not
+--   have to deal with sub minute values, but include
+--   just in case. Assume that max is ~ 100ks, which is
+--   ~ 28 hours, so need to deal with days.
+--
+--   The rounding may be a bit surprising, since
+--   1 day + 1 minute will get reported as
+--   "1 day 1 hour".
+--
+showExpTime :: TimeKS -> String
+showExpTime (TimeKS tks) = 
+  let s = tks * 1000
+      m = s / 60
+      h = m / 60
+
+  in if s < 3600
+     then showUnits s 60 "minute" "second"
+     else if h < 24
+          then showUnits m 60 "hour" "minute"
+          else showUnits h 24 "day" "hour"
+
+showExp :: Record -> H.Html
+showExp = H.toHtml . showExpTime . recordTime
+
+-- | Make a nice readable value; ie
+--   "x unit1 y unit2"
+--
+showUnits :: 
+  Double      -- value in units of unit2
+  -> Int      -- scale value
+  -> String   -- unit1: singular unit (scale * unit2)
+  -> String   -- unit2: unit 
+  -> String
+showUnits v s u1 u2 = 
+  let v1 = ceiling v :: Int -- round up
+      (a, b) = v1 `divMod` s
+
+      units 0 _ = ""
+      units 1 u = "1 " ++ u
+      units x u = show x ++ " " ++ u ++ "s"
+
+      astr = units a u1
+      bstr = units b u2
+
+      sep = if null astr || null bstr then "" else " and "
+
+  in astr ++ sep ++ bstr
+
+-- do we want this to be in a nice readable value or in ks?
 instance H.ToMarkup TimeKS where
   toMarkup = H.toMarkup . _toS
 
