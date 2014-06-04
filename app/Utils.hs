@@ -8,10 +8,6 @@ module Utils (
      , obsURI
      , obsURIString
      , standardResponse
-     , showExpTime
-     , showExp
-     , showRA
-     , showDec
      , showTimeDeltaFwd
      , showTimeDeltaBwd
      , detailsLink, abstractLink
@@ -34,11 +30,10 @@ import System.Locale (defaultTimeLocale)
 import System.Random (Random(..), getStdRandom)
 
 import Text.Blaze.Html.Renderer.Text
-import Text.Printf
 
 import Web.Scotty
 
-import Types (ObsName(..), ObsIdVal(..), Sequence(..), Grating(..), RA(..), Dec(..), ChandraTime(..), TimeKS(..))
+import Types (ObsName(..), ObsIdVal(..), Sequence(..), Grating(..), ChandraTime(..), TimeKS(..))
 import Types (Record, recordSequence, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, recordRoll, recordPitch, recordSlew)
 
 -- | Convert a record into the URI fragment that represents the
@@ -63,53 +58,6 @@ standardResponse = return ()
 defaultMeta :: H.Html
 defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
                      H.! A.content "text/html; charset=UTF-8"
-
--- | Convert a more "friendly" exposure time value.
---
---   As the minimum time appears to be 0.1 ks we do not
---   have to deal with sub minute values, but include
---   just in case. Assume that max is ~ 100ks, which is
---   ~ 28 hours, so need to deal with days.
---
---   The rounding may be a bit surprising, since
---   1 day + 1 minute will get reported as
---   "1 day 1 hour".
---
-showExpTime :: TimeKS -> String
-showExpTime (TimeKS tks) = 
-  let s = tks * 1000
-      m = s / 60
-      h = m / 60
-
-  in if s < 3600
-     then showUnits s 60 "minute" "second"
-     else if h < 24
-          then showUnits m 60 "hour" "minute"
-          else showUnits h 24 "day" "hour"
-
--- | Make a nice readable value; ie
---   "x unit1 y unit2"
---
-showUnits :: 
-  Double      -- value in units of unit2
-  -> Int      -- scale value
-  -> String   -- unit1: singular unit (scale * unit2)
-  -> String   -- unit2: unit 
-  -> String
-showUnits v s u1 u2 = 
-  let v1 = ceiling v :: Int -- round up
-      (a, b) = v1 `divMod` s
-
-      units 0 _ = ""
-      units 1 u = "1 " ++ u
-      units x u = show x ++ " " ++ u ++ "s"
-
-      astr = units a u1
-      bstr = units b u2
-
-      sep = if null astr || null bstr then "" else " and "
-
-  in astr ++ sep ++ bstr
 
 plural :: Int -> String
 plural i = if i > 1 then "s" else ""
@@ -186,9 +134,6 @@ showTimeDeltaBwd (ChandraTime t1) t2 =
                       else "on " <> other
 
 
-showExp :: Record -> H.Html
-showExp = H.toHtml . showExpTime . recordTime
-
 -- TODO:
 -- Ideally we would link to something a bit more readable than the
 -- archive page (ie its use of frames), and also present the link
@@ -261,13 +206,17 @@ renderObsIdDetails rs =
        <>
        keyVal "Instrument:" instInfo
        <>
-       keyVal "Date:" (H.toHtml (show (recordStartTime rs)))
+       -- rely on the ToMarkup instance of ChandraTime
+       keyVal "Date:" (H.toHtml (recordStartTime rs))
        <>
-       keyVal "Exposure:" (H.toHtml (show (recordTime rs) ++ " ks"))
+       -- rely on the ToMarkup instance of TimeKS
+       keyVal "Exposure:" (H.toHtml (recordTime rs) <> " ks")
        <>
-       keyVal "Right Ascension:" (H.toHtml (showRA (recordRa rs)))
+       -- rely on the ToMarkup instance of RA
+       keyVal "Right Ascension:" (H.toHtml (recordRa rs))
        <>
-       keyVal "Declination:" (H.toHtml (showDec (recordDec rs)))
+       -- rely on the ToMarkup instance of Dec
+       keyVal "Declination:" (H.toHtml (recordDec rs))
        <>
        keyVal "Roll:" (H.toHtml (recordRoll rs))
        <>
@@ -275,29 +224,6 @@ renderObsIdDetails rs =
        <>
        keyVal "Slew:" (H.toHtml (recordSlew rs))
        )
-
-showRA :: RA -> String
-showRA (RA ra) = 
-  let rah = ra / 15.0
-      h, m :: Int
-      r1, r2 :: Double
-      (h, r1) = properFraction rah
-      ram = r1 * 60
-      (m, r2) = properFraction ram
-      s = r2 * 60
-  in printf "%dh %dm %.1fs" h m s
-
-showDec :: Dec -> String
-showDec (Dec dec) = 
-  let dabs = abs dec
-      d, m :: Int
-      r1, r2 :: Double
-      (d, r1) = properFraction dabs
-      dm = r1 * 60
-      (m, r2) = properFraction dm
-      s = r2 * 60
-      c = if dec < 0 then '-' else '+'
-  in printf "%c%dd %d' %.1f\"" c d m s
 
 safeObsId :: ObsName -> Maybe ObsIdVal
 safeObsId (ObsId i) = Just i
