@@ -1,12 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+{-# LANGUAGE FlexibleContexts #-} -- needed for webapp signature
+
 -- | A test webserver.
 -- 
--- As this is a test server, all the HTML is crammed
--- into this module. Once I have worked out what I
--- want, things will get separated out and cleaned
--- up.
---
 module Main where
 
 import qualified Views.Index as Index
@@ -20,6 +17,9 @@ import Control.Monad.IO.Class (liftIO)
 
 import Data.Default (def)
 import Data.Time (getCurrentTime)
+
+import Database.Groundhog.Core (ConnectionManager(..))
+import Database.Groundhog.Postgresql (Postgresql(..), runDbConn, withPostgresqlConn)
 
 import Network.HTTP.Types (StdMethod(HEAD), status404)
 -- import Network.Wai.Middleware.RequestLogger
@@ -35,7 +35,7 @@ import Web.Scotty
 import Database (getCurrentObs, getRecord, getObsInfo,
                  getObsId, getSpecialObs, getSchedule,
                  matchSeqNum)
-import Types (ObsName(..), ObsInfo(..), ObsIdVal(..))
+import Types (ObsName(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -76,10 +76,23 @@ main = do
  
   case eopts of
     Left emsg -> uerror emsg
-    Right opts -> scottyOpts opts webapp
+    Right opts -> do
+      withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ \cm -> 
+        scottyOpts opts (webapp cm)
 
-webapp :: ScottyM ()
-webapp = do
+{-
+      webapp :: forall cm.
+                Database.Groundhog.Core.ConnectionManager cm SQL.Postgresql =>
+                cm
+                -> scotty-0.7.3:Web.Scotty.Types.ScottyT
+                     Data.Text.Internal.Lazy.Text IO ()
+-}
+webapp :: ConnectionManager cm Postgresql => cm -> ScottyM ()
+webapp cm = do
+
+    let liftSQL a = liftIO $ runDbConn a cm
+
+    liftSQL handleMigration
 
     -- Need to find out how the static directory gets copied
     -- over by cabal
@@ -92,24 +105,24 @@ webapp = do
     get "/about" $ redirect "/about/index.html"
 
     get "/index.html" $ do
-      mobs <- liftIO getObsInfo
+      mobs <- liftSQL getObsInfo
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          matches <- liftIO $ matchSeqNum $ oiCurrentObs obs
+          matches <- liftSQL $ matchSeqNum $ oiCurrentObs obs
           fromBlaze $ Index.introPage cTime obs matches
         _        -> fromBlaze Index.noDataPage
 
     get "/wwt.html" $ do
-      mobs <- liftIO getObsInfo
+      mobs <- liftSQL getObsInfo
       case mobs of 
         Just obs -> fromBlaze (WWT.wwtPage True (oiCurrentObs obs))
         _ -> fromBlaze Index.noDataPage
 
     get "/obs/:special" $ do
       sobs <- param "special"
-      mobs <- liftIO $ getSpecialObs sobs
-      mCurrent <- liftIO getCurrentObs
+      mobs <- liftSQL $ getSpecialObs sobs
+      mCurrent <- liftSQL getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs []
@@ -117,45 +130,45 @@ webapp = do
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
-      mobs <- liftIO $ getObsId $ ObsIdVal obsid
-      mCurrent <- liftIO getCurrentObs
+      mobs <- liftSQL $ getObsId $ ObsIdVal obsid
+      mCurrent <- liftSQL getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          matches <- liftIO $ matchSeqNum $ oiCurrentObs obs
+          matches <- liftSQL $ matchSeqNum $ oiCurrentObs obs
           fromBlaze $ Record.recordPage cTime mCurrent obs matches
         _        -> status status404
 
     get "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mrecord <- liftIO $ getRecord $ ObsId $ ObsIdVal obsid
+      mrecord <- liftSQL $ getRecord $ ObsId $ ObsIdVal obsid
       case mrecord of
         Just record -> fromBlaze $ WWT.wwtPage False record
         _           -> status status404
 
     get "/schedule" $ redirect "/schedule/index.html"
     get "/schedule/index.html" $ do
-      sched <- liftIO $ getSchedule 3
+      sched <- liftSQL $ getSchedule 3
       fromBlaze $ Schedule.schedPage sched
 
     get "/schedule/day" $ do
-      sched <- liftIO $ getSchedule 1
+      sched <- liftSQL $ getSchedule 1
       fromBlaze $ Schedule.schedPage sched
 
     get "/schedule/day/:ndays" $ do
       ndays <- param "ndays"
       when (ndays <= 0) next  -- TODO: better error message
-      sched <- liftIO $ getSchedule ndays
+      sched <- liftSQL $ getSchedule ndays
       fromBlaze $ Schedule.schedPage sched
 
     get "/schedule/week" $ do
-      sched <- liftIO $ getSchedule 7
+      sched <- liftSQL $ getSchedule 7
       fromBlaze $ Schedule.schedPage sched
 
     get "/schedule/week/:nweeks" $ do
       nweeks <- param "nweeks"
       when (nweeks <= 0) next  -- TODO: better error message
-      sched <- liftIO $ getSchedule (7 * nweeks)
+      sched <- liftSQL $ getSchedule (7 * nweeks)
       fromBlaze $ Schedule.schedPage sched
 
     -- HEAD requests
@@ -175,21 +188,21 @@ webapp = do
 
     addroute HEAD "/obs/:special" $ do
       sobs <- param "special"
-      mobs <- liftIO $ getSpecialObs sobs
+      mobs <- liftSQL $ getSpecialObs sobs
       case mobs of
         Just _ -> standardResponse
         _      -> status status404
 
     addroute HEAD "/obsid/:obsid" $ do
       obsid <- param "obsid"
-      mobs <- liftIO $ getObsId $ ObsIdVal obsid
+      mobs <- liftSQL $ getObsId $ ObsIdVal obsid
       case mobs of
         Just _ -> standardResponse
         _      -> status status404
 
     addroute HEAD "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mrecord <- liftIO $ getRecord $ ObsId $ ObsIdVal obsid
+      mrecord <- liftSQL $ getRecord $ ObsId $ ObsIdVal obsid
       case mrecord of
         Just _ -> standardResponse
         _      -> status status404

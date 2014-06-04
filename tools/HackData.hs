@@ -48,16 +48,16 @@ toSO (STS (Just seqNum) (ObsId obs) _ tgt stTime eval (Just inst) (Just grat) ra
       tks = TimeKS eval
       raV = RA ra
       decV = Dec dec
-  in Just $ ScienceObs (Sequence seqNum) obs tgt t1 tks inst grat raV decV roll pitch slew []
+  in Just $ ScienceObs (Sequence seqNum) obs tgt t1 tks inst grat raV decV roll pitch slew -- []
 
 toNS :: STS -> Maybe NonScienceObs
 toNS (STS (Just _) _ _ _ _ _ _ _ _ _ _ _ _) = Nothing
-toNS (STS _ (SpecialObs obsname) _ tgt stTime eval _ _ ra dec roll pitch slew) =
+toNS (STS Nothing (SpecialObs obsname) _ tgt stTime eval Nothing Nothing ra dec roll pitch slew) =
   let t1 = toCTime stTime
       tks = TimeKS eval
       raV = RA ra
       decV = Dec dec
-      obsid = getObsIdValue obsname
+      obsid = getObsIdValue tgt
   in Just $ NonScienceObs obsname obsid tgt t1 tks raV decV roll pitch slew
 
 -- Assume the name is "CAL-ER (xxx)" and xxx is a valid Int

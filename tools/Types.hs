@@ -1,7 +1,17 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 -- | Set up some types for representing Chandra observations.
 
+{-
 module Types ( ScheduleItem(..)
               , Schedule(..)
               , Sequence(..)
@@ -22,19 +32,42 @@ module Types ( ScheduleItem(..)
               , showCTime
               , endCTime
 
+              , handleMigration
+
                 -- * Temporary types and routines
               , Record
               , recordSequence, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, recordRoll, recordPitch, recordSlew
   ) where
+-}
 
+-- as now have TH below, export everything
+module Types where
+
+import qualified Data.ByteString.Char8 as B8
 import qualified Text.Blaze.Html5 as H
 
+import Control.Arrow (first)
+import Control.Monad.Logger (NoLoggingT)
+
+#if MIN_VERSION_base(4, 7, 0)
+import Data.Bits (Bits(..), FiniteBits(..))
+#else
+import Data.Bits (Bits(..))
+#endif
+
+import Data.Maybe (fromMaybe)
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
+
+-- I am not convinced I'm adding the PersistField values sensibly
+import Database.Groundhog.Core
+import Database.Groundhog.Generic (primToPersistValue, primFromPersistValue)
+import Database.Groundhog.TH
+import Database.Groundhog.Postgresql
 
 import System.Locale (defaultTimeLocale)
 
 -- | The instrument being used.
-data Instrument = ACISS | ACISI | HRCI | HRCS deriving (Eq, Show)
+data Instrument = ACISS | ACISI | HRCI | HRCS deriving (Eq, Show, Read)
 
 instance H.ToMarkup Instrument where
   toMarkup ACISI = "ACIS-I"
@@ -49,7 +82,7 @@ instance H.ToValue Instrument where
   toValue HRCS  = "HRC-S"
 
 -- | The grating to be used.
-data Grating = LETG | HETG | NONE deriving (Eq, Show)
+data Grating = LETG | HETG | NONE deriving (Eq, Show, Read)
 
 instance H.ToMarkup Grating where
   toMarkup LETG = "Low Energy Transmission Grating (LETG)"
@@ -159,6 +192,34 @@ data ObsInfo = ObsInfo {
 --
 newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
   deriving (Eq, Ord, Show)
+
+-- Needed for readHelper, used by the PrimitivePersistField instance
+instance Read ChandraTime where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first ChandraTime) xs
+
+-- TODO: validate ra as 0 to 360
+instance Read RA where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first RA) xs
+
+-- TODO: validate dec as -90 to 90
+instance Read Dec where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first Dec) xs
+
+-- TODO: validate time as >= 0
+instance Read TimeKS where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first TimeKS) xs
+
+instance Read ObsIdVal where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first ObsIdVal) xs
+
+instance Read Sequence where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first Sequence) xs
 
 -- | Convert values like "2014:132:03:08:49.668"
 -- to a time. This is
@@ -278,7 +339,10 @@ data ScienceObs = ScienceObs {
   , soRoll :: Double
   , soPitch :: Double
   , soSlew :: Double
-  , soContraint :: [ConstrainedObs] -- do we ever have multiple constraints?
+  -- take out the constraints for now, to simplify db testing
+  -- with Groundhog (may move to a separate
+  -- record and have them reference the observation)
+  -- , soContraint :: [ConstrainedObs] -- do we ever have multiple constraints?
   } deriving (Eq, Show)
 
 -- | An observation at another facility that overlaps in time with
@@ -301,3 +365,234 @@ data NonScienceObs = NonScienceObs {
   , nsPitch :: Double
   , nsSlew :: Double
   } deriving (Eq, Show)
+
+-- * Groundhog instances
+--
+-- based on the Database.Groundhog.Instances code
+--
+
+readHelper :: Read a => PersistValue -> String -> a
+readHelper s errMessage = case s of
+  PersistString str -> readHelper' str
+  PersistByteString str -> readHelper' (B8.unpack str)
+  _ -> error $ "readHelper: " ++ errMessage
+  where
+    readHelper' str = case reads str of
+      (a, _):_ -> a
+      _        -> error $ "readHelper: " ++ errMessage
+
+instance NeverNull ChandraTime
+instance NeverNull RA
+instance NeverNull Dec
+instance NeverNull TimeKS
+instance NeverNull ObsIdVal
+instance NeverNull Sequence
+instance NeverNull Instrument
+instance NeverNull Grating
+instance NeverNull ObsName
+
+-- times
+
+instance PersistField ChandraTime where
+  persistName _ = "ChandraTime"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbDayTime False Nothing Nothing  
+
+instance PrimitivePersistField ChandraTime where
+  toPrimitivePersistValue _ = PersistUTCTime . _toUTCTime
+  fromPrimitivePersistValue _ (PersistUTCTime a) = ChandraTime a
+  -- fromPrimitivePersistValue _ (PersistZonedTime (ZT a)) = zonedTimeToUTC a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected ChandraTime (UTCTime), received: " ++ show x)
+
+-- double values
+
+instance PersistField RA where
+  persistName _ = "RA"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbReal False Nothing Nothing
+
+instance PersistField Dec where
+  persistName _ = "Dec"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbReal False Nothing Nothing
+
+instance PersistField TimeKS where
+  persistName _ = "TimeKS"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbReal False Nothing Nothing
+
+instance PrimitivePersistField RA where
+  toPrimitivePersistValue _ = PersistDouble . _unRA
+  fromPrimitivePersistValue _ (PersistDouble a) = RA a
+  fromPrimitivePersistValue _ (PersistInt64 a) = RA $ fromIntegral a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected RA (double), received: " ++ show x)
+
+instance PrimitivePersistField Dec where
+  toPrimitivePersistValue _ = PersistDouble . _unDec
+  fromPrimitivePersistValue _ (PersistDouble a) = Dec a
+  fromPrimitivePersistValue _ (PersistInt64 a) = Dec $ fromIntegral a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected Dec (double), received: " ++ show x)
+
+instance PrimitivePersistField TimeKS where
+  toPrimitivePersistValue _ = PersistDouble . _toS
+  fromPrimitivePersistValue _ (PersistDouble a) = TimeKS a
+  fromPrimitivePersistValue _ (PersistInt64 a) = TimeKS $ fromIntegral a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected TimeKS (double), received: " ++ show x)
+
+-- integer values
+
+instance PersistField ObsIdVal where
+  persistName _ = "ObsIdVal"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
+#if !MIN_VERSION_base(4, 7, 0)
+    finiteBitSize = bitSize
+#endif
+
+instance PersistField Sequence where
+  persistName _ = "Sequence"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
+#if !MIN_VERSION_base(4, 7, 0)
+    finiteBitSize = bitSize
+#endif
+
+instance PrimitivePersistField ObsIdVal where
+  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . fromObsId
+  fromPrimitivePersistValue _ (PersistInt64 a) = ObsIdVal $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal $ truncate a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
+
+instance PrimitivePersistField Sequence where
+  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unSequence
+  fromPrimitivePersistValue _ (PersistInt64 a) = Sequence $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistDouble a) = Sequence $ truncate a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected Sequence (Integer), received: " ++ show x)
+
+-- enumerations
+
+instance PersistField Instrument where
+  persistName _ = "Instrument"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
+instance PersistField Grating where
+  persistName _ = "Grating"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
+instance PrimitivePersistField Instrument where
+  {- The Groundhog tutorial [1] had the following, but this fails to
+     compile with
+         Could not deduce (PrimitivePersistField String)
+           arising from a use of ‘toPrimitivePersistValue’
+
+     so trying something a bit different
+
+     [1] https://www.fpcomplete.com/user/lykahb/groundhog
+
+  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
+  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
+  -}
+  toPrimitivePersistValue _ = PersistString . show
+  fromPrimitivePersistValue _ (PersistString s) = read s
+  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
+  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " ++ show x)
+
+instance PrimitivePersistField Grating where
+  {-
+  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
+  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
+  -}
+  toPrimitivePersistValue _ = PersistString . show
+  fromPrimitivePersistValue _ (PersistString s) = read s
+  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
+  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " ++ show x)
+
+-- sum types
+
+instance PersistField ObsName where
+  persistName _ = "ObsName"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
+-- What is the GroundHog way to handle sum types?
+-- I guess we could use two columns, but for now write our
+-- own encoding.
+--
+instance PrimitivePersistField ObsName where
+  toPrimitivePersistValue _ (SpecialObs s) = PersistString ('s' : s)
+  toPrimitivePersistValue _ (ObsId (ObsIdVal i)) = PersistString ('o' : show i)
+
+  fromPrimitivePersistValue _ x@(PersistString (t:s)) 
+    | t == 's'  = SpecialObs s
+    | t == 'o'  = ObsId $ ObsIdVal $ read s
+    | otherwise = error ("Expected ObsName (o<obsid>/s<string>), received: " ++ show x)
+  fromPrimitivePersistValue _ x = error ("Expected ObsName (o<obsid>/s<string>), received: " ++ show x)
+
+-- needed for persistent integer types
+
+instance Bits ObsIdVal where
+  (ObsIdVal a) .&. (ObsIdVal b) = ObsIdVal (a .&. b)
+  (ObsIdVal a) .|. (ObsIdVal b) = ObsIdVal (a .|. b)
+  (ObsIdVal a) `xor` (ObsIdVal b) = ObsIdVal (a `xor` b)
+  complement = ObsIdVal . complement . fromObsId
+  shift a i = ObsIdVal $ shift (fromObsId a) i
+  rotate a i = ObsIdVal $ rotate (fromObsId a) i
+  -- will get a deprecation warning from the use of bitSize
+  bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
+  bitSizeMaybe = bitSizeMaybe . fromObsId
+  isSigned = isSigned . fromObsId
+  testBit a i = testBit (fromObsId a) i
+  bit = ObsIdVal . bit
+  popCount = popCount . fromObsId
+
+instance Bits Sequence where
+  (Sequence a) .&. (Sequence b) = Sequence (a .&. b)
+  (Sequence a) .|. (Sequence b) = Sequence (a .|. b)
+  (Sequence a) `xor` (Sequence b) = Sequence (a `xor` b)
+  complement = Sequence . complement . _unSequence
+  shift a i = Sequence $ shift (_unSequence a) i
+  rotate a i = Sequence $ rotate (_unSequence a) i
+  bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
+  bitSizeMaybe = bitSizeMaybe . _unSequence
+  isSigned = isSigned . _unSequence
+  testBit a i = testBit (_unSequence a) i
+  bit = Sequence . bit
+  popCount = popCount . _unSequence
+
+#if MIN_VERSION_base(4, 7, 0)
+instance FiniteBits ObsIdVal where
+  finiteBitSize = finiteBitSize . fromObsId
+
+instance FiniteBits Sequence where
+  finiteBitSize = finiteBitSize . _unSequence
+#endif
+
+-- We do not take advantage of the database here (eg unique fields,
+-- or relations between entities).
+--
+-- also, could save some code above by taking advantage of the
+-- "primitive" option in the GroundHog TH
+--
+mkPersist defaultCodegenConfig [groundhog|
+- entity: ScheduleItem
+- entity: ScienceObs
+- entity: NonScienceObs
+|]
+
+handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
+handleMigration =
+  runMigration defaultMigrationLogger $ do
+    migrate (undefined :: ScheduleItem)
+    migrate (undefined :: ScienceObs)
+    migrate (undefined :: NonScienceObs)
