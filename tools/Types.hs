@@ -426,6 +426,40 @@ data ScienceObs = ScienceObs {
   -- , soContraint :: [ConstrainedObs] -- do we ever have multiple constraints?
   } deriving (Eq, Show)
 
+-- | Represent a science observation, using data from the Chandra observing
+--   catalog (OCAT) rather than the short-term schedule page.
+data ScienceObsFull = ScienceObsFull {
+  sofSequence :: Sequence -- TODO: DefaultKey Proposal
+  , sofStatus :: String    -- use an enumeration
+  , sofObsId :: ObsIdVal
+  , sofTarget :: String
+  , sofStartTime :: ChandraTime
+  , sofApprovedTime :: TimeKS
+  , sofObservedTime :: Maybe TimeKS
+  , sofInstrument :: Instrument
+  , sofGrating :: Grating
+  , sofDetector :: Maybe String   -- use an enumeration; do we want this?
+  , sofDataMode :: String -- use an enumeration
+  , sofJointWith :: [(String, TimeKS)] -- could use an enumeration
+  , sofTOO :: Maybe String -- not sure what this field can contain
+  , sofRa :: RA
+  , sofDec :: Dec
+  , sofRoll :: Double
+  , sofACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
+  , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
+  } deriving (Eq, Show)
+    -- deriving instance Show ScienceObsFull
+
+-- | Store information on a proposal, obtained from the OCAT.
+data Proposal = Proposal {
+  propSeqNum :: Sequence
+  , propName :: String
+  , propPI :: String
+  , propCategory :: String
+  , propType :: String -- could use an enumeration
+  , propCycle :: String -- ditto, this is the proposal cycle, not the observing cycle
+  } deriving (Eq, Show)
+
 -- | An observation at another facility that overlaps in time with
 --   a Chandra observation.
 data ConstrainedObs = ConstrainedObs {

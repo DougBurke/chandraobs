@@ -117,6 +117,33 @@ executable initdb
   else
     buildable:  False
 
+executable obscat
+  main-is:             ObsCat.hs
+  hs-source-dirs:      tools/
+  other-modules:       Types
+
+  ghc-options: -Wall
+
+  if flag(tools)
+    build-depends:
+      base >= 4.6 && < 4.8
+     , blaze-html == 0.7.*
+     , bytestring == 0.10.*
+     , containers >= 0.4 && < 0.6
+     , groundhog == 0.5.*
+     , groundhog-postgresql == 0.5.*
+     , groundhog-th == 0.5.*
+     -- TODO: what versions of http-conduit can we use
+     , http-conduit == 2.1.*
+     , network >= 2.4 && < 2.6
+     , monad-logger == 0.3.*
+     , old-locale == 1.0.*
+     , time < 1.5
+     -- , transformers == 0.3.*
+
+  else
+    buildable:  False
+
 executable getcurrent
   main-is:             GetCurrent.hs
   hs-source-dirs:      tools/
