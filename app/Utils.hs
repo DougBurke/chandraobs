@@ -198,7 +198,7 @@ renderObsIdDetails ScienceObs{..} =
        -- rely on the ToMarkup instance of Dec
        keyVal "Declination:" (H.toHtml soDec)
        <>
-       keyVal "Roll:" (H.toHtml soRoll) -- TODO: add \u00b0 degree symbol
+       keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
 {-
        <>
        keyVal "Pitch:" (H.toHtml (soPitch so))
