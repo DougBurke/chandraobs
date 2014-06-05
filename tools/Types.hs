@@ -55,7 +55,7 @@ module Types where
 import qualified Data.ByteString.Char8 as B8
 import qualified Text.Blaze.Html5 as H
 
-import Control.Arrow (first)
+import Control.Arrow ((&&&), first)
 import Control.Monad.Logger (NoLoggingT)
 
 #if MIN_VERSION_base(4, 7, 0)
@@ -64,6 +64,7 @@ import Data.Bits (Bits(..), FiniteBits(..))
 import Data.Bits (Bits(..))
 #endif
 
+import Data.Function (on)
 import Data.Maybe (fromMaybe)
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
@@ -112,8 +113,8 @@ instance H.ToValue Grating where
 --   Due to a clash with @ObsName@ we use @ObsIdVal@
 --   for now, but it's planned to move to @ObsId@.
 newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
-  -- deriving (Eq, Show)
-  deriving Eq
+  -- deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 instance H.ToMarkup ObsIdVal where
   toMarkup = H.toMarkup . fromObsId
@@ -227,6 +228,10 @@ instance Read Sequence where
   readsPrec i = \s -> let xs = readsPrec i s
                       in map (first Sequence) xs
 
+instance Read PropNum where
+  readsPrec i = \s -> let xs = readsPrec i s
+                      in map (first PropNum) xs
+
 -- | Convert values like "2014:132:03:08:49.668"
 -- to a time. This is
 --
@@ -279,14 +284,25 @@ getObsStatus (ChandraTime sTime, ChandraTime eTime) cTime
 
 -- | Represent a Chandra sequence number.
 newtype Sequence = Sequence { _unSequence :: Int } 
-   -- deriving (Eq, Show)
-   deriving Eq
+   -- deriving (Eq, Ord, Show)
+   deriving (Eq, Ord)
 
 instance H.ToMarkup Sequence where
   toMarkup = H.toMarkup . _unSequence
 
 instance H.ToValue Sequence where
   toValue = H.toValue . _unSequence
+
+-- | Represent a Chandra proposal number.
+newtype PropNum = PropNum { _unPropNum :: Int } 
+   -- deriving (Eq, Ord, Show)
+   deriving (Eq, Ord)
+
+instance H.ToMarkup PropNum where
+  toMarkup = H.toMarkup . _unPropNum
+
+instance H.ToValue PropNum where
+  toValue = H.toValue . _unPropNum
 
 -- | Simple wrappers to avoid mixing up RA and Dec.
 
@@ -493,15 +509,23 @@ data ScienceObsFull = ScienceObsFull {
   , sofDataMode :: String -- use an enumeration
   , sofJointWith :: [(String, TimeKS)] -- could use an enumeration
   , sofTOO :: Maybe String -- not sure what this field can contain
-  , sofRa :: RA
+  , sofRA :: RA
   , sofDec :: Dec
   , sofRoll :: Double
   , sofACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
-  , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
+  -- , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
   } 
   -- deriving (Eq, Show)
   deriving Eq
     -- deriving instance Show ScienceObsFull
+
+-- Apparently this is needed if I want a field with Maybe (Int, Int),
+-- but I am seeing some problems, along the lines of
+--
+-- dbType Maybe#Tuple2##Int#Int: expected DbTypePrimitive, got DbEmbedded (EmbeddedDef False [("val0",DbTypePrimitive DbInt64 False Nothing Nothing),("val1",DbTypePrimitive DbInt64 False Nothing Nothing)]) Nothing
+--
+-- so taking out for now
+-- instance NeverNull (Int, Int)
 
 -- | This is for debug purposes.
 instance Show ScienceObsFull where
@@ -514,9 +538,17 @@ instance Show ScienceObsFull where
            , " ks at ", showCTime sofStartTime
            ]
 
+-- | Has the observation been archived? If so, we assume that the observational
+--   parameters we care about are not going to change. This may turn out to be
+--   a bad idea.
+--
+isArchived :: ScienceObsFull -> Bool
+isArchived ScienceObsFull{..} = sofStatus == "archived"
+
 -- | Store information on a proposal, obtained from the OCAT.
 data Proposal = Proposal {
-  propSeqNum :: Sequence
+  propNum :: PropNum
+  , propSeqNum :: Sequence
   , propName :: String
   , propPI :: String
   , propCategory :: String
@@ -525,6 +557,10 @@ data Proposal = Proposal {
   }
   -- deriving (Eq, Show)
   deriving Eq
+
+-- | Proposals are ordered by (proposal number, sequence number)
+instance Ord Proposal where
+  compare = compare `on` (propNum &&& propSeqNum)
 
 -- | This is for debug purposes.
 instance Show Proposal where
@@ -562,8 +598,9 @@ instance NeverNull ChandraTime
 instance NeverNull RA
 instance NeverNull Dec
 instance NeverNull TimeKS
-instance NeverNull ObsIdVal
+instance NeverNull PropNum
 instance NeverNull Sequence
+instance NeverNull ObsIdVal
 instance NeverNull Instrument
 instance NeverNull Grating
 
@@ -630,6 +667,15 @@ instance PersistField ObsIdVal where
     finiteBitSize = bitSize
 #endif
 
+instance PersistField PropNum where
+  persistName _ = "PropNum"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
+#if !MIN_VERSION_base(4, 7, 0)
+    finiteBitSize = bitSize
+#endif
+
 instance PersistField Sequence where
   persistName _ = "Sequence"
   toPersistValues = primToPersistValue
@@ -639,17 +685,23 @@ instance PersistField Sequence where
     finiteBitSize = bitSize
 #endif
 
-instance PrimitivePersistField ObsIdVal where
-  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . fromObsId
-  fromPrimitivePersistValue _ (PersistInt64 a) = ObsIdVal $ fromIntegral a
-  fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal $ truncate a
-  fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
+instance PrimitivePersistField PropNum where
+  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unPropNum
+  fromPrimitivePersistValue _ (PersistInt64 a) = PropNum $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistDouble a) = PropNum $ truncate a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected PropNum (Integer), received: " ++ show x)
 
 instance PrimitivePersistField Sequence where
   toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unSequence
   fromPrimitivePersistValue _ (PersistInt64 a) = Sequence $ fromIntegral a
   fromPrimitivePersistValue _ (PersistDouble a) = Sequence $ truncate a
   fromPrimitivePersistValue _ x = readHelper x ("Expected Sequence (Integer), received: " ++ show x)
+
+instance PrimitivePersistField ObsIdVal where
+  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . fromObsId
+  fromPrimitivePersistValue _ (PersistInt64 a) = ObsIdVal $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal $ truncate a
+  fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
 
 -- enumerations
 
@@ -695,20 +747,19 @@ instance PrimitivePersistField Grating where
 
 -- needed for persistent integer types
 
-instance Bits ObsIdVal where
-  (ObsIdVal a) .&. (ObsIdVal b) = ObsIdVal (a .&. b)
-  (ObsIdVal a) .|. (ObsIdVal b) = ObsIdVal (a .|. b)
-  (ObsIdVal a) `xor` (ObsIdVal b) = ObsIdVal (a `xor` b)
-  complement = ObsIdVal . complement . fromObsId
-  shift a i = ObsIdVal $ shift (fromObsId a) i
-  rotate a i = ObsIdVal $ rotate (fromObsId a) i
-  -- will get a deprecation warning from the use of bitSize
+instance Bits PropNum where
+  (PropNum a) .&. (PropNum b) = PropNum (a .&. b)
+  (PropNum a) .|. (PropNum b) = PropNum (a .|. b)
+  (PropNum a) `xor` (PropNum b) = PropNum (a `xor` b)
+  complement = PropNum . complement . _unPropNum
+  shift a i = PropNum $ shift (_unPropNum a) i
+  rotate a i = PropNum $ rotate (_unPropNum a) i
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
-  bitSizeMaybe = bitSizeMaybe . fromObsId
-  isSigned = isSigned . fromObsId
-  testBit a i = testBit (fromObsId a) i
-  bit = ObsIdVal . bit
-  popCount = popCount . fromObsId
+  bitSizeMaybe = bitSizeMaybe . _unPropNum
+  isSigned = isSigned . _unPropNum
+  testBit a i = testBit (_unPropNum a) i
+  bit = PropNum . bit
+  popCount = popCount . _unPropNum
 
 instance Bits Sequence where
   (Sequence a) .&. (Sequence b) = Sequence (a .&. b)
@@ -724,12 +775,29 @@ instance Bits Sequence where
   bit = Sequence . bit
   popCount = popCount . _unSequence
 
+instance Bits ObsIdVal where
+  (ObsIdVal a) .&. (ObsIdVal b) = ObsIdVal (a .&. b)
+  (ObsIdVal a) .|. (ObsIdVal b) = ObsIdVal (a .|. b)
+  (ObsIdVal a) `xor` (ObsIdVal b) = ObsIdVal (a `xor` b)
+  complement = ObsIdVal . complement . fromObsId
+  shift a i = ObsIdVal $ shift (fromObsId a) i
+  rotate a i = ObsIdVal $ rotate (fromObsId a) i
+  bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
+  bitSizeMaybe = bitSizeMaybe . fromObsId
+  isSigned = isSigned . fromObsId
+  testBit a i = testBit (fromObsId a) i
+  bit = ObsIdVal . bit
+  popCount = popCount . fromObsId
+
 #if MIN_VERSION_base(4, 7, 0)
-instance FiniteBits ObsIdVal where
-  finiteBitSize = finiteBitSize . fromObsId
+instance FiniteBits PropNum where
+  finiteBitSize = finiteBitSize . _unPropNum
 
 instance FiniteBits Sequence where
   finiteBitSize = finiteBitSize . _unSequence
+
+instance FiniteBits ObsIdVal where
+  finiteBitSize = finiteBitSize . fromObsId
 #endif
 
 -- We do not take advantage of the database here (eg unique fields,
@@ -738,10 +806,39 @@ instance FiniteBits Sequence where
 -- also, could save some code above by taking advantage of the
 -- "primitive" option in the GroundHog TH
 --
+-- does the name field on the uniques entry need to be unique?
+--
 mkPersist defaultCodegenConfig [groundhog|
 - entity: ScheduleItem
+  constructors:
+    - name: ScheduleItem
+      uniques:
+        - name: ScheduleitemObsIdConstraint
+          fields: [siObsId]
 - entity: ScienceObs
+  constructors:
+    - name: ScienceObs
+      uniques:
+        - name: ScienceObsIdConstraint
+          fields: [soObsId]
+- entity: ScienceObsFull
+  constructors:
+    - name: ScienceObsFull
+      uniques:
+        - name: ScienceObsFullIdConstraint
+          fields: [sofObsId]
 - entity: NonScienceObs
+  constructors:
+    - name: NonScienceObs
+      uniques:
+        - name: NonScienceObsIdConstraint
+          fields: [nsObsId]
+- entity: Proposal
+  constructors:
+    - name: Proposal
+      uniques:
+        - name: PropConstraint
+          fields: [propNum, propSeqNum]
 |]
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
@@ -749,4 +846,6 @@ handleMigration =
   runMigration defaultMigrationLogger $ do
     migrate (undefined :: ScheduleItem)
     migrate (undefined :: ScienceObs)
+    migrate (undefined :: ScienceObsFull)
     migrate (undefined :: NonScienceObs)
+    migrate (undefined :: Proposal)

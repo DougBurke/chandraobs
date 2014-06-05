@@ -13,6 +13,7 @@ module Database ( getCurrentObs
                 , getRecord
                 , getSchedule
                 , matchSeqNum
+                , reportSize
                 ) where
 
 import Control.Monad (liftM)
@@ -197,3 +198,16 @@ matchSeqNum (Right so) = do
                   `orderBy` [Asc SoStartTimeField]
   return ans
 
+-- | Quick on-screen summary of the database size.
+reportSize :: (MonadIO m, PersistBackend m) => m ()
+reportSize = do
+  nall <- countAll (undefined :: ScheduleItem)
+  ns <- countAll (undefined :: ScienceObs)
+  nsf <- countAll (undefined :: ScienceObsFull)
+  nn <- countAll (undefined :: NonScienceObs)
+  np <- countAll (undefined :: Proposal)
+  liftIO $ putStrLn $ "Number of scheduled items   : " ++ show nall
+  liftIO $ putStrLn $ "Number of science obs       : " ++ show ns
+  liftIO $ putStrLn $ "Number of science obs (full): " ++ show nsf
+  liftIO $ putStrLn $ "Number of non-science obs   : " ++ show nn
+  liftIO $ putStrLn $ "Number of proposals         : " ++ show np

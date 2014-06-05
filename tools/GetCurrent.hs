@@ -2,24 +2,14 @@
 -- | Report the currently running observation.
 
 import Control.Applicative ((<$>))
-import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Database.Groundhog.Postgresql
 
 import Data.Maybe (fromMaybe)
 import Data.Time (getCurrentTime)
 
-import Database (getObsInfo)
+import Database (getObsInfo, reportSize)
 import Types
-
-reportSize :: (MonadIO m, PersistBackend m) => m ()
-reportSize = do
-  n1 <- countAll (undefined :: ScheduleItem)
-  liftIO $ putStrLn $ "Number of scheduled items: " ++ show n1
-  n2 <- countAll (undefined :: ScienceObs)
-  liftIO $ putStrLn $ "Number of science obs    : " ++ show n2
-  n3 <- countAll (undefined :: NonScienceObs)
-  liftIO $ putStrLn $ "Number of non-science obs: " ++ show n3
 
 main :: IO ()
 main = do

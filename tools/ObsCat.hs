@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Access data from the Chandra observational catalog and add it
 --   to the database.
@@ -9,13 +10,18 @@
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 import Control.Arrow ((&&&))
+import Control.Monad (forM_, when)
+import Control.Monad.IO.Class (liftIO)
 
 import Data.Char (ord)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (catMaybes, isNothing, listToMaybe)
 import Data.Time (readsTime)
 import Data.Word (Word8)
+
+import Database.Groundhog.Postgresql
 
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
@@ -42,6 +48,9 @@ toWrapper f k m = M.lookup k m >>= fmap f . maybeRead
 
 toSequence :: OCAT -> Maybe Sequence
 toSequence = toWrapper Sequence "SEQ_NUM"
+
+toPropNum :: OCAT -> Maybe PropNum
+toPropNum = toWrapper PropNum "PR_NUM"
 
 toObsId :: OCAT -> Maybe ObsIdVal
 toObsId = toWrapper ObsIdVal "OBSID"
@@ -70,10 +79,12 @@ toRA =
 toDec :: OCAT -> Maybe Dec
 toDec = 
   let tD lbs = 
-        let (d:m:s:_) = map (read . L8.unpack) $ L.split (w8 ' ') lbs
-            sval = case L.uncons lbs of
-                     Just (c, _) -> if c == w8 '-' then (-1) else 1
-                     _ -> 0 -- if it's empty we have a problem
+        let (d:m:s:_) = map (read . L8.unpack) $ L.split (w8 ' ') rest
+            (sval, rest) = case L.uncons lbs of
+                     Just (c, cs) | c == w8 '-' -> ((-1), cs)
+                                  | c == w8 '+' -> (1, cs)
+                                  | otherwise   -> (1, lbs) -- should not happen but just in case
+                     _ -> (0, "0 0 0") -- if it's empty we have a problem
         in Dec $ sval * (abs d + (m + s/60.0) / 60.0) 
   in fmap tD . M.lookup "Dec"
 
@@ -97,6 +108,7 @@ toGrating m =
 
 toProposal :: OCAT -> Maybe Proposal
 toProposal m = do
+  pNum <- toPropNum m
   seqNum <- toSequence m
   pName <- toString m "PROP_TITLE"
   piName <- toString m "PI_NAME"
@@ -104,7 +116,8 @@ toProposal m = do
   pType <- toString m "TYPE"
   pCycle <- toString m "PROP_CYCLE"
   return Proposal {
-        propSeqNum = seqNum
+        propNum = pNum
+        , propSeqNum = seqNum
         , propName = pName
         , propPI = piName
         , propCategory = cat
@@ -143,11 +156,11 @@ toSO m = do
     , sofDataMode = datamode
     , sofJointWith = []  -- TODO  [(String, TimeKS)] -- could use an enumeration
     , sofTOO = too
-    , sofRa = ra
+    , sofRA = ra
     , sofDec = dec
     , sofRoll = roll
     , sofACISChIPS = Nothing -- :: Maybe String -- 10 character string with Y/N/<integer> for optional values
-    , sofSubArray = Nothing -- :: Maybe (Int, Int) -- start row/number of rows
+    -- , sofSubArray = Nothing -- :: Maybe (Int, Int) -- start row/number of rows
      }
 
 {-
@@ -158,7 +171,12 @@ SEQ_NUM	STATUS	OBSID	PR_NUM	TARGET_NAME	GRID_NAME	INSTR	GRAT	TYPE	OBS_CYCLE	PROP
 -}
 
 -- | Query the OCat about this observation.
--- getObsId :: ObsIdVal -> IO (Maybe (Proposal, ScienceObsFull))
+--
+--   This function errors out most ungracefully if multiple matches
+--   are found or if one/both of the output values can not be
+--   created.
+--
+queryObsId :: ObsIdVal -> IO (Maybe (Proposal, ScienceObsFull))
 queryObsId oid = do
   let qry = queryURL oid
   rsp <- simpleHttp qry
@@ -175,9 +193,108 @@ queryObsId oid = do
 
       dropNulls = filter (not . L.null . snd)
 
-  return $ map (toProposal &&& toSO) out
+      ans = map (toProposal &&& toSO) out
+
+  case ans of
+    [] -> return Nothing
+    [(Just p, Just so)] -> return $ Just (p, so)
+    _ -> error $ "Expected 0 or 1 matches, found " ++ show ans
+
+-- | Query the database to find any scheduled observations
+--   which do not have any correspinding OCAT info, and
+--   those OCAT observations which are not archived
+--   (i.e. may need to be changed)
+--
+findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal])
+findMissingObsIds = do
+  (want, have, unarchived) <- withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
+    runDbConn $ do
+      handleMigration
+      allObsIds <- project SoObsIdField $ CondEmpty
+      fullObsIds <- project SofObsIdField $ CondEmpty      
+      unArchivedObsIds <- project SofObsIdField $ (SofStatusField /=. ("archived" :: String))
+      return (allObsIds, fullObsIds, unArchivedObsIds)
+
+  let swant = S.fromList want
+      shave = S.fromList have
+  return $ (S.toList (swant `S.difference` shave), unarchived)
+
+slen :: [a] -> String
+slen = show . length
+
+-- | Add the "missing" results to the database and replace the
+--   "unarchived" results (they may or may not have changed but
+--   easiest for me is just to update the database).
+--
+addResults :: [(Proposal, ScienceObsFull)] -> [(Proposal, ScienceObsFull)] -> IO ()
+addResults [] [] = putStrLn "# No data needs to be added to the database."
+addResults missing unarchived = do
+  putStrLn $ "# Adding " ++ slen missing ++ " missing results"
+  putStrLn $ "# Adding " ++ slen unarchived ++ " unarchived results"
+  let props = S.toList $ S.fromList $ map fst missing ++ map fst unarchived
+  withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
+    runDbConn $ do
+      -- the following will fail if the data already exists (e.g. proposals and unarchived results)
+      forM_ missing $ \(_,so) -> liftIO (print so) >> insert so
+      forM_ unarchived $ \(_,so) -> liftIO (print so) >> insert so
+      forM_ props $ \p -> liftIO (print p) >> insert p
+
+-- | Report if any obsids are missing from the OCAT results.
+--
+check :: [Maybe (Proposal, ScienceObsFull)] -> [ObsIdVal] -> IO [(Proposal, ScienceObsFull)]
+check ms os = do
+  let missing = map snd $ filter (isNothing . fst) $ zip ms os
+  when (not (null missing)) $ do
+    putStrLn $ "### There are " ++ slen missing ++ " ObsIds with no OCAT data:"
+    forM_ missing $ print . fromObsId
+  return $ catMaybes ms
 
 main :: IO ()
 main = withSocketsDo $ do
-  ans <- queryObsId (ObsIdVal 16196)
-  print ans
+  putStrLn "# Querying the database"
+  (missing, unarchived) <- findMissingObsIds
+  putStrLn $ "# Found " ++ slen missing ++ " missing and " ++ slen unarchived ++ " unarchived ObsIds"
+
+  when (not (null missing)) $ putStrLn "# Processing missing"
+  res1 <- mapM queryObsId missing
+  mres <- check res1 missing
+
+  when (not (null missing)) $ putStrLn "# Processing unarchived"
+  res2 <- mapM queryObsId unarchived
+  ures <- check res2 unarchived
+
+  addResults mres ures
+
+{-
+main :: IO ()
+main = withSocketsDo $ do
+  ans <- queryObsId (ObsIdVal 14481)
+  case ans of
+    Nothing -> putStrLn "Nothing found!"
+    Just (prop, so) -> do
+      print prop
+      print so
+      dump so
+
+dump :: ScienceObsFull -> IO ()
+dump ScienceObsFull{..} = do
+  putStrLn "------ dump"
+  print (_unSequence sofSequence)
+  putStrLn sofStatus
+  print (fromObsId sofObsId)
+  putStrLn sofTarget
+  putStrLn $ showCTime sofStartTime
+  putStrLn $ showExpTime sofApprovedTime
+  putStrLn $ show (fmap showExpTime sofObservedTime)
+  print sofInstrument
+  print sofGrating
+  print sofDetector
+  putStrLn sofDataMode
+  putStrLn $ "jointwith is empty: " ++ show (null sofJointWith) 
+  print sofTOO
+  putStrLn $ showRA sofRA
+  putStrLn $ showDec sofDec
+  print sofRoll
+  print sofACISChIPS
+  -- , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
+-}

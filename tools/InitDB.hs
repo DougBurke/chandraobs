@@ -19,21 +19,26 @@ import Database.Groundhog.Postgresql
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
-import Types
+import Database (reportSize)
 import HackData
+import Types
 
 main :: IO ()
 main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
   runDbConn $ do
     handleMigration
 
+    reportSize
+
     n1 <- countAll (undefined :: ScheduleItem)
     n2 <- countAll (undefined :: ScienceObs)
-    n3 <- countAll (undefined :: NonScienceObs)
+    n3 <- countAll (undefined :: ScienceObsFull)
+    n4 <- countAll (undefined :: NonScienceObs)
+    n5 <- countAll (undefined :: Proposal)
 
-    let cts = [n1, n2, n3]
+    let cts = [n1, n2, n3, n4, n5]
     when (any (/=0) cts) $ do
-      liftIO $ hPutStrLn stderr $ "ERROR: there is existing data! " ++ show cts
+      liftIO $ hPutStrLn stderr $ "ERROR: there is existing data!"
       liftIO $ exitFailure
 
     liftIO $ putStrLn "Inserting schedule"
@@ -45,10 +50,4 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
     liftIO $ putStrLn "Inserting non-science obs"
     mapM_ insert testNonScience
 
-    ntot <- countAll (undefined :: ScheduleItem)
-    ns <- countAll (undefined :: ScienceObs)
-    nn <- countAll (undefined :: NonScienceObs)
-
-    liftIO $ putStrLn $ "# Number of scheduled items: " ++ show ntot
-    liftIO $ putStrLn $ "# Number of science        : " ++ show ns
-    liftIO $ putStrLn $ "# Number of non-science    : " ++ show nn
+    reportSize
