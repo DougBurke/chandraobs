@@ -40,22 +40,27 @@ findSI t = do
 -- | Given a ScheduleItem, return infomation on the observation it
 --   refers to.
 findItem :: PersistBackend m => ScheduleItem -> m (Maybe Record)
-findItem = findObsName . siObsName
+findItem si = 
+  let obsid = siObsId si
+  in if siScienceObs si
+     then (Right `liftM`) `liftM` findScience obsid
+     else (Left `liftM`) `liftM` findNonScience obsid
 
-findObsName :: PersistBackend m => ObsName -> m (Maybe Record)
-findObsName obsname = 
-  case obsname of
-    SpecialObs s -> (Left `liftM`) `liftM` findNonScience s
-    ObsId o -> (Right `liftM`) `liftM` findScience o
+findObsId :: PersistBackend m => ObsIdVal -> m (Maybe Record)
+findObsId oi = do
+  ans <- select $ (SiObsIdField ==. oi) `limitTo` 1
+  case listToMaybe ans of
+    Just si -> findItem si
+    _ -> return Nothing
 
-findNonScience :: PersistBackend m => String -> m (Maybe NonScienceObs)
-findNonScience s = do
-  ans <- select $ (NsNameField ==. s) `limitTo` 1
+findNonScience :: PersistBackend m => ObsIdVal -> m (Maybe NonScienceObs)
+findNonScience oi = do
+  ans <- select $ (NsObsIdField ==. oi) `limitTo` 1
   return $ listToMaybe ans
 
 findScience :: PersistBackend m => ObsIdVal -> m (Maybe ScienceObs)
-findScience o = do
-  ans <- select $ (SoObsIdField ==. o) `limitTo` 1
+findScience oi = do
+  ans <- select $ (SoObsIdField ==. oi) `limitTo` 1
   return $ listToMaybe ans
 
 -- | Given a list of schedule items, return the record of the
@@ -119,26 +124,26 @@ extractObsInfo obs = do
   mnext <- getNextObs (recordStartTime obs)
   return $ Just $ ObsInfo obs mprev mnext
 
-findObsInfo :: (MonadIO m, PersistBackend m) => ObsName -> m (Maybe ObsInfo)
-findObsInfo oName = do
-  res <- select $ (SiObsNameField ==. oName) `limitTo` 1
+findObsInfo :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
+findObsInfo oi = do
+  res <- select $ (SiObsIdField ==. oi) `limitTo` 1
   mobs <- extractRecord res
   case mobs of
     Just obs -> extractObsInfo obs
     _ -> return Nothing
   
 -- | Return the requested "special" observation.
-getSpecialObs :: (MonadIO m, PersistBackend m) => String -> m (Maybe ObsInfo)
-getSpecialObs = findObsInfo . SpecialObs
+getSpecialObs :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
+getSpecialObs = findObsInfo 
 
 -- | Return the requested "science" observation.
 getObsId :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
-getObsId = findObsInfo . ObsId 
+getObsId = findObsInfo 
 
 -- | Return the record of the given observation, if it
 --   exists.
-getRecord :: PersistBackend m => ObsName -> m (Maybe Record)
-getRecord = findObsName
+getRecord :: PersistBackend m => ObsIdVal -> m (Maybe Record)
+getRecord = findObsId
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
@@ -181,7 +186,7 @@ getSchedule ndays = do
 
 -- | Find observations with the same sequence number.
 --
-matchSeqNum :: (MonadIO m, PersistBackend m) => Record -> m [Record]
+matchSeqNum :: (MonadIO m, PersistBackend m) => Record -> m [ScienceObs]
 matchSeqNum (Left _) = return []
 matchSeqNum (Right so) = do
   let seqNum = soSequence so
@@ -190,5 +195,5 @@ matchSeqNum (Right so) = do
   -- results to be in the correct order anyway
   ans <- select $ ((SoSequenceField ==. seqNum) &&. (SoObsIdField /=. oid))
                   `orderBy` [Asc SoStartTimeField]
-  return $ map Right ans
+  return ans
 

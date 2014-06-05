@@ -5,19 +5,18 @@
 module Views.Index (introPage, noDataPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), Bool(..), Maybe(..))
+import Prelude (($), Bool(..), Maybe(..), const, either)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ObsInfo(..))
-import Types (Record)
+import Types (ScienceObs, ObsInfo(..))
 import Utils (defaultMeta, renderLinks)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
@@ -56,13 +55,16 @@ tourElements =
     , (script ! src "/js/tour.js") ""
     ]
 
+-- | TODO: this should be merged with Views.Record.recordPage
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
-  -> [Record]  -- records with the same sequence number
+  -> [ScienceObs]  -- records with the same sequence number
   -> Html
 introPage cTime oi@(ObsInfo currentObs _ _) matches =
   let initialize = "initialize(); addTour();"
+
+      imgLinks = either (const mempty) (renderLinks True) currentObs
 
       {-
            p ("Information on " <> 
@@ -87,5 +89,5 @@ introPage cTime oi@(ObsInfo currentObs _ _) matches =
       <> obsNavBar (Just currentObs) oi
       <> (div ! id "mainBar") 
          (renderStuff cTime currentObs matches
-          <> renderLinks True currentObs)
+          <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)

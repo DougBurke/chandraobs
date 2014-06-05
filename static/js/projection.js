@@ -83,7 +83,7 @@ function createMap(coords) {
 
   var latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
       var pos = projection([0, d]);
-      var lbl = d + "\u00B0";
+      var lbl = d + "\u00B0"; // degree symbol
       return { x: pos[0], y: pos[1], lbl: lbl };
     });
   svg.selectAll(".lat")

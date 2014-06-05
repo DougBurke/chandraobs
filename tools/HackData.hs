@@ -3,35 +3,26 @@
 --
 module HackData (testSchedule, testScience, testNonScience) where
 
-import Data.Maybe (mapMaybe)
+import Data.Maybe (isJust, mapMaybe)
 
 import Types
 
-{-
--- | This requires CIAO, since it uses prop_precess. It would
---   be quicker to run on an array of sources, but for now
---   run it per source.
---
-getConstellation ::
-  Double     -- ra J2000 decimal degrees
-  -> Double  -- dec J2000 decimal degrees
-  -> IO (Maybe String) -- name of the constellation
-getConstellation ra dec = 
-  let x = y
-      f = "prop_precess from j/deg to con:"
-  in undefined
--}
+data ObsName = SpecialObs String | ObsId ObsIdVal deriving Eq
 
 toOI :: Int -> ObsName
 toOI = ObsId . ObsIdVal
 
 toSI :: STS -> ScheduleItem
-toSI (STS _ obs _ _ stTime eval _ _ _ _ _ _ _) =
+toSI (STS mSeqNum obs _ tgt stTime eval _ _ _ _ _ _ _) =
   let t1 = toCTime stTime
       t2 = endCTime t1 tks
       tks = TimeKS eval
+      obsid = case obs of
+               ObsId oi -> oi
+               SpecialObs _ -> getObsIdValue tgt
   in ScheduleItem {
-    siObsName = obs
+    siObsId = obsid
+    , siScienceObs = isJust mSeqNum
     , siStart = t1
     , siEnd = t2
     , siDuration = tks

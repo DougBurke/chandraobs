@@ -33,9 +33,9 @@ import System.IO (hFlush, hPutStrLn, stderr)
 import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo,
-                 getObsId, getSpecialObs, getSchedule,
+                 getObsId, getSchedule,
                  matchSeqNum)
-import Types (ObsName(..), ObsInfo(..), ObsIdVal(..), handleMigration)
+import Types (ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -114,19 +114,10 @@ webapp cm = do
         _        -> fromBlaze Index.noDataPage
 
     get "/wwt.html" $ do
-      mobs <- liftSQL getObsInfo
+      mobs <- liftSQL getCurrentObs
       case mobs of 
-        Just obs -> fromBlaze (WWT.wwtPage True (oiCurrentObs obs))
+        Just (Right so) -> fromBlaze (WWT.wwtPage True so)
         _ -> fromBlaze Index.noDataPage
-
-    get "/obs/:special" $ do
-      sobs <- param "special"
-      mobs <- liftSQL $ getSpecialObs sobs
-      mCurrent <- liftSQL getCurrentObs
-      cTime <- liftIO getCurrentTime
-      case mobs of
-        Just obs -> fromBlaze $ Record.recordPage cTime mCurrent obs []
-        _        -> status status404
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
@@ -141,10 +132,10 @@ webapp cm = do
 
     get "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mrecord <- liftSQL $ getRecord $ ObsId $ ObsIdVal obsid
-      case mrecord of
-        Just record -> fromBlaze $ WWT.wwtPage False record
-        _           -> status status404
+      mobs <- liftSQL $ getRecord $ ObsIdVal obsid
+      case mobs of
+        Just (Right so) -> fromBlaze $ WWT.wwtPage False so
+        _               -> status status404
 
     get "/schedule" $ redirect "/schedule/index.html"
     get "/schedule/index.html" $ do
@@ -186,13 +177,6 @@ webapp cm = do
     -- addroute HEAD "/about/instruments.html" standardResponse
     -- addroute HEAD "/about/views.html" standardResponse
 
-    addroute HEAD "/obs/:special" $ do
-      sobs <- param "special"
-      mobs <- liftSQL $ getSpecialObs sobs
-      case mobs of
-        Just _ -> standardResponse
-        _      -> status status404
-
     addroute HEAD "/obsid/:obsid" $ do
       obsid <- param "obsid"
       mobs <- liftSQL $ getObsId $ ObsIdVal obsid
@@ -202,10 +186,10 @@ webapp cm = do
 
     addroute HEAD "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mrecord <- liftSQL $ getRecord $ ObsId $ ObsIdVal obsid
-      case mrecord of
-        Just _ -> standardResponse
-        _      -> status status404
+      mobs <- liftSQL $ getRecord $ ObsIdVal obsid
+      case mobs of
+        Just (Right _) -> standardResponse
+        _              -> status status404
 
     {-
     get "/404" $ redirect "/404.html"

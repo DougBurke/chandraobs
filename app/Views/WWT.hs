@@ -1,7 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | The WWT page.
--- 
+--
+--   TODO: should there be navigation links to the next/previous observation
+--         via WWT? difficult since we don't use this for cal obs
+--
 module Views.WWT (wwtPage) where
 
 import qualified Prelude as P
@@ -10,14 +14,12 @@ import Prelude (($))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
-import Types (Instrument(..))
-import Types (Record, recordTarget, recordInstrument, recordRa, recordDec, recordRoll)
+import Types (ScienceObs(..), Instrument(..))
 import Utils (defaultMeta, obsURI)
 import Views.Record (CurrentPage(..), mainNavBar)
 
@@ -39,25 +41,20 @@ http://www.worldwidetelescope.org/docs/Samples/displaycode.htm?codeExample=WWTWe
 --
 wwtPage :: 
   P.Bool -- ^ True if this is the current observation
-  -> Record
+  -> ScienceObs
   -> Html
-wwtPage f rs =
-  let ra = recordRa rs
-      dec = recordDec rs
-      roll = recordRoll rs
-      name = recordTarget rs
-      inst = fromMaybe ACISI (recordInstrument rs)
-      iName = case inst of
+wwtPage f ScienceObs{..} =
+  let iName = case soInstrument of
                 ACISI -> "ACIS-I"
                 ACISS -> "ACIS-S"
                 HRCI  -> "HRC-I"
                 HRCS  -> "HRC-S"
 
-      initialize = "initialize(" <> toValue ra <> "," 
-                                 <> toValue dec <> "," 
-                                 <> toValue roll <> ",\"" 
-                                 <> toValue inst <> "\",\"" 
-                                 <> toValue name <> "\")" 
+      initialize = "initialize(" <> toValue soRA <> "," 
+                                 <> toValue soDec <> "," 
+                                 <> toValue soRoll <> ",\"" 
+                                 <> toValue soInstrument <> "\",\"" 
+                                 <> toValue soTarget <> "\")" 
 
       -- apparently width/height need to be given inline not via CSS
       host = (div ! id "WorldWideTelescopeControlHost") 
@@ -92,11 +89,11 @@ wwtPage f rs =
 
       obsLink = if f
                 then a ! href "/" $ "observation page"
-                else a ! href (obsURI rs) $ "observation page"
+                else a ! href (obsURI soObsId) $ "observation page"
 
-      targetName = H.toHtml $ recordTarget rs
+      targetName = H.toHtml soTarget
       titleVal =
-          H.toHtml ("The World Wide Telescope view of " :: P.String)
+          "The World Wide Telescope view of "
           <> targetName
 
   in docTypeHtml ! lang "en-US" $

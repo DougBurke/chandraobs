@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | general routines
 
@@ -16,13 +17,11 @@ module Utils (
      , getFact
      , linkToRecord
      , linkToRecordA
-     , safeObsId
      ) where
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 
@@ -33,19 +32,16 @@ import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
-import Types (ObsName(..), ObsIdVal(..), Sequence(..), Grating(..), ChandraTime(..), TimeKS(..))
-import Types (Record, recordSequence, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, recordRoll, recordPitch, recordSlew)
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..))
+import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
-obsURI :: Record -> H.AttributeValue
+obsURI :: ObsIdVal -> H.AttributeValue
 obsURI = H.toValue . obsURIString
 
-obsURIString :: Record -> String
-obsURIString rs = 
-  case recordObsname rs of
-    ObsId (ObsIdVal i) -> "/obsid/" <> show i
-    SpecialObs s -> "/obs/" <> s
+obsURIString :: ObsIdVal -> String
+obsURIString (ObsIdVal oi) = "/obsid/" <> show oi
 
 fromBlaze :: H.Html -> ActionM ()
 fromBlaze = html . renderHtml
@@ -141,17 +137,17 @@ showTimeDeltaBwd (ChandraTime t1) t2 =
 -- sequence number.
 --
 obsIdLink :: ObsIdVal -> H.AttributeValue
-obsIdLink obsId =
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=" ++ show (fromObsId obsId)
+obsIdLink ObsIdVal{..} =
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=" ++ show fromObsId
 
 seqLink :: ObsIdVal -> H.AttributeValue
-seqLink obsId =
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show (fromObsId obsId)
+seqLink ObsIdVal{..} =
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show fromObsId
 
 detailsLink, abstractLink :: ObsIdVal -> H.AttributeValue
 detailsLink = obsIdLink
-abstractLink obsId = 
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show (fromObsId obsId)
+abstractLink ObsIdVal{..} = 
+  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show fromObsId
 
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.
@@ -162,15 +158,12 @@ abstractLink obsId =
 --   does not cover May 2014 when that target was scheduled),
 --   and it is rather meaningless to anyone but an expert.
 --
-renderObsIdDetails :: 
-  Record     -- it is assumed this is for an ObsId and not SpecialObs
-  -> H.Html
-renderObsIdDetails rs =
-  let name = recordTarget rs
-      instInfo = fromMaybe "" $ do
-        inst <- recordInstrument rs
-        grat <- recordGrating rs
-        return $ H.toHtml inst <>
+renderObsIdDetails :: ScienceObs -> H.Html
+renderObsIdDetails ScienceObs{..} =
+  let name = soTarget
+      inst = soInstrument
+      grat = soGrating
+      instInfo = H.toHtml inst <>
                  if grat == NONE
                  then mempty
                  else ", " <> H.toHtml grat
@@ -180,21 +173,8 @@ renderObsIdDetails rs =
 
       keyVal k v = left k <> " " <> right v <> H.br
 
-      {-
-      showDetails =
-         H.div H.! A.class_ "showdetails"
-               H.! A.id "showdetails"
-               H.! A.onclick "showDetails()"
-           $ "Show details ..."
-      -}
-
-      -- These are not total; they require the record to
-      -- be a science observation.
-      Just seqNum = recordSequence rs
-      ObsId obsId = recordObsname rs
-
-      oLink = H.a H.! A.href (obsIdLink obsId) $ H.toHtml obsId
-      sLink = H.a H.! A.href (seqLink obsId)   $ H.toHtml seqNum
+      oLink = H.a H.! A.href (obsIdLink soObsId) $ H.toHtml soObsId
+      sLink = H.a H.! A.href (seqLink soObsId)   $ H.toHtml soSequence
 
   in -- showDetails <>
      (H.div H.! A.class_ "inactive" H.! A.id "Details") 
@@ -207,27 +187,25 @@ renderObsIdDetails rs =
        keyVal "Instrument:" instInfo
        <>
        -- rely on the ToMarkup instance of ChandraTime
-       keyVal "Date:" (H.toHtml (recordStartTime rs))
+       keyVal "Date:" (H.toHtml soStartTime)
        <>
        -- rely on the ToMarkup instance of TimeKS
-       keyVal "Exposure:" (H.toHtml (recordTime rs) <> " ks")
+       keyVal "Exposure:" (H.toHtml soTime <> " ks")
        <>
        -- rely on the ToMarkup instance of RA
-       keyVal "Right Ascension:" (H.toHtml (recordRa rs))
+       keyVal "Right Ascension:" (H.toHtml soRA)
        <>
        -- rely on the ToMarkup instance of Dec
-       keyVal "Declination:" (H.toHtml (recordDec rs))
+       keyVal "Declination:" (H.toHtml soDec)
        <>
-       keyVal "Roll:" (H.toHtml (recordRoll rs))
+       keyVal "Roll:" (H.toHtml soRoll) -- TODO: add \u00b0 degree symbol
+{-
        <>
-       keyVal "Pitch:" (H.toHtml (recordPitch rs))
+       keyVal "Pitch:" (H.toHtml (soPitch so))
        <>
-       keyVal "Slew:" (H.toHtml (recordSlew rs))
+       keyVal "Slew:" (H.toHtml (soSlew so))
+-}
        )
-
-safeObsId :: ObsName -> Maybe ObsIdVal
-safeObsId (ObsId i) = Just i
-safeObsId _         = Nothing
 
 -- Display the DSS/RASS/PSPC links. I assume that they
 -- can be auto-generated from the sequence and obsid
@@ -242,15 +220,10 @@ safeObsId _         = Nothing
 --
 renderLinks :: 
   Bool -- True if current obs
-  -> Record 
+  -> ScienceObs
   -> H.Html
-renderLinks f rs = 
-  let mrec = do
-        seqNum <- recordSequence rs
-        obsId <- safeObsId $ recordObsname rs
-        return (seqNum, obsId)
-
-      optSel :: String -> Bool -> H.Html
+renderLinks f so@(ScienceObs{..}) = 
+  let optSel :: String -> Bool -> H.Html
       optSel lbl cf = 
         let idName = H.toValue (lbl++"button")
             base = H.input H.! A.type_ "radio"
@@ -264,7 +237,7 @@ renderLinks f rs =
 
       wwtLink = if f
                 then (H.a H.! A.href "/wwt.html") "WWT"
-                else (H.a H.! A.href (H.toValue (obsURI rs) <> "/wwt")) "WWT"
+                else (H.a H.! A.href (H.toValue (obsURI soObsId) <> "/wwt")) "WWT"
 
       form = H.div H.! A.class_ "radiobuttons" $
               mconcat [ "View: "
@@ -276,32 +249,30 @@ renderLinks f rs =
                       , wwtLink
                       ]
 
-  in case mrec of
-    Just (Sequence seqNum, ObsIdVal obsId) ->
-       let urlHead = mconcat [ "http://asc.harvard.edu/targets/"
-                             , show seqNum, "/", show seqNum, "."
-                             , show obsId, ".soe."
-                             ]
+      urlHead = mconcat [ "http://asc.harvard.edu/targets/"
+                        , H.toValue soSequence, "/"
+                        , H.toValue soSequence, "."
+                        , H.toValue soObsId, ".soe."
+                        ]
 
-           link :: String -> String -> Bool -> H.Html
-           link lbl frag af = 
-             let uri = urlHead <> frag <> ".gif"
-             in H.img H.! A.src    (H.toValue uri)
-                      H.! A.alt    (H.toValue ("The instrument field-of-view on top of the " <> lbl <> " image of the source."))
-                      H.! A.width  (H.toValue (680::Int))
-                      H.! A.height (H.toValue (680::Int))
-                      H.! A.id     (H.toValue lbl)
-                      H.! A.class_ (if af then "active" else "inactive")
+      link :: String -> H.AttributeValue -> Bool -> H.Html
+      link lbl frag af = 
+        let uri = urlHead <> frag <> ".gif"
+        in H.img H.! A.src    uri
+                 H.! A.alt    (H.toValue ("The instrument field-of-view on top of the " <> lbl <> " image of the source."))
+                 H.! A.width  (H.toValue (680::Int))
+                 H.! A.height (H.toValue (680::Int))
+                 H.! A.id     (H.toValue lbl)
+                 H.! A.class_ (if af then "active" else "inactive")
 
-       in form <>
-         (H.div H.! A.class_ "links")
-          (link "DSS" "dss" True <>
-           link "PSPC" "pspc" False <>
-           link "RASS" "rass" False <>
-           renderObsIdDetails rs) 
+  in form <>
+    (H.div H.! A.class_ "links")
+     (link "DSS" "dss" True <>
+      link "PSPC" "pspc" False <>
+      link "RASS" "rass" False <>
+      renderObsIdDetails so) 
 
-    Nothing -> mempty
-
+ 
 getTimes ::
   Record
   -> (ChandraTime, ChandraTime) -- start and end times
@@ -338,6 +309,6 @@ linkToRecord = linkToRecordA recordTarget
 
 linkToRecordA :: (Record -> String) -> Record -> H.Html
 linkToRecordA f r = 
-  let uri = obsURI r
+  let uri = obsURI $ recordObsId r
   in H.a H.! A.href uri $ H.toHtml $ f r
 

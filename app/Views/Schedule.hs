@@ -19,8 +19,8 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ObsName(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..), TimeKS(..))
-import Types (Record, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
+import Types (ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..), TimeKS(..))
+import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (defaultMeta, obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
               linkToRecord)
@@ -68,10 +68,9 @@ schedPage sched =
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
 idLabel :: Record -> String
-idLabel = lbl . recordObsname
+idLabel = toLbl . recordObsId
   where
-    lbl (ObsId (ObsIdVal ival)) = "i" <> show ival
-    lbl (SpecialObs sval) = sval
+    toLbl (ObsIdVal ival) = "i" <> show ival
 
 -- | The previous schedule could be displayed if there is
 --   no current schedule, but let's just have a simple display
@@ -85,10 +84,7 @@ renderSchedule (Schedule _ _ _ Nothing _) =
     p "There seems to be a problem, in that I do not know what the current observation is!"
 
 renderSchedule (Schedule cTime ndays done (Just doing) todo) =
-  let conv :: Show a => a -> Html
-      conv = toHtml . show
-
-      instVal r = fromMaybe "n/a" $ do
+  let instVal r = fromMaybe "n/a" $ do
         inst <- recordInstrument r
         grat <- recordGrating r
         return $ toHtml inst <> if grat == NONE then mempty else " with " <> toHtml grat
@@ -122,6 +118,9 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
 
       getLongLat r = (recordRa r, recordDec r)
 
+      conv :: Show a => a -> Html
+      conv = toHtml . show
+
       -- gah - manual conversion to JSON
       dataRow :: String -> Record -> Html
       dataRow s r =
@@ -133,7 +132,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
                     ", texp: ", toHtml (_toS (recordTime r)),
                     ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),
-                    ", urifrag: ", conv (obsURIString r),
+                    ", urifrag: ", conv (obsURIString (recordObsId r)),
                     ", status: ", conv s
                    , " }, "
                    ]

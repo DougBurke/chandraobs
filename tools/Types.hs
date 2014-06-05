@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -10,7 +11,11 @@
 
 
 -- | Set up some types for representing Chandra observations.
-
+--
+--   I have taken out derived @Show@ instances for many types
+--   to catch cases where I was relying on them for serialization
+--   when I should not have been.
+--
 {-
 module Types ( ScheduleItem(..)
               , Schedule(..)
@@ -73,7 +78,8 @@ import System.Locale (defaultTimeLocale)
 import Text.Printf
 
 -- | The instrument being used.
-data Instrument = ACISS | ACISI | HRCI | HRCS deriving (Eq, Show, Read)
+data Instrument = ACISS | ACISI | HRCI | HRCS 
+  deriving (Eq, Show, Read)
 
 instance H.ToMarkup Instrument where
   toMarkup ACISI = "ACIS-I"
@@ -88,7 +94,8 @@ instance H.ToValue Instrument where
   toValue HRCS  = "HRC-S"
 
 -- | The grating to be used.
-data Grating = LETG | HETG | NONE deriving (Eq, Show, Read)
+data Grating = LETG | HETG | NONE 
+  deriving (Eq, Show, Read)
 
 instance H.ToMarkup Grating where
   toMarkup LETG = "Low Energy Transmission Grating (LETG)"
@@ -105,24 +112,14 @@ instance H.ToValue Grating where
 --   Due to a clash with @ObsName@ we use @ObsIdVal@
 --   for now, but it's planned to move to @ObsId@.
 newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
-  deriving (Eq, Show)
+  -- deriving (Eq, Show)
+  deriving Eq
 
 instance H.ToMarkup ObsIdVal where
-  toMarkup (ObsIdVal i) = H.toMarkup i
+  toMarkup = H.toMarkup . fromObsId
 
 instance H.ToValue ObsIdVal where
-  toValue (ObsIdVal i) = H.toValue i
-
--- | This is likely being deleted, or the @ObsId@ constructor renamed.
-data ObsName = SpecialObs String | ObsId ObsIdVal deriving (Eq, Show)
-
-instance H.ToMarkup ObsName where
-  toMarkup (SpecialObs s) = H.toMarkup s
-  toMarkup (ObsId i)      = H.toMarkup i
-
-instance H.ToValue ObsName where
-  toValue (SpecialObs s) = H.toValue s
-  toValue (ObsId i)      = H.toValue i
+  toValue = H.toValue . fromObsId
 
 -- | Represent an entry in the short-term schedule.
 --
@@ -151,8 +148,8 @@ type Record = Either NonScienceObs ScienceObs
 recordSequence :: Record -> Maybe Sequence
 recordSequence = either (const Nothing) (Just . soSequence)
 
-recordObsname :: Record -> ObsName
-recordObsname = either (SpecialObs . nsName) (ObsId . soObsId)
+recordObsId :: Record -> ObsIdVal
+recordObsId = either nsObsId soObsId
 
 recordTarget :: Record -> String
 recordTarget = either nsTarget soTarget
@@ -170,7 +167,7 @@ recordGrating :: Record -> Maybe Grating
 recordGrating = either (const Nothing) (Just . soGrating)
 
 recordRa :: Record -> RA
-recordRa = either nsRa soRa 
+recordRa = either nsRa soRA 
 
 recordDec :: Record -> Dec
 recordDec = either nsDec soDec 
@@ -191,13 +188,16 @@ data ObsInfo = ObsInfo {
   oiCurrentObs :: Record
   , oiPrevObs  :: Maybe Record
   , oiNextObs  :: Maybe Record
-  } deriving (Eq, Show)
+  }
+  -- deriving (Eq, Show)
+  deriving Eq
 
 -- | A wrapper around `UTCTime` so that we can use our
 --   own `ToMarkup` and `ToValue` instances.
 --
 newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
-  deriving (Eq, Ord, Show)
+  -- deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 -- Needed for readHelper, used by the PrimitivePersistField instance
 instance Read ChandraTime where
@@ -278,16 +278,25 @@ getObsStatus (ChandraTime sTime, ChandraTime eTime) cTime
   | otherwise        = Done
 
 -- | Represent a Chandra sequence number.
-newtype Sequence = Sequence { _unSequence :: Int } deriving (Eq, Show)
+newtype Sequence = Sequence { _unSequence :: Int } 
+   -- deriving (Eq, Show)
+   deriving Eq
 
 instance H.ToMarkup Sequence where
   toMarkup = H.toMarkup . _unSequence
 
+instance H.ToValue Sequence where
+  toValue = H.toValue . _unSequence
+
 -- | Simple wrappers to avoid mixing up RA and Dec.
 
-newtype RA = RA { _unRA :: Double } deriving (Eq, Show)  
+newtype RA = RA { _unRA :: Double } 
+  -- deriving (Eq, Show)  
+  deriving Eq
 
-newtype Dec = Dec { _unDec :: Double } deriving (Eq, Show)  
+newtype Dec = Dec { _unDec :: Double } 
+  -- deriving (Eq, Show)  
+  deriving Eq
 
 showRA :: RA -> String
 showRA (RA ra) = 
@@ -336,7 +345,9 @@ data Schedule =
    }
 
 -- | Represent a value in kiloseconds.
-newtype TimeKS = TimeKS { _toS :: Double } deriving (Eq, Show)
+newtype TimeKS = TimeKS { _toS :: Double } 
+  -- deriving (Eq, Show)
+  deriving Eq
 
 -- | Convert a more "friendly" exposure time value.
 --
@@ -400,11 +411,14 @@ instance H.ToValue TimeKS where
 --   The information is taken from <http://cxc.cfa.harvard.edu/target_lists/stscheds/>,
 --   and contains information we store elsewhere.
 data ScheduleItem = ScheduleItem {
-    siObsName :: ObsName
+    siObsId :: ObsIdVal
+    , siScienceObs :: Bool
     , siStart :: ChandraTime
     , siEnd :: ChandraTime     -- approx end time
     , siDuration :: TimeKS
-    } deriving (Eq, Show)
+    }
+  -- deriving (Eq, Show)
+  deriving Eq
 
 -- | Represent a science observation.
 data ScienceObs = ScienceObs {
@@ -415,7 +429,7 @@ data ScienceObs = ScienceObs {
   , soTime :: TimeKS
   , soInstrument :: Instrument
   , soGrating :: Grating
-  , soRa :: RA
+  , soRA :: RA
   , soDec :: Dec
   , soRoll :: Double
   , soPitch :: Double
@@ -424,7 +438,44 @@ data ScienceObs = ScienceObs {
   -- with Groundhog (may move to a separate
   -- record and have them reference the observation)
   -- , soContraint :: [ConstrainedObs] -- do we ever have multiple constraints?
-  } deriving (Eq, Show)
+  }
+  -- deriving (Eq, Show)
+  deriving Eq
+
+-- | This is for debug purposes.
+instance Show ScienceObs where
+  show ScienceObs{..} = 
+    concat [ "Science: ", show (fromObsId soObsId)
+           , " ", soTarget
+           , " with "
+           , show soInstrument, "+", show soGrating
+           , " for ", show (_toS soTime)
+           , " ks at ", showCTime soStartTime
+           ]
+
+-- | Represent a non-science/cal observation.
+data NonScienceObs = NonScienceObs {
+  nsName :: String             -- the STS has a string identifier; where does this come from?
+  , nsObsId :: ObsIdVal
+  , nsTarget :: String
+  , nsStartTime :: ChandraTime
+  , nsTime :: TimeKS
+  , nsRa :: RA
+  , nsDec :: Dec
+  , nsRoll :: Double
+  , nsPitch :: Double
+  , nsSlew :: Double
+  }
+  -- deriving (Eq, Show)
+  deriving Eq
+
+-- | This is for debug purposes.
+instance Show NonScienceObs where
+  show NonScienceObs{..} = 
+    concat [ "CAL: ", show (fromObsId nsObsId)
+           , " for ", show (_toS nsTime)
+           , " ks at ", showCTime nsStartTime
+           ]
 
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
@@ -447,8 +498,21 @@ data ScienceObsFull = ScienceObsFull {
   , sofRoll :: Double
   , sofACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
   , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
-  } deriving (Eq, Show)
+  } 
+  -- deriving (Eq, Show)
+  deriving Eq
     -- deriving instance Show ScienceObsFull
+
+-- | This is for debug purposes.
+instance Show ScienceObsFull where
+  show ScienceObsFull{..} = 
+    concat [ "Science (full): ", show (fromObsId sofObsId)
+           , " ", sofTarget
+           , " with "
+           , show sofInstrument, "+", show sofGrating
+           , " approved for ", show (_toS sofApprovedTime)
+           , " ks at ", showCTime sofStartTime
+           ]
 
 -- | Store information on a proposal, obtained from the OCAT.
 data Proposal = Proposal {
@@ -458,28 +522,26 @@ data Proposal = Proposal {
   , propCategory :: String
   , propType :: String -- could use an enumeration
   , propCycle :: String -- ditto, this is the proposal cycle, not the observing cycle
-  } deriving (Eq, Show)
+  }
+  -- deriving (Eq, Show)
+  deriving Eq
+
+-- | This is for debug purposes.
+instance Show Proposal where
+  show Proposal{..} = 
+    concat [ "Proposal: ", show (_unSequence propSeqNum)
+           , " ", propName
+           , " PI ", propPI
+           ]
 
 -- | An observation at another facility that overlaps in time with
 --   a Chandra observation.
 data ConstrainedObs = ConstrainedObs {
   coFacility :: String    -- name of facility
   , coTime :: TimeKS      -- observation length
-  } deriving (Eq, Show)
-
--- | Represent a non-science/cal observation.
-data NonScienceObs = NonScienceObs {
-  nsName :: String             -- the STS has a string identifier; where does this come from?
-  , nsObsId :: ObsIdVal
-  , nsTarget :: String
-  , nsStartTime :: ChandraTime
-  , nsTime :: TimeKS
-  , nsRa :: RA
-  , nsDec :: Dec
-  , nsRoll :: Double
-  , nsPitch :: Double
-  , nsSlew :: Double
-  } deriving (Eq, Show)
+  }
+  -- deriving (Eq, Show)
+  deriving Eq
 
 -- * Groundhog instances
 --
@@ -504,7 +566,6 @@ instance NeverNull ObsIdVal
 instance NeverNull Sequence
 instance NeverNull Instrument
 instance NeverNull Grating
-instance NeverNull ObsName
 
 -- times
 
@@ -631,28 +692,6 @@ instance PrimitivePersistField Grating where
   fromPrimitivePersistValue _ (PersistString s) = read s
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
   fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " ++ show x)
-
--- sum types
-
-instance PersistField ObsName where
-  persistName _ = "ObsName"
-  toPersistValues = primToPersistValue
-  fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
-
--- What is the GroundHog way to handle sum types?
--- I guess we could use two columns, but for now write our
--- own encoding.
---
-instance PrimitivePersistField ObsName where
-  toPrimitivePersistValue _ (SpecialObs s) = PersistString ('s' : s)
-  toPrimitivePersistValue _ (ObsId (ObsIdVal i)) = PersistString ('o' : show i)
-
-  fromPrimitivePersistValue _ x@(PersistString (t:s)) 
-    | t == 's'  = SpecialObs s
-    | t == 'o'  = ObsId $ ObsIdVal $ read s
-    | otherwise = error ("Expected ObsName (o<obsid>/s<string>), received: " ++ show x)
-  fromPrimitivePersistValue _ x = error ("Expected ObsName (o<obsid>/s<string>), received: " ++ show x)
 
 -- needed for persistent integer types
 

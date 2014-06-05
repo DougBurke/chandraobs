@@ -27,11 +27,13 @@ Using Groundhog to enter data into postgresql:
 
 Used pgadmin3/psql to drop the existing tables in the database, e.g.
 
+% psql --username=postgres --password --host=127.0.0.1 --dbname=chandraobs
+
 chandraobs=# drop table "ScienceObs";
 DROP TABLE
-chandraobs=# drop table "record";
+chandraobs=# drop table "NonScienceObs";
 DROP TABLE
-chandraobs=# drop table "states";
+chandraobs=# drop table "ScheduleItem";
 DROP TABLE
 
 

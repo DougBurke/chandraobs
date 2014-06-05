@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | The record page.
 
@@ -11,35 +12,35 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Maybe(..), fst, null, return, show, snd)
+import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, null, return, snd)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Applicative ((<$>))
+import Control.Arrow ((&&&))
 
 import Data.Function (on)
 import Data.List (groupBy, intersperse)
-import Data.Maybe (fromMaybe, isJust, mapMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ObsName(..), ObsIdVal(..),
+import Types (ScienceObs(..), NonScienceObs(..), 
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
               getObsStatus)
-import Types (Record, recordSequence, recordObsname, recordTarget, recordInstrument, recordGrating, showExp)
+import Types (Record, recordObsId, recordTarget, recordInstrument, recordGrating, showExp)
 import Utils ( 
              abstractLink, defaultMeta
              , obsURI, renderLinks
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
-             , safeObsId
              )
 
 -- The specific page for this observation. At present I have not
@@ -51,15 +52,16 @@ recordPage ::
   UTCTime  -- the current time
   -> Maybe Record -- the currently running observation
   -> ObsInfo  -- the observation being displayed
-  -> [Record] -- related observations (same sequence number)
+  -> [ScienceObs] -- related observations (same sequence number)
   -> Html
 recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
   let initialize = "initialize()"
+      obsId = recordObsId thisObs
 
-      obsName = recordObsname thisObs
+      imgLinks = either (const mempty) (renderLinks False) thisObs
 
   in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observation: " <> toHtml obsName) <>
+    head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
             (script ! src "/js/main.js") "" <>
             link ! href   "/css/main.css"
@@ -74,7 +76,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
       <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
          (renderStuff cTime thisObs matches
-          <> renderLinks False thisObs)
+          <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)
 
 -- | A redesign of the page.
@@ -87,13 +89,13 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
 renderStuff :: 
   UTCTime           -- Current time
   -> Record
-  -> [Record]       -- observations with the same sequence number
+  -> [ScienceObs]       -- observations with the same sequence number
   -> Html
 renderStuff cTime rs matches = 
   div ! id "observation" $
-    if isJust (recordSequence rs)
-    then targetInfo cTime rs matches
-    else otherInfo cTime rs
+    case rs of
+      Left ns -> otherInfo cTime ns
+      Right so -> targetInfo cTime so matches
 
 -- | What is the page being viewed?
 --
@@ -132,9 +134,9 @@ obsNavBar ::
   Maybe Record   -- the current observation
   -> ObsInfo 
   -> Html
-obsNavBar mObs oi = 
-  let prevObs = oiPrevObs oi
-      nextObs = oiNextObs oi
+obsNavBar mObs ObsInfo{..} = 
+  let prevObs = oiPrevObs
+      nextObs = oiNextObs
 
       pFlag = isJust prevObs && prevObs == mObs
       nFlag = isJust nextObs && nextObs == mObs
@@ -148,7 +150,7 @@ navPrev ::
   -> Record 
   -> Html
 navPrev f rs =
-    let uri = if f then "/index.html" else toValue (obsURI rs)
+    let uri = if f then "/index.html" else toValue (obsURI (recordObsId rs))
     in li ! class_ "prevLink"
        $ a ! href uri
            $ "Previous observation"
@@ -158,7 +160,7 @@ navNext ::
   -> Record 
   -> Html
 navNext f rs = 
-    let uri = if f then "/index.html" else toValue (obsURI rs)
+    let uri = if f then "/index.html" else toValue (obsURI (recordObsId rs))
     in li ! class_ "nextLink"
        $ a ! href uri
          $ "Next observation"
@@ -172,21 +174,12 @@ instLink inst =
 
 -- | Given a list of observations from a proposal, group them by target name.
 --
-groupProposal ::
-  [Record]  -- these are expected to be science observations
-  -> Html
+groupProposal :: [ScienceObs] -> Html
 groupProposal matches =
-  let obs = mapMaybe getObs matches
-      getObs r = do
-        let n = recordTarget r
-        o <- safeObsId (recordObsname r)
-        return (n, o)
-        
+  let obs = P.map (soTarget &&& soObsId) matches
       grps = groupBy ((==) `on` fst) obs
 
-      -- special case knowledge of URI mapping, should be abstracted out
-      toURI (ObsIdVal o) = toValue $ "/obsid/" ++ show o
-      toLink o = a ! href (toURI o) $ toHtml o
+      toLink o = a ! href (obsURI o) $ toHtml o
 
       tgtLinks [] = mempty -- should not happen
       tgtLinks xs@(x:_) = mconcat $ [toHtml (fst x), " ("] ++ intersperse ", " (P.map (toLink . snd) xs) ++ [")"]
@@ -196,17 +189,14 @@ groupProposal matches =
 -- | Display information for a \"science\" observation.
 targetInfo :: 
   UTCTime    -- current time
-  -> Record  -- this is assumed to be for an ObsId, not SpecialObs
-             -- ie it will crash if it is not sent one.
-  -> [Record] -- observations with the same sequence number
+  -> ScienceObs
+  -> [ScienceObs] -- observations with the same sequence number
   -> Html
-targetInfo cTime rs matches = 
-  let targetStr = recordTarget rs
+targetInfo cTime so@(ScienceObs {..}) matches = 
+  let targetStr = soTarget
+      obsId = soObsId
 
-      -- assume this pattern match can not fail
-      ObsId obsId = recordObsname rs
-
-      (sTime, eTime) = getTimes rs
+      (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
       abstractVal = toHtml targetStr <> case obsStatus of
                       Todo  -> " will be observed"
@@ -239,32 +229,29 @@ targetInfo cTime rs matches =
           targetStr <> 
           "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
 
-  in statusPara (True, sTime, eTime, rs) cTime obsStatus 
+  in statusPara (sTime, eTime, Right so) cTime obsStatus 
      <> abstract
-     -- <> renderObsIdDetails rs
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 
   UTCTime    -- current time
-  -> Record  -- this is assumed to be for an ObsId, not SpecialObs
-             -- ie it will crash if it is not sent one.
+  -> NonScienceObs
   -> Html
-otherInfo cTime rs = 
-  let (sTime, eTime) = getTimes rs
+otherInfo cTime ns = 
+  let (sTime, eTime) = getTimes (Left ns)
       obsStatus = getObsStatus (sTime, eTime) cTime 
-  in statusPara (False, sTime, eTime, rs) cTime obsStatus
+  in statusPara (sTime, eTime, Left ns) cTime obsStatus
 
 -- | Create the paragraph describing the observing status -
 --   i.e. if it has been, will be, or is being, observed.
 --
 statusPara :: 
-  (Bool, ChandraTime, ChandraTime, Record) 
-  -- ^ True if science obs/False if not,
-  --   start time, end time, record
+  (ChandraTime, ChandraTime, Record) 
+  -- ^ start time, end time, record
   -> UTCTime    -- ^ current time
   -> ObsStatus     -- ^ status of observation
   -> Html
-statusPara (science, sTime, eTime, rs) cTime obsStatus = 
+statusPara (sTime, eTime, rs) cTime obsStatus = 
   let cts Todo = 
         mconcat [ targetName
                 , " will be observed ", instInfo
@@ -299,11 +286,10 @@ statusPara (science, sTime, eTime, rs) cTime obsStatus =
                    then mempty
                    else " and the " <> toHtml grat
 
-      prefix = if science then "" else "The calibration observation "
-      targetName = toHtml $ prefix <> recordTarget rs
+      prefix (Left _) = "The calibration observation "
+      prefix (Right _) = ""
+      targetName = toHtml $ prefix rs <> recordTarget rs
                  
-      -- TODO Add in a nice display of UTCTime
-
       lenVal = showExp rs
 
   in p $ cts obsStatus
