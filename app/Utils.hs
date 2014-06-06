@@ -22,7 +22,6 @@ module Utils (
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 
@@ -35,6 +34,7 @@ import Web.Scotty
 
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
+import Types (getJointObs)
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -160,7 +160,7 @@ abstractLink ObsIdVal{..} =
 --   and it is rather meaningless to anyone but an expert.
 --
 renderObsIdDetails :: ScienceObs -> H.Html
-renderObsIdDetails ScienceObs{..} =
+renderObsIdDetails so@ScienceObs{..} =
   let name = soTarget
       inst = soInstrument
       grat = soGrating
@@ -182,6 +182,9 @@ renderObsIdDetails ScienceObs{..} =
         Just t -> keyVal "Exposure (observed):" (H.toHtml t <> " ks")
         _ -> keyVal "Exposure (approved):" (H.toHtml soApprovedTime <> " ks")
 
+      toJ (l,v) = keyVal "Joint with:" (l <> " for " <> H.toHtml (_toS v) <> " ks")
+      jointElems = mconcat $ map toJ $ getJointObs so
+
   in -- showDetails <>
      (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       (keyVal "Observation Details:" oLink
@@ -197,8 +200,6 @@ renderObsIdDetails ScienceObs{..} =
        -- rely on the ToMarkup instance of ChandraTime
        keyVal "Date:" (H.toHtml soStartTime)
        <>
-       keyVal "Joint with:" (fromMaybe "None" (H.toHtml `fmap` soJointWith))
-       <>
        expLink
        <>
        -- rely on the ToMarkup instance of RA
@@ -208,6 +209,8 @@ renderObsIdDetails ScienceObs{..} =
        keyVal "Declination:" (H.toHtml soDec)
        <>
        keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
+       <>
+       jointElems
        )
 
 -- Display the DSS/RASS/PSPC links. I assume that they

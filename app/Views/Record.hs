@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fmap, fst, null, snd)
+import Prelude ((.), (-), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, length, map, null, snd, splitAt)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -36,7 +36,7 @@ import Types (ScienceObs(..), NonScienceObs(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
-              getObsStatus)
+              getObsStatus, getJointObs)
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta
@@ -278,10 +278,25 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
                Todo  -> "will be"
                Doing -> "is"
                Done  -> "was"
-      joint n = p $ "This " <> verb <> " a joint observation with: " <> toHtml n
+
+      toJ (l, tks) = l <> " (for " <> toHtml (showExpTime tks) <> ")"
+
+      addList [] = []
+      addList [x] = [x]
+      addList (x1:x2:[]) = [x1, " and ", x2]
+      addList xs = let (ls, [r1, r2]) = splitAt (length xs - 2) xs
+                   in intersperse ", " ls ++ [r1, ", and", r2]
+ 
+      jointObs = case soJointWith of
+        Just _ -> p $ mconcat
+                   [ "This ", verb, " a joint observation with "
+                   , mconcat $ addList $ map toJ $ getJointObs so
+                   , "."
+                   ]
+        Nothing -> mempty
 
   in sciencePara 
-     <> fromMaybe mempty (joint `fmap` soJointWith) 
+     <> jointObs
      <> abstract
 
 -- | Display information for a \"non-science\" observation.

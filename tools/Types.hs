@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -38,7 +39,8 @@ import Data.Bits (Bits(..))
 #endif
 
 import Data.Function (on)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
+import Data.String (IsString)
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
 -- I am not convinced I'm adding the PersistField values sensibly
@@ -500,6 +502,24 @@ data ScienceObs = ScienceObs {
   -- deriving (Eq, Show)
   deriving Eq
     -- deriving instance Show ScienceObs
+
+-- | Return the list of other observations that are contemporaneous with
+--   this one.
+--   
+getJointObs :: (IsString s) => ScienceObs -> [(s, TimeKS)]
+getJointObs ScienceObs{..} = 
+  let toJ (l,r) = (l,) `fmap` r
+  in mapMaybe toJ 
+          [ ("HST", soJointHST)
+          , ("NOAO", soJointNOAO)
+          , ("NRAO", soJointNRAO)
+          , ("RXTE", soJointRXTE)
+          , ("Spitzer", soJointSPITZER)
+          , ("Suzaku", soJointSUZAKU)
+          , ("XMM", soJointXMM)
+          , ("Swift", soJointSWIFT)
+          , ("NuSTAR", soJointNUSTAR)
+          ]
 
 -- Apparently this is needed if I want a field with Maybe (Int, Int),
 -- but I am seeing some problems, along the lines of
