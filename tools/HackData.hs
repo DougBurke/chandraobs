@@ -1,7 +1,7 @@
 -- | An example data set taken from the Chandra Short-Term schedule and
 --   manually converted.
 --
-module HackData (testSchedule, testScience, testNonScience) where
+module HackData (testSchedule, testNonScience) where
 
 import Data.Maybe (isJust, mapMaybe)
 
@@ -32,6 +32,7 @@ toSI (STS mSeqNum obs _ tgt stTime eval _ _ _ _ _ _ _) =
 --       there's an error in the input data and I want it to error out
 --       at compile time. This is all temporary code!
 
+{-
 toSO :: STS -> Maybe ScienceObs
 toSO (STS Nothing _ _ _ _ _ _ _ _ _ _ _ _) = Nothing
 toSO (STS (Just seqNum) (ObsId obs) _ tgt stTime eval (Just inst) (Just grat) ra dec roll pitch slew) =
@@ -40,6 +41,7 @@ toSO (STS (Just seqNum) (ObsId obs) _ tgt stTime eval (Just inst) (Just grat) ra
       raV = RA ra
       decV = Dec dec
   in Just $ ScienceObs (Sequence seqNum) obs tgt t1 tks inst grat raV decV roll pitch slew -- []
+-}
 
 toNS :: STS -> Maybe NonScienceObs
 toNS (STS (Just _) _ _ _ _ _ _ _ _ _ _ _ _) = Nothing
@@ -61,8 +63,10 @@ getObsIdValue tname =
 testSchedule :: [ScheduleItem]
 testSchedule = map toSI sts
 
+{-
 testScience :: [ScienceObs]
 testScience = mapMaybe toSO sts
+-}
 
 testNonScience :: [NonScienceObs]
 testNonScience = mapMaybe toNS sts

@@ -4,8 +4,12 @@
 -- | Access data from the Chandra observational catalog and add it
 --   to the database.
 --
---   At present it doesn't do any of the above.
 --
+
+{-
+TODO: extract more info - eg chips and joint observations
+TODO: how to update existing info
+-}
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
@@ -109,7 +113,6 @@ toGrating m =
 toProposal :: OCAT -> Maybe Proposal
 toProposal m = do
   pNum <- toPropNum m
-  seqNum <- toSequence m
   pName <- toString m "PROP_TITLE"
   piName <- toString m "PI_NAME"
   cat <- toString m "CATEGORY"
@@ -117,7 +120,6 @@ toProposal m = do
   pCycle <- toString m "PROP_CYCLE"
   return Proposal {
         propNum = pNum
-        , propSeqNum = seqNum
         , propName = pName
         , propPI = piName
         , propCategory = cat
@@ -125,9 +127,10 @@ toProposal m = do
         , propCycle = pCycle
      }
 
-toSO :: OCAT -> Maybe ScienceObsFull
+toSO :: OCAT -> Maybe ScienceObs
 toSO m = do
   seqNum <- toSequence m
+  pNum <- toPropNum m
   status <- toString m "STATUS"
   obsid <- toObsId m
   target <- toString m "TARGET_NAME"
@@ -142,25 +145,26 @@ toSO m = do
   ra <- toRA m
   dec <- toDec m
   roll <- toRead m "SOE_ROLL"
-  return ScienceObsFull {
-    sofSequence = seqNum
-    , sofStatus = status
-    , sofObsId = obsid
-    , sofTarget = target
-    , sofStartTime = sTime
-    , sofApprovedTime = appExp
-    , sofObservedTime = obsExp
-    , sofInstrument = inst
-    , sofGrating = grat
-    , sofDetector = det
-    , sofDataMode = datamode
-    , sofJointWith = []  -- TODO  [(String, TimeKS)] -- could use an enumeration
-    , sofTOO = too
-    , sofRA = ra
-    , sofDec = dec
-    , sofRoll = roll
-    , sofACISChIPS = Nothing -- :: Maybe String -- 10 character string with Y/N/<integer> for optional values
-    -- , sofSubArray = Nothing -- :: Maybe (Int, Int) -- start row/number of rows
+  return ScienceObs {
+    soSequence = seqNum
+    , soProposal = pNum
+    , soStatus = status
+    , soObsId = obsid
+    , soTarget = target
+    , soStartTime = sTime
+    , soApprovedTime = appExp
+    , soObservedTime = obsExp
+    , soInstrument = inst
+    , soGrating = grat
+    , soDetector = det
+    , soDataMode = datamode
+    , soJointWith = []  -- TODO  [(String, TimeKS)] -- could use an enumeration
+    , soTOO = too
+    , soRA = ra
+    , soDec = dec
+    , soRoll = roll
+    , soACISChIPS = Nothing -- :: Maybe String -- 10 character string with Y/N/<integer> for optional values
+    -- , soSubArray = Nothing -- :: Maybe (Int, Int) -- start row/number of rows
      }
 
 {-
@@ -176,7 +180,7 @@ SEQ_NUM	STATUS	OBSID	PR_NUM	TARGET_NAME	GRID_NAME	INSTR	GRAT	TYPE	OBS_CYCLE	PROP
 --   are found or if one/both of the output values can not be
 --   created.
 --
-queryObsId :: ObsIdVal -> IO (Maybe (Proposal, ScienceObsFull))
+queryObsId :: ObsIdVal -> IO (Maybe (Proposal, ScienceObs))
 queryObsId oid = do
   let qry = queryURL oid
   rsp <- simpleHttp qry
@@ -210,10 +214,10 @@ findMissingObsIds = do
   (want, have, unarchived) <- withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
     runDbConn $ do
       handleMigration
-      allObsIds <- project SoObsIdField $ CondEmpty
-      fullObsIds <- project SofObsIdField $ CondEmpty      
-      unArchivedObsIds <- project SofObsIdField $ (SofStatusField /=. ("archived" :: String))
-      return (allObsIds, fullObsIds, unArchivedObsIds)
+      allObsIds <- project SiObsIdField $ (SiScienceObsField ==. True)
+      haveObsIds <- project SoObsIdField $ CondEmpty      
+      unArchivedObsIds <- project SoObsIdField $ (SoStatusField /=. ("archived" :: String))
+      return (allObsIds, haveObsIds, unArchivedObsIds)
 
   let swant = S.fromList want
       shave = S.fromList have
@@ -226,7 +230,7 @@ slen = show . length
 --   "unarchived" results (they may or may not have changed but
 --   easiest for me is just to update the database).
 --
-addResults :: [(Proposal, ScienceObsFull)] -> [(Proposal, ScienceObsFull)] -> IO ()
+addResults :: [(Proposal, ScienceObs)] -> [(Proposal, ScienceObs)] -> IO ()
 addResults [] [] = putStrLn "# No data needs to be added to the database."
 addResults missing unarchived = do
   putStrLn $ "# Adding " ++ slen missing ++ " missing results"
@@ -241,7 +245,7 @@ addResults missing unarchived = do
 
 -- | Report if any obsids are missing from the OCAT results.
 --
-check :: [Maybe (Proposal, ScienceObsFull)] -> [ObsIdVal] -> IO [(Proposal, ScienceObsFull)]
+check :: [Maybe (Proposal, ScienceObs)] -> [ObsIdVal] -> IO [(Proposal, ScienceObs)]
 check ms os = do
   let missing = map snd $ filter (isNothing . fst) $ zip ms os
   when (not (null missing)) $ do
@@ -276,25 +280,25 @@ main = withSocketsDo $ do
       print so
       dump so
 
-dump :: ScienceObsFull -> IO ()
-dump ScienceObsFull{..} = do
+dump :: ScienceObs -> IO ()
+dump ScienceObs{..} = do
   putStrLn "------ dump"
-  print (_unSequence sofSequence)
-  putStrLn sofStatus
-  print (fromObsId sofObsId)
-  putStrLn sofTarget
-  putStrLn $ showCTime sofStartTime
-  putStrLn $ showExpTime sofApprovedTime
-  putStrLn $ show (fmap showExpTime sofObservedTime)
-  print sofInstrument
-  print sofGrating
-  print sofDetector
-  putStrLn sofDataMode
-  putStrLn $ "jointwith is empty: " ++ show (null sofJointWith) 
-  print sofTOO
-  putStrLn $ showRA sofRA
-  putStrLn $ showDec sofDec
-  print sofRoll
-  print sofACISChIPS
-  -- , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
+  print (_unSequence soSequence)
+  putStrLn soStatus
+  print (fromObsId soObsId)
+  putStrLn soTarget
+  putStrLn $ showCTime soStartTime
+  putStrLn $ showExpTime soApprovedTime
+  putStrLn $ show (fmap showExpTime soObservedTime)
+  print soInstrument
+  print soGrating
+  print soDetector
+  putStrLn soDataMode
+  putStrLn $ "jointwith is empty: " ++ show (null soJointWith) 
+  print soTOO
+  putStrLn $ showRA soRA
+  putStrLn $ showDec soDec
+  print soRoll
+  print soACISChIPS
+  -- , soSubArray :: Maybe (Int, Int) -- start row/number of rows
 -}

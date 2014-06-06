@@ -16,7 +16,7 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs, ObsInfo(..))
+import Types (ScienceObs, Proposal, ObsInfo(..))
 import Utils (defaultMeta, renderLinks)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
@@ -59,9 +59,9 @@ tourElements =
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
-  -> [ScienceObs]  -- records with the same sequence number
+  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
   -> Html
-introPage cTime oi@(ObsInfo currentObs _ _) matches =
+introPage cTime oi@(ObsInfo currentObs _ _) propInfo =
   let initialize = "initialize(); addTour();"
 
       imgLinks = either (const mempty) (renderLinks True) currentObs
@@ -88,6 +88,6 @@ introPage cTime oi@(ObsInfo currentObs _ _) matches =
      (mainNavBar CPIndex
       <> obsNavBar (Just currentObs) oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime currentObs matches
+         (renderStuff cTime currentObs propInfo
           <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)

@@ -16,46 +16,19 @@
 --   to catch cases where I was relying on them for serialization
 --   when I should not have been.
 --
-{-
-module Types ( ScheduleItem(..)
-              , Schedule(..)
-              , Sequence(..)
-              , RA(..), Dec(..)
-              , Instrument(..)
-              , Grating(..)
-              , ObsName(..)
-              , ObsIdVal(..)
-              , ObsInfo(..)
-              , ObsStatus(..)
-              , ChandraTime(..)
-              , TimeKS(..)
-              , ScienceObs(..)
-              , ConstrainedObs(..)
-              , NonScienceObs(..)
-              , getObsStatus
-              , toCTime
-              , showCTime
-              , endCTime
-              , showExpTime
-              , showExp
-              , showRA
-              , showDec
-
-              , handleMigration
-
-                -- * Temporary types and routines
-              , Record
-              , recordSequence, recordObsname, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, recordRoll, recordPitch, recordSlew
-  ) where
--}
-
--- as now have TH below, export everything
+--   Gien the way the code has ended up below, perhaps I should be
+--   using some form of a lens library.
+--
 module Types where
+
+-- Since Template Haskell is being used to create a number of
+-- symbols, I have decided to export everything from this module
+-- rather than try to track and document it.
 
 import qualified Data.ByteString.Char8 as B8
 import qualified Text.Blaze.Html5 as H
 
-import Control.Arrow ((&&&), first)
+import Control.Arrow (first)
 import Control.Monad.Logger (NoLoggingT)
 
 #if MIN_VERSION_base(4, 7, 0)
@@ -122,26 +95,10 @@ instance H.ToMarkup ObsIdVal where
 instance H.ToValue ObsIdVal where
   toValue = H.toValue . fromObsId
 
--- | Represent an entry in the short-term schedule.
+-- | Represent an entry in the schedule; this is
+--   a "catch-all" type that is used as I play around with the
+--   database.
 --
-{-
-data Record = Record {
-  recordSequence :: Maybe Sequence
-  , recordObsname :: ObsName
-  , recordContraint :: Maybe Int
-  , recordTarget :: String
-  , recordStartTime :: ChandraTime
-  , recordTime :: TimeKS
-  , recordInstrument :: Maybe Instrument
-  , recordGrating :: Maybe Grating
-  , recordRa :: RA
-  , recordDec :: Dec
-  , recordRoll :: Double
-  , recordPitch :: Double
-  , recordSlew :: Double
-  } deriving (Eq, Show)
--}
-
 type Record = Either NonScienceObs ScienceObs
 
 -- hacks for quickly converting old code
@@ -158,8 +115,9 @@ recordTarget = either nsTarget soTarget
 recordStartTime :: Record -> ChandraTime
 recordStartTime = either nsStartTime soStartTime
 
+-- Use the actual time if we have it, otherwise the approved time
 recordTime :: Record -> TimeKS
-recordTime = either nsTime soTime
+recordTime = either nsTime (\ScienceObs{..} -> fromMaybe soApprovedTime soObservedTime)
 
 recordInstrument :: Record -> Maybe Instrument
 recordInstrument = either (const Nothing) (Just . soInstrument)
@@ -175,13 +133,6 @@ recordDec = either nsDec soDec
 
 recordRoll :: Record -> Double
 recordRoll = either nsRoll soRoll
-
-recordPitch :: Record -> Double
-recordPitch = either nsPitch soPitch
-
-recordSlew :: Record -> Double
-recordSlew = either nsSlew soSlew 
-
 
 -- | I just want a simple way of passing around 
 --   useful information about an observation.
@@ -436,39 +387,6 @@ data ScheduleItem = ScheduleItem {
   -- deriving (Eq, Show)
   deriving Eq
 
--- | Represent a science observation.
-data ScienceObs = ScienceObs {
-  soSequence :: Sequence
-  , soObsId :: ObsIdVal
-  , soTarget :: String
-  , soStartTime :: ChandraTime
-  , soTime :: TimeKS
-  , soInstrument :: Instrument
-  , soGrating :: Grating
-  , soRA :: RA
-  , soDec :: Dec
-  , soRoll :: Double
-  , soPitch :: Double
-  , soSlew :: Double
-  -- take out the constraints for now, to simplify db testing
-  -- with Groundhog (may move to a separate
-  -- record and have them reference the observation)
-  -- , soContraint :: [ConstrainedObs] -- do we ever have multiple constraints?
-  }
-  -- deriving (Eq, Show)
-  deriving Eq
-
--- | This is for debug purposes.
-instance Show ScienceObs where
-  show ScienceObs{..} = 
-    concat [ "Science: ", show (fromObsId soObsId)
-           , " ", soTarget
-           , " with "
-           , show soInstrument, "+", show soGrating
-           , " for ", show (_toS soTime)
-           , " ks at ", showCTime soStartTime
-           ]
-
 -- | Represent a non-science/cal observation.
 data NonScienceObs = NonScienceObs {
   nsName :: String             -- the STS has a string identifier; where does this come from?
@@ -495,29 +413,30 @@ instance Show NonScienceObs where
 
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
-data ScienceObsFull = ScienceObsFull {
-  sofSequence :: Sequence -- TODO: DefaultKey Proposal
-  , sofStatus :: String    -- use an enumeration
-  , sofObsId :: ObsIdVal
-  , sofTarget :: String
-  , sofStartTime :: ChandraTime
-  , sofApprovedTime :: TimeKS
-  , sofObservedTime :: Maybe TimeKS
-  , sofInstrument :: Instrument
-  , sofGrating :: Grating
-  , sofDetector :: Maybe String   -- use an enumeration; do we want this?
-  , sofDataMode :: String -- use an enumeration
-  , sofJointWith :: [(String, TimeKS)] -- could use an enumeration
-  , sofTOO :: Maybe String -- not sure what this field can contain
-  , sofRA :: RA
-  , sofDec :: Dec
-  , sofRoll :: Double
-  , sofACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
-  -- , sofSubArray :: Maybe (Int, Int) -- start row/number of rows
+data ScienceObs = ScienceObs {
+  soSequence :: Sequence -- TODO: DefaultKey Proposal ?
+  , soProposal :: PropNum -- the proposal number
+  , soStatus :: String    -- use an enumeration
+  , soObsId :: ObsIdVal
+  , soTarget :: String
+  , soStartTime :: ChandraTime
+  , soApprovedTime :: TimeKS
+  , soObservedTime :: Maybe TimeKS
+  , soInstrument :: Instrument
+  , soGrating :: Grating
+  , soDetector :: Maybe String   -- use an enumeration; do we want this field?
+  , soDataMode :: String -- use an enumeration
+  , soJointWith :: [(String, TimeKS)] -- could use an enumeration
+  , soTOO :: Maybe String -- not sure what this field can contain
+  , soRA :: RA
+  , soDec :: Dec
+  , soRoll :: Double
+  , soACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
+  -- , soSubArray :: Maybe (Int, Int) -- start row/number of rows
   } 
   -- deriving (Eq, Show)
   deriving Eq
-    -- deriving instance Show ScienceObsFull
+    -- deriving instance Show ScienceObs
 
 -- Apparently this is needed if I want a field with Maybe (Int, Int),
 -- but I am seeing some problems, along the lines of
@@ -528,27 +447,27 @@ data ScienceObsFull = ScienceObsFull {
 -- instance NeverNull (Int, Int)
 
 -- | This is for debug purposes.
-instance Show ScienceObsFull where
-  show ScienceObsFull{..} = 
-    concat [ "Science (full): ", show (fromObsId sofObsId)
-           , " ", sofTarget
+instance Show ScienceObs where
+  show ScienceObs{..} = 
+    concat [ "Science: ", show (fromObsId soObsId)
+           , " ", soTarget
            , " with "
-           , show sofInstrument, "+", show sofGrating
-           , " approved for ", show (_toS sofApprovedTime)
-           , " ks at ", showCTime sofStartTime
+           , show soInstrument, "+", show soGrating
+           , " approved for ", show (_toS soApprovedTime)
+           , " ks at ", showCTime soStartTime
            ]
 
 -- | Has the observation been archived? If so, we assume that the observational
 --   parameters we care about are not going to change. This may turn out to be
 --   a bad idea.
 --
-isArchived :: ScienceObsFull -> Bool
-isArchived ScienceObsFull{..} = sofStatus == "archived"
+isArchived :: ScienceObs -> Bool
+isArchived ScienceObs{..} = soStatus == "archived"
 
 -- | Store information on a proposal, obtained from the OCAT.
 data Proposal = Proposal {
   propNum :: PropNum
-  , propSeqNum :: Sequence
+  -- , propSeqNum :: Sequence
   , propName :: String
   , propPI :: String
   , propCategory :: String
@@ -558,14 +477,14 @@ data Proposal = Proposal {
   -- deriving (Eq, Show)
   deriving Eq
 
--- | Proposals are ordered by (proposal number, sequence number)
+-- | Proposals are ordered by proposal number.
 instance Ord Proposal where
-  compare = compare `on` (propNum &&& propSeqNum)
+  compare = compare `on` propNum
 
 -- | This is for debug purposes.
 instance Show Proposal where
   show Proposal{..} = 
-    concat [ "Proposal: ", show (_unSequence propSeqNum)
+    concat [ "Proposal: ", show (_unPropNum propNum)
            , " ", propName
            , " PI ", propPI
            ]
@@ -821,12 +740,6 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: ScienceObsIdConstraint
           fields: [soObsId]
-- entity: ScienceObsFull
-  constructors:
-    - name: ScienceObsFull
-      uniques:
-        - name: ScienceObsFullIdConstraint
-          fields: [sofObsId]
 - entity: NonScienceObs
   constructors:
     - name: NonScienceObs
@@ -838,7 +751,7 @@ mkPersist defaultCodegenConfig [groundhog|
     - name: Proposal
       uniques:
         - name: PropConstraint
-          fields: [propNum, propSeqNum]
+          fields: [propNum]
 |]
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
@@ -846,6 +759,5 @@ handleMigration =
   runMigration defaultMigrationLogger $ do
     migrate (undefined :: ScheduleItem)
     migrate (undefined :: ScienceObs)
-    migrate (undefined :: ScienceObsFull)
     migrate (undefined :: NonScienceObs)
     migrate (undefined :: Proposal)

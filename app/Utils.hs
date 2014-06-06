@@ -176,11 +176,18 @@ renderObsIdDetails ScienceObs{..} =
       oLink = H.a H.! A.href (obsIdLink soObsId) $ H.toHtml soObsId
       sLink = H.a H.! A.href (seqLink soObsId)   $ H.toHtml soSequence
 
+       -- rely on the ToMarkup instance of TimeKS
+      expLink = case soObservedTime of
+        Just t -> keyVal "Exposure (observed):" (H.toHtml t <> " ks")
+        _ -> keyVal "Exposure (approved):" (H.toHtml soApprovedTime <> " ks")
+
   in -- showDetails <>
      (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       (keyVal "Observation Details:" oLink
        <>
        keyVal "Sequence Summary:" sLink
+       <>
+       keyVal "Proposal Id:" (H.toHtml soProposal)
        <>
        keyVal "Target:" (H.toHtml name)
        <>
@@ -189,8 +196,7 @@ renderObsIdDetails ScienceObs{..} =
        -- rely on the ToMarkup instance of ChandraTime
        keyVal "Date:" (H.toHtml soStartTime)
        <>
-       -- rely on the ToMarkup instance of TimeKS
-       keyVal "Exposure:" (H.toHtml soTime <> " ks")
+       expLink
        <>
        -- rely on the ToMarkup instance of RA
        keyVal "Right Ascension:" (H.toHtml soRA)
@@ -199,12 +205,6 @@ renderObsIdDetails ScienceObs{..} =
        keyVal "Declination:" (H.toHtml soDec)
        <>
        keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
-{-
-       <>
-       keyVal "Pitch:" (H.toHtml (soPitch so))
-       <>
-       keyVal "Slew:" (H.toHtml (soSlew so))
--}
        )
 
 -- Display the DSS/RASS/PSPC links. I assume that they
@@ -222,7 +222,7 @@ renderLinks ::
   Bool -- True if current obs
   -> ScienceObs
   -> H.Html
-renderLinks f so@(ScienceObs{..}) = 
+renderLinks f so@ScienceObs{..} = 
   let optSel :: String -> Bool -> H.Html
       optSel lbl cf = 
         let idName = H.toValue (lbl++"button")
@@ -271,7 +271,6 @@ renderLinks f so@(ScienceObs{..}) =
       link "PSPC" "pspc" False <>
       link "RASS" "rass" False <>
       renderObsIdDetails so) 
-
  
 getTimes ::
   Record

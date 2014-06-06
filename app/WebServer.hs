@@ -34,7 +34,7 @@ import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo,
                  getObsId, getSchedule,
-                 matchSeqNum)
+                 getProposalInfo)
 import Types (ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -109,10 +109,11 @@ webapp cm = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          matches <- liftSQL $ matchSeqNum $ oiCurrentObs obs
-          fromBlaze $ Index.introPage cTime obs matches
+          propInfo <- liftSQL $ getProposalInfo $ oiCurrentObs obs
+          fromBlaze $ Index.introPage cTime obs propInfo
         _        -> fromBlaze Index.noDataPage
 
+    -- TODO: send in proposal details
     get "/wwt.html" $ do
       mobs <- liftSQL getCurrentObs
       case mobs of 
@@ -126,10 +127,11 @@ webapp cm = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          matches <- liftSQL $ matchSeqNum $ oiCurrentObs obs
-          fromBlaze $ Record.recordPage cTime mCurrent obs matches
+          propInfo <- liftSQL $ getProposalInfo $ oiCurrentObs obs
+          fromBlaze $ Record.recordPage cTime mCurrent obs propInfo
         _        -> status status404
 
+    -- TODO: send in proposal details
     get "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
       mobs <- liftSQL $ getRecord $ ObsIdVal obsid

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Simple database access shims.
 --
@@ -8,11 +9,12 @@
 module Database ( getCurrentObs
                 , getObsInfo
                 -- , findObsName
-                , getSpecialObs
                 , getObsId
                 , getRecord
                 , getSchedule
-                , matchSeqNum
+                , getProposal
+                , getProposalObs
+                , getProposalInfo
                 , reportSize
                 ) where
 
@@ -25,10 +27,6 @@ import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 import Database.Groundhog.Postgresql
 
 import Types
-{-
-import Types (ObsName(..), ObsIdVal(..), ObsInfo(..), ChandraTime(..), Schedule(..), ScheduleItem(..), ScienceObs(..), NonScienceObs(..))
-import Types (Record)
--}
 
 -- | Return the last ScheduleItem to be defined before the given time.
 findSI :: (PersistBackend m) => UTCTime -> m (Maybe ScheduleItem)
@@ -68,8 +66,8 @@ findScience oi = do
 --   first element, or @Nothing@ if the list is empty.
 --
 extractRecord:: PersistBackend m => [ScheduleItem] -> m (Maybe Record)
-extractRecord[] = return Nothing
-extractRecord(si:_) = findItem si
+extractRecord [] = return Nothing
+extractRecord (si:_) = findItem si
 
 -- | Return the current observation
 getCurrentObs :: (MonadIO m, PersistBackend m) => m (Maybe Record)
@@ -81,19 +79,27 @@ getCurrentObs = do
     _ -> return Nothing
 
 -- | Return the first observation to start after the given time.
-getNextObs :: (MonadIO m, PersistBackend m) => ChandraTime -> m (Maybe Record)
-getNextObs t = do
-  res <- select $ (SiStartField >. t)
+--
+--   Hmm, this is tricky now that we have science times that do not
+--   necessarily agree with the schedule times, which is why the
+--   obsid is given too
+--
+getNextObs :: (MonadIO m, PersistBackend m) => ObsIdVal -> ChandraTime -> m (Maybe Record)
+getNextObs oid t = do
+  res <- select $ ((SiStartField >. t) &&. (SiObsIdField /=. oid)) 
                   `orderBy` [Asc SiStartField]
                   `limitTo` 1
   extractRecord res
 
 -- | Return the last observation to have started before the given time.
 --
---   Perhaps this should check on SiEndTime
-getPrevObs :: (MonadIO m, PersistBackend m) => ChandraTime -> m (Maybe Record)
-getPrevObs t = do
-  res <- select $ (SiStartField <. t)
+--   Perhaps this should check on @SiEndTime@.
+--
+--   See the discussion for `getNextObs`.
+--
+getPrevObs :: (MonadIO m, PersistBackend m) => ObsIdVal -> ChandraTime -> m (Maybe Record)
+getPrevObs oid t = do
+  res <- select $ ((SiStartField <. t) &&. (SiObsIdField /=. oid))
                   `orderBy` [Desc SiStartField]
                   `limitTo` 1
   extractRecord res
@@ -121,8 +127,8 @@ getObsInfo = do
 -- | Given an observation, extract the previous and next observations.
 extractObsInfo :: (MonadIO m, PersistBackend m) => Record -> m (Maybe ObsInfo)
 extractObsInfo obs = do
-  mprev <- getPrevObs (recordStartTime obs)
-  mnext <- getNextObs (recordStartTime obs)
+  mprev <- getPrevObs (recordObsId obs) (recordStartTime obs)
+  mnext <- getNextObs (recordObsId obs) (recordStartTime obs)
   return $ Just $ ObsInfo obs mprev mnext
 
 findObsInfo :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
@@ -133,10 +139,6 @@ findObsInfo oi = do
     Just obs -> extractObsInfo obs
     _ -> return Nothing
   
--- | Return the requested "special" observation.
-getSpecialObs :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
-getSpecialObs = findObsInfo 
-
 -- | Return the requested "science" observation.
 getObsId :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
 getObsId = findObsInfo 
@@ -185,29 +187,39 @@ getSchedule ndays = do
 
   return $ Schedule now ndays done mdoing todo
 
--- | Find observations with the same sequence number.
+-- | Return the proposal information for the observation if:
+--   a) it's a science observation, and b) we have it.
 --
-matchSeqNum :: (MonadIO m, PersistBackend m) => Record -> m [ScienceObs]
-matchSeqNum (Left _) = return []
-matchSeqNum (Right so) = do
-  let seqNum = soSequence so
-      oid = soObsId so
-  -- time sorting probably not needed here as I would expect the
-  -- results to be in the correct order anyway
-  ans <- select $ ((SoSequenceField ==. seqNum) &&. (SoObsIdField /=. oid))
-                  `orderBy` [Asc SoStartTimeField]
-  return ans
+getProposal :: (MonadIO m, PersistBackend m) => ScienceObs -> m (Maybe Proposal)
+getProposal ScienceObs{..} = do
+  ans <- select $ (PropNumField ==. soProposal)
+  return $ listToMaybe ans
+
+-- | Find all the other observations in the proposal.
+--
+getProposalObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m [ScienceObs]
+getProposalObs ScienceObs{..} = 
+  -- time sorting probably not needed here
+  select $ ((SoProposalField ==. soProposal) &&. (SoObsIdField /=. soObsId))
+           `orderBy` [Asc SoStartTimeField]
+
+-- | A combination of `getProposal` and `getProposalObs`.
+--
+getProposalInfo :: (MonadIO m, PersistBackend m) => Record -> m (Maybe Proposal, [ScienceObs])
+getProposalInfo (Left _) = return (Nothing, [])
+getProposalInfo (Right so) = do
+  mproposal <- getProposal so
+  matches <- getProposalObs so
+  return (mproposal, matches)
 
 -- | Quick on-screen summary of the database size.
 reportSize :: (MonadIO m, PersistBackend m) => m ()
 reportSize = do
   nall <- countAll (undefined :: ScheduleItem)
   ns <- countAll (undefined :: ScienceObs)
-  nsf <- countAll (undefined :: ScienceObsFull)
   nn <- countAll (undefined :: NonScienceObs)
   np <- countAll (undefined :: Proposal)
   liftIO $ putStrLn $ "Number of scheduled items   : " ++ show nall
   liftIO $ putStrLn $ "Number of science obs       : " ++ show ns
-  liftIO $ putStrLn $ "Number of science obs (full): " ++ show nsf
   liftIO $ putStrLn $ "Number of non-science obs   : " ++ show nn
   liftIO $ putStrLn $ "Number of proposals         : " ++ show np

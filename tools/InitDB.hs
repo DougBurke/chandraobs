@@ -32,11 +32,10 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
 
     n1 <- countAll (undefined :: ScheduleItem)
     n2 <- countAll (undefined :: ScienceObs)
-    n3 <- countAll (undefined :: ScienceObsFull)
-    n4 <- countAll (undefined :: NonScienceObs)
-    n5 <- countAll (undefined :: Proposal)
+    n3 <- countAll (undefined :: NonScienceObs)
+    n4 <- countAll (undefined :: Proposal)
 
-    let cts = [n1, n2, n3, n4, n5]
+    let cts = [n1, n2, n3, n4]
     when (any (/=0) cts) $ do
       liftIO $ hPutStrLn stderr $ "ERROR: there is existing data!"
       liftIO $ exitFailure
@@ -44,8 +43,8 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
     liftIO $ putStrLn "Inserting schedule"
     mapM_ insert testSchedule
 
-    liftIO $ putStrLn "Inserting science obs"
-    mapM_ insert testScience
+    -- liftIO $ putStrLn "Inserting science obs"
+    -- mapM_ insert testScience
 
     liftIO $ putStrLn "Inserting non-science obs"
     mapM_ insert testNonScience

@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, null, return, snd)
+import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, null, snd)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -30,11 +30,12 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), NonScienceObs(..), 
+              Proposal(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
               getObsStatus)
-import Types (Record, recordObsId, recordTarget, recordInstrument, recordGrating, showExp)
+import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta
              , obsURI, renderLinks
@@ -52,9 +53,9 @@ recordPage ::
   UTCTime  -- the current time
   -> Maybe Record -- the currently running observation
   -> ObsInfo  -- the observation being displayed
-  -> [ScienceObs] -- related observations (same sequence number)
+  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
   -> Html
-recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
+recordPage cTime mObs oi@(ObsInfo thisObs _ _) propInfo =
   let initialize = "initialize()"
       obsId = recordObsId thisObs
 
@@ -75,7 +76,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
      (mainNavBar CPOther
       <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime thisObs matches
+         (renderStuff cTime thisObs propInfo
           <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)
 
@@ -89,13 +90,13 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) matches =
 renderStuff :: 
   UTCTime           -- Current time
   -> Record
-  -> [ScienceObs]       -- observations with the same sequence number
+  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
   -> Html
-renderStuff cTime rs matches = 
+renderStuff cTime rs propInfo = 
   div ! id "observation" $
     case rs of
       Left ns -> otherInfo cTime ns
-      Right so -> targetInfo cTime so matches
+      Right so -> targetInfo cTime so propInfo
 
 -- | What is the page being viewed?
 --
@@ -187,37 +188,25 @@ groupProposal matches =
   in mconcat $ intersperse "; " $ P.map tgtLinks grps
      
 -- | Display information for a \"science\" observation.
+--
 targetInfo :: 
   UTCTime    -- current time
   -> ScienceObs
-  -> [ScienceObs] -- observations with the same sequence number
+  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
   -> Html
-targetInfo cTime so@(ScienceObs {..}) matches = 
-  let targetStr = soTarget
-      obsId = soObsId
-
-      (sTime, eTime) = getTimes (Right so)
+targetInfo cTime so@ScienceObs{..} (mproposal, matches) = 
+  let (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
-      abstractVal = toHtml targetStr <> case obsStatus of
-                      Todo  -> " will be observed"
-                      Doing -> " is being observed"
-                      Done  -> " was observed"
-      abstract = p $ "Find out why "
-                      <> (a ! href (abstractLink obsId)
-                           $ toHtml abstractVal)
-                      <> ". Use SIMBAD to find out about "
-                      <> (a ! href simbadLink $ toHtml targetStr)
+      targetName = toHtml soTarget
+      lenVal = toHtml $ showExpTime $ fromMaybe soApprovedTime soObservedTime
+
+      abstract = p $ "Use SIMBAD to find out about "
+                      <> (a ! href simbadLink $ toHtml soTarget)
                       <> " (this is not guaranteed to find the "
                       <> "correct source since it relies on an "
                       <> "identifiable string being used as the "
                       <> "observation target name, which isn't always "
                       <> "the case)."
-                      <> otherMatches
-
-      otherMatches = 
-        if null matches
-        then mempty
-        else mconcat [" See related observations: ", groupProposal matches, "."]
 
       -- Does blaze quote/protect URLs? It appears not,
       -- or perhaps I just didn't look correctly.
@@ -226,11 +215,66 @@ targetInfo cTime so@(ScienceObs {..}) matches =
       simbadLink = 
         toValue $
           "http://simbad.harvard.edu/simbad/sim-id?Ident=" <> 
-          targetStr <> 
+          soTarget <> 
           "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
 
-  in statusPara (sTime, eTime, Right so) cTime obsStatus 
-     <> abstract
+      abstxt = case obsStatus of
+                 Todo -> "will be observed"
+                 Doing -> "is being observed"
+                 Done -> "was observed"
+
+      reason = case mproposal of
+        Just Proposal{..} -> ", and is part of the proposal " <>
+                             (a ! href (abstractLink soObsId) $ toHtml propName)
+        _ -> ". See why it " <>
+             (a ! href (abstractLink soObsId) $ abstxt)
+
+      instInfo = mconcat [
+                  "by ", instLink soInstrument,
+                   if soGrating == NONE
+                   then mempty
+                   else " and the " <> toHtml soGrating
+                   ]
+
+      cts Todo = 
+        mconcat [ "The target - "
+                , targetName
+                , " - will be observed ", instInfo
+                , " for ", lenVal, ". It will start "
+                , toHtml (showTimeDeltaFwd cTime sTime)
+                , reason
+                , "."
+                ]
+      cts Doing = 
+        mconcat [ "The target - "
+                , targetName
+                , " - is being observed ", instInfo
+                , " for ", lenVal
+                , ". The observation started "
+                , toHtml (showTimeDeltaBwd sTime cTime)
+                , " and ends "
+                , toHtml (showTimeDeltaFwd cTime eTime)
+                , reason
+                , "."
+                ]
+      cts Done = 
+        mconcat [ "The target - "
+                , targetName
+                , " - was observed ", instInfo
+                , " for ", lenVal, ", and ended "
+                , toHtml (showTimeDeltaBwd eTime cTime)
+                , reason
+                , "."
+                ]
+
+      otherMatches = 
+        if null matches
+        then mempty
+        else mconcat [" See related observations: ", groupProposal matches, "."]
+
+      sciencePara = p $ cts obsStatus <> otherMatches
+
+  in sciencePara <> abstract
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 
@@ -240,57 +284,49 @@ otherInfo ::
 otherInfo cTime ns = 
   let (sTime, eTime) = getTimes (Left ns)
       obsStatus = getObsStatus (sTime, eTime) cTime 
-  in statusPara (sTime, eTime, Left ns) cTime obsStatus
+  in nonSciencePara (sTime, eTime, cTime) ns obsStatus
 
 -- | Create the paragraph describing the observing status -
 --   i.e. if it has been, will be, or is being, observed.
 --
-statusPara :: 
-  (ChandraTime, ChandraTime, Record) 
-  -- ^ start time, end time, record
-  -> UTCTime    -- ^ current time
+nonSciencePara ::
+  (ChandraTime, ChandraTime, UTCTime)
+  -- ^ start time, end time, current time
+  -> NonScienceObs
   -> ObsStatus     -- ^ status of observation
   -> Html
-statusPara (sTime, eTime, rs) cTime obsStatus = 
+nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus = 
   let cts Todo = 
-        mconcat [ targetName
-                , " will be observed ", instInfo
-                , " for ", lenVal, ". It will start "
+        mconcat [ "The calibration observation - "
+                , targetName
+                , " - will be observed for "
+                , lenVal, ". It will start "
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , "."
                 ]
       cts Doing = 
-        mconcat [ targetName
-                , " is being observed ", instInfo
-                , " for ", lenVal
+        mconcat [ "The calibration observation - "
+                , targetName
+                , " - is being observed for "
+                , lenVal
                 , ". The observation started "
                 , toHtml (showTimeDeltaBwd sTime cTime)
                 , " and ends "
                 , toHtml (showTimeDeltaFwd cTime eTime)
                 , "."
                 ]
-                  
       cts Done = 
-        mconcat [ targetName
-                , " was observed ", instInfo
-                , " for ", lenVal, ", and ended "
+        mconcat [ "The calibration observation - "
+                , targetName
+                , " - was observed for "
+                , lenVal
+                , ", and ended "
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , "."
                 ]
 
-      instInfo = fromMaybe mempty $ do
-        inst <- recordInstrument rs
-        grat <- recordGrating rs
-        return $ "by " <> instLink inst <>
-                   if grat == NONE
-                   then mempty
-                   else " and the " <> toHtml grat
-
-      prefix (Left _) = "The calibration observation "
-      prefix (Right _) = ""
-      targetName = toHtml $ prefix rs <> recordTarget rs
-                 
-      lenVal = showExp rs
+      targetName = toHtml nsTarget
+      lenVal = toHtml $ showExpTime nsTime
 
   in p $ cts obsStatus
 
