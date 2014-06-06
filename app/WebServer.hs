@@ -6,6 +6,8 @@
 -- 
 module Main where
 
+import qualified Data.Text as T
+
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
 import qualified Views.Record as Record
@@ -16,10 +18,12 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Default (def)
+import Data.Maybe (isJust)
+import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
 import Database.Groundhog.Core (ConnectionManager(..))
-import Database.Groundhog.Postgresql (Postgresql(..), runDbConn, withPostgresqlConn)
+import Database.Groundhog.Postgresql (Postgresql(..), runDbConn, withPostgresqlPool)
 
 import Network.HTTP.Types (StdMethod(HEAD), status404)
 -- import Network.Wai.Middleware.RequestLogger
@@ -30,6 +34,7 @@ import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, hPutStrLn, stderr)
 
+import Web.Heroku (dbConnParams)
 import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo,
@@ -52,6 +57,14 @@ production p = def { verbose = 0
 development :: Options
 development = def
 
+-- | @True@ for production/heroku, otherwise local
+getDbConnStr :: Bool -> IO String
+getDbConnStr False = return "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
+getDbConnStr _ = do
+  cparams <- dbConnParams
+  return $ T.unpack $ foldr (\(k,v) s ->
+                        s <> (k <> "=" <> v <> " ")) "" cparams
+
 uerror :: String -> IO ()
 uerror msg = do
   hPutStrLn stderr $ "ERROR: " ++ msg
@@ -59,10 +72,17 @@ uerror msg = do
   exitFailure
 
 -- I use the presence of the PORT environment variable to decide
--- between production and test environments. The Scotty documentations
--- suggest calling setFdCacheDuration on the settings field, to change
--- the value from 0, but do not really explain the implications of why
--- it is set to 0 in the first place.
+-- between production/heroku and test environments. This is for
+-- *both* the port to run Scotty on and the database to use, so
+--
+--   env var PORT exists: use this port number and use DATABASE_URL
+--     env var for database (assumed to be on Heroku)
+--
+--   otherwise, run on port=3000 and use the local postgresql instance
+--
+-- The Scotty documentation suggests calling setFdCacheDuration on the
+-- settings field, to change the value from 0, but do not really
+-- explain the implications of why it is set to 0 in the first place.
 --
 main :: IO ()
 main = do
@@ -73,20 +93,16 @@ main = do
                                 _ -> Left $ "Invalid PORT argument: " ++ ports
 
                 _ -> Right development
+
+  connStr <- getDbConnStr $ isJust mports
  
   case eopts of
     Left emsg -> uerror emsg
     Right opts -> do
-      withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ \cm -> 
-        scottyOpts opts (webapp cm)
+      -- TODO: what is a sensible number for the pool size?
+      withPostgresqlPool connStr 5 $ 
+        scottyOpts opts . webapp
 
-{-
-      webapp :: forall cm.
-                Database.Groundhog.Core.ConnectionManager cm SQL.Postgresql =>
-                cm
-                -> scotty-0.7.3:Web.Scotty.Types.ScottyT
-                     Data.Text.Internal.Lazy.Text IO ()
--}
 webapp :: ConnectionManager cm Postgresql => cm -> ScottyM ()
 webapp cm = do
 
@@ -95,9 +111,9 @@ webapp cm = do
     liftSQL handleMigration
 
     -- Need to find out how the static directory gets copied
-    -- over by cabal
+    -- over by cabal; seems to be okay
     --
-    -- middleware logStdoutDev-- An invalid port number foe
+    -- middleware logStdoutDev
     middleware $ staticPolicy (noDots >-> addBase "static")
 
     get "/" $ redirect "/index.html"
