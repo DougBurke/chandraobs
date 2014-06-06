@@ -5,9 +5,12 @@ people what the [Chandra X-ray Observatory](http://chandra.harvard.edu/)
 is currently doing: is it slewing between observations, observing
 a science target, or [hunkering down, to avoid a passing metoer shower](http://chandra.harvard.edu/blog/node/500).
 
-This is my experiment at creating a web site that does just that, and
+Well, [here it is!](http://chandraobs-devel.herokuapp.com/) This
+might take time to load up the first time you go to it, because it
+goes to sleep if the server has been inactive for too long.
+It is my experiment at creating a web site that does just that, and
 I hope to explore how much extra content I can add to enrich the site,
-such as links to press articles about the object being observerd or
+such as links to press articles about the object being observered or
 discussions of the X-ray properties of the class of object being
 observed.
 

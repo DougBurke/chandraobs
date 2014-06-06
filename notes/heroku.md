@@ -52,28 +52,21 @@ Check Heroku
     % heroku status
 
 Due to recent releases, a push to heroku ended up downgrading some
-packages, which resulted in a broken build. So
+packages, which resulted in a broken build. So I want to
+remove the current build cash on heroku:
 
-  a) remove the current cash on heroku
+    % heroku config
+    === chandraobs-devel Config Vars
+    BUILDPACK_URL: https://github.com/begriffs/heroku-buildpack-ghc.git
+    % heroku config:set CLEAR_CACHE=1
+    Setting config vars and restarting chandraobs-devel... done, v38
+    CLEAR_CACHE: 1
+    % heroku config
+    === chandraobs-devel Config Vars
+    BUILDPACK_URL: https://github.com/begriffs/heroku-buildpack-ghc.git
+    CLEAR_CACHE:   1
 
-  % heroku labs:enable buildpack-env-arg
-   !    No such feature: buildpack-env-arg
-
-  Hmmm. Let's try and set the environment variable anyway:
-
-  % heroku config
-  === chandraobs-devel Config Vars
-  BUILDPACK_URL: https://github.com/begriffs/heroku-buildpack-ghc.git
-
-  % heroku config:set CLEAR_CACHE=1
-  Setting config vars and restarting chandraobs-devel... done, v38
-  CLEAR_CACHE: 1
-  % heroku config
-  === chandraobs-devel Config Vars
-  BUILDPACK_URL: https://github.com/begriffs/heroku-buildpack-ghc.git
-  CLEAR_CACHE:   1
-
-  Now, we could freeze the current versions using something like
+Now, we could freeze the current versions using something like
 
     % cabal freeze
     Warning: The package list for 'hackage.haskell.org' is 16 days old.
@@ -82,10 +75,10 @@ packages, which resulted in a broken build. So
     % git add cabal.config
     ... git push
 
-  but for now do not do this. The problem came because of a new version
-  of Scotty (0.7.3 versus 0.7.2) which just bumps some constraints.
+but for now do not do this. The problem came because of a new version
+of Scotty (0.7.3 versus 0.7.2) which just bumps some constraints.
 
-  Now do a 'git push heroku master' and you will see
+Now do a 'git push heroku master' and you will see
 
     -----> Fetching custom git buildpack... done
     -----> Haskell app detected
@@ -93,12 +86,27 @@ packages, which resulted in a broken build. So
            CLEAR_CACHE
     -----> Clearing the buildpack cache
 
-  After the build, clear the variable with
+After the build, clear the variable with
 
-  % heroku config:unset CLEAR_CACHE
-  Unsetting CLEAR_CACHE and restarting chandraobs-devel... done, v39
+    % heroku config:unset CLEAR_CACHE
+    Unsetting CLEAR_CACHE and restarting chandraobs-devel... done, v39
 
-  NOTE: from looking at the heroku output, it may be that the
-  cabal installation of the dependencies does not use --reorder-goals,
-  so it is possible that a different set of packages is being used.
+NOTE: from looking at the heroku output, it may be that the
+cabal installation of the dependencies does not use `--reorder-goals`,
+so it is possible that a different set of packages is being used. I guess
+the buildpack does not use this `cabal` flag to speed up compilation time.
+
+How to change the buildpack in use - e.g. to use a bug fix that hasn't
+been accepted yet, such as
+[this bug](https://github.com/begriffs/heroku-buildpack-ghc/pull/61):
+
+    % heroku config | grep BUILDPACK
+    BUILDPACK_URL:              https://github.com/begriffs/heroku-buildpack-ghc.git
+    % heroku config:set BUILDPACK_URL=https://github.com/kantp/heroku-buildpack-ghc.git
+
+and then the build works (hopefully), which can be reset later by saying
+
+    % heroku config:set BUILDPACK_URL=https://github.com/begriffs/heroku-buildpack-ghc.git
+
+
 
