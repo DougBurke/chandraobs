@@ -313,8 +313,8 @@ data Schedule =
 
 -- | Represent a value in kiloseconds.
 newtype TimeKS = TimeKS { _toS :: Double } 
-  -- deriving (Eq, Show)
-  deriving Eq
+  -- deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 -- | Convert a more "friendly" exposure time value.
 --
@@ -411,8 +411,45 @@ instance Show NonScienceObs where
            , " ks at ", showCTime nsStartTime
            ]
 
+-- | Is a chip on, off, or optional.
+--
+--   How many optional chips are allowed?
+data ChipStatus = ChipOn | ChipOff | ChipOpt1 | ChipOpt2 | ChipOpt3 | ChipOpt4 | ChipOpt5
+  deriving Eq
+
+toChipStatus :: String -> Maybe ChipStatus
+toChipStatus s | s == "Y"  = Just ChipOn
+               | s == "N"  = Just ChipOff
+               | s == "O1" = Just ChipOpt1
+               | s == "O2" = Just ChipOpt2
+               | s == "O3" = Just ChipOpt3
+               | s == "O4" = Just ChipOpt4
+               | s == "O5" = Just ChipOpt5
+               | otherwise = Nothing
+
+fromChipStatus :: ChipStatus -> String
+fromChipStatus ChipOn = "Y"
+fromChipStatus ChipOff = "N"
+fromChipStatus ChipOpt1 = "O1"
+fromChipStatus ChipOpt2 = "O2"
+fromChipStatus ChipOpt3 = "O3"
+fromChipStatus ChipOpt4 = "O4"
+fromChipStatus ChipOpt5 = "O5"
+
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
+--
+--   The layout is determined by the desire to store the data in a
+--   database using a \"language agnostic\" scheme - i.e. where it
+--   would make sense to have a field like
+--
+--   > soSubArray :: Maybe (Int, Int) -- ^ start row, number of rows
+--
+--   (which seems to cause problems for Groundhog), I use
+--
+--   > soSubArrayStart :: Maybe Int
+--   > soSubArraySize :: Maybe Int
+--
 data ScienceObs = ScienceObs {
   soSequence :: Sequence -- TODO: DefaultKey Proposal ?
   , soProposal :: PropNum -- the proposal number
@@ -424,15 +461,41 @@ data ScienceObs = ScienceObs {
   , soObservedTime :: Maybe TimeKS
   , soInstrument :: Instrument
   , soGrating :: Grating
-  , soDetector :: Maybe String   -- use an enumeration; do we want this field?
+  , soDetector :: Maybe String   -- this is only available for archived obs
   , soDataMode :: String -- use an enumeration
-  , soJointWith :: [(String, TimeKS)] -- could use an enumeration
+
+  -- do we need this given that we have soDetector?
+  , soACISI0 :: ChipStatus  
+  , soACISI1 :: ChipStatus  
+  , soACISI2 :: ChipStatus  
+  , soACISI3 :: ChipStatus  
+  , soACISS0 :: ChipStatus  
+  , soACISS1 :: ChipStatus  
+  , soACISS2 :: ChipStatus  
+  , soACISS3 :: ChipStatus  
+  , soACISS4 :: ChipStatus  
+  , soACISS5 :: ChipStatus  
+
+  -- , soJointWith :: [(String, TimeKS)] -- could use an enumeration
+  -- UGH: hard coding the joint missions
+  , soJointWith :: Maybe String
+  , soJointHST :: Maybe TimeKS
+  , soJointNOAO :: Maybe TimeKS
+  , soJointNRAO :: Maybe TimeKS
+  , soJointRXTE :: Maybe TimeKS
+  , soJointSPITZER :: Maybe TimeKS
+  , soJointSUZAKU :: Maybe TimeKS
+  , soJointXMM :: Maybe TimeKS
+  , soJointSWIFT :: Maybe TimeKS
+  , soJointNUSTAR :: Maybe TimeKS
+
   , soTOO :: Maybe String -- not sure what this field can contain
   , soRA :: RA
   , soDec :: Dec
   , soRoll :: Double
   , soACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
-  -- , soSubArray :: Maybe (Int, Int) -- start row/number of rows
+  , soSubArrayStart :: Maybe Int
+  , soSubArraySize :: Maybe Int
   } 
   -- deriving (Eq, Show)
   deriving Eq
@@ -522,6 +585,7 @@ instance NeverNull Sequence
 instance NeverNull ObsIdVal
 instance NeverNull Instrument
 instance NeverNull Grating
+instance NeverNull ChipStatus
 
 -- times
 
@@ -622,7 +686,7 @@ instance PrimitivePersistField ObsIdVal where
   fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal $ truncate a
   fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
 
--- enumerations
+-- enumeration-like types
 
 instance PersistField Instrument where
   persistName _ = "Instrument"
@@ -632,6 +696,13 @@ instance PersistField Instrument where
 
 instance PersistField Grating where
   persistName _ = "Grating"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
+-- can we force a size on the string?
+instance PersistField ChipStatus where
+  persistName _ = "ChipStatus"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
   dbType _ = DbTypePrimitive DbString False Nothing Nothing
@@ -663,6 +734,16 @@ instance PrimitivePersistField Grating where
   fromPrimitivePersistValue _ (PersistString s) = read s
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
   fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " ++ show x)
+
+instance PrimitivePersistField ChipStatus where
+  {-
+  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
+  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
+  -}
+  toPrimitivePersistValue _ = PersistString . fromChipStatus
+  fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected chip status: " ++ s)) $ toChipStatus s
+  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
+  fromPrimitivePersistValue _ x = error $ "Expected ChipStatus (String), received: " ++ show x
 
 -- needed for persistent integer types
 

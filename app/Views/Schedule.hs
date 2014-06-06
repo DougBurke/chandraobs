@@ -5,7 +5,7 @@
 module Views.Schedule (schedPage) where
 
 -- import qualified Prelude as P
-import Prelude ((.), ($), (==), (-), Integer, Maybe(..), Show, String, mapM_, return, show, truncate)
+import Prelude ((.), ($), (==), (-), Integer, Either(..), Maybe(..), Show, String, fmap, mapM_, return, show, truncate)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -19,7 +19,7 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..), TimeKS(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), Schedule(..), TimeKS(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (defaultMeta, obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
@@ -98,9 +98,13 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
                       ! onmouseover ("selectObs('" <> lbl <> "');")
                       ! onmouseout  ("deselectObs('" <> lbl <> "');")
       
+      showJoint (Left _) = "n/a"
+      showJoint (Right so) = fromMaybe "n/a" $ toHtml `fmap` (soJointWith so)
+
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
          td $ linkToRecord r
+         td $ showJoint r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
             ! class_ "starttime" 
@@ -158,6 +162,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
     table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
       thead $ tr $ do
         th "Target"
+        th "Joint with"
         th "Exposure time"
         th "Start"
         th "Instrument"

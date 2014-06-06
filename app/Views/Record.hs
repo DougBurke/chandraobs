@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, null, snd)
+import Prelude ((.), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fmap, fst, null, snd)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -25,6 +25,8 @@ import Data.List (groupBy, intersperse)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
+
+-- import Network.HTTP.Types.URI (renderQuery)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -208,12 +210,9 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
                       <> "observation target name, which isn't always "
                       <> "the case)."
 
-      -- Does blaze quote/protect URLs? It appears not,
-      -- or perhaps I just didn't look correctly.
-      -- TODO: I do need to protect + characters since
-      --   PSR J2307+2225 ends up having the + disappear
+      -- TODO: use renderQuery to protect the target name
       simbadLink = 
-        toValue $
+        toValue $ 
           "http://simbad.harvard.edu/simbad/sim-id?Ident=" <> 
           soTarget <> 
           "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
@@ -274,7 +273,16 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
 
       sciencePara = p $ cts obsStatus <> otherMatches
 
-  in sciencePara <> abstract
+      -- TODO: integrate with the rest of the text
+      verb = case obsStatus of
+               Todo  -> "will be"
+               Doing -> "is"
+               Done  -> "was"
+      joint n = p $ "This " <> verb <> " a joint observation with: " <> toHtml n
+
+  in sciencePara 
+     <> fromMaybe mempty (joint `fmap` soJointWith) 
+     <> abstract
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 

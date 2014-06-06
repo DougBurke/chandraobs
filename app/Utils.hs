@@ -22,6 +22,7 @@ module Utils (
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 
@@ -195,6 +196,8 @@ renderObsIdDetails ScienceObs{..} =
        <>
        -- rely on the ToMarkup instance of ChandraTime
        keyVal "Date:" (H.toHtml soStartTime)
+       <>
+       keyVal "Joint with:" (fromMaybe "None" (H.toHtml `fmap` soJointWith))
        <>
        expLink
        <>
