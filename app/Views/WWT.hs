@@ -107,6 +107,10 @@ wwtPage f ScienceObs{..} =
               ! rel    "stylesheet"
               ! A.title  "Default"
               ! media  "all"
+      <> link ! href   "/css/wwt.css"
+              ! type_  "text/css" 
+              ! rel    "stylesheet"
+              ! media  "all"
 
      )
     <>

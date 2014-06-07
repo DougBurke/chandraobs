@@ -142,7 +142,21 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
                    , " }, "
                    ]
       
-  in div ! A.id "scheduleBlock" $ do
+  in do
+
+   -- Set up the coordinates
+   script ! type_ "text/javascript" $ do
+     void "var obsinfo = ["
+     mapM_ (dataRow "done") done
+     dataRow "doing" doing
+     mapM_ (dataRow "todo") todo
+     " ];"
+      
+   div ! A.id "scheduleBlock" $ do
+    p  $ "The current time is: " <> toHtml (ChandraTime cTime) <> "."
+
+    div ! id "map" $ ""
+
     p $ mconcat 
         [ "This page shows ", conv ndays
         , " days of the Chandra schedule, centered on today. "
@@ -162,17 +176,7 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
         , a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html" $ "Astronomical coordinate systems"
         , " for more informaion."
         ]
-    p  $ "The current time is: " <> toHtml (ChandraTime cTime) <> "."
 
-    -- Set up the coordinates
-    script ! type_ "text/javascript" $ do
-      void "var obsinfo = ["
-      mapM_ (dataRow "done") done
-      dataRow "doing" doing
-      mapM_ (dataRow "todo") todo
-      " ];"
-      
-    div ! id "map" $ ""
     table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
       thead $ tr $ do
         th "Target"

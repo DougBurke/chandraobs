@@ -263,24 +263,3 @@ div#wwtControls > label {
   margin-left: 0.5em;
 }
 
-/* schedule tags: should be in a separate file */
-
-/* need to be specific to override tablesorter css, although it isn't working right now ... */
-
-div#scheduleBlock > table#scheduledObs > tbody > tr#current {
-  background-color: rgba(0,131,179,0.4);
-}
-
-div#scheduleBlock > table#scheduledObs > tbody > tr.prev {
-  background-color: rgba(153,153,152,0.1);
-}
-
-div#scheduleBlock > table#scheduledObs > tbody > tr.next {
-  background-color: rgba(153,153,152,0.3);
-}
-
-/* plot */
-
-div#map svg {
-  /* background-color: rgba(153, 153, 152, 0.1); */
-}

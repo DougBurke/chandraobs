@@ -1,0 +1,15 @@
+/* WWT pages */
+
+/* The WWT page does not have a class/id to hook onto */
+nav.main + p {
+  width: 700px;
+}
+
+div#wwtControls {
+  width: 700px;
+}
+
+div#wwtControls > label {
+  margin-left: 0.5em;
+}
+
