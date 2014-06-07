@@ -71,12 +71,6 @@ introPage cTime oi@(ObsInfo currentObs _ _) propInfo =
 
       imgLinks = either (const mempty) (renderLinks True) currentObs
 
-      {-
-           p ("Information on " <> 
-              (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html") "Astronomical coordinate systems" <>
-             ".")
-      -}
-
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>
           defaultMeta <>

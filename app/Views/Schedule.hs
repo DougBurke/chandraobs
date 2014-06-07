@@ -145,11 +145,24 @@ renderSchedule (Schedule cTime ndays done (Just doing) todo) =
   in div ! A.id "scheduleBlock" $ do
     p $ mconcat 
         [ "This page shows ", conv ndays
-        , " days of the Chandra schedule around today. "
-        , "The current time is: "
-        , toHtml (ChandraTime cTime)
-        , "."
+        , " days of the Chandra schedule, centered on today. "
+        , "The size of the circles indicate the exposure time, and "
+        , "the color shows whether the observation has been done, "
+        , "is running now, or is in the future; the same colors "
+        , "are used in the table below. For repeated observations "
+        , "it can be hard to make out what is going on, since the "
+        , "circles overlap! "
+        , "The points are plotted in the "
+        , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"
+        , ", using the "
+        , a ! href "http://en.wikipedia.org/wiki/Aitoff_projection" $ "Aitoff projection"
+        , ". See "
+        , a ! href "http://burro.astr.cwru.edu/" $ "Chris Mihos'"
+        , " page on "
+        , a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html" $ "Astronomical coordinate systems"
+        , " for more informaion."
         ]
+    p  $ "The current time is: " <> toHtml (ChandraTime cTime) <> "."
 
     -- Set up the coordinates
     script ! type_ "text/javascript" $ do

@@ -293,7 +293,8 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
         Just _ -> p $ mconcat
                    [ "This ", verb, " a joint observation with "
                    , mconcat $ addList $ map toJ $ getJointObs so
-                   , "."
+                   , ". This does not necessarily mean that the "
+                   , "observations were done at the same time!"
                    ]
         Nothing -> mempty
 
