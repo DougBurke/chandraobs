@@ -44,6 +44,7 @@ import Utils (
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
+             , renderFooter
              )
 
 -- The specific page for this observation. At present I have not
@@ -81,6 +82,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) propInfo =
          (renderStuff cTime thisObs propInfo
           <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)
+      <> renderFooter
 
 -- | A redesign of the page.
 --

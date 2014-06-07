@@ -17,6 +17,7 @@ module Utils (
      , getFact
      , linkToRecord
      , linkToRecordA
+     , renderFooter
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -317,3 +318,18 @@ linkToRecordA f r =
   let uri = obsURI $ recordObsId r
   in H.a H.! A.href uri $ H.toHtml $ f r
 
+-- | The standard footer; needs to match up with static/*.html.
+renderFooter :: H.Html
+renderFooter =
+  H.p H.! A.id "banner" $
+    mconcat [
+      "The 'What is Chandra doing now?' web site is written "
+      , "by "
+      , H.a H.! A.href "http://twitter.com/doug_burke" $ "@doug_burke"
+      , ", coomes with no warranty (in other words, I make no "
+      , "guarantee that the information presented is correct, although "
+      , "I try my best to make sure it is), and is not "
+      , "an official product of the "
+      , H.a H.! A.href "http://chandra.si.edu/" $ "Chandra X-ray Center"
+      , "."
+    ]

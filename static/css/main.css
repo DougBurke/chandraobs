@@ -18,13 +18,29 @@ div#observation {
   /* width: 700px; - seems to be unneeded now */
 }
 
-nav {
-  border-bottom: 1px solid rgb(153,153,153);
+p#banner , nav {
   display: block;
   padding: 0.2em 0.5em 0.2em 0.5em;
   overflow: hidden;
   background-color: rgba(153,153,153,0.2);  /* gray */
   /* background-color: rgba(0, 131, 179, 0.2);  blue */
+}
+
+p#banner {
+  clear: both;
+  margin: 0; /* overwrite the body>p rule */
+  padding: 1em;
+  font-size: smaller;
+  border-top: 1px solid rgb(153,153,153);
+  color: #666; /* #aaa; */
+}
+
+p#banner a {
+  color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
+}
+
+nav {
+  border-bottom: 1px solid rgb(153,153,153);
 }
 
 nav ul {
@@ -48,7 +64,7 @@ nav > ul > li > a.chosen {
 }
 
 nav > ul > li > a {
-  color: #aaa;
+  color: #666; /* #aaa; */
   line-height: 2em;
   font-size: larger;
   text-decoration: none;
@@ -65,9 +81,6 @@ nav > ul > li > a {
 
 nav > ul > li:hover > a {
   border-bottom-color: rgb(0,131,179); /* twitter color */
-}
-
-nav > ul > li:hover > a {
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
 }
 
@@ -121,14 +134,14 @@ nav#obslinks ul li:before , nav#obslinks ul li:after {
 }
 
 li.prevLink:before { 
-  border-right: 0.5em solid #aaa;
+  border-right: 0.5em solid #666; /* #aaa; */
   border-top: 0.5em solid transparent;
   border-bottom: 0.5em solid transparent; 
   margin-left: 0.5em;
 }
 
 li.nextLink:after { 
-  border-left: 0.5em solid #aaa;
+  border-left: 0.5em solid #666; /* #aaa; */
   border-top: 0.5em solid transparent;
   border-bottom: 0.5em solid transparent; 
   margin-right: 0.5em;
@@ -136,7 +149,7 @@ li.nextLink:after {
 
 nav#obslinks > ul > li > a {
   /*
-  color: #aaa;
+  color: #666; -- #aaa; --
   line-height: 2em;
   text-decoration: none;
   */
@@ -195,7 +208,7 @@ div.radiobuttons label {
   margin-right: 0.1em;
   font-size: larger;
   /* font-family: serif; */
-  color: #aaa;
+  color: #666; /* #aaa; */
 
   border-bottom: 4px solid rgba(0,0,0,0);
 }

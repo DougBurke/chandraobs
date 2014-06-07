@@ -23,7 +23,7 @@ import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..)
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (defaultMeta, obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
-              linkToRecord)
+              linkToRecord, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 jsScript :: AttributeValue -> Html
@@ -63,6 +63,7 @@ schedPage sched =
      (mainNavBar CPSchedule
       <> (div ! id "schedule") 
          (renderSchedule sched)
+      <> renderFooter
      )
 
 -- | Convert the obsname of a record to an identifier

@@ -17,7 +17,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs, Proposal, ObsInfo(..))
-import Utils (defaultMeta, renderLinks)
+import Utils (defaultMeta, renderLinks, renderFooter)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
 
@@ -38,8 +38,13 @@ noDataPage =
      (mainNavBar CPIndex
       <> (div ! class_ "error")  
         ("Unfortunately there is no new observation found in my database, " <>
-         "which likely means that something has gone wrong somewhere.")
+         "which hopefully means that the database is being updated, so " <>
+         "please wait a few minutes and try again. If there is still " <>
+         "a problem, try contacting " <>
+         (a ! href "http://twitter.com/doug_burke" $ "@doug_burke") <>
+         " and reporting the problem.") -- TODO: add in an amazing fact...
       <> renderTwitter
+      <> renderFooter
      )
 
 tourElements :: Html
@@ -91,3 +96,4 @@ introPage cTime oi@(ObsInfo currentObs _ _) propInfo =
          (renderStuff cTime currentObs propInfo
           <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)
+      <> renderFooter

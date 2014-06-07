@@ -20,7 +20,7 @@ import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
 import Types (ScienceObs(..), Instrument(..))
-import Utils (defaultMeta, obsURI)
+import Utils (defaultMeta, obsURI, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 {-
@@ -120,6 +120,7 @@ wwtPage f ScienceObs{..} =
             )
         , (div ! id "wwtControls") userInput
         , host
+        , renderFooter
         ])
 
 
