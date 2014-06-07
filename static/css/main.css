@@ -39,6 +39,10 @@ p#banner a {
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
 }
 
+p#banner a:hover {
+  color: blue;
+}
+
 nav {
   border-bottom: 1px solid rgb(153,153,153);
 }
