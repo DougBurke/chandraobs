@@ -326,7 +326,7 @@ renderFooter =
       "The 'What is Chandra doing now?' web site is written "
       , "by "
       , H.a H.! A.href "http://twitter.com/doug_burke" $ "@doug_burke"
-      , ", coomes with no warranty (in other words, I make no "
+      , ", comes with no warranty (in other words, I make no "
       , "guarantee that the information presented is correct, although "
       , "I try my best to make sure it is), and is not "
       , "an official product of the "
