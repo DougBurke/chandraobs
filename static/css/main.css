@@ -11,10 +11,6 @@ body > div , body > p {
   margin: 0.5em;
 }
 
-/* TODO: use the same scheme as the Twitter sidebar for links;
-   blue text with an underline on hover; need to make sure it
-   is not used for nav elements. */
-
 /* Since the GIFs have a fixed size, use that to drive the
    page setup. Is this a good idea? */
 
@@ -35,11 +31,12 @@ p#banner {
 }
 
 p#banner a {
+  text-decoration: none;
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
 }
 
 p#banner a:hover {
-  color: blue;
+  text-decoration: underline;
 }
 
 nav {
