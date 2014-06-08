@@ -224,11 +224,16 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
                  Doing -> "is being observed"
                  Done -> "was observed"
 
+      endSentence [] = "." -- should not happen
+      endSentence s = if P.last s == '.' then mempty else "."
+
       reason = case mproposal of
         Just Proposal{..} -> ", and is part of the proposal " <>
                              (a ! href (abstractLink soObsId) $ toHtml propName)
+                             <> endSentence propName
         _ -> ". See why it " <>
              (a ! href (abstractLink soObsId) $ abstxt)
+             <> "."
 
       instInfo = mconcat [
                   "by ", instLink soInstrument,
@@ -244,7 +249,6 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
                 , " for ", lenVal, ". It will start "
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , reason
-                , "."
                 ]
       cts Doing = 
         mconcat [ "The target - "
@@ -256,7 +260,6 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
                 , " and ends "
                 , toHtml (showTimeDeltaFwd cTime eTime)
                 , reason
-                , "."
                 ]
       cts Done = 
         mconcat [ "The target - "
@@ -265,7 +268,6 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
                 , " for ", lenVal, ", and ended "
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , reason
-                , "."
                 ]
 
       otherMatches = 
