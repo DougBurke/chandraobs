@@ -350,7 +350,7 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
                 , targetName
                 , " - was run for "
                 , lenVal
-                , ", and finished "
+                , " and finished "
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , "."
                 ]
