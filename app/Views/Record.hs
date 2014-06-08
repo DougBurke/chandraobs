@@ -227,6 +227,8 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
       endSentence [] = "." -- should not happen
       endSentence s = if P.last s == '.' then mempty else "."
 
+      -- TODO: if have ", and is ..." then remove the "and" from
+      --       ", and finished..."
       reason = case mproposal of
         Just Proposal{..} -> ", and is part of the proposal " <>
                              (a ! href (abstractLink soObsId) $ toHtml propName)
@@ -265,7 +267,7 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
         mconcat [ "The target - "
                 , targetName
                 , " - was observed ", instInfo
-                , " for ", lenVal, ", and ended "
+                , " for ", lenVal, ", and finished "
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , reason
                 ]
@@ -327,7 +329,7 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
   let cts Todo = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - will be observed for "
+                , " - will be run for "
                 , lenVal, ". It will start "
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , "."
@@ -335,7 +337,7 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
       cts Doing = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - is being observed for "
+                , " - is running for "
                 , lenVal
                 , ". The observation started "
                 , toHtml (showTimeDeltaBwd sTime cTime)
@@ -346,9 +348,9 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
       cts Done = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - was observed for "
+                , " - was run for "
                 , lenVal
-                , ", and ended "
+                , ", and finished "
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , "."
                 ]
