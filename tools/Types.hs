@@ -774,8 +774,12 @@ instance Bits PropNum where
   complement = PropNum . complement . _unPropNum
   shift a i = PropNum $ shift (_unPropNum a) i
   rotate a i = PropNum $ rotate (_unPropNum a) i
+#if MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . _unPropNum
+#else
+  bitSize = bitSize . _unPropNum
+#endif
   isSigned = isSigned . _unPropNum
   testBit a i = testBit (_unPropNum a) i
   bit = PropNum . bit
@@ -788,8 +792,12 @@ instance Bits Sequence where
   complement = Sequence . complement . _unSequence
   shift a i = Sequence $ shift (_unSequence a) i
   rotate a i = Sequence $ rotate (_unSequence a) i
+#if MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . _unSequence
+#else
+  bitSize = bitSize . _unSequence
+#endif
   isSigned = isSigned . _unSequence
   testBit a i = testBit (_unSequence a) i
   bit = Sequence . bit
@@ -802,8 +810,12 @@ instance Bits ObsIdVal where
   complement = ObsIdVal . complement . fromObsId
   shift a i = ObsIdVal $ shift (fromObsId a) i
   rotate a i = ObsIdVal $ rotate (fromObsId a) i
+#if MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . fromObsId
+#else
+  bitSize = bitSize . fromObsId
+#endif
   isSigned = isSigned . fromObsId
   testBit a i = testBit (fromObsId a) i
   bit = ObsIdVal . bit
