@@ -117,7 +117,7 @@ wwtPage f ScienceObs{..} =
     (body ! onload initialize)
      (mconcat 
         [ mainNavBar CPOther
-        , p ("The instrument outline approximates that of the " 
+        , (p ! class_ "wwt" ) ("The instrument outline approximates that of the " 
              <> iName <> " observation of " 
              <> targetName <> ". Return to the "
              <> obsLink <> "."

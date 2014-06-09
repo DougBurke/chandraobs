@@ -6,6 +6,17 @@ body {
   margin: 0;
 }
 
+/* Use a twitter-like scheme for links, not in the nav bars */
+
+p#banner a , div#mainBar a , div#schedule a , div.explanation a , p.wwt a {
+  text-decoration: none;
+  color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
+}
+
+p#banner a:hover , div#mainBar a:hover , div#schedule a:hover , div.explanation a:hover , p.wwt a:hover {
+  text-decoration: underline;
+}
+
 /* restore margin, at least for divs and paragraphs */
 body > div , body > p {
   margin: 0.5em;
@@ -28,15 +39,6 @@ p#banner {
   font-size: smaller;
   border-top: 1px solid rgb(153,153,153);
   color: #666; /* #aaa; */
-}
-
-p#banner a {
-  text-decoration: none;
-  color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
-}
-
-p#banner a:hover {
-  text-decoration: underline;
 }
 
 nav {

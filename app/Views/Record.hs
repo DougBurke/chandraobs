@@ -329,8 +329,8 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
   let cts Todo = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - will be run for "
-                , lenVal, ". It will start "
+                , " - will run for "
+                , lenVal, ", starting at "
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , "."
                 ]
