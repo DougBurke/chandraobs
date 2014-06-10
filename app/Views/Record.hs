@@ -12,21 +12,26 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, length, map, maybe, null, snd, splitAt)
+import Prelude ((.), (-), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, fst, length, map, maybe, null, otherwise, snd, splitAt)
+
+import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Blaze.ByteString.Builder (toByteString)
+
 import Control.Applicative ((<$>))
 import Control.Arrow ((&&&))
 
+import Data.Char (toLower)
 import Data.Function (on)
 import Data.List (groupBy, intersperse)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
--- import Network.HTTP.Types.URI (renderQuery)
+import Network.HTTP.Types.URI (encodePathSegments)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -191,6 +196,17 @@ groupProposal matches =
       tgtLinks xs@(x:_) = mconcat $ [toHtml (fst x), " ("] ++ intersperse ", " (P.map (toLink . snd) xs) ++ [")"]
 
   in mconcat $ intersperse "; " $ P.map tgtLinks grps
+
+-- | Some types do not map well into the sentence structure,
+--   so manually convert those that do not. At present it only
+--   changes the "Region defined in the sky" type.
+--
+--   It also includes 'a ...' or 'an ...'.
+cleanupSIMBADType :: String -> String
+cleanupSIMBADType [] = []
+cleanupSIMBADType "Region defined in the sky" = "an area of the sky" 
+cleanupSIMBADType s@(c:_) | toLower c `elem` "aeiou" = "an " ++ s
+                          | otherwise                = "a " ++ s
      
 -- | Display information for a \"science\" observation.
 --
@@ -209,19 +225,24 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       simpara SimbadInfo{..} = 
         case (siName, siType) of
           (Just sname, Just stype) ->
-            let oname = if siTarget == sname
+            let oname = if siSimilar
                         then siTarget
                         else siTarget <> ", also called " <> sname
 
                 slink = H.toValue $ toSIMBADLink sname
 
+                typeLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
+                                 ["search", "type", T.pack stype]
+                typeStr = toHtml $ cleanupSIMBADType stype
+
             in p $ mconcat [
                   "The target - "
                   , toHtml oname
-                  , " - is a "
-                  , toHtml stype
+                  , " - is "
+                  -- , a ! href typeLink $ typeStr
+                  , typeStr
                   , ". More information can be found out at "
-                  , a ! href slink $ "Simbad"
+                  , a ! href slink $ "SIMBAD"
                   , "."
                   ]
 

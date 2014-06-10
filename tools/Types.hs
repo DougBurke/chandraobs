@@ -590,6 +590,9 @@ data ConstrainedObs = ConstrainedObs {
 --
 data SimbadInfo = SimbadInfo {
    siTarget :: String      -- ^ target name (presumed unique)
+   , siSimilar :: Bool     -- ^ @True@ if @siName@ and @siTarget@ are similar enough
+                           -- that they are considered the same (e.g. spaces and case
+                           -- differences)
    , siName :: Maybe String      -- ^ the primary identifier for the object
    , siType :: Maybe String      -- ^ the primary type of the object
    , siRA :: Maybe RA

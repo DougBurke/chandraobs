@@ -26,7 +26,8 @@ import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
-import Data.Char (ord)
+import Data.Char (isSpace, ord, toLower)
+import Data.Function (on)
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (catMaybes, isNothing, listToMaybe)
@@ -50,6 +51,28 @@ queryObsCat :: ObsIdVal -> String
 queryObsCat oid = 
   let oi = show $ fromObsId oid
   in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++ oi ++ "&format=text"
+
+-- | Do we consider the two names to be the same?
+--
+--   Strip out all spaces; convert to lower case.
+--
+--   We do not use a simple edit distance comparison here
+--   since we do not want to equate 3C292 and 3C232.
+--
+similarName :: String -> String -> Bool
+similarName =
+  let conv = map toLower . filter (not . isSpace)
+  in (==) `on` conv
+
+-- | Try and clean up SIMBAD identifiers:
+--
+--   NAME xxx -> xxx (seen with NAME Chandra Deep Field South)
+--
+cleanupName :: String -> String
+cleanupName s =
+  if "NAME " `isPrefixOf` s
+  then drop 5 s
+  else s
 
 -- use ADS mirror first.
 --
@@ -93,33 +116,34 @@ querySIMBAD f objname = do
       ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) $ lines body
 
   when f $ putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls
-  let rval = listToMaybe ls >>= parseObject
+  let rval = listToMaybe ls >>= parseObject objname
   -- TODO: should have displayed the error string so this can be ignored
   when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
   return $ case rval of
-    Just (a,b,c,d) -> SimbadInfo objname (Just a) (Just b) (Just c) (Just d) cTime
-    Nothing        -> SimbadInfo objname Nothing Nothing Nothing Nothing cTime
+    Just (sf,a,b,c,d) -> SimbadInfo objname sf (Just a) (Just b) (Just c) (Just d) cTime
+    Nothing           -> SimbadInfo objname False Nothing Nothing Nothing Nothing cTime
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
-parseObject :: String -> Maybe (String, String, RA, Dec)
-parseObject txt = 
+parseObject :: String -> String -> Maybe (Bool, String, String, RA, Dec)
+parseObject objname txt = 
   let toks = splitOn "\t" txt
   in case toks of
-    (name:otype:coords:[]) -> toObjectInfo name otype coords
+    (name:otype:coords:[]) -> toObjectInfo objname (cleanupName name) otype coords
     _ -> Nothing
 
-toObjectInfo :: String -> String -> String -> Maybe (String, String, RA, Dec)
-toObjectInfo name objtype coords = 
-  case words coords of
+toObjectInfo :: String -> String -> String -> String -> Maybe (Bool, String, String, RA, Dec)
+toObjectInfo objname name objtype coords = 
+  let f = similarName objname name
+  in case words coords of
     (ras:('+':decs):[]) -> do
       ra <- maybeRead ras
       dec <- maybeRead decs
-      return (name, objtype, RA ra, Dec dec)
+      return (f, name, objtype, RA ra, Dec dec)
     (ras:('-':decs):[]) -> do
       ra <- maybeRead ras
       dec <- maybeRead decs
-      return (name, objtype, RA ra, Dec (-1 * dec))
+      return (f, name, objtype, RA ra, Dec (-1 * dec))
 
     _ -> Nothing
 

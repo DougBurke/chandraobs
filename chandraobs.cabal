@@ -43,6 +43,7 @@ executable webserver
 
   build-depends:
     base >= 4.6 && < 4.8
+     , blaze-builder == 0.3.*
     , blaze-html == 0.7.*
     , bytestring == 0.10.*
     , data-default == 0.5.*
