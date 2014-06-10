@@ -50,6 +50,8 @@ import Database.Groundhog.Generic (primToPersistValue, primFromPersistValue)
 import Database.Groundhog.TH
 import Database.Groundhog.Postgresql
 
+import Network.HTTP.Types.URI (renderSimpleQuery)
+
 import System.Locale (defaultTimeLocale)
 
 import Text.Printf
@@ -611,10 +613,17 @@ instance Ord SimbadInfo where
 -- TODO: need to protect the link
 toSIMBADLink :: String -> String
 toSIMBADLink name = 
-  "http://simbad.harvard.edu/simbad/sim-id?Ident=" <> 
-  name <> 
-  "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
+  let qry = [ ("Ident", B8.pack name)
+            -- , ("NbIdent", "1")
+            -- , ("Radius", "2")
+            -- , ("Radius.unit", "arcmin")
+            -- , ("submit", "submit id")
+            ]
 
+      qryB = renderSimpleQuery True qry
+
+  in B8.unpack $ "http://simbad.harvard.edu/simbad/sim-id" <> qryB
+      
 -- * Groundhog instances
 --
 -- based on the Database.Groundhog.Instances code
