@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, length, map, null, snd, splitAt)
+import Prelude ((.), (-), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), const, either, fst, length, map, maybe, null, snd, splitAt)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -32,11 +32,12 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), NonScienceObs(..), 
+              SimbadInfo(..),
               Proposal(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
-              getObsStatus, getJointObs)
+              getObsStatus, getJointObs, toSIMBADLink)
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta
@@ -56,9 +57,9 @@ recordPage ::
   UTCTime  -- the current time
   -> Maybe Record -- the currently running observation
   -> ObsInfo  -- the observation being displayed
-  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
   -> Html
-recordPage cTime mObs oi@(ObsInfo thisObs _ _) propInfo =
+recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   let initialize = "initialize()"
       obsId = recordObsId thisObs
 
@@ -79,7 +80,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) propInfo =
      (mainNavBar CPOther
       <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime thisObs propInfo
+         (renderStuff cTime thisObs dbInfo
           <> imgLinks)
       <> (div ! id "otherBar") renderTwitter)
       <> renderFooter
@@ -94,13 +95,13 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) propInfo =
 renderStuff :: 
   UTCTime           -- Current time
   -> Record
-  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
   -> Html
-renderStuff cTime rs propInfo = 
+renderStuff cTime rs dbInfo = 
   div ! id "observation" $
     case rs of
       Left ns -> otherInfo cTime ns
-      Right so -> targetInfo cTime so propInfo
+      Right so -> targetInfo cTime so dbInfo
 
 -- | What is the page being viewed?
 --
@@ -196,28 +197,35 @@ groupProposal matches =
 targetInfo :: 
   UTCTime    -- current time
   -> ScienceObs
-  -> (Maybe Proposal, [ScienceObs])  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
   -> Html
-targetInfo cTime so@ScienceObs{..} (mproposal, matches) = 
+targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
       targetName = toHtml soTarget
       lenVal = toHtml $ showExpTime $ fromMaybe soApprovedTime soObservedTime
 
-      abstract = p $ "Use SIMBAD to find out about "
-                      <> (a ! href simbadLink $ toHtml soTarget)
-                      <> " (this is not guaranteed to find the "
-                      <> "correct source since it relies on an "
-                      <> "identifiable string being used as the "
-                      <> "observation target name, which isn't always "
-                      <> "the case)."
+      -- TODO: check case and spaces
+      simpara SimbadInfo{..} = 
+        case (siName, siType) of
+          (Just sname, Just stype) ->
+            let oname = if siTarget == sname
+                        then siTarget
+                        else siTarget <> ", also called " <> sname
 
-      -- TODO: use renderQuery to protect the target name
-      simbadLink = 
-        toValue $ 
-          "http://simbad.harvard.edu/simbad/sim-id?Ident=" <> 
-          soTarget <> 
-          "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
+                slink = H.toValue $ toSIMBADLink sname
+
+            in p $ mconcat [
+                  "The target - "
+                  , toHtml oname
+                  , " - is a "
+                  , toHtml stype
+                  , ". More information can be found out at "
+                  , a ! href slink $ "Simbad"
+                  , "."
+                  ]
+
+          _ -> mempty
 
       abstxt = case obsStatus of
                  Todo -> "will be observed"
@@ -304,7 +312,7 @@ targetInfo cTime so@ScienceObs{..} (mproposal, matches) =
 
   in sciencePara 
      <> jointObs
-     <> abstract
+     <> maybe mempty simpara msimbad
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 

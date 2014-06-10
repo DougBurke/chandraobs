@@ -15,7 +15,7 @@ import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
 import Control.Monad (when)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Default (def)
 import Data.Maybe (isJust)
@@ -23,7 +23,7 @@ import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
 import Database.Groundhog.Core (ConnectionManager(..))
-import Database.Groundhog.Postgresql (Postgresql(..), runDbConn, withPostgresqlPool)
+import Database.Groundhog.Postgresql (Postgresql(..), PersistBackend, runDbConn, withPostgresqlPool)
 
 import Network.HTTP.Types (StdMethod(HEAD), status404)
 -- import Network.Wai.Middleware.RequestLogger
@@ -39,8 +39,8 @@ import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo,
                  getObsId, getSchedule,
-                 getProposalInfo)
-import Types (ObsInfo(..), ObsIdVal(..), handleMigration)
+                 getProposalInfo, getSimbadInfo)
+import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -103,6 +103,15 @@ main = do
       withPostgresqlPool connStr 5 $ 
         scottyOpts opts . webapp
 
+-- Hack; needs cleaning up
+getDBInfo :: (MonadIO m, PersistBackend m) => Record -> m (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))
+getDBInfo r = do
+  as <- case r of
+          Right x -> getSimbadInfo (soTarget x)
+          _ -> return Nothing
+  bs <- getProposalInfo r
+  return (as, bs)
+
 webapp :: ConnectionManager cm Postgresql => cm -> ScottyM ()
 webapp cm = do
 
@@ -125,8 +134,8 @@ webapp cm = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          propInfo <- liftSQL $ getProposalInfo $ oiCurrentObs obs
-          fromBlaze $ Index.introPage cTime obs propInfo
+          dbInfo <- liftSQL $ getDBInfo $ oiCurrentObs obs
+          fromBlaze $ Index.introPage cTime obs dbInfo
         _        -> fromBlaze Index.noDataPage
 
     -- TODO: send in proposal details
@@ -143,8 +152,8 @@ webapp cm = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          propInfo <- liftSQL $ getProposalInfo $ oiCurrentObs obs
-          fromBlaze $ Record.recordPage cTime mCurrent obs propInfo
+          dbInfo <- liftSQL $ getDBInfo $ oiCurrentObs obs
+          fromBlaze $ Record.recordPage cTime mCurrent obs dbInfo
         _        -> status status404
 
     -- TODO: send in proposal details

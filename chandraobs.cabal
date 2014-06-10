@@ -138,6 +138,7 @@ executable obscat
      , http-conduit == 2.1.*
      , network >= 2.4 && < 2.6
      , monad-logger == 0.3.*
+     , split == 0.2.*
      , old-locale == 1.0.*
      , time < 1.5
      , transformers == 0.3.*

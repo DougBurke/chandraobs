@@ -40,6 +40,7 @@ import Data.Bits (Bits(..))
 
 import Data.Function (on)
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Monoid ((<>))
 import Data.String (IsString)
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
@@ -572,6 +573,7 @@ instance Show Proposal where
            , " PI ", propPI
            ]
 
+{-
 -- | An observation at another facility that overlaps in time with
 --   a Chandra observation.
 data ConstrainedObs = ConstrainedObs {
@@ -580,6 +582,35 @@ data ConstrainedObs = ConstrainedObs {
   }
   -- deriving (Eq, Show)
   deriving Eq
+-}
+
+-- | Information on an object identifier, retrieved from SIMBAD.
+--   At present only a very-limited amount of information is returned
+--   and the structure isn't very Haskell-like.
+--
+data SimbadInfo = SimbadInfo {
+   siTarget :: String      -- ^ target name (presumed unique)
+   , siName :: Maybe String      -- ^ the primary identifier for the object
+   , siType :: Maybe String      -- ^ the primary type of the object
+   , siRA :: Maybe RA
+   , siDec :: Maybe Dec
+   , siLastChecked :: UTCTime
+  }
+  deriving Eq
+
+-- | The name of the target string is used for ordering, since it is
+--   assumed that the name is unique.
+instance Ord SimbadInfo where
+  compare = compare `on` siTarget
+
+-- | Return a link to the SIMBAD site (Strasbourg) for this object.
+--
+-- TODO: need to protect the link
+toSIMBADLink :: String -> String
+toSIMBADLink name = 
+  "http://simbad.harvard.edu/simbad/sim-id?Ident=" <> 
+  name <> 
+  "&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id"
 
 -- * Groundhog instances
 --
@@ -865,6 +896,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: PropConstraint
           fields: [propNum]
+- entity: SimbadInfo
+  constructors:
+    - name: SimbadInfo
+      uniques:
+        - name: SimbadInfoConstraint
+          fields: [siTarget]
 |]
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
@@ -874,3 +911,4 @@ handleMigration =
     migrate (undefined :: ScienceObs)
     migrate (undefined :: NonScienceObs)
     migrate (undefined :: Proposal)
+    migrate (undefined :: SimbadInfo)

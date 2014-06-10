@@ -16,6 +16,7 @@ module Database ( getCurrentObs
                 , getProposalObs
                 , getProposalInfo
                 , reportSize
+                , getSimbadInfo
                 ) where
 
 import Control.Monad (liftM)
@@ -186,6 +187,12 @@ getSchedule ndays = do
               _ -> return Nothing
 
   return $ Schedule now ndays done mdoing todo
+
+-- | Do we have any SIMBAD information about the target?
+getSimbadInfo :: (MonadIO m, PersistBackend m) => String -> m (Maybe SimbadInfo)
+getSimbadInfo tgt = do
+  ans <- select $ (SiTargetField ==. tgt)
+  return $ listToMaybe ans
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

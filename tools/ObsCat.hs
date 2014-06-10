@@ -6,15 +6,16 @@
 --
 --   Usage:
 --       obscat [obsid]
+--       obscat simbad <name>
 --
---     where the obsid argument is for debugging
+--     where the obsid and simbad/<name> arguments are for debugging
+--
+-- TODO:
+--    extract more info
+--    how to update existing info
 --
 
-{-
-TODO: extract more info
-TODO: how to update existing info
--}
-
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
@@ -23,10 +24,14 @@ import qualified Data.Set as S
 import Control.Arrow ((&&&))
 import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Logger (NoLoggingT)
 
 import Data.Char (ord)
+import Data.List (isPrefixOf)
+import Data.List.Split (splitOn)
 import Data.Maybe (catMaybes, isNothing, listToMaybe)
-import Data.Time (readsTime)
+import Data.Monoid ((<>), mconcat)
+import Data.Time (getCurrentTime, readsTime)
 import Data.Word (Word8)
 
 import Database.Groundhog.Postgresql
@@ -41,21 +46,96 @@ import System.Locale (defaultTimeLocale)
 
 import Types
 
-queryURL :: ObsIdVal -> String
-queryURL oid = 
+queryObsCat :: ObsIdVal -> String
+queryObsCat oid = 
   let oi = show $ fromObsId oid
   in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++ oi ++ "&format=text"
+
+-- use ADS mirror first.
+--
+-- Note that I choose to use a text-based format for returning the data,
+-- rather than a VoTable, since it's easier to create a parser for the
+-- former.
+--
+-- TODO:
+--    look for opportunities like "blah blah offset[...]" where "blah blah"
+--    is a match; of course, how do we then encode/match this to
+--    ScienceObservation? How about "M31 BHXNe"
+--
+querySIMBAD :: 
+  Bool       -- ^ @True@ for debug output
+  -> String  -- ^ object name
+  -> IO SimbadInfo
+querySIMBAD f objname = do
+  putStrLn $ "Querying SIMBAD for " ++ objname
+  let -- we POST the script to SIMBAD
+      script = mconcat [
+                 "format object \"%MAIN_ID\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
+                 , "query id ", BS8.pack objname, "\n" ]
+
+      -- TODO: support roll over to Strasbourg site if the ADS mirror
+      --       is not accessible
+      -- uriBase = "http://simbad.u-strasbg.fr/"
+      uriBase = "http://simbad.harvard.edu/"
+      uri = uriBase <> "simbad/sim-script"
+
+  when f $ putStrLn ">> Script:" >> print script
+
+  cTime <- getCurrentTime
+  req <- parseUrl uri
+  let hdrs = ("User-Agent", "chandraobs-obscat") : requestHeaders req
+      req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }
+  rsp <- withManager $ httpLbs req'
+  let body = L8.unpack $ responseBody rsp
+      -- TODO: need to handle data that does not match expectations
+      --       eg if there's an error field, display it and return nothing ...
+      dropUntilNext c = drop 1 . dropWhile (not . c)
+      ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) $ lines body
+
+  when f $ putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls
+  let rval = listToMaybe ls >>= parseObject
+  -- TODO: should have displayed the error string so this can be ignored
+  when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
+  return $ case rval of
+    Just (a,b,c,d) -> SimbadInfo objname (Just a) (Just b) (Just c) (Just d) cTime
+    Nothing        -> SimbadInfo objname Nothing Nothing Nothing Nothing cTime
+
+-- | Assume we have a line from SIMBAD using the script interface using the
+--   format given in querySIMBAD.
+parseObject :: String -> Maybe (String, String, RA, Dec)
+parseObject txt = 
+  let toks = splitOn "\t" txt
+  in case toks of
+    (name:otype:coords:[]) -> toObjectInfo name otype coords
+    _ -> Nothing
+
+toObjectInfo :: String -> String -> String -> Maybe (String, String, RA, Dec)
+toObjectInfo name objtype coords = 
+  case words coords of
+    (ras:('+':decs):[]) -> do
+      ra <- maybeRead ras
+      dec <- maybeRead decs
+      return (name, objtype, RA ra, Dec dec)
+    (ras:('-':decs):[]) -> do
+      ra <- maybeRead ras
+      dec <- maybeRead decs
+      return (name, objtype, RA ra, Dec (-1 * dec))
+
+    _ -> Nothing
 
 w8 :: Char -> Word8
 w8 = fromIntegral . ord
 
 type OCAT = M.Map L.ByteString L.ByteString
 
-maybeRead :: Read a => L.ByteString -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads . L8.unpack
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads
+
+maybeReadLBS :: Read a => L.ByteString -> Maybe a
+maybeReadLBS = maybeRead . L8.unpack
 
 toWrapper :: Read a => (a -> b) -> L.ByteString -> OCAT -> Maybe b
-toWrapper f k m = M.lookup k m >>= fmap f . maybeRead
+toWrapper f k m = M.lookup k m >>= fmap f . maybeReadLBS
 
 toSequence :: OCAT -> Maybe Sequence
 toSequence = toWrapper Sequence "SEQ_NUM"
@@ -250,7 +330,7 @@ queryObsId ::
   -> ObsIdVal 
   -> IO (Maybe (Proposal, ScienceObs))
 queryObsId flag oid = do
-  let qry = queryURL oid
+  let qry = queryObsCat oid
   rsp <- simpleHttp qry
   let isHash x = case L.uncons x of 
                    Just (y, _) -> y == w8 '#'
@@ -277,6 +357,12 @@ queryObsId flag oid = do
     [(Just p, Just so)] -> return $ Just (p, so)
     _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
 
+-- | Run a database action.
+doDB :: DbPersist Postgresql (NoLoggingT IO) a -> IO a
+doDB = 
+  withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" .
+  runDbConn 
+
 -- | Query the database to find any scheduled observations
 --   which do not have any correspinding OCAT info, and
 --   those OCAT observations which are not archived
@@ -284,8 +370,7 @@ queryObsId flag oid = do
 --
 findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal])
 findMissingObsIds = do
-  (want, have, unarchived) <- withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
-    runDbConn $ do
+  (want, have, unarchived) <- doDB $ do
       handleMigration
       allObsIds <- project SiObsIdField $ (SiScienceObsField ==. True)
       haveObsIds <- project SoObsIdField $ CondEmpty      
@@ -309,12 +394,28 @@ addResults missing unarchived = do
   putStrLn $ "# Adding " ++ slen missing ++ " missing results"
   putStrLn $ "# Adding " ++ slen unarchived ++ " unarchived results"
   let props = S.toList $ S.fromList $ map fst missing ++ map fst unarchived
-  withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
-    runDbConn $ do
+  doDB $ do
       -- the following will fail if the data already exists (e.g. proposals and unarchived results)
       forM_ missing $ \(_,so) -> liftIO (print so) >> insert so
       forM_ unarchived $ \(_,so) -> liftIO (print so) >> insert so
       forM_ props $ \p -> liftIO (print p) >> insert p
+
+-- | Query SIMBAD for any targets we do not know about.
+--
+identifyObjects :: [ScienceObs] -> IO ()
+identifyObjects sos = do
+  putStrLn $ "## Checking SIMBAD for " ++ slen sos ++ " targets"
+  let tgs = S.fromList $ map soTarget sos
+  -- get the list of previously-identified targets
+  knowns <- doDB $ project SiTargetField $ CondEmpty
+  
+  -- convert to sets for membership checks
+  let kset = S.fromList knowns
+      todo = tgs `S.difference` kset
+
+  ans <- mapM (querySIMBAD False) $ S.toList todo
+  putStrLn $ "## Found " ++ slen ans ++ " results"
+  doDB $ forM_ ans insert 
 
 -- | Report if any obsids are missing from the OCAT results.
 --
@@ -341,6 +442,15 @@ updateDB = withSocketsDo $ do
   ures <- check res2 unarchived
 
   addResults mres ures
+
+  -- Look for any new objects (only worth doing this in the
+  -- new set of objects since I am assuming the SIMBAD 
+  -- update rate for the types of object name we will find as
+  -- Chandra targets is low. That is not to say we should not
+  -- periodically look for updated or new information on
+  -- existing targets.
+  --
+  identifyObjects $ map snd mres
 
 viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
@@ -400,6 +510,18 @@ dump ScienceObs{..} = do
   print soSubArrayStart
   print soSubArraySize
 
+printSimbadInfo :: SimbadInfo -> IO ()
+printSimbadInfo SimbadInfo{..} = 
+  case (siName, siType, siRA, siDec) of
+    (Just n, Just t, Just r, Just d) -> do
+      putStrLn "## SIMBAD response"
+      putStrLn $ " target: " ++ siTarget
+      putStrLn $ "   name: " ++ n
+      putStrLn $ "   type: " ++ t
+      putStrLn $ "     ra: " ++ showRA r
+      putStrLn $ "    dec: " ++ showDec d
+    _ -> putStrLn $ "## No SIMBAD match for " ++ siTarget
+
 usage :: IO ()
 usage = do
   pName <- getProgName
@@ -414,5 +536,8 @@ main = do
     [x] -> case fmap fst . listToMaybe $ reads x of
              Just oid -> viewObsId oid
              _ -> usage
+    ("simbad":name:[]) -> 
+      querySIMBAD True name >>= printSimbadInfo
+
     _ -> usage
 
