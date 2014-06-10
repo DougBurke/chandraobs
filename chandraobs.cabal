@@ -35,6 +35,7 @@ executable webserver
                        Views.NotFound
                        Views.Record
                        Views.Schedule
+                       Views.Search.Types
                        Views.WWT
   hs-source-dirs:      app/
                        tools/

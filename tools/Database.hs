@@ -17,9 +17,10 @@ module Database ( getCurrentObs
                 , getProposalInfo
                 , reportSize
                 , getSimbadInfo
+                , matchSIMBADType
                 ) where
 
-import Control.Monad (liftM)
+import Control.Monad (forM, liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Maybe (catMaybes, listToMaybe)
@@ -193,6 +194,18 @@ getSimbadInfo :: (MonadIO m, PersistBackend m) => String -> m (Maybe SimbadInfo)
 getSimbadInfo tgt = do
   ans <- select $ (SiTargetField ==. tgt)
   return $ listToMaybe ans
+
+-- | Return all observations of the given SIMBAD type.
+matchSIMBADType :: (MonadIO m, PersistBackend m) => String -> m [ScienceObs]
+matchSIMBADType stype = do
+  -- TODO: use a join, or at least have a relationship between the
+  --       two tables to make use of the database, since the following
+  --       is not nice!
+  names <- project SiTargetField $ (SiTypeField ==. Just stype)
+  mans <- forM names $ \n -> do
+    ans <- select $ (SoTargetField ==. n)
+    return $ listToMaybe ans
+  return $ catMaybes mans
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

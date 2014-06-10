@@ -11,6 +11,7 @@ import qualified Data.Text as T
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
 import qualified Views.Record as Record
+import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
@@ -37,9 +38,11 @@ import System.IO (hFlush, hPutStrLn, stderr)
 import Web.Heroku (dbConnParams)
 import Web.Scotty
 
-import Database (getCurrentObs, getRecord, getObsInfo,
-                 getObsId, getSchedule,
-                 getProposalInfo, getSimbadInfo)
+import Database (getCurrentObs, getRecord, getObsInfo
+                 , getObsId, getSchedule
+                 , getProposalInfo
+                 , getSimbadInfo
+                 , matchSIMBADType)
 import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -188,6 +191,14 @@ webapp cm = do
       when (nweeks <= 0) next  -- TODO: better error message
       sched <- liftSQL $ getSchedule (7 * nweeks)
       fromBlaze $ Schedule.schedPage sched
+
+    -- TODO: also need a HEAD request version
+    get "/search/type/:type" $ do
+      simbadType <- param "type"
+      matches <- liftSQL $ matchSIMBADType simbadType
+      case matches of
+        [] -> status status404
+        _ ->  fromBlaze $ SearchTypes.matchPage simbadType matches
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 

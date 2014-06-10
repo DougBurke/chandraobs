@@ -231,16 +231,15 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
                 slink = H.toValue $ toSIMBADLink sname
 
-                -- typeLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
-                --                  ["search", "type", T.pack stype]
+                typeLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
+                                 ["search", "type", T.pack stype]
                 typeStr = toHtml $ cleanupSIMBADType stype
 
             in p $ mconcat [
                   "The target - "
                   , toHtml oname
                   , " - is "
-                  -- , a ! href typeLink $ typeStr
-                  , typeStr
+                  , a ! href typeLink $ typeStr
                   , ". More information can be found out at "
                   , a ! href slink $ "SIMBAD"
                   , "."
