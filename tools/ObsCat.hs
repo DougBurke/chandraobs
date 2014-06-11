@@ -333,7 +333,6 @@ toSO m = do
     , soRA = ra
     , soDec = dec
     , soRoll = roll
-    , soACISChIPS = Nothing -- :: Maybe String -- 10 character string with Y/N/<integer> for optional values
     , soSubArrayStart = subStart
     , soSubArraySize = subSize
      }
@@ -532,7 +531,6 @@ dump ScienceObs{..} = do
   putStrLn $ showRA soRA
   putStrLn $ showDec soDec
   print soRoll
-  print soACISChIPS
   print soSubArrayStart
   print soSubArraySize
 

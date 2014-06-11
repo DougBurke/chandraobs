@@ -502,7 +502,6 @@ data ScienceObs = ScienceObs {
   , soRA :: RA
   , soDec :: Dec
   , soRoll :: Double
-  , soACISChIPS :: Maybe String -- 10 character string with Y/N/<integer> for optional values
   , soSubArrayStart :: Maybe Int
   , soSubArraySize :: Maybe Int
   } 
