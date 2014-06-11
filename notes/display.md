@@ -9,6 +9,10 @@
    how about a day view (a simple condensed view of what it's
    doing), perhaps also week and/or month.
 
+ - add in object type and proposal area to the schedule list
+
+ - add in proposal area to the main display
+
  - Can we display on sources from the CSC in WWT? The HTML5 WWT
    API has some mention of a display VoTable routine.
 
@@ -17,6 +21,9 @@
 
  - ADS view of papers about this object/class of object/...
    by this PI
+
+   note that the page on SIMBAD that we link to (when
+   available) includes papers about the source
 
  - archive link to existing Chandra data
 
