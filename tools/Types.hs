@@ -27,6 +27,8 @@ module Types where
 -- rather than try to track and document it.
 
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.Text.Lazy as LT
+
 import qualified Text.Blaze.Html5 as H
 
 import Control.Arrow (first)
@@ -55,6 +57,8 @@ import Network.HTTP.Types.URI (renderSimpleQuery)
 import System.Locale (defaultTimeLocale)
 
 import Text.Printf
+
+import Web.Scotty (Parsable(..))
 
 -- | The instrument being used.
 data Instrument = ACISS | ACISI | HRCI | HRCS 
@@ -586,9 +590,33 @@ data ConstrainedObs = ConstrainedObs {
   deriving Eq
 -}
 
+-- | This is the short form of the SIMBAD type.
+--
+newtype SimbadType = SimbadType { fromSimbadType :: String }
+  deriving Eq
+
+-- | This constructor ensures that the type is three letters
+--   or less.
+toSimbadType :: String -> Maybe SimbadType
+toSimbadType s@(_:[]) = Just $ SimbadType s
+toSimbadType s@(_:_:[]) = Just $ SimbadType s
+toSimbadType s@(_:_:_:[]) = Just $ SimbadType s
+toSimbadType _ = Nothing
+
+instance Parsable SimbadType where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid Simbad type: " <> t
+    in maybe (Left emsg) Right (toSimbadType tstr)
+
 -- | Information on an object identifier, retrieved from SIMBAD.
 --   At present only a very-limited amount of information is returned
 --   and the structure isn't very Haskell-like.
+--
+--   TODO:
+--
+--    - it is ridiculous that siName/siType3/siType are stored
+--      here, since they are really a separate record.
 --
 data SimbadInfo = SimbadInfo {
    siTarget :: String      -- ^ target name (presumed unique)
@@ -596,12 +624,16 @@ data SimbadInfo = SimbadInfo {
                            -- that they are considered the same (e.g. spaces and case
                            -- differences)
    , siName :: Maybe String      -- ^ the primary identifier for the object
-   , siType :: Maybe String      -- ^ the primary type of the object
+   , siType3 :: Maybe SimbadType      -- ^ short form identifier for siType
+   , siType :: Maybe String      -- ^ the primary type of the object (long form)
    , siRA :: Maybe RA
    , siDec :: Maybe Dec
    , siLastChecked :: UTCTime
   }
   deriving Eq
+
+-- | The short and long forms of the type information from SIMBAD.
+type SimbadTypeInfo = (SimbadType, String)
 
 -- | The name of the target string is used for ordering, since it is
 --   assumed that the name is unique.
@@ -649,6 +681,7 @@ instance NeverNull ObsIdVal
 instance NeverNull Instrument
 instance NeverNull Grating
 instance NeverNull ChipStatus
+instance NeverNull SimbadType
 
 -- times
 
@@ -770,6 +803,13 @@ instance PersistField ChipStatus where
   fromPersistValues = primFromPersistValue
   dbType _ = DbTypePrimitive DbString False Nothing Nothing
 
+-- can we force a size on the string?
+instance PersistField SimbadType where
+  persistName _ = "SimbadType"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
 instance PrimitivePersistField Instrument where
   {- The Groundhog tutorial [1] had the following, but this fails to
      compile with
@@ -807,6 +847,16 @@ instance PrimitivePersistField ChipStatus where
   fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected chip status: " ++ s)) $ toChipStatus s
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
   fromPrimitivePersistValue _ x = error $ "Expected ChipStatus (String), received: " ++ show x
+
+instance PrimitivePersistField SimbadType where
+  {-
+  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
+  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
+  -}
+  toPrimitivePersistValue _ = PersistString . fromSimbadType
+  fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected Simbad Type: " ++ s)) $ toSimbadType s
+  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
+  fromPrimitivePersistValue _ x = error $ "Expected SimbadType (String), received: " ++ show x
 
 -- needed for persistent integer types
 

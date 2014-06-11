@@ -30,7 +30,7 @@ import Data.Char (isSpace, ord, toLower)
 import Data.Function (on)
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
-import Data.Maybe (catMaybes, isNothing, listToMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe)
 import Data.Monoid ((<>), mconcat)
 import Data.Time (getCurrentTime, readsTime)
 import Data.Word (Word8)
@@ -93,7 +93,7 @@ querySIMBAD f objname = do
   putStrLn $ "Querying SIMBAD for " ++ objname
   let -- we POST the script to SIMBAD
       script = mconcat [
-                 "format object \"%MAIN_ID\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
+                 "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
                  , "query id ", BS8.pack objname, "\n" ]
 
       -- TODO: support roll over to Strasbourg site if the ADS mirror
@@ -120,30 +120,32 @@ querySIMBAD f objname = do
   -- TODO: should have displayed the error string so this can be ignored
   when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
   return $ case rval of
-    Just (sf,a,b,c,d) -> SimbadInfo objname sf (Just a) (Just b) (Just c) (Just d) cTime
-    Nothing           -> SimbadInfo objname False Nothing Nothing Nothing Nothing cTime
+    Just (sf,a,b,c,d,e) -> SimbadInfo objname sf (Just a) (Just b) (Just c) (Just d) (Just e) cTime
+    Nothing             -> SimbadInfo objname False Nothing Nothing Nothing Nothing Nothing cTime
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
-parseObject :: String -> String -> Maybe (Bool, String, String, RA, Dec)
+parseObject :: String -> String -> Maybe (Bool, String, SimbadType, String, RA, Dec)
 parseObject objname txt = 
   let toks = splitOn "\t" txt
+      toT s = fromMaybe (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
+                     $ toSimbadType s
   in case toks of
-    (name:otype:coords:[]) -> toObjectInfo objname (cleanupName name) otype coords
+    (name:otype3:otype:coords:[]) -> toObjectInfo objname (cleanupName name) (toT otype3) otype coords
     _ -> Nothing
 
-toObjectInfo :: String -> String -> String -> String -> Maybe (Bool, String, String, RA, Dec)
-toObjectInfo objname name objtype coords = 
+toObjectInfo :: String -> String -> SimbadType -> String -> String -> Maybe (Bool, String, SimbadType, String, RA, Dec)
+toObjectInfo objname name objtype3 objtype coords = 
   let f = similarName objname name
   in case words coords of
     (ras:('+':decs):[]) -> do
       ra <- maybeRead ras
       dec <- maybeRead decs
-      return (f, name, objtype, RA ra, Dec dec)
+      return (f, name, objtype3, objtype, RA ra, Dec dec)
     (ras:('-':decs):[]) -> do
       ra <- maybeRead ras
       dec <- maybeRead decs
-      return (f, name, objtype, RA ra, Dec (-1 * dec))
+      return (f, name, objtype3, objtype, RA ra, Dec (-1 * dec))
 
     _ -> Nothing
 
@@ -549,7 +551,7 @@ printSimbadInfo SimbadInfo{..} =
 usage :: IO ()
 usage = do
   pName <- getProgName
-  hPutStrLn stderr $ "Usage: " ++ pName ++ " [obsid]"
+  hPutStrLn stderr $ "Usage: " ++ pName ++ " [name]"
   exitFailure
 
 main :: IO ()

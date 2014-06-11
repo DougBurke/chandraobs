@@ -197,8 +197,8 @@ webapp cm = do
       simbadType <- param "type"
       matches <- liftSQL $ matchSIMBADType simbadType
       case matches of
-        [] -> status status404
-        _ ->  fromBlaze $ SearchTypes.matchPage simbadType matches
+        (_, []) -> status status404
+        (typeInfo, ms) ->  fromBlaze $ SearchTypes.matchPage typeInfo ms
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 

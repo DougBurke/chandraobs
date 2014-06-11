@@ -196,16 +196,25 @@ getSimbadInfo tgt = do
   return $ listToMaybe ans
 
 -- | Return all observations of the given SIMBAD type.
-matchSIMBADType :: (MonadIO m, PersistBackend m) => String -> m [ScienceObs]
+matchSIMBADType :: (MonadIO m, PersistBackend m) => SimbadType -> m (SimbadTypeInfo, [ScienceObs])
 matchSIMBADType stype = do
   -- TODO: use a join, or at least have a relationship between the
   --       two tables to make use of the database, since the following
   --       is not nice!
-  names <- project SiTargetField $ (SiTypeField ==. Just stype)
+  -- lans <- project SiTypeField $ (SiType3Field ==. Just stype) `limitTo` 1
+  lans <- select $ (SiType3Field ==. Just stype) `limitTo` 1
+  -- the ugliness here is down to my poor data modelling
+  let sinfo = case lans of
+                [x] -> case siType x of
+                        Just y -> (stype, y)
+                        _ -> (stype, error "*db error - Simbad Type has short form but not long*")
+                _ -> (stype, error "*internal error - matchSIMBADType*")
+
+  names <- project SiTargetField $ (SiType3Field ==. Just stype)
   mans <- forM names $ \n -> do
     ans <- select $ (SoTargetField ==. n)
     return $ listToMaybe ans
-  return $ catMaybes mans
+  return $ (sinfo, catMaybes mans)
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

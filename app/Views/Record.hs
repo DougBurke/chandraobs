@@ -39,6 +39,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (ScienceObs(..), NonScienceObs(..), 
               SimbadInfo(..),
               Proposal(..),
+              SimbadType(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..),
@@ -223,8 +224,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       -- TODO: check case and spaces
       simpara SimbadInfo{..} = 
-        case (siName, siType) of
-          (Just sname, Just stype) ->
+        case (siName, siType, siType3) of
+          (Just sname, Just stype, Just stype3) ->
             let oname = if siSimilar
                         then siTarget
                         else siTarget <> ", also called " <> sname
@@ -232,7 +233,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                 slink = H.toValue $ toSIMBADLink sname
 
                 typeLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
-                                 ["search", "type", T.pack stype]
+                                 ["search", "type", T.pack (fromSimbadType stype3)]
                 typeStr = toHtml $ cleanupSIMBADType stype
 
             in p $ mconcat [

@@ -1,33 +1,34 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Search on SIMBAD object type.
 
 module Views.Search.Types (matchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), (++), Bool(..), Maybe(..), String, const, either, length, show)
+import Prelude (($), (==), String, length)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>), mconcat, mempty)
-import Data.Time (UTCTime)
+import Data.Monoid ((<>)) -- , mconcat, mempty)
+-- import Data.Time (UTCTime)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..))
+import Types (ScienceObs(..), SimbadType(..), SimbadTypeInfo)
 import Utils (defaultMeta, renderFooter)
 import Views.Record (CurrentPage(..)
-                    , mainNavBar, obsNavBar)
+                    , mainNavBar)
 
 matchPage :: 
-  String          -- SIMBAD object type (full version)
+  SimbadTypeInfo
   -> [ScienceObs] -- non-empty list of observations that match this object type
   -> Html
-matchPage objType matches =
+matchPage (shortType, longType) matches =
   docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml objType) <>
+    head (H.title ("Chandra observations of " <> H.toHtml longType) <>
           defaultMeta <>
            link ! href   "/css/main.css"
                 ! type_  "text/css" 
@@ -39,7 +40,7 @@ matchPage objType matches =
     body
      (mainNavBar CPOther
       <> (div ! id "mainBar") 
-          (renderMatches objType matches)
+          (renderMatches shortType longType matches)
       <> renderFooter
      )
 
@@ -47,11 +48,19 @@ matchPage objType matches =
 --
 --   TODO: will want a map of the sky here too
 renderMatches ::
-  String      -- ^ SIMBAD object type (full)
+  SimbadType
+  -> String        -- ^ long version of SimbadType
   -> [ScienceObs]  -- ^ non-empty list of matches
   -> Html
-renderMatches objType matches = 
-  p $ "There are " <> toHtml (length matches) <> " observations of " <> toHtml objType <> " in the database."
+renderMatches shortType longType matches = do
+  h2 $ toHtml longType
+  let nmatch = length matches
+  p $ if nmatch == 1
+      then "There is one observation in the database."
+      else "There are " <> toHtml nmatch <> " observations in the database."
+  p $ "This will eventually include a display similar to the "
+      <> (a ! href "/schedule/" $ "schedule page")
+      <> "."
 
 {-
 
