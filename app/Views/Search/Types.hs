@@ -1,126 +1,120 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 -- | Search on SIMBAD object type.
 
 module Views.Search.Types (matchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), (==), String, length)
+import Prelude (($), String)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>)) -- , mconcat, mempty)
--- import Data.Time (UTCTime)
+import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), SimbadType(..), SimbadTypeInfo)
+import Types (ChandraTime(..), Schedule(..), SimbadType(..), SimbadTypeInfo)
 import Utils (defaultMeta, renderFooter)
-import Views.Record (CurrentPage(..)
-                    , mainNavBar)
+import Views.Record (CurrentPage(..), mainNavBar)
+import Views.Render (makeSchedule)
+
+jsScript :: AttributeValue -> Html
+jsScript uri = script ! src uri $ ""
+
+-- TODO: combine with Schedule.schedPage
 
 matchPage :: 
   SimbadTypeInfo
-  -> [ScienceObs] -- non-empty list of observations that match this object type
+  -> Schedule  -- the observations that match this type, organized into a "schedule"
   -> Html
-matchPage (shortType, longType) matches =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml longType) <>
-          defaultMeta <>
-           link ! href   "/css/main.css"
+matchPage typeInfo sched =
+  let lbl = niceType typeInfo
+  in docTypeHtml ! lang "en-US" $
+    head (H.title ("Chandra observations of " <> H.toHtml lbl) <>
+          defaultMeta
+          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
+          <> jsScript "http://d3js.org/d3.v3.min.js"
+          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
+          <> jsScript "/js/jquery.tablesorter.min.js"
+          <> jsScript "/js/table.js"
+          <> jsScript "/js/projection.js"
+          <> link ! href   "/css/tablesorter.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+          <> link ! href   "/css/schedule.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+          <> link ! href   "/css/main.css"
                 ! type_  "text/css" 
                 ! rel    "stylesheet"
                 ! A.title  "Default"
                 ! media  "all"
           )
     <>
-    body
+    (body ! onload "createMap(obsinfo);")
      (mainNavBar CPOther
-      <> (div ! id "mainBar") 
-          (renderMatches shortType longType matches)
+      <> (div ! id "schedule") 
+          (renderMatches lbl sched)
       <> renderFooter
      )
 
+niceType :: (SimbadType, String) -> String
+niceType (SimbadType "reg", _) = "Area of the sky"
+niceType (_, l) = l
+
 -- | TODO: combine table rendering with Views.Schedule
 --
---   TODO: will want a map of the sky here too
+--   TODO: convert the long version of SimbadType to a nice string (may want to send in SimbadType here to match on)
 renderMatches ::
-  SimbadType
-  -> String        -- ^ long version of SimbadType
-  -> [ScienceObs]  -- ^ non-empty list of matches
+  String           -- ^ SIMBAD type, as a string
+  -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderMatches shortType longType matches = do
-  h2 $ toHtml longType
-  let nmatch = length matches
-  p $ if nmatch == 1
-      then "There is one observation in the database."
-      else "There are " <> toHtml nmatch <> " observations in the database."
-  p $ "This will eventually include a display similar to the "
-      <> (a ! href "/schedule/" $ "schedule page")
-      <> "."
+renderMatches lbl (Schedule cTime _ done mdoing todo) = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
 
-{-
+  in div ! A.id "scheduleBlock" $ do
+    h2 $ toHtml lbl
+    p  $ "The current time is: " <> toHtml (ChandraTime cTime) <> "."
 
-  let single = case matches of
-                [_] -> True
-                _ -> False
+    svgBlock
 
-  let instVal r = fromMaybe "n/a" $ do
-        inst <- recordInstrument r
-        grat <- recordGrating r
-        return $ toHtml inst <> if grat == NONE then mempty else " with " <> toHtml grat
+    -- TODO: improve English here
+    p $ mconcat
+        [ "This page shows the observations of ", toHtml lbl, " "
+        , "objects by Chandra (since the database only includes a "
+        , "small fraction of the mission you will only see a few "
+        , "matches. The format is the same as used in the "
+        , (a ! href "/schedule") "schedule view"
+        , "."
+        ]
 
-      -- convert UTCTime to an integer
-      aTime :: Record -> AttributeValue
-      aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . _toUTCTime . recordStartTime
+    {-
+    p $ mconcat 
+        [ "This page shows ", toHtml ndays
+        , " days of the Chandra schedule, centered on today. "
+        , "The size of the circles indicate the exposure time, and "
+        , "the color shows whether the observation has been done, "
+        , "is running now, or is in the future; the same colors "
+        , "are used in the table below. For repeated observations "
+        , "it can be hard to make out what is going on, since the "
+        , "circles overlap! "
+        , "The points are plotted in the "
+        , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"
+        , ", using the "
+        , a ! href "http://en.wikipedia.org/wiki/Aitoff_projection" $ "Aitoff projection"
+        , ". See "
+        , a ! href "http://burro.astr.cwru.edu/" $ "Chris Mihos'"
+        , " page on "
+        , a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html" $ "Astronomical coordinate systems"
+        , " for more informaion."
+        ]
+    -}
 
-      hover r = let lbl = toValue $ idLabel r
-                in tr ! id (toValue lbl)
-                      ! onmouseover ("selectObs('" <> lbl <> "');")
-                      ! onmouseout  ("deselectObs('" <> lbl <> "');")
-      
-      showJoint (Left _) = "n/a"
-      showJoint (Right so) = fromMaybe "n/a" $ toHtml `fmap` (soJointWith so)
+    tblBlock
 
-      toRow :: (ChandraTime -> String) -> Record -> Html
-      toRow ct r = hover r $ do
-         td $ linkToRecord r
-         td $ showJoint r
-         td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
-         td ! dataAttribute "sortvalue" (aTime r)
-            ! class_ "starttime" 
-              $ toHtml $ ct $ recordStartTime r
-         td $ instVal r
-         let ra = recordRa r
-             dec = recordDec r
-         td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml $ showRA ra
-         td ! dataAttribute "sortvalue" (toValue dec) $ toHtml $ showDec dec
-
-      -- TODO: for current row, check whether should be using DeltaBwd/DeltaFwd
-      cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
-      pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
-      nRow r = toRow (showTimeDeltaFwd cTime) r ! A.class_ "next"
-
-      getLongLat r = (recordRa r, recordDec r)
-
-      conv :: Show a => a -> Html
-      conv = toHtml . show
-
-  in p $ if single
-         then "Chandra observation of " <> H.toHtml objType
-         else "Chandra observations of " <> H.toHtml objType
-     <> table ! A.id "typeObs" ! class_ "tablesorter' $ do
-          thead $ tr $ do
-            th "Target"
-            th "Joint with"
-            th "Exposure time"
-            th "Start"
-            th "Instrument"
-            th "Right Ascension"
-            th "Declination"
-          tbody $ mapM_ (toRow . Right) matches
-
--}

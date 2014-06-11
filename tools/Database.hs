@@ -12,6 +12,7 @@ module Database ( getCurrentObs
                 , getObsId
                 , getRecord
                 , getSchedule
+                , makeSchedule
                 , getProposal
                 , getProposalObs
                 , getProposalInfo
@@ -20,10 +21,14 @@ module Database ( getCurrentObs
                 , matchSIMBADType
                 ) where
 
+import Control.Applicative ((<$>))
 import Control.Monad (forM, liftM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
+import Data.Either (partitionEithers)
+import Data.List (sortBy)
 import Data.Maybe (catMaybes, listToMaybe)
+import Data.Ord (comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
 import Database.Groundhog.Postgresql
@@ -188,6 +193,40 @@ getSchedule ndays = do
               _ -> return Nothing
 
   return $ Schedule now ndays done mdoing todo
+
+-- | Creates a schedule structure of the list of observations.
+--
+--   The number-of-days field in the structure is set to 0; this
+--   is not ideal!
+--
+makeSchedule :: (MonadIO m, PersistBackend m) => 
+  [Record]      -- it is assumed that this list contains no duplicates
+  -> m Schedule
+makeSchedule rs = do
+  now <- liftIO getCurrentTime
+  msi <- findSI now
+  
+  -- Unlike getSchedule, the records are not guaranteed to
+  -- be in time order, and we are working with records, not
+  -- the schedule. However, given that we end up sorting
+  -- the records, we should be able to have a similar scheme.
+  -- However, getSchedule assumes that we have a set of
+  -- records that cover the given time period, so we can
+  -- identify the current observation as the last observation
+  -- with a start time <= now, but here we can not.
+  --
+  -- I am hoping that the compiler can fuse these multiple
+  -- traversals together.
+  --
+  let mobsid = siObsId <$> msi
+      findNow r = if Just (recordObsId r) == mobsid then Right r else Left r
+      (others, nows) = partitionEithers $ map findNow rs
+
+      sorted = sortBy (comparing recordStartTime) others
+      cnow = ChandraTime now
+      (done, todo) = span ((<= cnow) . recordStartTime) sorted      
+
+  return $ Schedule now 0 done (listToMaybe nows) todo
 
 -- | Do we have any SIMBAD information about the target?
 getSimbadInfo :: (MonadIO m, PersistBackend m) => String -> m (Maybe SimbadInfo)

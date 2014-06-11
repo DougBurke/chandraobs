@@ -39,7 +39,7 @@ import Web.Heroku (dbConnParams)
 import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo
-                 , getObsId, getSchedule
+                 , getObsId, getSchedule, makeSchedule
                  , getProposalInfo
                  , getSimbadInfo
                  , matchSIMBADType)
@@ -101,7 +101,7 @@ main = do
  
   case eopts of
     Left emsg -> uerror emsg
-    Right opts -> do
+    Right opts -> 
       -- TODO: what is a sensible number for the pool size?
       withPostgresqlPool connStr 5 $ 
         scottyOpts opts . webapp
@@ -198,7 +198,9 @@ webapp cm = do
       matches <- liftSQL $ matchSIMBADType simbadType
       case matches of
         (_, []) -> status status404
-        (typeInfo, ms) ->  fromBlaze $ SearchTypes.matchPage typeInfo ms
+        (typeInfo, ms) -> do
+           sched <- liftSQL $ makeSchedule $ map Right ms
+           fromBlaze $ SearchTypes.matchPage typeInfo sched
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
