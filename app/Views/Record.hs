@@ -359,7 +359,7 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
         mconcat [ "The calibration observation - "
                 , targetName
                 , " - will run for "
-                , lenVal, ", starting at "
+                , lenVal, ", and will start "
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , "."
                 ]
