@@ -516,7 +516,7 @@ data ScienceObs = ScienceObs {
   , soJointSWIFT :: Maybe TimeKS
   , soJointNUSTAR :: Maybe TimeKS
 
-  , soTOO :: Maybe String -- not sure what this field can contain
+  , soTOO :: Maybe String -- contains values like "0-4" "4-15"; presumably #days for turn around
   , soRA :: RA
   , soDec :: Dec
   , soConstellation :: ConShort -- name of the constellation the observation is in  

@@ -36,6 +36,7 @@ executable webserver
                        Views.Record
                        Views.Render
                        Views.Schedule
+                       Views.Search.Category
                        Views.Search.Constellation
                        Views.Search.Types
                        Views.WWT

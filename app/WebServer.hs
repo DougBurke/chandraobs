@@ -28,6 +28,7 @@ import qualified Data.Text.Lazy.IO as L
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
 import qualified Views.Record as Record
+import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
@@ -61,7 +62,9 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getProposalInfo
                  , getSimbadInfo
                  , matchSIMBADType
-                 , findConstellation)
+                 , fetchConstellation
+                 , fetchCategory
+                 )
 import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -229,12 +232,22 @@ webapp cm = do
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
       con <- param "constellation"
-      matches <- liftSQL $ findConstellation con
+      matches <- liftSQL $ fetchConstellation con
       case matches of
         [] -> status status404
         _ -> do
            sched <- liftSQL $ makeSchedule $ map Right matches
            fromBlaze $ Constellation.matchPage con sched
+
+    -- TODO: also need a HEAD request version
+    get "/search/category/:category" $ do
+      cat <- param "category"
+      matches <- liftSQL $ fetchCategory cat
+      case matches of
+        [] -> status status404
+        _ -> do
+           sched <- liftSQL $ makeSchedule $ map Right matches
+           fromBlaze $ Category.matchPage cat sched
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 

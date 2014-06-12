@@ -19,7 +19,8 @@ module Database ( getCurrentObs
                 , reportSize
                 , getSimbadInfo
                 , matchSIMBADType
-                , findConstellation
+                , fetchConstellation
+                , fetchCategory
                 ) where
 
 import Control.Applicative ((<$>))
@@ -257,10 +258,17 @@ matchSIMBADType stype = do
   return $ (sinfo, catMaybes mans)
 
 -- | Return observations which match this constellation, in time order.
-findConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
-findConstellation con = 
+fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
+fetchConstellation con = 
   select $ (SoConstellationField ==. con) `orderBy` [Asc SoStartTimeField]
     
+-- | Return observations which match this category, in time order.
+fetchCategory :: (MonadIO m, PersistBackend m) => String -> m [ScienceObs]
+fetchCategory cat = do
+  propNums <- project PropNumField $ (PropCategoryField ==. cat)
+  sos <- forM propNums $ \pn -> select $ (SoProposalField ==. pn) `limitTo` 1
+  return $ concat sos
+
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
 --
