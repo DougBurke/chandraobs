@@ -45,13 +45,13 @@ toSO (STS (Just seqNum) (ObsId obs) _ tgt stTime eval (Just inst) (Just grat) ra
 
 toNS :: STS -> Maybe NonScienceObs
 toNS (STS (Just _) _ _ _ _ _ _ _ _ _ _ _ _) = Nothing
-toNS (STS Nothing (SpecialObs obsname) _ tgt stTime eval Nothing Nothing ra dec roll pitch slew) =
+toNS (STS Nothing (SpecialObs obsname) _ tgt stTime eval Nothing Nothing ra dec roll _ _) =
   let t1 = toCTime stTime
       tks = TimeKS eval
       raV = RA ra
       decV = Dec dec
       obsid = getObsIdValue tgt
-  in Just $ NonScienceObs obsname obsid tgt t1 tks raV decV roll pitch slew
+  in Just $ NonScienceObs obsname obsid tgt t1 tks raV decV roll 
 
 -- Assume the name is "CAL-ER (xxx)" and xxx is a valid Int
 getObsIdValue :: String -> ObsIdVal

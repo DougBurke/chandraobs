@@ -406,8 +406,6 @@ data NonScienceObs = NonScienceObs {
   , nsRa :: RA
   , nsDec :: Dec
   , nsRoll :: Double
-  , nsPitch :: Double
-  , nsSlew :: Double
   }
   -- deriving (Eq, Show)
   deriving Eq
@@ -521,6 +519,7 @@ data ScienceObs = ScienceObs {
   , soTOO :: Maybe String -- not sure what this field can contain
   , soRA :: RA
   , soDec :: Dec
+  -- , soConstellation :: String -- name of the constellation the observation is in  
   , soRoll :: Double
   , soSubArrayStart :: Maybe Int
   , soSubArraySize :: Maybe Int
