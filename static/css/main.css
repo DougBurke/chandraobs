@@ -265,3 +265,16 @@ div#wwtControls > label {
   margin-left: 0.5em;
 }
 
+/* facts */
+
+div.fact {
+  margin-left: 3em;
+  padding: 0.2em 0.5em;
+  line-height: 2em;
+  border-left: 1em solid rgb(0,131,179);
+  border-right: 1px solid rgb(153,153,153);
+  border-top: 1px solid rgb(153,153,153);
+  border-bottom: 1px solid rgb(153,153,153);
+  display: inline;
+  background-color: rgba(153,153,153,0.2);  /* gray */
+}

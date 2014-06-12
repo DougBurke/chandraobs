@@ -21,8 +21,8 @@ import Utils (defaultMeta, renderLinks, renderFooter)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
 
-noDataPage :: Html
-noDataPage =
+noDataPage :: Html -> Html
+noDataPage fact =
   docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing? I am not sure!" <>
           defaultMeta <>
@@ -37,12 +37,15 @@ noDataPage =
     body
      (mainNavBar CPIndex
       <> (div ! class_ "error")  
-        ("Unfortunately there is no new observation found in my database, " <>
+        ("Unfortunately there doesn't seem to be any observations in my database, " <>
          "which hopefully means that the database is being updated, so " <>
          "please wait a few minutes and try again. If there is still " <>
-         "a problem, try contacting " <>
+         "a problem, try reporting the problem to either " <>
          (a ! href "http://twitter.com/doug_burke" $ "@doug_burke") <>
-         " and reporting the problem.") -- TODO: add in an amazing fact...
+         " or the " <>
+         (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
+         ". Whilst you are waiting, how about this fun Chandra fact:")
+      <> (div ! class_ "fact") fact
       <> renderTwitter
       <> renderFooter
      )

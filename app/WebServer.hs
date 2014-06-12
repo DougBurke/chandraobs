@@ -2,11 +2,28 @@
 
 {-# LANGUAGE FlexibleContexts #-} -- needed for webapp signature
 
+{-
+TODO: when all tables are removed, get errors like
+
+% curl http://localhost:3000/index.html
+<h1>500 Internal Server Error</h1>user error (Postgresql.withStmt': bad result status FatalError ("PGRES_FATAL_ERROR"). Error message: ERROR:  relation "ScheduleItem" does not exist
+LINE 1: ...siScienceObs","siStart","siEnd","siDuration" FROM "ScheduleI...
+
+but it returns a 200 status !                                                             ^
+% curl -I http://localhost:3000/index.html
+HTTP/1.1 200 OK
+Date: Wed, 11 Jun 2014 19:56:35 GMT
+Server: Warp/2.1.5.2
+
+-}
+
 -- | A test webserver.
 -- 
 module Main where
 
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as L
+import qualified Data.Text.Lazy.IO as L
 
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
@@ -26,7 +43,7 @@ import Data.Time (getCurrentTime)
 import Database.Groundhog.Core (ConnectionManager(..))
 import Database.Groundhog.Postgresql (Postgresql(..), PersistBackend, runDbConn, withPostgresqlPool)
 
-import Network.HTTP.Types (StdMethod(HEAD), status404)
+import Network.HTTP.Types (StdMethod(HEAD), status404, status503)
 -- import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
@@ -120,6 +137,7 @@ webapp cm = do
 
     let liftSQL a = liftIO $ runDbConn a cm
 
+    defaultHandler errHandle
     liftSQL handleMigration
 
     -- Need to find out how the static directory gets copied
@@ -139,14 +157,18 @@ webapp cm = do
         Just obs -> do
           dbInfo <- liftSQL $ getDBInfo $ oiCurrentObs obs
           fromBlaze $ Index.introPage cTime obs dbInfo
-        _        -> fromBlaze Index.noDataPage
+        _        -> do
+          fact <- liftIO getFact
+          fromBlaze $ Index.noDataPage fact
 
     -- TODO: send in proposal details
     get "/wwt.html" $ do
       mobs <- liftSQL getCurrentObs
       case mobs of 
         Just (Right so) -> fromBlaze (WWT.wwtPage True so)
-        _ -> fromBlaze Index.noDataPage
+        _ -> do
+          fact <- liftIO getFact
+          fromBlaze $ Index.noDataPage fact
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
@@ -245,4 +267,13 @@ webapp cm = do
       fact <- liftIO getFact
       fromBlaze $ NotFound.notFoundPage fact
       status status404
+
+-- | Exception handler. We should log the error.
+errHandle :: L.Text -> ActionM ()
+errHandle txt = do
+  liftIO $ L.putStrLn $ "Error string: " <> txt
+  fromBlaze $ NotFound.errPage
+  -- Can we change the HTTP status code? The following does not
+  -- work.
+  status status503
 
