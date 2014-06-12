@@ -33,7 +33,7 @@ import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..), Constraint(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 import Types (getJointObs)
 
@@ -186,32 +186,34 @@ renderObsIdDetails so@ScienceObs{..} =
       toJ (l,v) = keyVal "Joint with:" (l <> " for " <> H.toHtml (_toS v) <> " ks")
       jointElems = mconcat $ map toJ $ getJointObs so
 
+      cToL NoConstraint = "None" -- not used
+      cToL Preferred    = "Preferred"
+      cToL Required     = "Yes"
+      clbls = ["Time critical:", "Monitor:", "Constrained:"]
+      cvals = [soTimeCritical, soMonitor, soConstrained]
+      constraintElems =
+        let f (k,v) = keyVal k (cToL v)
+        in mconcat $ map f $ filter ((/= NoConstraint) . snd) $ zip clbls cvals
+
   in -- showDetails <>
      (H.div H.! A.class_ "inactive" H.! A.id "Details") 
-      (keyVal "Observation Details:" oLink
-       <>
-       keyVal "Sequence Summary:" sLink
-       <>
-       keyVal "Proposal Id:" (H.toHtml soProposal)
-       <>
-       keyVal "Target:" (H.toHtml name)
-       <>
-       keyVal "Instrument:" instInfo
-       <>
+      (mconcat
+       [ keyVal "Observation Details:" oLink
+       , keyVal "Sequence Summary:" sLink
+       , keyVal "Proposal Id:" (H.toHtml soProposal)
+       , keyVal "Target:" (H.toHtml name)
+       , keyVal "Instrument:" instInfo
        -- rely on the ToMarkup instance of ChandraTime
-       keyVal "Date:" (H.toHtml soStartTime)
-       <>
-       expLink
-       <>
+       , keyVal "Date:" (H.toHtml soStartTime)
+       , expLink
        -- rely on the ToMarkup instance of RA
-       keyVal "Right Ascension:" (H.toHtml soRA)
-       <>
+       , keyVal "Right Ascension:" (H.toHtml soRA)
        -- rely on the ToMarkup instance of Dec
-       keyVal "Declination:" (H.toHtml soDec)
-       <>
-       keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
-       <>
-       jointElems
+       , keyVal "Declination:" (H.toHtml soDec)
+       , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
+       , jointElems
+       , constraintElems
+       ]
        )
 
 -- Display the DSS/RASS/PSPC links. I assume that they
@@ -222,8 +224,8 @@ renderObsIdDetails so@ScienceObs{..} =
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.rass.gif
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.pspc.gif
 --
--- We now also display the observational details as a text box
--- as part of this section. This is an experiment.
+-- We also display the observational details - in \"raw\" form - as a text box
+-- as part of this section.
 --
 renderLinks :: 
   Bool -- True if current obs

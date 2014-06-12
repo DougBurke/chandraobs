@@ -20,7 +20,7 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
@@ -58,10 +58,19 @@ makeSchedule cTime done mdoing todo =
       showJoint (Left _) = "n/a"
       showJoint (Right so) = maybe "n/a" toHtml (soJointWith so)
 
+      showConstraint _ (Left _) = "n/a"
+      showConstraint f (Right so) = case f so of
+         NoConstraint -> "no"
+         Preferred    -> "preferred"
+         Required     -> "yes"
+
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
          td $ linkToRecord r
          td $ showJoint r
+         td $ showConstraint soTimeCritical r
+         td $ showConstraint soMonitor r
+         td $ showConstraint soConstrained r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
             ! class_ "starttime" 
@@ -85,6 +94,9 @@ makeSchedule cTime done mdoing todo =
                     thead $ tr $ do
                       th "Target"
                       th "Joint with"
+                      th "Time critical"
+                      th "Monitor"
+                      th "Constrained"
                       th "Exposure time"
                       th "Start"
                       th "Instrument"

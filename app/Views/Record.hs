@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (==), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, fst, length, map, maybe, null, otherwise, snd, splitAt)
+import Prelude ((.), (-), ($), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
 
 import qualified Data.Text as T
 
@@ -27,7 +27,7 @@ import Control.Arrow ((&&&))
 import Data.Char (toLower)
 import Data.Function (on)
 import Data.List (groupBy, intersperse)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
@@ -42,7 +42,7 @@ import Types (ScienceObs(..), NonScienceObs(..),
               SimbadType(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
-              ChandraTime(..),
+              ChandraTime(..), Constraint(..),
               getObsStatus, getJointObs, toSIMBADLink)
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
@@ -308,6 +308,31 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       sciencePara = p $ cts obsStatus <> otherMatches
 
+      addList [] = []
+      addList [x] = [x]
+      addList (x1:x2:[]) = [x1, " and ", x2]
+      addList xs = let (ls, [r1, r2]) = splitAt (length xs - 2) xs
+                   in intersperse ", " ls ++ [r1, ", and", r2]
+ 
+      -- Too many options (can all three fields contain all three
+      -- constraint values? to easily create a nice piece of prose, so
+      -- for now just go with the ugly suffix "(preferred)" with the
+      -- possibility of improving this at a later date.
+      --
+      cToL v Preferred = v <> " (preferred)"
+      cToL v _         = v
+      clbls = ["time critical", "monitoring", "constrained"]
+      cvals = [soTimeCritical, soMonitor, soConstrained]
+      copts = map (uncurry cToL) $ filter ((/= NoConstraint) . snd) $ zip clbls cvals
+      constrainedObs = 
+        if null copts
+        then mempty
+        else let vrb = if obsStatus == Done then "was" else "is"
+             in mconcat
+               [ "This ", vrb, " a "
+               , mconcat $ addList copts
+               , " observation." ]
+
       -- TODO: integrate with the rest of the text
       verb = case obsStatus of
                Todo  -> "will be"
@@ -316,23 +341,23 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       toJ (l, tks) = l <> " (for " <> toHtml (showExpTime tks) <> ")"
 
-      addList [] = []
-      addList [x] = [x]
-      addList (x1:x2:[]) = [x1, " and ", x2]
-      addList xs = let (ls, [r1, r2]) = splitAt (length xs - 2) xs
-                   in intersperse ", " ls ++ [r1, ", and", r2]
- 
       jointObs = case soJointWith of
-        Just _ -> p $ mconcat
+        Just _ -> mconcat
                    [ "This ", verb, " a joint observation with "
                    , mconcat $ addList $ map toJ $ getJointObs so
-                   , ". This does not necessarily mean that the "
-                   , "observations were done at the same time!"
+                   , ". However, if does not necessarily mean that the "
+                   , "observations were done at the same time! "
                    ]
         Nothing -> mempty
 
+      -- if there are constriants and a joint observation then the
+      -- paragraph does not read well.
+      constraints = 
+        let c = jointObs <> constrainedObs
+        in if isNothing soJointWith && null copts  then mempty else p c
+
   in sciencePara 
-     <> jointObs
+     <> constraints
      <> maybe mempty simpara msimbad
 
 -- | Display information for a \"non-science\" observation.
