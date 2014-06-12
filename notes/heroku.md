@@ -108,5 +108,18 @@ and then the build works (hopefully), which can be reset later by saying
 
     % heroku config:set BUILDPACK_URL=https://github.com/begriffs/heroku-buildpack-ghc.git
 
+### A crash
 
+I managed to crash the server due to a database migration that could not
+be done withou manual intervention. This lead to
+
+    % heroku ps
+    === web (1X): `cabal run webserver`
+    web.1: crashed 2014/06/11 20:10:09 (~ 5m ago)
+
+and this could be re-started (once the database had been clean up) by
+saying
+
+    % heroku ps:restart web.1
+    Restarting web.1 dyno... done
 

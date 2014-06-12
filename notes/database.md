@@ -309,3 +309,7 @@ To check what's going on (query-wise):
     -----+-------+--------+-------------+---------+-------
     (0 rows)
 
+The database can be cleared out with
+
+    % heroku pg:reset HEROKU_POSTGRESQL_ROSE --confirm chandraobs-devel
+
