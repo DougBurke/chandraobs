@@ -445,6 +445,21 @@ fromChipStatus ChipOpt3 = "O3"
 fromChipStatus ChipOpt4 = "O4"
 fromChipStatus ChipOpt5 = "O5"
 
+-- | Chandra constraints can be none, required, or preferred
+data Constraint = NoConstraint | Preferred | Required
+  deriving (Eq, Ord)
+
+toConstraint :: Char -> Maybe Constraint
+toConstraint 'N' = Just NoConstraint
+toConstraint 'P' = Just Preferred
+toConstraint 'Y' = Just Required
+toConstraint _   = Nothing
+
+fromConstraint :: Constraint -> Char
+fromConstraint NoConstraint = 'N'
+fromConstraint Preferred    = 'P'
+fromConstraint Required     = 'Y'
+
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
 --
@@ -468,6 +483,11 @@ data ScienceObs = ScienceObs {
   , soStartTime :: ChandraTime
   , soApprovedTime :: TimeKS
   , soObservedTime :: Maybe TimeKS
+
+  , soTimeCritical :: Constraint
+  , soMonitor :: Constraint
+  , soConstrained :: Constraint
+
   , soInstrument :: Instrument
   , soGrating :: Grating
   , soDetector :: Maybe String   -- this is only available for archived obs
@@ -809,6 +829,12 @@ instance PersistField SimbadType where
   fromPersistValues = primFromPersistValue
   dbType _ = DbTypePrimitive DbString False Nothing Nothing
 
+instance PersistField Constraint where
+  persistName _ = "Constraint"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
 instance PrimitivePersistField Instrument where
   {- The Groundhog tutorial [1] had the following, but this fails to
      compile with
@@ -856,6 +882,20 @@ instance PrimitivePersistField SimbadType where
   fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected Simbad Type: " ++ s)) $ toSimbadType s
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
   fromPrimitivePersistValue _ x = error $ "Expected SimbadType (String), received: " ++ show x
+
+instance PrimitivePersistField Constraint where
+  {-
+  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
+  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
+  -}
+  toPrimitivePersistValue _ a = PersistString (fromConstraint a : [])
+
+  fromPrimitivePersistValue _ (PersistString s) = case s of
+    [c] -> fromMaybe (error ("Unexpected constraint value: " ++ s)) $ toConstraint c
+    _ -> error ("Unexpected constraint value: " ++ s)
+
+  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
+  fromPrimitivePersistValue _ x = error $ "Expected Constraint (1 character String), received: " ++ show x
 
 -- needed for persistent integer types
 

@@ -5,6 +5,7 @@
 --   to the database.
 --
 --   Usage:
+--       obscat [debug]
 --       obscat [obsid]
 --       obscat simbad <name>
 --
@@ -187,8 +188,8 @@ toRead m lbl = toWrapper id lbl m
 
 toCT :: OCAT -> L.ByteString -> Maybe ChandraTime
 toCT m lbl =
-  let toC = fmap (ChandraTime . fst) . listToMaybe . readsTime defaultTimeLocale "%F %T"
-  in M.lookup lbl m >>= toC . L8.unpack
+  let c = fmap (ChandraTime . fst) . listToMaybe . readsTime defaultTimeLocale "%F %T"
+  in M.lookup lbl m >>= c . L8.unpack
 
 toRA :: OCAT -> Maybe RA
 toRA = 
@@ -230,6 +231,15 @@ toGrating m =
 toCS :: OCAT -> L.ByteString -> Maybe ChipStatus
 toCS m k = M.lookup k m >>= toChipStatus . L8.unpack
 
+toC :: OCAT -> L.ByteString -> Maybe Constraint
+toC m k = do
+  val <- M.lookup k m
+  case L8.uncons val of
+    Just (c, rest) -> if L8.null rest
+                      then toConstraint c
+                      else error $ "Constraint value " ++ L8.unpack k ++ "=" ++ L8.unpack val
+    _ -> Nothing
+
 toProposal :: OCAT -> Maybe Proposal
 toProposal m = do
   pNum <- toPropNum m
@@ -257,6 +267,11 @@ toSO m = do
   sTime <- toCT m "START_DATE"
   appExp <- toTimeKS m "APP_EXP"
   let obsExp = toTimeKS m "EXP_TIME"
+
+  timeCrit <- toC m "TIME_CRIT"
+  monitor <- toC m "MONITOR"
+  constrained <- toC m "CONSTR"
+
   inst <- toInstrument m
   grat <- toGrating m
   let det = fmap L8.unpack $ M.lookup "READOUT_DETECTOR" m
@@ -301,6 +316,11 @@ toSO m = do
     , soStartTime = sTime
     , soApprovedTime = appExp
     , soObservedTime = obsExp
+
+    , soTimeCritical = timeCrit
+    , soMonitor = monitor
+    , soConstrained = constrained
+
     , soInstrument = inst
     , soGrating = grat
     , soDetector = det
@@ -338,6 +358,14 @@ toSO m = do
      }
 
 {-
+
+Possibly interesting fields:
+
+  HRC - bool? 
+
+  CONSTR MONITOR TIME_CRIT  - bool ?
+
+  SUBARY
 
 SEQ_NUM	STATUS	OBSID	PR_NUM	TARGET_NAME	GRID_NAME	INSTR	GRAT	TYPE	OBS_CYCLE	PROP_CYCLE	CHARGE_CYCLE	START_DATE	PUBLIC_AVAIL	READOUT_DETECTOR	DATAMODE	JOINT	HST	NOAO	NRAO	RXTE	SPITZER	SUZAKU	XMM	SWIFT	NUSTAR	CATEGORY	SEG_MAX_NUM	PROP_TITLE	PI_NAMEOBSERVER	APP_EXP	EXP_TIME	RA	Dec	SOE_ROLL	TIME_CRIT	Y_OFF	Z_OFF	X_SIM	Z_SIM	RASTER	OBJ_TYPE	OBJ	NUDGE	PHOTO	VMAG	EST_CNT_RATE	FORDER_CNT_RATE	COUNT_RATE	EVENT_COUNT	DITHER	Y_AMP	Y_FREQ	Y_PHASE	Z_AMP	Z_FREQ	Z_PHASE	ROLL	WINDOW	UNINT	MONITOR	PRE_ID	MON_MINMON_MAX	GROUP_ID	CONSTR	EPOCH	PERIOD	PSTART	PS_MARG	PEND	PE_MARG	TOO_TYPE	TOO_START	TOO_STOP	SIMODE	HRC	SPECT_MODE	BLANK_ENU_HI	V_HI	U_LO	V_LO	TIMING	Z_BLK	ACIS	MODE	BEP_PACK	DROPPED_CHIP_CNT	I0	I1	I2	I3	S0	S1	S2	S3	S4	S5	SPECTRA_MAX_COUNT	MULTIPLE_SPECTRAL_LINES	SUBARY	STRT_ROW	ROW_CNT	D_CYC	SEC_CNT	PR_TIME	SEC_TIME	F_TIME	OC_SUM	OC_ROW	OC_COL	EVFIL	EVFIL_LO	EVFIL_RA	EFFICIENT	SPWIN
 901116	scheduled	16196	15900142	30 Doradus		ACIS-I	NONE	GO	15	15	15	2014-05-30 00:22:47			VFAINT	None	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	EXTRAGALACTIC DIFFUSE EMISSION AND SURVEYS	0	The Tarantula -- Revealed by X-rays (T-ReX): A Definitive Chandra Investigation of 30 Doradus	Townsley	Townsley	68.00		05 38 42.40	-69 06 02.90	202.00286	N	-0.2	-0.25			N	NO	NONE		N		0.05					0.0	0.0	0.0	0.0	0.0	0.0	NN	N	N					N	0.0	0.0	0.0	0.0	0.0	0.0		0.0	0.0	TE_004DE	N		YTE	VF	0	Y	Y	Y	Y	N	N	O1	O2	N	N	20000.0	Y	NONE	0	0	N	0	0.0	0.0	0.0	N	1	1	Y	0.1	12.0	Y	N
@@ -452,18 +480,19 @@ check ms os = do
     forM_ missing $ print . fromObsId
   return $ catMaybes ms
 
-updateDB :: IO ()
-updateDB = withSocketsDo $ do
+-- | The flag is @True@ to get debug output from the @queryObsId@ calls.
+updateDB :: Bool -> IO ()
+updateDB f = withSocketsDo $ do
   putStrLn "# Querying the database"
   (missing, unarchived) <- findMissingObsIds
   putStrLn $ "# Found " ++ slen missing ++ " missing and " ++ slen unarchived ++ " unarchived ObsIds"
 
   when (not (null missing)) $ putStrLn "# Processing missing"
-  res1 <- mapM (queryObsId False) missing
+  res1 <- mapM (queryObsId f) missing
   mres <- check res1 missing
 
   when (not (null missing)) $ putStrLn "# Processing unarchived"
-  res2 <- mapM (queryObsId False) unarchived
+  res2 <- mapM (queryObsId f) unarchived
   ures <- check res2 unarchived
 
   addResults mres ures
@@ -498,6 +527,12 @@ dump ScienceObs{..} = do
   putStrLn $ showCTime soStartTime
   putStrLn $ showExpTime soApprovedTime
   putStrLn $ show (fmap showExpTime soObservedTime)
+
+  let fC lbl c = lbl ++ ": " ++ (fromConstraint c : [])
+  putStrLn $ fC "time critical" soTimeCritical
+  putStrLn $ fC "      monitor" soMonitor
+  putStrLn $ fC "  constrained" soConstrained
+
   print soInstrument
   print soGrating
   print soDetector
@@ -549,15 +584,19 @@ printSimbadInfo SimbadInfo{..} =
 usage :: IO ()
 usage = do
   pName <- getProgName
-  hPutStrLn stderr $ "Usage: " ++ pName ++ " [name]"
+  hPutStrLn stderr $ "Usage: " ++ pName
+  hPutStrLn stderr $ "       " ++ pName ++ " debug"
+  hPutStrLn stderr $ "       " ++ pName ++ " <obsid>"
+  hPutStrLn stderr $ "       " ++ pName ++ " simbad <name>"
   exitFailure
 
 main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> updateDB
-    [x] -> case fmap fst . listToMaybe $ reads x of
+    [] -> updateDB False
+    [x] | x == "debug" -> updateDB True
+        | otherwise -> case fmap fst . listToMaybe $ reads x of
              Just oid -> viewObsId oid
              _ -> usage
     ("simbad":name:[]) -> 
