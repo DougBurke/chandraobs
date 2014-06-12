@@ -543,6 +543,12 @@ toConShort k =
   let out = ConShort k
   in const out `fmap` lookup out constellationMap
 
+instance Parsable ConShort where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid Constellation name: " <> t
+    in maybe (Left emsg) Right (toConShort tstr)
+
 -- | Long form for constellation names (e.g. Ursa Major),
 --   although there's no validation that the string is valid.
 --

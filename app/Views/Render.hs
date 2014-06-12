@@ -20,7 +20,7 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
@@ -64,6 +64,12 @@ makeSchedule cTime done mdoing todo =
          Preferred    -> "preferred"
          Required     -> "yes"
 
+      -- for now just the short form
+      showConstellation (Left _)   = "n/a"
+      showConstellation (Right so) =
+        let s = fromConShort $ soConstellation so
+        in a ! href ("/search/constellation/" <> toValue s) $ toHtml s
+
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
          td $ linkToRecord r
@@ -80,6 +86,7 @@ makeSchedule cTime done mdoing todo =
              dec = recordDec r
          td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml $ showRA ra
          td ! dataAttribute "sortvalue" (toValue dec) $ toHtml $ showDec dec
+         td $ showConstellation r
 
       cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
       pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
@@ -102,6 +109,7 @@ makeSchedule cTime done mdoing todo =
                       th "Instrument"
                       th "Right Ascension"
                       th "Declination"
+                      th "Constellation"
                     tbody $ do
                       mapM_ pRow done
                       maybe mempty cRow mdoing

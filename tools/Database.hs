@@ -19,6 +19,7 @@ module Database ( getCurrentObs
                 , reportSize
                 , getSimbadInfo
                 , matchSIMBADType
+                , findConstellation
                 ) where
 
 import Control.Applicative ((<$>))
@@ -255,6 +256,11 @@ matchSIMBADType stype = do
     return $ listToMaybe ans
   return $ (sinfo, catMaybes mans)
 
+-- | Return observations which match this constellation, in time order.
+findConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
+findConstellation con = 
+  select $ (SoConstellationField ==. con) `orderBy` [Asc SoStartTimeField]
+    
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
 --

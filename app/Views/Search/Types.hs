@@ -89,7 +89,7 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
         [ "This page shows the observations of ", toHtml lbl, " "
         , "objects by Chandra (since the database only includes a "
         , "small fraction of the mission you will only see a few "
-        , "matches. The format is the same as used in the "
+        , "matches). The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]

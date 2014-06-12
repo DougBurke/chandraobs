@@ -43,7 +43,7 @@ import Types (ScienceObs(..), NonScienceObs(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..), Constraint(..),
-              ConLong(..),
+              ConLong(..), ConShort(..),
               getObsStatus, getJointObs, toSIMBADLink,
               getConstellationName)
 import Types (Record, recordObsId, showExpTime)
@@ -230,21 +230,17 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
           _ -> mempty
         _ -> mempty
 
+
+      conLink = "/search/constellation/" <> toValue (fromConShort soConstellation)
+      
       -- constellation info; it should always succeed but just in case we
       -- ignore missing cases
       constellationTxt = case getConstellationName soConstellation of
         Just con -> let conStr = fromConLong con
                     in "The target" <> otherName <> " is located in the constellation "
-                       <> (a ! href (conLink conStr)) (toHtml conStr)
+                       <> (a ! href conLink) (toHtml conStr)
                        <> if hasSimbad then " and " else mempty
         _ -> "The target "
-
-      conLink cname =
-        let clean c | c == ' '  = '_'
-                    | c == '\246'  = 'o' -- o umlaut
-                    | otherwise = c
-            l = map clean cname
-        in "http://www.astro.wisc.edu/~dolan/constellations/constellations/" <> (toValue l) <> ".html"
 
       hasSimbad = case msimbad of
         Just SimbadInfo{..} -> isJust siName
