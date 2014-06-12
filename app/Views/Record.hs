@@ -43,7 +43,9 @@ import Types (ScienceObs(..), NonScienceObs(..),
               Instrument, Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..), Constraint(..),
-              getObsStatus, getJointObs, toSIMBADLink)
+              ConLong(..),
+              getObsStatus, getJointObs, toSIMBADLink,
+              getConstellationName)
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta
@@ -222,28 +224,47 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       targetName = toHtml soTarget
       lenVal = toHtml $ showExpTime $ fromMaybe soApprovedTime soObservedTime
 
+      otherName = case msimbad of
+        Just SimbadInfo{..} -> case siName of
+          Just sName -> if siSimilar then mempty else (" - also called " <> toHtml sName <> " -")
+          _ -> mempty
+        _ -> mempty
+
+      -- constellation info; it should always succeed but just in case we
+      -- ignore missing cases
+      constellationTxt = case getConstellationName soConstellation of
+        Just con -> let conStr = fromConLong con
+                    in "The target" <> otherName <> " is located in the constellation "
+                       <> (a ! href (conLink conStr)) (toHtml conStr)
+                       <> if hasSimbad then " and " else mempty
+        _ -> "The target "
+
+      conLink cname =
+        let clean c | c == ' '  = '_'
+                    | c == '\246'  = 'o' -- o umlaut
+                    | otherwise = c
+            l = map clean cname
+        in "http://www.astro.wisc.edu/~dolan/constellations/constellations/" <> (toValue l) <> ".html"
+
+      hasSimbad = case msimbad of
+        Just SimbadInfo{..} -> isJust siName
+        _ -> False
+
       -- TODO: check case and spaces
-      simpara SimbadInfo{..} = 
+      simbadTxt SimbadInfo{..} = 
         case (siName, siType, siType3) of
           (Just sname, Just stype, Just stype3) ->
-            let oname = if siSimilar
-                        then siTarget
-                        else siTarget <> ", also called " <> sname
-
-                slink = H.toValue $ toSIMBADLink sname
+            let slink = H.toValue $ toSIMBADLink sname
 
                 typeLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
                                  ["search", "type", T.pack (fromSimbadType stype3)]
                 typeStr = toHtml $ cleanupSIMBADType stype
 
-            in p $ mconcat [
-                  "The target - "
-                  , toHtml oname
-                  , " - is "
+            in mconcat [
+                  " is "
                   , a ! href typeLink $ typeStr
-                  , ". More information can be found out at "
+                  , ". More information on the target can be found at "
                   , a ! href slink $ "SIMBAD"
-                  , "."
                   ]
 
           _ -> mempty
@@ -306,7 +327,11 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         then mempty
         else mconcat [" See related observations: ", groupProposal matches, "."]
 
-      sciencePara = p $ cts obsStatus <> otherMatches
+      sciencePara = p $ cts obsStatus
+                        <> constellationTxt
+                        <> maybe mempty simbadTxt msimbad
+                        <> "."
+                        <> otherMatches
 
       addList [] = []
       addList [x] = [x]
@@ -358,7 +383,6 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
   in sciencePara 
      <> constraints
-     <> maybe mempty simpara msimbad
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 

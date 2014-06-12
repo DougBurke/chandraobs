@@ -23,6 +23,9 @@ module Utils (
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Control.Applicative ((<$>))
+
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 
@@ -33,9 +36,9 @@ import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..), Constraint(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
-import Types (getJointObs)
+import Types (getJointObs, getConstellationName)
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -211,6 +214,7 @@ renderObsIdDetails so@ScienceObs{..} =
        -- rely on the ToMarkup instance of Dec
        , keyVal "Declination:" (H.toHtml soDec)
        , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
+       , fromMaybe mempty $ keyVal "Constellation:" . H.toHtml . fromConLong <$> getConstellationName soConstellation
        , jointElems
        , constraintElems
        ]

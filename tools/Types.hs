@@ -43,7 +43,7 @@ import Data.Bits (Bits(..))
 import Data.Function (on)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>))
-import Data.String (IsString)
+import Data.String (IsString(..))
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
 -- I am not convinced I'm adding the PersistField values sensibly
@@ -519,7 +519,7 @@ data ScienceObs = ScienceObs {
   , soTOO :: Maybe String -- not sure what this field can contain
   , soRA :: RA
   , soDec :: Dec
-  -- , soConstellation :: String -- name of the constellation the observation is in  
+  , soConstellation :: ConShort -- name of the constellation the observation is in  
   , soRoll :: Double
   , soSubArrayStart :: Maybe Int
   , soSubArraySize :: Maybe Int
@@ -527,6 +527,134 @@ data ScienceObs = ScienceObs {
   -- deriving (Eq, Show)
   deriving Eq
     -- deriving instance Show ScienceObs
+
+-- | Short form for constellation names (e.g. UMa for Ursa Major).
+--
+--   See <http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html>.
+newtype ConShort = ConShort { fromConShort :: String }
+  deriving Eq
+
+-- | There is no validation done on the input.
+instance IsString ConShort where
+  fromString = ConShort
+
+toConShort :: String -> Maybe ConShort
+toConShort k =
+  let out = ConShort k
+  in const out `fmap` lookup out constellationMap
+
+-- | Long form for constellation names (e.g. Ursa Major),
+--   although there's no validation that the string is valid.
+--
+--   See <http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html>.
+newtype ConLong = ConLong { fromConLong :: String }
+  deriving Eq
+
+-- | There is no validation done on the input.
+instance IsString ConLong where
+  fromString = ConLong
+
+-- | This can fail if either the input is invalid or the mapping table
+--   is missing something.
+getConstellationName :: ConShort -> Maybe ConLong
+getConstellationName = flip lookup constellationMap
+
+-- map from short to long form
+-- See http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html
+--     http://www.astro.wisc.edu/~dolan/constellations/constellations.html
+constellationMap :: [(ConShort, ConLong)]
+constellationMap = 
+ [ ("And", "Andromeda")
+ , ("Ant", "Antlia")
+ , ("Aps", "Apus")
+ , ("Aqr", "Aquarius")
+ , ("Aql", "Aquila")
+ , ("Ara", "Ara")
+ , ("Ari", "Aries")
+ , ("Aur", "Auriga")
+ , ("Boo", "Boötes")
+ , ("Cae", "Caelum")
+ , ("Cam", "Camelopardalis")
+ , ("Cnc", "Cancer")
+ , ("CVn", "Canes Venatici")
+ , ("CMa", "Canis Major")
+ , ("CMi", "Canis Minor")
+ , ("Cap", "Capricornus")
+ , ("Car", "Carina")
+ , ("Cas", "Cassiopeia")
+ , ("Cen", "Centaurus")
+ , ("Cep", "Cepheus")
+ , ("Cet", "Cetus")
+ , ("Cha", "Chamaeleon")
+ , ("Cir", "Circinus")
+ , ("Col", "Columba")
+ , ("Com", "Coma Berenices")
+ , ("CrA", "Corona Austrina")
+ , ("CrB", "Corona Borealis")
+ , ("Crv", "Corvus")
+ , ("Crt", "Crater")
+ , ("Cru", "Crux")
+ , ("Cyg", "Cygnus")
+ , ("Del", "Delphinus")
+ , ("Dor", "Dorado")
+ , ("Dra", "Draco")
+ , ("Equ", "Equuleus")
+ , ("Eri", "Eridanus")
+ , ("For", "Fornax")
+ , ("Gem", "Gemini")
+ , ("Gru", "Grus")
+ , ("Her", "Hercules")
+ , ("Hor", "Horologium")
+ , ("Hya", "Hydra")
+ , ("Hyi", "Hydrus")
+ , ("Ind", "Indus")
+ , ("Lac", "Lacerta")
+ , ("Leo", "Leo")
+ , ("LMi", "Leo Minor")
+ , ("Lep", "Lepus")
+ , ("Lib", "Libra")
+ , ("Lup", "Lupus")
+ , ("Lyn", "Lynx")
+ , ("Lyr", "Lyra")
+ , ("Men", "Mensa")
+ , ("Mic", "Microscopium")
+ , ("Mon", "Monoceros")
+ , ("Mus", "Musca")
+ , ("Nor", "Norma")
+ , ("Oct", "Octans")
+ , ("Oph", "Ophiuchus")
+ , ("Ori", "Orion")
+ , ("Pav", "Pavo")
+ , ("Peg", "Pegasus")
+ , ("Per", "Perseus")
+ , ("Phe", "Phoenix")
+ , ("Pic", "Pictor")
+ , ("Psc", "Pisces")
+ , ("PsA", "Piscis Austrinus")
+ , ("Pup", "Puppis")
+ , ("Pyx", "Pyxis")
+ , ("Ret", "Reticulum")
+ , ("Sge", "Sagitta")
+ , ("Sgr", "Sagittarius")
+ , ("Sco", "Scorpius")
+ , ("Scl", "Sculptor")
+ , ("Sct", "Scutum")
+ , ("Ser", "Serpens")
+ , ("Sex", "Sextans")
+ , ("Tau", "Taurus")
+ , ("Tel", "Telescopium")
+ , ("Tri", "Triangulum")
+ , ("TrA", "Triangulum Australe")
+ , ("Tuc", "Tucana")
+ , ("UMa", "Ursa Major")
+ , ("UMi", "Ursa Minor")
+ , ("Vel", "Vela")
+ , ("Vir", "Virgo")
+ , ("Vol", "Volans")
+ , ("Vul", "Vulpecula")
+ ]
+
+  
 
 -- | Return the list of other observations that are contemporaneous with
 --   this one.
@@ -800,7 +928,7 @@ instance PrimitivePersistField ObsIdVal where
   fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal $ truncate a
   fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
 
--- enumeration-like types
+-- enumeration/string-like types
 
 instance PersistField Instrument where
   persistName _ = "Instrument"
@@ -830,6 +958,12 @@ instance PersistField SimbadType where
 
 instance PersistField Constraint where
   persistName _ = "Constraint"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+
+instance PersistField ConShort where
+  persistName _ = "ConShort"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
   dbType _ = DbTypePrimitive DbString False Nothing Nothing
@@ -895,6 +1029,16 @@ instance PrimitivePersistField Constraint where
 
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
   fromPrimitivePersistValue _ x = error $ "Expected Constraint (1 character String), received: " ++ show x
+
+instance PrimitivePersistField ConShort where
+  {-
+  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
+  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
+  -}
+  toPrimitivePersistValue _ = PersistString . fromConShort
+  fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected Constellation type: " ++ s)) $ toConShort s
+  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
+  fromPrimitivePersistValue _ x = error $ "Expected ConShort (String), received: " ++ show x
 
 -- needed for persistent integer types
 

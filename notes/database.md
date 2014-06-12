@@ -313,3 +313,11 @@ The database can be cleared out with
 
     % heroku pg:reset HEROKU_POSTGRESQL_ROSE --confirm chandraobs-devel
 
+### On OS-X
+
+WIth a homebrew postgres installation
+
+    % launchctl load -w ~/Library/LaunchAgents/homebrew.mxcl.postgresql.plist
+    % createuser postgres
+	% createdb -Opostgres -Eutf8 chandraobs
+	

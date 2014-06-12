@@ -41,18 +41,54 @@ import Database.Groundhog.Postgresql
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
 
-import System.Environment (getArgs, getProgName)
-import System.Exit (exitFailure)
-import System.IO (hPutStrLn, stderr)
+import System.Cmd (system)
+import System.Environment (getArgs, getEnv, getProgName)
+import System.Exit (ExitCode(ExitSuccess), exitFailure)
+import System.IO (hFlush, hGetLine, hPutStrLn, stderr)
+import System.IO.Temp (withSystemTempFile)
 import System.Locale (defaultTimeLocale)
 
 import Types
 
+-- | What is the URL needed to query the ObsCat?
 queryObsCat :: ObsIdVal -> String
 queryObsCat oid = 
   let oi = show $ fromObsId oid
   in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++ oi ++ "&format=text"
 
+-- | Return the constellation name for this position. The code exits if
+--   there is a problem running prop_precess.
+--
+--   For now we only deal with a single position at a time,
+--   and it requires that CIAO/prop_precess is available.
+--
+
+getConstellation :: RA -> Dec -> IO ConShort
+getConstellation ra dec = do
+
+  -- this raises an exception if ASCDS_INSTALL is not set
+  path <- getEnv "ASCDS_INSTALL"
+  
+  withSystemTempFile "in.coords" $ \inName inHdl ->
+    withSystemTempFile "out.constellation" $ \outName outHdl -> do
+      let long = _unRA ra
+          lat = _unDec dec
+          coords = show long ++ " " ++ show lat
+          cstr = "prop_precess from j/deg to con p0: " ++ inName ++ ": " ++ outName
+
+          full = ". " ++ path ++ "/bin/ciao.bash > /dev/null; " ++ cstr ++ " > /dev/null"
+      
+      hPutStrLn inHdl coords
+      hFlush inHdl
+      
+      rval <- system full
+      when (rval /= ExitSuccess) $ do
+        hPutStrLn stderr $ "ERROR: unable to run prop_precess on " ++ coords ++ "\n  " ++ cstr ++ "\n"
+        exitFailure
+    
+      cName <- hGetLine outHdl
+      return $ fromMaybe (error ("Unexpected constellation short form: '" ++ cName ++ "'")) $ toConShort cName
+      
 -- | Do we consider the two names to be the same?
 --
 --   Strip out all spaces; convert to lower case.
@@ -257,6 +293,11 @@ toProposal m = do
         , propCycle = pCycle
      }
 
+-- | Note, this is an *INCOMPLETE* ScienceObs since the
+--   @soConstellation@ field is filled with an error statement;
+--   this is because we need IO to fill in this field so it's
+--   left to a later pass.  
+--
 toSO :: OCAT -> Maybe ScienceObs
 toSO m = do
   seqNum <- toSequence m
@@ -304,6 +345,7 @@ toSO m = do
   let too = fmap L8.unpack $ M.lookup "TOO_TYPE" m
   ra <- toRA m
   dec <- toDec m
+
   roll <- toRead m "SOE_ROLL"
   let subStart = toRead m "STRT_ROW" >>= \s -> if s > 0 then Just s else Nothing
       subSize = toRead m "ROW_CNT" >>= \s -> if s > 0 then Just s else Nothing
@@ -352,6 +394,7 @@ toSO m = do
     , soTOO = too
     , soRA = ra
     , soDec = dec
+    , soConstellation = error $ "The constellation field for ObsId " ++ show (fromObsId obsid) ++ " has not been filled in!"              
     , soRoll = roll
     , soSubArrayStart = subStart
     , soSubArraySize = subSize
@@ -371,6 +414,13 @@ SEQ_NUM	STATUS	OBSID	PR_NUM	TARGET_NAME	GRID_NAME	INSTR	GRAT	TYPE	OBS_CYCLE	PROP
 901116	scheduled	16196	15900142	30 Doradus		ACIS-I	NONE	GO	15	15	15	2014-05-30 00:22:47			VFAINT	None	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	EXTRAGALACTIC DIFFUSE EMISSION AND SURVEYS	0	The Tarantula -- Revealed by X-rays (T-ReX): A Definitive Chandra Investigation of 30 Doradus	Townsley	Townsley	68.00		05 38 42.40	-69 06 02.90	202.00286	N	-0.2	-0.25			N	NO	NONE		N		0.05					0.0	0.0	0.0	0.0	0.0	0.0	NN	N	N					N	0.0	0.0	0.0	0.0	0.0	0.0		0.0	0.0	TE_004DE	N		YTE	VF	0	Y	Y	Y	Y	N	N	O1	O2	N	N	20000.0	Y	NONE	0	0	N	0	0.0	0.0	0.0	N	1	1	Y	0.1	12.0	Y	N
 
 -}
+
+-- | Add in the constellation field; this may fail
+--   which will exit the code.
+addConstellation :: ScienceObs -> IO ScienceObs
+addConstellation so = do
+  constellation <- getConstellation (soRA so) (soDec so)
+  return $ so { soConstellation = constellation }
 
 -- | Query the OCat about this observation.
 --
@@ -407,7 +457,9 @@ queryObsId flag oid = do
 
   case ans of
     [] -> return Nothing
-    [(Just p, Just so)] -> return $ Just (p, so)
+    [(Just p, Just so)] -> do
+      so2 <- addConstellation so
+      return $ Just (p, so2)
     _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
 
 -- | Run a database action.
@@ -565,6 +617,7 @@ dump ScienceObs{..} = do
   print soTOO
   putStrLn $ showRA soRA
   putStrLn $ showDec soDec
+  putStrLn $ "which is in " ++ fromConShort soConstellation
   print soRoll
   print soSubArrayStart
   print soSubArraySize
