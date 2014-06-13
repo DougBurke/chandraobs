@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | A collection of routines.
 
@@ -21,11 +22,14 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
-              linkToRecord)
+              linkToRecord
+              , instLinkSearch
+              , constellationLinkSearch
+              )
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
@@ -45,7 +49,7 @@ makeSchedule cTime done mdoing todo =
   let instVal r = fromMaybe "n/a" $ do
         inst <- recordInstrument r
         grat <- recordGrating r
-        return $ toHtml inst <> if grat == NONE then mempty else " with " <> toHtml grat
+        return $ instLinkSearch inst <> if grat == NONE then mempty else " with " <> toHtml grat
 
       -- convert UTCTime to an integer
       aTime :: Record -> AttributeValue
@@ -67,9 +71,7 @@ makeSchedule cTime done mdoing todo =
 
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
-      showConstellation (Right so) =
-        let s = fromConShort $ soConstellation so
-        in a ! href ("/search/constellation/" <> toValue s) $ toHtml s
+      showConstellation (Right ScienceObs{..}) = constellationLinkSearch soConstellation
 
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do

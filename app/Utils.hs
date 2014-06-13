@@ -21,6 +21,7 @@ module Utils (
      , jsScript
      , instLinkSearch
      , instLinkAbout
+     , constellationLinkSearch
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -367,4 +368,11 @@ instLinkAbout :: Instrument -> H.Html
 instLinkAbout inst = 
   let iLink = "/about/instruments.html#" <> H.toValue inst
   in H.a H.! A.href iLink $ H.toHtml inst
+
+-- | Add in a link to the constellation search page.
+constellationLinkSearch :: ConShort -> H.Html
+constellationLinkSearch con = 
+  let lbl = fromConShort con
+      iLink = "/search/constellation/" <> H.toValue lbl
+  in H.a H.! A.href iLink $ H.toHtml lbl
 

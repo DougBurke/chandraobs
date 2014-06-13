@@ -15,7 +15,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ChandraTime(..), Schedule(..))
+import Types (Schedule(..))
 import Utils (defaultMeta, renderFooter, jsScript)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -71,7 +71,6 @@ renderMatches cat (Schedule cTime _ done mdoing todo) =
 
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml cat
-    p  $ "The current time is: " <> toHtml (ChandraTime cTime) <> "."
 
     svgBlock
 
