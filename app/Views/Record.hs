@@ -357,10 +357,10 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                , " observation." ]
 
       -- TODO: integrate with the rest of the text
-      verb = case obsStatus of
-               Todo  -> "will be"
-               Doing -> "is"
-               Done  -> "was"
+      (verb, verb2) = case obsStatus of
+               Todo  -> ("will be", "will all be")
+               Doing -> ("is", "will be")
+               Done  -> ("was", "were")
 
       toJ (l, tks) = l <> " (for " <> toHtml (showExpTime tks) <> ")"
 
@@ -369,7 +369,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                    [ "This ", verb, " a joint observation with "
                    , mconcat $ addList $ map toJ $ getJointObs so
                    , ". However, if does not necessarily mean that the "
-                   , "observations were done at the same time! "
+                   , "observations ", verb2, " done at the same time! "
                    ]
         Nothing -> mempty
 
