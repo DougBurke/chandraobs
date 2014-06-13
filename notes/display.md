@@ -3,6 +3,10 @@
 Note that I am manually creating "views" of the data that
 could be selectable instead via a faceted browsing interfacte.
 
+ - the links between target name and SIMBAD can be improved;
+   eg drop " offset ..." when searching. This requires
+   "improving" the simbad data type/database storage.
+
  - a view of the object types II: give some statisics on the
    object types that have been observed (broken down by time
    or AO; the latter is harder and I don't think as interesting
