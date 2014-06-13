@@ -186,7 +186,7 @@ webapp cm = do
         Just obs -> do
           dbInfo <- liftSQL $ getDBInfo $ oiCurrentObs obs
           fromBlaze $ Record.recordPage cTime mCurrent obs dbInfo
-        _        -> status status404
+        _ -> next -- status status404
 
     -- TODO: send in proposal details
     get "/obsid/:obsid/wwt" $ do
@@ -194,7 +194,7 @@ webapp cm = do
       mobs <- liftSQL $ getRecord $ ObsIdVal obsid
       case mobs of
         Just (Right so) -> fromBlaze $ WWT.wwtPage False so
-        _               -> status status404
+        _               -> next -- status status404
 
     -- TODO: head requests
     get "/proposal/:propnum" $ do
@@ -204,7 +204,7 @@ webapp cm = do
         Just prop -> do
           sched <- liftSQL $ makeSchedule $ map Right matches
           fromBlaze $ Proposal.matchPage prop sched
-        _         -> status status404
+        _         -> next -- status status404
 
     get "/schedule" $ redirect "/schedule/index.html"
     get "/schedule/index.html" $ do
@@ -236,7 +236,7 @@ webapp cm = do
       simbadType <- param "type"
       matches <- liftSQL $ matchSIMBADType simbadType
       case matches of
-        (_, []) -> status status404
+        (_, []) -> next -- status status404
         (typeInfo, ms) -> do
            sched <- liftSQL $ makeSchedule $ map Right ms
            fromBlaze $ SearchTypes.matchPage typeInfo sched
@@ -246,7 +246,7 @@ webapp cm = do
       con <- param "constellation"
       matches <- liftSQL $ fetchConstellation con
       case matches of
-        [] -> status status404
+        [] -> next -- status status404
         _ -> do
            sched <- liftSQL $ makeSchedule $ map Right matches
            fromBlaze $ Constellation.matchPage con sched
@@ -256,7 +256,7 @@ webapp cm = do
       cat <- param "category"
       matches <- liftSQL $ fetchCategory cat
       case matches of
-        [] -> status status404
+        [] -> next -- status status404
         _ -> do
            sched <- liftSQL $ makeSchedule $ map Right matches
            fromBlaze $ Category.matchPage cat sched
@@ -281,14 +281,14 @@ webapp cm = do
       mobs <- liftSQL $ getObsId $ ObsIdVal obsid
       case mobs of
         Just _ -> standardResponse
-        _      -> status status404
+        _      -> next -- status status404
 
     addroute HEAD "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
       mobs <- liftSQL $ getRecord $ ObsIdVal obsid
       case mobs of
         Just (Right _) -> standardResponse
-        _              -> status status404
+        _              -> next -- status status404
 
     {-
     get "/404" $ redirect "/404.html"

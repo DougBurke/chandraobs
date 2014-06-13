@@ -1,8 +1,5 @@
 # Thoughts on web display
 
-What happens when you go to an obsid that doesn't exist?
-It should produce a 404 but it seems to just break. Oops.
-
 Note that I am manually creating "views" of the data that
 could be selectable instead via a faceted browsing interfacte.
 
