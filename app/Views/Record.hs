@@ -182,8 +182,10 @@ navNext f rs =
 
 -- | Given a list of observations from a proposal, group them by target name.
 --
-groupProposal :: [ScienceObs] -> Html
-groupProposal matches =
+--   There is a special case if they all have the same name as the supplied
+--   target name.
+groupProposal :: String -> [ScienceObs] -> Html
+groupProposal tName matches =
   let obs = P.map (soTarget &&& soObsId) matches
       grps = groupBy ((==) `on` fst) obs
 
@@ -191,8 +193,12 @@ groupProposal matches =
 
       tgtLinks [] = mempty -- should not happen
       tgtLinks xs@(x:_) = mconcat $ [toHtml (fst x), " ("] ++ intersperse ", " (P.map (toLink . snd) xs) ++ [")"]
+      out = mconcat $ intersperse "; " $ P.map tgtLinks grps
 
-  in mconcat $ intersperse "; " $ P.map tgtLinks grps
+  in case grps of
+    [xs@(x:_)] | fst x == tName -> mconcat $ intersperse ", " (P.map (toLink . snd) xs)
+                | otherwise      -> out
+    _ -> out
 
 -- | Some types do not map well into the sentence structure,
 --   so manually convert those that do not. At present it only
@@ -329,7 +335,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       otherMatches = 
         if null matches
         then mempty
-        else mconcat [" See related observations: ", groupProposal matches, "."]
+        else mconcat [" See related observations: ", groupProposal soTarget matches, "."]
 
       sciencePara = p $ cts obsStatus
                         <> constellationTxt
