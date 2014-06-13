@@ -39,6 +39,7 @@ executable webserver
                        Views.Schedule
                        Views.Search.Category
                        Views.Search.Constellation
+                       Views.Search.Instrument
                        Views.Search.Types
                        Views.WWT
   hs-source-dirs:      app/

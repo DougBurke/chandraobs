@@ -22,6 +22,7 @@ module Database ( getCurrentObs
                 , fetchConstellation
                 , fetchCategory
                 , fetchProposal
+                , fetchInstrument
                 ) where
 
 import Control.Applicative ((<$>))
@@ -272,12 +273,18 @@ fetchCategory cat = do
 
 -- | Return all the observations which match this proposal, in time order.
 --
---   See also `getPropsoal` and `getProposalObs`
+--   See also `getProposal` and `getProposalObs`
 fetchProposal :: (MonadIO m, PersistBackend m) => PropNum -> m (Maybe Proposal, [ScienceObs])
 fetchProposal pn = do
   mprop <- select $ (PropNumField ==. pn) `limitTo` 1
   ms <- select $ (SoProposalField ==. pn) `orderBy` [Asc SoStartTimeField]
   return (listToMaybe mprop, ms)
+
+-- | Return all the observations which match this instrument, in time order.
+--
+fetchInstrument :: (MonadIO m, PersistBackend m) => Instrument -> m [ScienceObs]
+fetchInstrument inst = 
+  select $ (SoInstrumentField ==. inst) `orderBy` [Asc SoStartTimeField]
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

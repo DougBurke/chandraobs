@@ -41,7 +41,7 @@ import Database.Groundhog.Postgresql
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
 
-import System.Cmd (system)
+import System.Cmd (system) -- TODO: switch to System.Process
 import System.Environment (getArgs, getEnv, getProgName)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
 import System.IO (hFlush, hGetLine, hPutStrLn, stderr)
@@ -243,14 +243,8 @@ toDec =
         in Dec $ sval * (abs d + (m + s/60.0) / 60.0) 
   in fmap tD . M.lookup "Dec"
 
-toInstrument :: OCAT -> Maybe Instrument
-toInstrument m = 
-  let toI "ACIS-I" = Just ACISI
-      toI "ACIS-S" = Just ACISS
-      toI "HRC-I"  = Just HRCI
-      toI "HRC-S"  = Just HRCS
-      toI _ = Nothing
-  in M.lookup "INSTR" m >>= toI . L8.unpack
+toInst :: OCAT -> Maybe Instrument
+toInst m = M.lookup "INSTR" m >>= toInstrument . L8.unpack
 
 -- TODO: check these are the serializations used by OCAT
 toGrating :: OCAT -> Maybe Grating
@@ -310,7 +304,7 @@ toSO m = do
   monitor <- toC m "MONITOR"
   constrained <- toC m "CONSTR"
 
-  inst <- toInstrument m
+  inst <- toInst m
   grat <- toGrating m
   let det = fmap L8.unpack $ M.lookup "READOUT_DETECTOR" m
   datamode <- toString m "DATAMODE"

@@ -70,6 +70,31 @@ maybeRead = fmap fst . listToMaybe . reads
 data Instrument = ACISS | ACISI | HRCI | HRCS 
   deriving (Eq, Show, Read)
 
+fromInstrument :: Instrument -> String
+fromInstrument ACISI = "ACIS-I"
+fromInstrument ACISS = "ACIS-S"
+fromInstrument HRCI  = "HRC-I"
+fromInstrument HRCS  = "HRC-S"
+
+toInstrument :: String -> Maybe Instrument
+toInstrument "ACIS-I" = Just ACISI
+toInstrument "ACIS-S" = Just ACISS
+toInstrument "HRC-I"  = Just HRCI
+toInstrument "HRC-S"  = Just HRCS
+
+toInstrument "ACISI" = Just ACISI
+toInstrument "ACISS" = Just ACISS
+toInstrument "HRCI"  = Just HRCI
+toInstrument "HRCS"  = Just HRCS
+
+toInstrument _ = Nothing
+
+instance Parsable Instrument where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid instrument name: " <> t
+    in maybe (Left emsg) Right (toInstrument tstr)
+
 instance H.ToMarkup Instrument where
   toMarkup ACISI = "ACIS-I"
   toMarkup ACISS = "ACIS-S"

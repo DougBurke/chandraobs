@@ -3,8 +3,6 @@
 Note that I am manually creating "views" of the data that
 could be selectable instead via a faceted browsing interfacte.
 
- - link to a "view by instrument" page
-
  - a view of the object types II: give some statisics on the
    object types that have been observed (broken down by time
    or AO; the latter is harder and I don't think as interesting
@@ -36,7 +34,9 @@ could be selectable instead via a faceted browsing interfacte.
    also: view all HRC-I obs/... page?
 
  - in the schedule view, show the region of the sky that is
-   inaccessible (roll angle + .. constraints)
+   inaccessible (roll angle + .. constraints), or even what
+   part of the sky is visible now, for a given user (would
+   need to know long/lat of the user to do this)
 
  - link to a description of what a TOO is
 
@@ -50,7 +50,9 @@ Doing
 
 Done
 
- - add in mention of the TOO field: for the obsid page there is
+ - link to a "view by instrument" page
+
+ - add in mention of the TOO status: for the obsid page there is
    only mention that it's a TOO, not what "turnaround" time
    was requested. Do we want to tell the readers this value (or,
    perhaps, a simpler version like "very fast", "fast",

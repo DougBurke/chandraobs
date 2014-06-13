@@ -31,6 +31,7 @@ import qualified Views.Proposal as Proposal
 import qualified Views.Record as Record
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
+import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
@@ -66,6 +67,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchConstellation
                  , fetchCategory
                  , fetchProposal
+                 , fetchInstrument
                  )
 import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
@@ -260,6 +262,16 @@ webapp cm = do
         _ -> do
            sched <- liftSQL $ makeSchedule $ map Right matches
            fromBlaze $ Category.matchPage cat sched
+
+    -- TODO: also need a HEAD request version
+    get "/search/instrument/:instrument" $ do
+      inst <- param "instrument"
+      matches <- liftSQL $ fetchInstrument inst
+      case matches of
+        [] -> next -- status status404
+        _ -> do
+           sched <- liftSQL $ makeSchedule $ map Right matches
+           fromBlaze $ Instrument.matchPage inst sched
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 

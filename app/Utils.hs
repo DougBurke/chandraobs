@@ -19,6 +19,8 @@ module Utils (
      , linkToRecordA
      , renderFooter
      , jsScript
+     , instLinkSearch
+     , instLinkAbout
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -37,7 +39,7 @@ import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..))
+import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 import Types (getJointObs, getConstellationName)
 
@@ -169,7 +171,7 @@ renderObsIdDetails so@ScienceObs{..} =
   let name = soTarget
       inst = soInstrument
       grat = soGrating
-      instInfo = H.toHtml inst <>
+      instInfo = instLinkSearch inst <>
                  if grat == NONE
                  then mempty
                  else ", " <> H.toHtml grat
@@ -352,4 +354,17 @@ renderFooter =
 
 jsScript :: H.AttributeValue -> H.Html
 jsScript uri = H.script H.! A.src uri $ ""
+
+-- | Add in a link to the instrument search page.
+instLinkSearch :: Instrument -> H.Html
+instLinkSearch inst = 
+  let iLink = "/search/instrument/" <> H.toValue inst
+  in H.a H.! A.href iLink $ H.toHtml inst
+
+-- | Add in a link to a "what is this" page for the
+--   instrument.
+instLinkAbout :: Instrument -> H.Html
+instLinkAbout inst = 
+  let iLink = "/about/instruments.html#" <> H.toValue inst
+  in H.a H.! A.href iLink $ H.toHtml inst
 

@@ -40,7 +40,7 @@ import Types (ScienceObs(..), NonScienceObs(..),
               SimbadInfo(..),
               Proposal(..),
               SimbadType(..),
-              Instrument, Grating(..),
+              Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..), Constraint(..),
               ConLong(..), ConShort(..),
@@ -54,6 +54,7 @@ import Utils (
              , showTimeDeltaBwd
              , getTimes
              , renderFooter
+             , instLinkSearch
              )
 
 -- The specific page for this observation. At present I have not
@@ -179,13 +180,6 @@ navNext f rs =
        $ a ! href uri
          $ "Next observation"
 
--- | Add in a link to a "what is this" page for the
---   instrument.
-instLink :: Instrument -> Html
-instLink inst = 
-  let iLink = "/about/instruments.html#" <> toValue inst
-  in a ! href iLink $ toHtml inst
-
 -- | Given a list of observations from a proposal, group them by target name.
 --
 groupProposal :: [ScienceObs] -> Html
@@ -282,7 +276,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
              <> "."
 
       instInfo = mconcat [
-                  "by ", instLink soInstrument,
+                  "by ", instLinkSearch soInstrument,
                    if soGrating == NONE
                    then mempty
                    else " and the " <> toHtml soGrating

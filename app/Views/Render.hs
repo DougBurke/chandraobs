@@ -2,7 +2,8 @@
 
 -- | A collection of routines.
 
-module Views.Render (makeSchedule) where
+module Views.Render ( makeSchedule
+                     ) where
 
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), Integer, Either(..), Maybe(..), Show, String, mapM_, maybe, return, show, truncate)
