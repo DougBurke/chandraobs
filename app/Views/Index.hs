@@ -36,19 +36,20 @@ noDataPage fact =
     <>
     body
      (mainNavBar CPIndex
-      <> (div ! class_ "error")  
-        ("Unfortunately there doesn't seem to be any observations in my database, " <>
-         "which hopefully means that the database is being updated, so " <>
-         "please wait a few minutes and try again. If there is still " <>
-         "a problem, try reporting the problem to either " <>
-         (a ! href "http://twitter.com/doug_burke" $ "@doug_burke") <>
-         " or the " <>
-         (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
-         ". Whilst you are waiting, how about this fun Chandra fact:")
-      <> (div ! class_ "fact") fact
-      <> renderTwitter
-      <> renderFooter
-     )
+      <> (div ! id "mainBar") (
+           (p ! class_ "error")
+            ("Unfortunately there doesn't seem to be any observations in my database, " <>
+             "which hopefully means that the database is being updated, so " <>
+             "please wait a few minutes and try again. If there is still " <>
+             "a problem, try reporting the problem to either " <>
+             (a ! href "http://twitter.com/doug_burke" $ "@doug_burke") <>
+             " or the " <>
+             (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
+             ". Whilst you are waiting, how about this fun Chandra fact:")
+          <> (p ! class_ "fact") fact
+          )
+      <> (div ! id "otherBar") renderTwitter)
+    <> renderFooter
 
 tourElements :: Html
 tourElements =

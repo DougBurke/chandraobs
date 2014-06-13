@@ -3,6 +3,8 @@
 Note that I am manually creating "views" of the data that
 could be selectable instead via a faceted browsing interfacte.
 
+ - do we want any note of PI_NAME == Calibration ?
+
  - the links between target name and SIMBAD can be improved;
    eg drop " offset ..." when searching. This requires
    "improving" the simbad data type/database storage.
