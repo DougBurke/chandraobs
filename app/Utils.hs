@@ -206,11 +206,14 @@ renderObsIdDetails so@ScienceObs{..} =
           Just ln -> return $ (H.a H.! A.href uri) $ H.toHtml $ fromConLong ln
           _ -> Nothing
         
+      too = maybe mempty (\t -> keyVal "TOO:" (H.toHtml t)) soTOO
+
   in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       (mconcat
        [ keyVal "Observation Details:" oLink
        , keyVal "Sequence Summary:" sLink
        , keyVal "Proposal Id:" pLink
+       , too
        , keyVal "Target:" (H.toHtml name)
        , keyVal "Instrument:" instInfo
        -- rely on the ToMarkup instance of ChandraTime

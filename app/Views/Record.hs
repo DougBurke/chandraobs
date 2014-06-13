@@ -273,8 +273,6 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       endSentence [] = "." -- should not happen
       endSentence s = if P.last s == '.' then mempty else "."
 
-      -- TODO: if have ", and is ..." then remove the "and" from
-      --       ", and finished..."
       reason = case mproposal of
         Just Proposal{..} -> ", and is part of the proposal " <>
                              (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
@@ -290,11 +288,27 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                    else " and the " <> toHtml soGrating
                    ]
 
+      -- For now ignore the "turnaround" time value, since it's
+      -- not obvious how useful it is for the public. It might be
+      -- nice to add some text saying that it is/was a "fast"/"quick" 
+      -- request, but leave that for later.
+      --
+      -- TOOO: link to a description of what a TOO is.
+      --
+      tooTxt :: ObsStatus -> String -> Html
+      tooTxt Done _ = 
+        p "This was a TOO (target of opportunity) observation."
+      tooTxt _ _ = 
+        p "This is a TOO (target of opportunity) observation."
+
+      tooPara = fromMaybe mempty $ tooTxt obsStatus <$> soTOO
+
       cts Todo = 
         mconcat [ "The target - "
                 , targetName
                 , " - will be observed ", instInfo
-                , " for ", lenVal, ". It will start "
+                , " for ", lenVal, ". "
+                , "It will start "
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , reason
                 ]
@@ -302,8 +316,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         mconcat [ "The target - "
                 , targetName
                 , " - is being observed ", instInfo
-                , " for ", lenVal
-                , ". The observation started "
+                , " for ", lenVal, ". "
+                , "The observation started "
                 , toHtml (showTimeDeltaBwd sTime cTime)
                 , " and ends "
                 , toHtml (showTimeDeltaFwd cTime eTime)
@@ -313,7 +327,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         mconcat [ "The target - "
                 , targetName
                 , " - was observed ", instInfo
-                , " for ", lenVal, ", and finished "
+                , " for ", lenVal, ", ended "
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , reason
                 ]
@@ -373,12 +387,13 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       -- if there are constriants and a joint observation then the
       -- paragraph does not read well.
-      constraints = 
+      constraintsPara = 
         let c = jointObs <> constrainedObs
         in if isNothing soJointWith && null copts  then mempty else p c
 
   in sciencePara 
-     <> constraints
+     <> constraintsPara
+     <> tooPara
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 

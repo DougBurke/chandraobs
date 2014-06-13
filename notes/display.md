@@ -1,5 +1,13 @@
 # Thoughts on web display
 
+What happens when you go to an obsid that doesn't exist?
+It should produce a 404 but it seems to just break. Oops.
+
+Note that I am manually creating "views" of the data that
+could be selectable instead via a faceted browsing interfacte.
+
+ - link to a "view by instrument" page
+
  - a view of the object types II: give some statisics on the
    object types that have been observed (broken down by time
    or AO; the latter is harder and I don't think as interesting
@@ -8,10 +16,6 @@
  - some form of a calendar widget to jump through the schedule;
    how about a day view (a simple condensed view of what it's
    doing), perhaps also week and/or month.
-
- - add in object type and proposal area to the schedule list
-
- - add in proposal area to the main display
 
  - Can we display on sources from the CSC in WWT? The HTML5 WWT
    API has some mention of a display VoTable routine.
@@ -27,8 +31,6 @@
 
  - archive link to existing Chandra data
 
- - display constellation name
-
  - can we have a simple view showing Earth/Moon(?)/orbit and
    path during osbservation; for ongoing obs perhaps even the
    position of Chandra within the orbit and its direction?
@@ -39,18 +41,38 @@
  - in the schedule view, show the region of the sky that is
    inaccessible (roll angle + .. constraints)
 
+ - link to a description of what a TOO is
+
+ - the joint-observation with field is potentially confusing,
+   since I guess it's a proposal-wide field (ie should be
+   considered to be a part of the proposal) rather than for
+   each observation. We may want to mention this in the obsid
+   view, and explicitly mention it in the proposal view.
+
 Doing
 
- - a view of the object types I: for a given object type
-   display a schedule-like page showing the observations;
-   this could get hairy once the database fills up.
-
 Done
+
+ - add in mention of the TOO field: for the obsid page there is
+   only mention that it's a TOO, not what "turnaround" time
+   was requested. Do we want to tell the readers this value (or,
+   perhaps, a simpler version like "very fast", "fast",
+   "pedestrian", ...)?
+
+ - add in object type and proposal area to the schedule list
+
+ - add in proposal area to the main display
+
+ - display constellation name
 
  - observation abstract: have now a link to the archive version of
    the abstract, but presentation on this site needs to be
    improved, and it would be nice to provide a more-friendly
    landing page. I have an initial version up.
+
+ - a view of the object types I: for a given object type
+   display a schedule-like page showing the observations;
+   this could get hairy once the database fills up.
 
  - information on the target (e.g. wikipedia) since I think
    NED/SIMBAD would be a bit too much. Actually, trying out
