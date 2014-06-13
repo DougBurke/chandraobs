@@ -69,6 +69,9 @@ makeSchedule cTime done mdoing todo =
          Preferred    -> "preferred"
          Required     -> "yes"
 
+      showTOO (Left _) = "n/a"
+      showTOO (Right ScienceObs{..}) = toHtml $ fromMaybe "n/a" soTOO
+
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
       showConstellation (Right ScienceObs{..}) = constellationLinkSearch soConstellation
@@ -80,6 +83,7 @@ makeSchedule cTime done mdoing todo =
          td $ showConstraint soTimeCritical r
          td $ showConstraint soMonitor r
          td $ showConstraint soConstrained r
+         td $ showTOO r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
             ! class_ "starttime" 
@@ -107,6 +111,7 @@ makeSchedule cTime done mdoing todo =
                       th "Time critical"
                       th "Monitor"
                       th "Constrained"
+                      th "TOO period"
                       th "Exposure time"
                       th "Start"
                       th "Instrument"

@@ -12,10 +12,10 @@ $(document).ready(function() {
     });
 
         $("#scheduledObs").tablesorter( {
-            headers: { 5: { sorter: 'extsort' },
-                       6: { sorter: 'extsort' },
-                       8: { sorter: 'extsort' },
-                       9: { sorter: 'extsort' }
+            headers: { 6: { sorter: 'extsort' },
+                       7: { sorter: 'extsort' },
+                       9: { sorter: 'extsort' },
+                       10: { sorter: 'extsort' }
                      }
             }
          ); 

@@ -62,6 +62,10 @@ Done
    perhaps, a simpler version like "very fast", "fast",
    "pedestrian", ...)?
 
+   this has also been added to the schedule table, as the string
+   stored in ObsCat - e.g. 0-4, 4-15 - which may or may not be
+   useful.
+
  - add in object type and proposal area to the schedule list
 
  - add in proposal area to the main display
