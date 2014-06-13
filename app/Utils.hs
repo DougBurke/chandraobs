@@ -37,7 +37,7 @@ import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 import Types (getJointObs, getConstellationName)
 
@@ -200,8 +200,13 @@ renderObsIdDetails so@ScienceObs{..} =
         let f (k,v) = keyVal k (cToL v)
         in mconcat $ map f $ filter ((/= NoConstraint) . snd) $ zip clbls cvals
 
-  in -- showDetails <>
-     (H.div H.! A.class_ "inactive" H.! A.id "Details") 
+      conLink con = 
+        let uri = H.toValue $ "/search/constellation/" ++ fromConShort con
+        in case getConstellationName con of
+          Just ln -> return $ (H.a H.! A.href uri) $ H.toHtml $ fromConLong ln
+          _ -> Nothing
+        
+  in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       (mconcat
        [ keyVal "Observation Details:" oLink
        , keyVal "Sequence Summary:" sLink
@@ -216,7 +221,7 @@ renderObsIdDetails so@ScienceObs{..} =
        -- rely on the ToMarkup instance of Dec
        , keyVal "Declination:" (H.toHtml soDec)
        , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
-       , fromMaybe mempty $ keyVal "Constellation:" . H.toHtml . fromConLong <$> getConstellationName soConstellation
+       , fromMaybe mempty $ keyVal "Constellation:" <$> conLink soConstellation
        , jointElems
        , constraintElems
        ]
