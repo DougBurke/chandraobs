@@ -48,3 +48,12 @@ div#map svg {
   font-family: sans-serif;
   font-size: 12px;
 }
+
+/***
+.constellation {
+  fill: none;
+  stroke: green;
+  stroke-opacity: 0.3;
+  stroke-width: 2;
+}
+***/

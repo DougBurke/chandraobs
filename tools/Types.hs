@@ -398,6 +398,8 @@ showExp = H.toHtml . showExpTime . recordTime
 -- | Make a nice readable value; ie
 --   "x unit1 y unit2"
 --
+--   This returns "" if the value is 0. At the moment this
+--   is a feature, but it may change.
 showUnits :: 
   Double      -- value in units of unit2
   -> Int      -- scale value

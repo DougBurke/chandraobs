@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
+import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -33,7 +33,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (ScienceObs(..), NonScienceObs(..), 
               SimbadInfo(..),
               Proposal(..),
-              Grating(..),
+              Grating(..), TimeKS(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..), Constraint(..),
               ConLong(..),
@@ -403,19 +403,38 @@ nonSciencePara ::
   -> ObsStatus     -- ^ status of observation
   -> Html
 nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus = 
-  let cts Todo = 
+  let showLen Todo =
+        if nsTime > nullTime
+        then mconcat [ " - will run for "
+                , lenVal
+                , ", starting "
+                ]
+        else " - will start "
+      showLen Doing = 
+        if nsTime > nullTime
+        then mconcat [ " - is running for "
+                , lenVal
+                ]
+        else " - is running now"
+      showLen Done = 
+        if nsTime > nullTime
+        then mconcat [ " - was run for "
+                , lenVal
+                , " and finished "
+                ]
+        else " - finished "
+
+      cts Todo = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - will run for "
-                , lenVal, ", and will start "
+                , showLen Todo
                 , toHtml (showTimeDeltaFwd cTime sTime)
                 , "."
                 ]
       cts Doing = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - is running for "
-                , lenVal
+                , showLen Doing
                 , ". The observation started "
                 , toHtml (showTimeDeltaBwd sTime cTime)
                 , " and ends "
@@ -425,13 +444,12 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
       cts Done = 
         mconcat [ "The calibration observation - "
                 , targetName
-                , " - was run for "
-                , lenVal
-                , " and finished "
+                , showLen Done
                 , toHtml (showTimeDeltaBwd eTime cTime)
                 , "."
                 ]
 
+      nullTime = TimeKS 0
       targetName = toHtml nsTarget
       lenVal = toHtml $ showExpTime nsTime
 
