@@ -14,12 +14,8 @@ module Views.Record (CurrentPage(..)
 import qualified Prelude as P
 import Prelude ((.), (-), ($), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
 
-import qualified Data.Text as T
-
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
-
-import Blaze.ByteString.Builder (toByteString)
 
 import Control.Applicative ((<$>))
 import Control.Arrow ((&&&))
@@ -31,19 +27,16 @@ import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
-import Network.HTTP.Types.URI (encodePathSegments)
-
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), NonScienceObs(..), 
               SimbadInfo(..),
               Proposal(..),
-              SimbadType(..),
               Grating(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..), Constraint(..),
-              ConLong(..), ConShort(..),
+              ConLong(..),
               getObsStatus, getJointObs, toSIMBADLink,
               getConstellationName)
 import Types (Record, recordObsId, showExpTime)
@@ -55,6 +48,8 @@ import Utils (
              , getTimes
              , renderFooter
              , instLinkSearch
+             , typeLinkSearch
+             , constellationLinkSearch
              )
 
 -- The specific page for this observation. At present I have not
@@ -231,14 +226,12 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         _ -> mempty
 
 
-      conLink = "/search/constellation/" <> toValue (fromConShort soConstellation)
-      
       -- constellation info; it should always succeed but just in case we
       -- ignore missing cases
       constellationTxt = case getConstellationName soConstellation of
         Just con -> let conStr = fromConLong con
                     in "The target" <> otherName <> " is located in the constellation "
-                       <> (a ! href conLink) (toHtml conStr)
+                       <> constellationLinkSearch soConstellation conStr
                        <> if hasSimbad then " and " else mempty
         _ -> "The target "
 
@@ -251,14 +244,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         case (siName, siType, siType3) of
           (Just sname, Just stype, Just stype3) ->
             let slink = H.toValue $ toSIMBADLink sname
-
-                typeLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
-                                 ["search", "type", T.pack (fromSimbadType stype3)]
-                typeStr = toHtml $ cleanupSIMBADType stype
-
             in mconcat [
                   " is "
-                  , a ! href typeLink $ typeStr
+                  , typeLinkSearch stype3 (cleanupSIMBADType stype)
                   , ". More information on the target can be found at "
                   , a ! href slink $ "SIMBAD"
                   ]

@@ -22,16 +22,23 @@ module Utils (
      , instLinkSearch
      , instLinkAbout
      , constellationLinkSearch
+     , typeLinkSearch
      ) where
+
+import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
+
+import Blaze.ByteString.Builder (toByteString)
 
 import Control.Applicative ((<$>))
 
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
+
+import Network.HTTP.Types.URI (encodePathSegments)
 
 import System.Locale (defaultTimeLocale)
 import System.Random (Random(..), getStdRandom)
@@ -40,7 +47,8 @@ import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
 
-import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..))
+import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..), SimbadType(..)
+              )
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 import Types (getJointObs, getConstellationName)
 
@@ -370,9 +378,18 @@ instLinkAbout inst =
   in H.a H.! A.href iLink $ H.toHtml inst
 
 -- | Add in a link to the constellation search page.
-constellationLinkSearch :: ConShort -> H.Html
-constellationLinkSearch con = 
-  let lbl = fromConShort con
-      iLink = "/search/constellation/" <> H.toValue lbl
+constellationLinkSearch :: ConShort -> String -> H.Html
+constellationLinkSearch con lbl = 
+  let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
+  in H.a H.! A.href iLink $ H.toHtml lbl
+
+-- | Add in a link to the object-type search page.
+--
+--  Note that we take care to encode the path.
+typeLinkSearch :: SimbadType -> String -> H.Html
+typeLinkSearch st lbl = 
+  let iLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
+                 ["search", "type", T.pack (fromSimbadType st)]
+
   in H.a H.! A.href iLink $ H.toHtml lbl
 

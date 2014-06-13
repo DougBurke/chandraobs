@@ -22,7 +22,7 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..))
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..))
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
 import Utils (obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
@@ -74,7 +74,8 @@ makeSchedule cTime done mdoing todo =
 
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
-      showConstellation (Right ScienceObs{..}) = constellationLinkSearch soConstellation
+      showConstellation (Right ScienceObs{..}) =
+            constellationLinkSearch soConstellation (fromConShort soConstellation)
 
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do

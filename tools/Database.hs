@@ -18,7 +18,7 @@ module Database ( getCurrentObs
                 , getProposalInfo
                 , reportSize
                 , getSimbadInfo
-                , matchSIMBADType
+                , fetchSIMBADType
                 , fetchConstellation
                 , fetchCategory
                 , fetchProposal
@@ -239,12 +239,15 @@ getSimbadInfo tgt = do
   return $ listToMaybe ans
 
 -- | Return all observations of the given SIMBAD type.
-matchSIMBADType :: (MonadIO m, PersistBackend m) => SimbadType -> m (SimbadTypeInfo, [ScienceObs])
-matchSIMBADType stype = do
+fetchSIMBADType :: (MonadIO m, PersistBackend m) => SimbadType -> m (SimbadTypeInfo, [ScienceObs])
+fetchSIMBADType stype = do
   -- TODO: use a join, or at least have a relationship between the
   --       two tables to make use of the database, since the following
   --       is not nice!
+  -- 
+  -- Why can I not just use project here?
   -- lans <- project SiTypeField $ (SiType3Field ==. Just stype) `limitTo` 1
+
   lans <- select $ (SiType3Field ==. Just stype) `limitTo` 1
   -- the ugliness here is down to my poor data modelling
   let sinfo = case lans of
@@ -254,10 +257,8 @@ matchSIMBADType stype = do
                 _ -> (stype, error "*internal error - matchSIMBADType*")
 
   names <- project SiTargetField $ (SiType3Field ==. Just stype)
-  mans <- forM names $ \n -> do
-    ans <- select $ (SoTargetField ==. n)
-    return $ listToMaybe ans
-  return $ (sinfo, catMaybes mans)
+  ans <- forM names $ \n -> select $ (SoTargetField ==. n)
+  return $ (sinfo, concat ans)
 
 -- | Return observations which match this constellation, in time order.
 fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]

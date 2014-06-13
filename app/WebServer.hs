@@ -63,7 +63,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getObsId, getSchedule, makeSchedule
                  , getProposalInfo
                  , getSimbadInfo
-                 , matchSIMBADType
+                 , fetchSIMBADType
                  , fetchConstellation
                  , fetchCategory
                  , fetchProposal
@@ -236,7 +236,7 @@ webapp cm = do
     -- TODO: also need a HEAD request version
     get "/search/type/:type" $ do
       simbadType <- param "type"
-      matches <- liftSQL $ matchSIMBADType simbadType
+      matches <- liftSQL $ fetchSIMBADType simbadType
       case matches of
         (_, []) -> next -- status status404
         (typeInfo, ms) -> do
