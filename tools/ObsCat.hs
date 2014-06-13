@@ -191,9 +191,6 @@ w8 = fromIntegral . ord
 
 type OCAT = M.Map L.ByteString L.ByteString
 
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
-
 maybeReadLBS :: Read a => L.ByteString -> Maybe a
 maybeReadLBS = maybeRead . L8.unpack
 

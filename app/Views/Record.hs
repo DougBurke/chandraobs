@@ -277,7 +277,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       --       ", and finished..."
       reason = case mproposal of
         Just Proposal{..} -> ", and is part of the proposal " <>
-                             (a ! href (abstractLink soObsId) $ toHtml propName)
+                             (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
                              <> endSentence propName
         _ -> ". See why it " <>
              (a ! href (abstractLink soObsId) $ abstxt)

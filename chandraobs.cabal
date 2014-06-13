@@ -33,6 +33,7 @@ executable webserver
                        Utils
                        Views.Index
                        Views.NotFound
+                       Views.Proposal
                        Views.Record
                        Views.Render
                        Views.Schedule

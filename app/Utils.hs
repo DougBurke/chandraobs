@@ -18,6 +18,7 @@ module Utils (
      , linkToRecord
      , linkToRecordA
      , renderFooter
+     , jsScript
      ) where
 
 import qualified Text.Blaze.Html5 as H
@@ -180,6 +181,7 @@ renderObsIdDetails so@ScienceObs{..} =
 
       oLink = H.a H.! A.href (obsIdLink soObsId) $ H.toHtml soObsId
       sLink = H.a H.! A.href (seqLink soObsId)   $ H.toHtml soSequence
+      pLink = H.a H.! A.href ("/proposal/" <> H.toValue soProposal) $ H.toHtml soProposal
 
        -- rely on the ToMarkup instance of TimeKS
       expLink = case soObservedTime of
@@ -203,7 +205,7 @@ renderObsIdDetails so@ScienceObs{..} =
       (mconcat
        [ keyVal "Observation Details:" oLink
        , keyVal "Sequence Summary:" sLink
-       , keyVal "Proposal Id:" (H.toHtml soProposal)
+       , keyVal "Proposal Id:" pLink
        , keyVal "Target:" (H.toHtml name)
        , keyVal "Instrument:" instInfo
        -- rely on the ToMarkup instance of ChandraTime
@@ -339,3 +341,7 @@ renderFooter =
       , H.a H.! A.href "http://chandra.si.edu/" $ "Chandra X-ray Center"
       , "."
     ]
+
+jsScript :: H.AttributeValue -> H.Html
+jsScript uri = H.script H.! A.src uri $ ""
+

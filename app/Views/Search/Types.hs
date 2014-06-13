@@ -16,12 +16,9 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ChandraTime(..), Schedule(..), SimbadType(..), SimbadTypeInfo)
-import Utils (defaultMeta, renderFooter)
+import Utils (defaultMeta, renderFooter, jsScript)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
-
-jsScript :: AttributeValue -> Html
-jsScript uri = script ! src uri $ ""
 
 -- TODO: combine with Schedule.schedPage
 
@@ -32,8 +29,8 @@ matchPage ::
 matchPage typeInfo sched =
   let lbl = niceType typeInfo
   in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml lbl) <>
-          defaultMeta
+    head (H.title ("Chandra observations of " <> H.toHtml lbl)
+          <> defaultMeta
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
           <> jsScript "http://d3js.org/d3.v3.min.js"
           <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"

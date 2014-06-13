@@ -16,12 +16,9 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ChandraTime(..), Schedule(..))
-import Utils (defaultMeta, renderFooter)
+import Utils (defaultMeta, renderFooter, jsScript)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
-
-jsScript :: AttributeValue -> Html
-jsScript uri = script ! src uri $ ""
 
 -- TODO: combine with Schedule.schedPage
 

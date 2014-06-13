@@ -27,6 +27,7 @@ import qualified Data.Text.Lazy.IO as L
 
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
+import qualified Views.Proposal as Proposal
 import qualified Views.Record as Record
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
@@ -64,6 +65,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , matchSIMBADType
                  , fetchConstellation
                  , fetchCategory
+                 , fetchProposal
                  )
 import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
@@ -193,6 +195,16 @@ webapp cm = do
       case mobs of
         Just (Right so) -> fromBlaze $ WWT.wwtPage False so
         _               -> status status404
+
+    -- TODO: head requests
+    get "/proposal/:propnum" $ do
+      pNum <- param "propnum"
+      (mprop, matches) <- liftSQL $ fetchProposal pNum
+      case mprop of
+        Just prop -> do
+          sched <- liftSQL $ makeSchedule $ map Right matches
+          fromBlaze $ Proposal.matchPage prop sched
+        _         -> status status404
 
     get "/schedule" $ redirect "/schedule/index.html"
     get "/schedule/index.html" $ do

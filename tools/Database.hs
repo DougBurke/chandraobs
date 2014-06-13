@@ -21,6 +21,7 @@ module Database ( getCurrentObs
                 , matchSIMBADType
                 , fetchConstellation
                 , fetchCategory
+                , fetchProposal
                 ) where
 
 import Control.Applicative ((<$>))
@@ -269,12 +270,21 @@ fetchCategory cat = do
   sos <- forM propNums $ \pn -> select $ (SoProposalField ==. pn) `limitTo` 1
   return $ concat sos
 
+-- | Return all the observations which match this proposal, in time order.
+--
+--   See also `getPropsoal` and `getProposalObs`
+fetchProposal :: (MonadIO m, PersistBackend m) => PropNum -> m (Maybe Proposal, [ScienceObs])
+fetchProposal pn = do
+  mprop <- select $ (PropNumField ==. pn) `limitTo` 1
+  ms <- select $ (SoProposalField ==. pn) `orderBy` [Asc SoStartTimeField]
+  return (listToMaybe mprop, ms)
+
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
 --
 getProposal :: (MonadIO m, PersistBackend m) => ScienceObs -> m (Maybe Proposal)
 getProposal ScienceObs{..} = do
-  ans <- select $ (PropNumField ==. soProposal)
+  ans <- select $ (PropNumField ==. soProposal) `limitTo` 1
   return $ listToMaybe ans
 
 -- | Find all the other observations in the proposal.

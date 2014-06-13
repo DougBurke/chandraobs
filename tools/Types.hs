@@ -11,7 +11,9 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 
--- | Set up some types for representing Chandra observations.
+-- | Set up some types for representing Chandra observations. The
+--   routines here are occasionally only tangentially-related to
+--   types, per se.
 --
 --   I have taken out derived @Show@ instances for many types
 --   to catch cases where I was relying on them for serialization
@@ -41,7 +43,7 @@ import Data.Bits (Bits(..))
 #endif
 
 import Data.Function (on)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.String (IsString(..))
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
@@ -59,6 +61,10 @@ import System.Locale (defaultTimeLocale)
 import Text.Printf
 
 import Web.Scotty (Parsable(..))
+
+-- | Isn't this in base now?
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads
 
 -- | The instrument being used.
 data Instrument = ACISS | ACISI | HRCI | HRCS 
@@ -257,6 +263,19 @@ instance H.ToValue Sequence where
 newtype PropNum = PropNum { _unPropNum :: Int } 
    -- deriving (Eq, Ord, Show)
    deriving (Eq, Ord)
+
+-- | Limited validation of the input (currently only
+--   enforces a positive value).
+toPropNumStr :: String -> Maybe PropNum
+toPropNumStr s = do
+  p <- maybeRead s
+  if p > 0 then return (PropNum p) else Nothing
+
+instance Parsable PropNum where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid proposal number: " <> t
+    in maybe (Left emsg) Right (toPropNumStr tstr)
 
 instance H.ToMarkup PropNum where
   toMarkup = H.toMarkup . _unPropNum
@@ -1162,3 +1181,4 @@ handleMigration =
     migrate (undefined :: NonScienceObs)
     migrate (undefined :: Proposal)
     migrate (undefined :: SimbadInfo)
+
