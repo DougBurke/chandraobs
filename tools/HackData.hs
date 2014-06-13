@@ -238,5 +238,39 @@ sts = [
  , STS (Just 702973)    (toOI 16520) (Just 0)           "3C 220.3" "2014:167:02:29:34.706"  45.2 (Just ACISS) (Just NONE) 144.6940  83.2697 296.74  63.53  78.82
  , STS Nothing     (SpecialObs "T_E52") Nothing       "CAL-ER (52705)" "2014:167:15:56:20.188"   0.1   Nothing Nothing  261.7505   2.1062 186.46 154.38  90.96   
 
+ , STS Nothing (SpecialObs "GG_52") Nothing "CAL-ER (52704)" "2014:167:18:52:47.502"   0.0 Nothing Nothing 276.0000 (-45.7000)  25.70 155.92 167.81   
+ , STS Nothing (SpecialObs "G1_52") Nothing "CAL-ER (52703)" "2014:167:20:47:24.584"   0.0 Nothing Nothing 293.2000 (-62.5700)  39.00 136.44  19.53   
+ , STS Nothing (SpecialObs "G2_52") Nothing "CAL-ER (52702)" "2014:167:21:47:57.216"   0.0 Nothing Nothing 289.0000 (-15.0000) 114.00 155.93  89.28   
+ , STS Nothing (SpecialObs "G3_52") Nothing "CAL-ER (52701)" "2014:167:22:39:28.394"   0.0 Nothing Nothing 276.0000 (-45.7000)  25.23 155.98  87.11   
+ , STS Nothing (SpecialObs "G4_52") Nothing "CAL-ER (52700)" "2014:168:00:19:23.821"   0.0 Nothing Nothing  59.6500 (-16.1000) 147.06  46.69 110.08   
+ , STS Nothing (SpecialObs "T_X53") Nothing "CAL-ER (52698)" "2014:168:02:32:17.179"   0.1 Nothing Nothing 117.9600 ( 65.5400) 317.41  47.10 163.04   
+ , STS (Just 200938) (toOI 15725) (Just 0) "GJ1214" "2014:168:03:41:48.959"  32.0 (Just ACISS) (Just NONE) 258.8502 (  4.9768) 192.32 150.98 103.96
+ , STS (Just 200949) (toOI 16532) (Just 0) "HD 206267" "2014:168:13:07:59.559"  47.7 (Just ACISS) (Just HETG) 324.7814 ( 57.4762) 127.80  85.40  76.21
+ , STS (Just 703008) (toOI 16220) (Just 0) "3C 390.3" "2014:169:02:49:09.559"  50.0 (Just ACISS) (Just HETG) 280.6585 ( 79.7781) 166.47  76.57  26.29
+ , STS (Just 702973) (toOI 16521) (Just 0) "3C 220.3" "2014:169:17:12:37.159"  45.0 (Just ACISS) (Just NONE) 144.6892 ( 83.2688) 299.51  63.17  15.96
+ , STS Nothing (SpecialObs "T_E53") Nothing "CAL-ER (52696)" "2014:170:06:39:41.261"   0.1 Nothing Nothing 267.0000 (-13.0000) 182.58 169.58 106.54   
+ , STS Nothing (SpecialObs "GG_53") Nothing "CAL-ER (52695)" "2014:170:08:10:23.234"   0.0 Nothing Nothing 271.0000 (-33.5000)  17.47 169.47 166.93   
+ , STS Nothing (SpecialObs "G1_53") Nothing "CAL-ER (52694)" "2014:170:09:28:39.939"   0.0 Nothing Nothing 277.0000 (-46.5000)  21.30 155.71  13.78   
+ , STS Nothing (SpecialObs "G2_53") Nothing "CAL-ER (52693)" "2014:170:13:03:27.849"   0.0 Nothing Nothing  59.9600 (-16.0300) 144.74  47.93 109.30   
+ , STS Nothing (SpecialObs "T_X54") Nothing "CAL-ER (52692)" "2014:170:15:24:16.142"   0.1 Nothing Nothing 277.0000 (-46.5000)  20.69 155.78 109.33   
+ , STS (Just 401581) (toOI 15784) (Just 2) "SXP 1062" "2014:170:19:22:04.955"  30.0 (Just ACISS) (Just NONE)  22.0075 (-73.5606) 119.23 106.00  49.81
+ , STS (Just 702963) (toOI 16070) (Just 0) "PKS 1718-649" "2014:171:04:09:21.955"  16.1 (Just ACISS) (Just NONE) 260.9069 (-65.0249) 347.99 138.08  38.43
+ , STS (Just 702971) (toOI 16078) (Just 0) "ESO138-G1" "2014:171:08:56:15.955"  50.0 (Just ACISS) (Just NONE) 252.7856 (-59.2360) 335.68 142.43   8.60
+ , STS (Just 501781) (toOI 14204) (Just 1) "1E1207.4-5209" "2014:171:23:14:25.035"  33.0 (Just ACISS) (Just NONE) 182.4930 (-52.4174) 257.62 110.24  41.87
+ , STS (Just 502010) (toOI 14886) (Just 1) "GRB 130427A" "2014:172:08:57:49.915"  35.0 (Just ACISS) (Just NONE) 173.1314 ( 27.7220) 251.62  73.88  80.62
+ , STS (Just 291191) (toOI 16479) (Just 2) "Vega" "2014:172:19:15:28.297"   2.0 (Just  HRCI) (Just NONE) 279.2636 ( 38.7970) 170.55 117.20  84.63
+ , STS (Just 291192) (toOI 16480) (Just 2) "Vega" "2014:172:19:57:24.545"   2.0 (Just  HRCS) (Just NONE) 279.2636 ( 38.7971) 170.60 117.20   0.05
+ , STS (Just 291193) (toOI 16481) (Just 2) "Vega" "2014:172:20:39:14.545"   1.0 (Just  HRCS) (Just NONE) 279.0524 ( 38.8238) 170.85 117.20   0.20
+ , STS (Just 291194) (toOI 16482) (Just 2) "Vega" "2014:172:21:04:24.545"   1.0 (Just  HRCS) (Just NONE) 278.7352 ( 38.8621) 171.20 117.20   0.29
+ , STS (Just 291195) (toOI 16483) (Just 2) "Vega" "2014:172:21:34:26.118"   1.0 (Just  HRCS) (Just NONE) 279.7785 ( 38.6791) 163.76 117.26   6.84
+ , STS Nothing (SpecialObs "T_E54") Nothing "CAL-ER (52689)" "2014:172:22:25:36.653"   0.1 Nothing Nothing 270.0000 (  2.0000) 180.58 154.57  39.92   
+ , STS Nothing (SpecialObs "GG_54") Nothing "CAL-ER (52688)" "2014:172:23:28:04.724"   0.0 Nothing Nothing 277.0000 (-47.5000)  14.83 155.34 169.79   
+ , STS Nothing (SpecialObs "G1_54") Nothing "CAL-ER (52687)" "2014:173:03:27:44.364"   0.0 Nothing Nothing  59.9200 (-16.0000) 142.13  49.49 108.69   
+ , STS Nothing (SpecialObs "G2_54") Nothing "CAL-ER (52686)" "2014:173:04:31:21.783"   0.0 Nothing Nothing 349.1000 (-26.6000) 106.96 109.94  66.31   
+ , STS Nothing (SpecialObs "G3_54") Nothing "CAL-ER (52685)" "2014:173:05:18:19.095"   0.0 Nothing Nothing  59.9300 (-16.0000) 142.05  49.53  66.31   
+ , STS Nothing (SpecialObs "T_X55") Nothing "CAL-ER (52683)" "2014:173:08:45:39.496"   0.1 Nothing Nothing 277.0000 (-47.5000)  13.89 155.41 108.75   
+ , STS (Just 901115) (toOI 16180) (Just 0) "Chandra Deep Field-S" "2014:173:10:39:14.653"  50.0 (Just ACISI) (Just NONE)  53.1391 (-27.8105) 134.91  62.81  95.18
+ , STS (Just 702963) (toOI 16623) (Just 0) "PKS 1718-649" "2014:174:01:06:54.394"  33.4 (Just ACISS) (Just NONE) 260.9069 (-65.0249) 347.99 137.80  84.73
+
  ]
 

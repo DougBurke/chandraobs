@@ -307,19 +307,26 @@ toSO m = do
   inst <- toInst m
   grat <- toGrating m
   let det = fmap L8.unpack $ M.lookup "READOUT_DETECTOR" m
-  datamode <- toString m "DATAMODE"
+  let datamode = toString m "DATAMODE"
 
-  -- are these included in HRC obs?
-  acisi0 <- toCS m "I0"
-  acisi1 <- toCS m "I1"
-  acisi2 <- toCS m "I2"
-  acisi3 <- toCS m "I3"
-  aciss0 <- toCS m "S0"
-  aciss1 <- toCS m "S1"
-  aciss2 <- toCS m "S2"
-  aciss3 <- toCS m "S3"
-  aciss4 <- toCS m "S4"
-  aciss5 <- toCS m "S5"
+  haveACIS <- toString m "ACIS"
+  -- haveHRC <- toString m "HRC"
+
+  -- are these included in HRC obs? No
+  let convCS = if haveACIS == "Y"
+               then toCS m
+               else const (Just ChipOff)
+
+  acisi0 <- convCS "I0"
+  acisi1 <- convCS "I1"
+  acisi2 <- convCS "I2"
+  acisi3 <- convCS "I3"
+  aciss0 <- convCS "S0"
+  aciss1 <- convCS "S1"
+  aciss2 <- convCS "S2"
+  aciss3 <- convCS "S3"
+  aciss4 <- convCS "S4"
+  aciss5 <- convCS "S5"
 
   let jnames = M.lookup "JOINT" m >>= \ns -> if ns == "None" then Nothing else Just (L8.unpack ns)
 
@@ -579,7 +586,7 @@ dump ScienceObs{..} = do
   print soInstrument
   print soGrating
   print soDetector
-  putStrLn soDataMode
+  print soDataMode
 
   let achip lbl val = putStrLn $ "ACIS" ++ lbl ++ " " ++ fromChipStatus val
   achip "I0" soACISI0

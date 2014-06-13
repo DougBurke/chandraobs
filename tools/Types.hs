@@ -533,9 +533,9 @@ data ScienceObs = ScienceObs {
   , soInstrument :: Instrument
   , soGrating :: Grating
   , soDetector :: Maybe String   -- this is only available for archived obs
-  , soDataMode :: String -- use an enumeration
+  , soDataMode :: Maybe String -- use an enumeration; not available for HRC
 
-  -- do we need this given that we have soDetector?
+  -- these are meaningless for HRC observations; in this case ChipStatus is set to ?
   , soACISI0 :: ChipStatus  
   , soACISI1 :: ChipStatus  
   , soACISI2 :: ChipStatus  

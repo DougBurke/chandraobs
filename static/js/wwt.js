@@ -71,10 +71,12 @@ function shiftFOV(ra, dec, roll, instrument) {
   if (instrument === "ACIS-S") {
     p0 = [[-3*aw,-aw2], [-3*aw,aw2], [3*aw,aw2], [3*aw,-aw2], [-3*aw,-aw2]];
   } else if (instrument === "HRC-I") {
-    // TODO: what is the orientation at roll=0?
+    // Rather than rotate this by 45 degrees, add to the roll
+    // angle.
     p0 = [[-hiw2,-hiw2], [-hiw2,hiw2], [hiw2,hiw2], [hiw2,-hiw2], [-hiw2,-hiw2]];
+    roll += 45.0;
+
   } else if (instrument === "HRC-S") {
-    // TODO: what is the orientation at roll=0?
     p0 = [[-hsw2,-hsh2], [-hsw2,hsh2], [hsw2,hsh2], [hsw2,-hsh2], [-hsw2,-hsh2]];
   } else {
     // fall back to ACIS-I
