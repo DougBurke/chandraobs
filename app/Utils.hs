@@ -34,6 +34,7 @@ import Blaze.ByteString.Builder (toByteString)
 
 import Control.Applicative ((<$>))
 
+import Data.Char (intToDigit)
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
@@ -48,6 +49,8 @@ import Text.Blaze.Html.Renderer.Text
 import Web.Scotty
 
 import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..), SimbadType(..)
+             , Instrument(..)
+             , ChipStatus(..)
               )
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 import Types (getJointObs, getConstellationName)
@@ -219,6 +222,29 @@ renderObsIdDetails so@ScienceObs{..} =
         
       too = maybe mempty (\t -> keyVal "TOO:" (H.toHtml t)) soTOO
 
+      -- the "chip" display depends on whether this has been archived or
+      -- not (and if it's ACIS or HRC), since we display different things.
+      chipDetails = case soDetector of
+        Just dm -> keyVal "Chips:" (H.toHtml dm)
+        _ -> fromMaybe mempty $ keyVal "ChIPS: " . H.toHtml <$> detector
+
+      -- for now just convert to ACIS-??? treating optional as on
+      detector = 
+        if soInstrument `elem` [HRCI, HRCS]
+        then Nothing
+        else Just $ let sts = [ soACISI0, soACISI1, soACISI2, soACISI3,
+                                soACISS0, soACISS1, soACISS2, soACISS3,
+                                soACISS4, soACISS5
+                              ]
+                        ks = filter ((/= ChipOff) . snd) $ zip [0..] sts
+                    in "ACIS-" ++ map (intToDigit . fst) ks
+
+      -- assume they are both set or unset
+      subArray = do
+        start <- soSubArrayStart
+        nrow <- soSubArraySize
+        return $ keyVal "Sub Array:" $ H.toHtml ("Start: " ++ show start ++ " Rows: " ++ show nrow)
+
   in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       (mconcat
        [ keyVal "Observation Details:" oLink
@@ -227,6 +253,9 @@ renderObsIdDetails so@ScienceObs{..} =
        , too
        , keyVal "Target:" (H.toHtml name)
        , keyVal "Instrument:" instInfo
+       , chipDetails
+       , fromMaybe mempty subArray
+       , fromMaybe mempty (keyVal "Data Mode:" . H.toHtml <$> soDataMode)
        -- rely on the ToMarkup instance of ChandraTime
        , keyVal "Date:" (H.toHtml soStartTime)
        , expLink
