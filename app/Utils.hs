@@ -23,6 +23,7 @@ module Utils (
      , instLinkAbout
      , constellationLinkSearch
      , typeLinkSearch
+     , categoryLinkSearch
      ) where
 
 import qualified Data.Text as T
@@ -51,6 +52,7 @@ import Web.Scotty
 import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..), SimbadType(..)
              , Instrument(..)
              , ChipStatus(..)
+             , Proposal(..)
               )
 import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
 import Types (getJointObs, getConstellationName)
@@ -178,8 +180,11 @@ abstractLink ObsIdVal{..} =
 --   does not cover May 2014 when that target was scheduled),
 --   and it is rather meaningless to anyone but an expert.
 --
-renderObsIdDetails :: ScienceObs -> H.Html
-renderObsIdDetails so@ScienceObs{..} =
+--   I expect the proposal to always be available, but just
+--   in case it isn't.
+--
+renderObsIdDetails :: Maybe Proposal -> ScienceObs -> H.Html
+renderObsIdDetails mprop so@ScienceObs{..} =
   let name = soTarget
       inst = soInstrument
       grat = soGrating
@@ -245,11 +250,19 @@ renderObsIdDetails so@ScienceObs{..} =
         nrow <- soSubArraySize
         return $ keyVal "Sub Array:" $ H.toHtml ("Start: " ++ show start ++ " Rows: " ++ show nrow)
 
+      -- bundle several items into a single line
+      propInfo Proposal {..} =
+        keyVal "Proposal:" $ mconcat [
+          "Cycle ", H.toHtml propCycle, ", ", H.toHtml propType, ", "
+          , categoryLinkSearch propCategory propCategory
+          ]
+
       tblRows =
         mconcat
           [ keyVal "Observation Details:" oLink
           , keyVal "Sequence Summary:" sLink
           , keyVal "Proposal Id:" pLink
+          , maybe mempty propInfo mprop
           , too
           , keyVal "Target:" (H.toHtml name)
           , keyVal "Instrument:" instInfo
@@ -288,9 +301,10 @@ renderObsIdDetails so@ScienceObs{..} =
 --
 renderLinks :: 
   Bool -- True if current obs
+  -> Maybe Proposal
   -> ScienceObs
   -> H.Html
-renderLinks f so@ScienceObs{..} = 
+renderLinks f mprop so@ScienceObs{..} = 
   let optSel :: String -> Bool -> H.Html
       optSel lbl cf = 
         let idName = H.toValue (lbl++"button")
@@ -338,7 +352,7 @@ renderLinks f so@ScienceObs{..} =
      (link "DSS" "dss" True <>
       link "PSPC" "pspc" False <>
       link "RASS" "rass" False <>
-      renderObsIdDetails so) 
+      renderObsIdDetails mprop so) 
  
 getTimes ::
   Record
@@ -425,5 +439,11 @@ typeLinkSearch st lbl =
   let iLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
                  ["search", "type", T.pack (fromSimbadType st)]
 
+  in H.a H.! A.href iLink $ H.toHtml lbl
+
+-- | Add in a link to the obervation category search page.
+categoryLinkSearch :: String -> String -> H.Html
+categoryLinkSearch cat lbl = 
+  let iLink = "/search/category/" <> H.toValue cat
   in H.a H.! A.href iLink $ H.toHtml lbl
 

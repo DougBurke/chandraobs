@@ -22,7 +22,7 @@ import Types (Proposal(..)
               , ScienceObs(..)
               , Schedule(..)
               )
-import Utils (defaultMeta, abstractLink, renderFooter, jsScript)
+import Utils (defaultMeta, abstractLink, renderFooter, jsScript, categoryLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -71,7 +71,7 @@ renderProposal ::
 renderProposal Proposal{..} (Schedule cTime _ done mdoing todo) =
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
 
-      catLink = a ! href ("/search/category/" <> toValue propCategory) $ toHtml propCategory
+      catLink = categoryLinkSearch propCategory propCategory
 
       maybeToList Nothing = []
       maybeToList (Just x) = [x]
