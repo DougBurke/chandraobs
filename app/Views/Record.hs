@@ -323,7 +323,10 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       otherMatches = 
         if null matches
         then mempty
-        else mconcat [" See related observations: ", groupProposal soTarget matches, "."]
+        else let suffix = case matches of
+                           [_] -> ""
+                           _   -> "s"
+             in mconcat [" See related observation", suffix, ": ", groupProposal soTarget matches, "."]
 
       sciencePara = p $ cts obsStatus
                         <> constellationTxt
