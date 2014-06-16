@@ -235,8 +235,22 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                        <> if hasSimbad then " and " else mempty
         _ -> "The target "
 
+      -- Note when a subarray is in use and it's NOT a grating observation
+      subArrayTxt = case (soGrating, soSubArrayStart, soSubArraySize) of
+        (NONE, Just _, Just nrows) -> 
+          let frac = 1024 `P.div` nrows
+              term 2 = "only half of the chip "
+              term 4 = "only one-quarter of the chip "
+              term 8 = "only one-eigth of the chip "
+              term _ = "a custom sub array "
+          in if frac == 1
+             then mempty -- this should not happen
+             else mconcat [ "The source is so bright in X-rays that ", term frac,
+                            verb, " used for the observation. " ]
+        _ -> mempty
+
       hasSimbad = case msimbad of
-        Just SimbadInfo{..} -> isJust siName
+        Just SimbadInfo{..} -> isJust siName -- assume siType/siType3 have same Maybe status as siName
         _ -> False
 
       -- TODO: check case and spaces
@@ -247,11 +261,14 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
             in mconcat [
                   " is "
                   , typeLinkSearch stype3 (cleanupSIMBADType stype)
-                  , ". More information on the target can be found at "
+                  , ". "
+                  , subArrayTxt
+                  , "More information on the target can be found at "
                   , a ! href slink $ "SIMBAD"
+                  , ". "
                   ]
 
-          _ -> mempty
+          _ -> ". " <> subArrayTxt
 
       abstxt = case obsStatus of
                  Todo -> "will be observed"
@@ -330,8 +347,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       sciencePara = p $ cts obsStatus
                         <> constellationTxt
-                        <> maybe mempty simbadTxt msimbad
-                        <> "."
+                        <> maybe (". " <> subArrayTxt) simbadTxt msimbad
                         <> otherMatches
 
       addList [] = []
