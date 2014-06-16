@@ -188,10 +188,10 @@ renderObsIdDetails so@ScienceObs{..} =
                  then mempty
                  else ", " <> H.toHtml grat
 
-      left = (H.span H.! A.class_ "key")
-      right = (H.span H.! A.class_ "value")
+      left = (H.td H.! A.class_ "key")
+      right = (H.td H.! A.class_ "value")
 
-      keyVal k v = left k <> " " <> right v <> H.br
+      keyVal k v = H.tr $ left k <> " " <> right v
 
       oLink = H.a H.! A.href (obsIdLink soObsId) $ H.toHtml soObsId
       sLink = H.a H.! A.href (seqLink soObsId)   $ H.toHtml soSequence
@@ -245,30 +245,35 @@ renderObsIdDetails so@ScienceObs{..} =
         nrow <- soSubArraySize
         return $ keyVal "Sub Array:" $ H.toHtml ("Start: " ++ show start ++ " Rows: " ++ show nrow)
 
+      tblRows =
+        mconcat
+          [ keyVal "Observation Details:" oLink
+          , keyVal "Sequence Summary:" sLink
+          , keyVal "Proposal Id:" pLink
+          , too
+          , keyVal "Target:" (H.toHtml name)
+          , keyVal "Instrument:" instInfo
+          , chipDetails
+          , fromMaybe mempty subArray
+          , fromMaybe mempty (keyVal "Data Mode:" . H.toHtml <$> soDataMode)
+          -- rely on the ToMarkup instance of ChandraTime
+          , keyVal "Date:" (H.toHtml soStartTime)
+          , expLink
+          -- rely on the ToMarkup instance of RA
+          , keyVal "Right Ascension:" (H.toHtml soRA)
+          -- rely on the ToMarkup instance of Dec
+          , keyVal "Declination:" (H.toHtml soDec)
+          , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
+          , fromMaybe mempty $ keyVal "Constellation:" <$> conLink soConstellation
+          , jointElems
+          , constraintElems
+          ]
+
+      -- ignore the thead element
+      tbl = H.table $ H.tbody $ tblRows
+
   in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
-      (mconcat
-       [ keyVal "Observation Details:" oLink
-       , keyVal "Sequence Summary:" sLink
-       , keyVal "Proposal Id:" pLink
-       , too
-       , keyVal "Target:" (H.toHtml name)
-       , keyVal "Instrument:" instInfo
-       , chipDetails
-       , fromMaybe mempty subArray
-       , fromMaybe mempty (keyVal "Data Mode:" . H.toHtml <$> soDataMode)
-       -- rely on the ToMarkup instance of ChandraTime
-       , keyVal "Date:" (H.toHtml soStartTime)
-       , expLink
-       -- rely on the ToMarkup instance of RA
-       , keyVal "Right Ascension:" (H.toHtml soRA)
-       -- rely on the ToMarkup instance of Dec
-       , keyVal "Declination:" (H.toHtml soDec)
-       , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
-       , fromMaybe mempty $ keyVal "Constellation:" <$> conLink soConstellation
-       , jointElems
-       , constraintElems
-       ]
-       )
+      tbl
 
 -- Display the DSS/RASS/PSPC links. I assume that they
 -- can be auto-generated from the sequence and obsid

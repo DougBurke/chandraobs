@@ -230,11 +230,19 @@ div#Details {
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.055);
 }
 
-div#Details span.key {
+div#Details table {
+  width: 100%;
+}
+
+div#Details table tr:nth-child(even) {
+  background: rgba(153,153,153,0.2); /* match p#banner */
+}
+
+div#Details td.key {
   float: left;
 }
 
-div#Details span.value {
+div#Details td.value {
   float: right;
 }
 
