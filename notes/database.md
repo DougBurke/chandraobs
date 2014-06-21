@@ -313,6 +313,10 @@ The database can be cleared out with
 
     % heroku pg:reset HEROKU_POSTGRESQL_ROSE --confirm chandraobs-devel
 
+and locally with
+
+    % psql --username=postgres --password --host=127.0.0.1 --dbname=chandraobs < drop-all.sql
+
 ### On OS-X
 
 WIth a homebrew postgres installation
