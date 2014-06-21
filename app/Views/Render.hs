@@ -29,6 +29,7 @@ import Utils (obsURIString,
               linkToRecord
               , instLinkSearch
               , constellationLinkSearch
+              , cleanJointName
               )
 
 -- | Convert the obsname of a record to an identifier
@@ -61,7 +62,7 @@ makeSchedule cTime done mdoing todo =
                       ! onmouseout  ("deselectObs('" <> lbl <> "');")
       
       showJoint (Left _) = "n/a"
-      showJoint (Right so) = maybe "n/a" toHtml (soJointWith so)
+      showJoint (Right so) = maybe "n/a" (toHtml . cleanJointName) (soJointWith so)
 
       showConstraint _ (Left _) = "n/a"
       showConstraint f (Right so) = case f so of

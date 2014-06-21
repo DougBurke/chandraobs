@@ -50,6 +50,7 @@ import Utils (
              , instLinkSearch
              , typeLinkSearch
              , constellationLinkSearch
+             , cleanJointName
              )
 
 -- The specific page for this observation. At present I have not
@@ -389,7 +390,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
           -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
           let jobs = getJointObs so
               jvals = if null jobs
-                      then toHtml jName
+                      then toHtml $ cleanJointName jName
                       else mconcat $ addList $ map toJ jobs
           in mconcat
                [ "This ", verb, " a joint observation with "

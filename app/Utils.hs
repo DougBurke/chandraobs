@@ -24,6 +24,7 @@ module Utils (
      , constellationLinkSearch
      , typeLinkSearch
      , categoryLinkSearch
+     , cleanJointName
      ) where
 
 import qualified Data.Text as T
@@ -36,6 +37,7 @@ import Blaze.ByteString.Builder (toByteString)
 import Control.Applicative ((<$>))
 
 import Data.Char (intToDigit)
+import Data.List (isPrefixOf)
 import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
@@ -171,6 +173,12 @@ detailsLink = obsIdLink
 abstractLink ObsIdVal{..} = 
   H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show fromObsId
 
+-- | Remove the CXO- prefix from the "joint with" field,
+--   since I have seen two cases of "CXO-HST".
+--
+cleanJointName :: String -> String
+cleanJointName j = if "CXO-" `isPrefixOf` j then drop 4 j else j 
+
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.
 --
@@ -212,7 +220,7 @@ renderObsIdDetails mprop so@ScienceObs{..} =
       jvs = getJointObs so
       jointElems = 
         if isJust soJointWith && null jvs
-        then keyVal "Joint with:" $ H.toHtml $ fromJust soJointWith
+        then keyVal "Joint with:" $ H.toHtml $ cleanJointName $ fromJust soJointWith
         else mconcat $ map toJ jvs
 
       cToL NoConstraint = "None" -- not used
