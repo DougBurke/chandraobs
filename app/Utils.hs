@@ -36,7 +36,7 @@ import Blaze.ByteString.Builder (toByteString)
 import Control.Applicative ((<$>))
 
 import Data.Char (intToDigit)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 
@@ -207,8 +207,13 @@ renderObsIdDetails mprop so@ScienceObs{..} =
         Just t -> keyVal "Exposure (observed):" (H.toHtml t <> " ks")
         _ -> keyVal "Exposure (approved):" (H.toHtml soApprovedTime <> " ks")
 
+      -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
       toJ (l,v) = keyVal "Joint with:" (l <> " for " <> H.toHtml (_toS v) <> " ks")
-      jointElems = mconcat $ map toJ $ getJointObs so
+      jvs = getJointObs so
+      jointElems = 
+        if isJust soJointWith && null jvs
+        then keyVal "Joint with:" $ H.toHtml $ fromJust soJointWith
+        else mconcat $ map toJ jvs
 
       cToL NoConstraint = "None" -- not used
       cToL Preferred    = "Preferred"

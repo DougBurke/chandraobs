@@ -385,12 +385,18 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       toJ (l, tks) = l <> " (for " <> toHtml (showExpTime tks) <> ")"
 
       jointObs = case soJointWith of
-        Just _ -> mconcat
-                   [ "This ", verb, " a joint observation with "
-                   , mconcat $ addList $ map toJ $ getJointObs so
-                   , ". However, if does not necessarily mean that the "
-                   , "observations ", verb2, " done at the same time! "
-                   ]
+        Just jName -> 
+          -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
+          let jobs = getJointObs so
+              jvals = if null jobs
+                      then toHtml jName
+                      else mconcat $ addList $ map toJ jobs
+          in mconcat
+               [ "This ", verb, " a joint observation with "
+               , jvals
+               , ". However, if does not necessarily mean that the "
+               , "observations ", verb2, " done at the same time! "
+               ]
         Nothing -> mempty
 
       -- if there are constriants and a joint observation then the

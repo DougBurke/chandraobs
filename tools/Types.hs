@@ -711,6 +711,8 @@ constellationMap =
 -- | Return the list of other observations that are contemporaneous with
 --   this one.
 --   
+--   It turns out that you can have the soJointWIth field set but
+--   no corresponding soJoint field. See ObsId 15662.
 getJointObs :: (IsString s) => ScienceObs -> [(s, TimeKS)]
 getJointObs ScienceObs{..} = 
   let toJ (l,r) = (l,) `fmap` r
