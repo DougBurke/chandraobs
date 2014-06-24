@@ -532,6 +532,7 @@ data ScienceObs = ScienceObs {
   , soStartTime :: ChandraTime
   , soApprovedTime :: TimeKS
   , soObservedTime :: Maybe TimeKS
+  , soPublicRelease :: Maybe UTCTime -- ^ release date
 
   , soTimeCritical :: Constraint
   , soMonitor :: Constraint

@@ -34,7 +34,7 @@ import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe)
 import Data.Monoid ((<>), mconcat)
-import Data.Time (getCurrentTime, readsTime)
+import Data.Time (UTCTime, getCurrentTime, readsTime)
 import Data.Word (Word8)
 
 import Database.Groundhog.Postgresql
@@ -254,8 +254,11 @@ toRead :: Read a => OCAT -> L.ByteString -> Maybe a
 toRead m lbl = toWrapper id lbl m
 
 toCT :: OCAT -> L.ByteString -> Maybe ChandraTime
-toCT m lbl =
-  let c = fmap (ChandraTime . fst) . listToMaybe . readsTime defaultTimeLocale "%F %T"
+toCT m lbl = ChandraTime `fmap` toUTC m lbl
+
+toUTC :: OCAT -> L.ByteString -> Maybe UTCTime
+toUTC m lbl =
+  let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
   in M.lookup lbl m >>= c . L8.unpack
 
 toRA :: OCAT -> Maybe RA
@@ -336,6 +339,8 @@ toSO m = do
   appExp <- toTimeKS m "APP_EXP"
   let obsExp = toTimeKS m "EXP_TIME"
 
+  let relDate = toUTC m "PUBLIC_AVAIL"
+
   timeCrit <- toC m "TIME_CRIT"
   monitor <- toC m "MONITOR"
   constrained <- toC m "CONSTR"
@@ -392,6 +397,7 @@ toSO m = do
     , soStartTime = sTime
     , soApprovedTime = appExp
     , soObservedTime = obsExp
+    , soPublicRelease = relDate
 
     , soTimeCritical = timeCrit
     , soMonitor = monitor
@@ -649,6 +655,7 @@ dump ScienceObs{..} = do
   putStrLn $ showCTime soStartTime
   putStrLn $ showExpTime soApprovedTime
   print $ fmap showExpTime soObservedTime
+  putStrLn $ "Public availability: " ++ show soPublicRelease
 
   let fC lbl c = lbl ++ ": " ++ [fromConstraint c]
   putStrLn $ fC "time critical" soTimeCritical
