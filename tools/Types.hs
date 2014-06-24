@@ -467,12 +467,16 @@ instance Show NonScienceObs where
 -- | Is a chip on, off, or optional.
 --
 --   How many optional chips are allowed?
-data ChipStatus = ChipOn | ChipOff | ChipOpt1 | ChipOpt2 | ChipOpt3 | ChipOpt4 | ChipOpt5
+--
+--   I assume ChipD is for dropped? Seen in ObsId 1547
+--
+data ChipStatus = ChipOn | ChipOff | ChipOpt1 | ChipOpt2 | ChipOpt3 | ChipOpt4 | ChipOpt5 | ChipD
   deriving Eq
 
 toChipStatus :: String -> Maybe ChipStatus
 toChipStatus s | s == "Y"  = Just ChipOn
                | s == "N"  = Just ChipOff
+               | s == "D"  = Just ChipD
                | s == "O1" = Just ChipOpt1
                | s == "O2" = Just ChipOpt2
                | s == "O3" = Just ChipOpt3
@@ -481,8 +485,9 @@ toChipStatus s | s == "Y"  = Just ChipOn
                | otherwise = Nothing
 
 fromChipStatus :: ChipStatus -> String
-fromChipStatus ChipOn = "Y"
-fromChipStatus ChipOff = "N"
+fromChipStatus ChipOn   = "Y"
+fromChipStatus ChipOff  = "N"
+fromChipStatus ChipD    = "D"
 fromChipStatus ChipOpt1 = "O1"
 fromChipStatus ChipOpt2 = "O2"
 fromChipStatus ChipOpt3 = "O3"
@@ -573,6 +578,19 @@ data ScienceObs = ScienceObs {
   -- deriving (Eq, Show)
   deriving Eq
     -- deriving instance Show ScienceObs
+
+-- | What observations \"overlap\" this one, and are
+--   publically available.
+--   The overlap is determined by the find_chandra_obsid script
+--   from CIAO.
+--
+data OverlapObs = 
+  OverlapObs {
+    ovObsId :: ObsIdVal       -- ^ field being checked
+    , ovOverlapId :: ObsIdVal -- ^ overlaps ovObsId and is publically available
+    , ovDistance :: Double    -- ^ distance from ovObsId in arcminutes
+    , ovCheck :: UTCTime      -- ^ when was the check made; this is probably not useful
+  } deriving Eq
 
 -- | Short form for constellation names (e.g. UMa for Ursa Major).
 --
@@ -1188,6 +1206,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: NonScienceObsIdConstraint
           fields: [nsObsId]
+- entity: OverlapObs
+  constructors:
+    - name: OverlapObs
+      uniques:
+        - name: OverlapObsConstraint
+          fields: [ovObsId, ovOverlapId]
 - entity: Proposal
   constructors:
     - name: Proposal
@@ -1208,6 +1232,7 @@ handleMigration =
     migrate (undefined :: ScheduleItem)
     migrate (undefined :: ScienceObs)
     migrate (undefined :: NonScienceObs)
+    migrate (undefined :: OverlapObs)
     migrate (undefined :: Proposal)
     migrate (undefined :: SimbadInfo)
 

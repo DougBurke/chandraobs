@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 -- | Simple database access shims.
 --
@@ -23,10 +24,13 @@ module Database ( getCurrentObs
                 , fetchCategory
                 , fetchProposal
                 , fetchInstrument
+                , insertScienceObs
+                , insertProposal
+                , insertSimbadInfo
                 ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM, liftM)
+import Control.Monad (forM, liftM, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Either (partitionEithers)
@@ -56,12 +60,23 @@ findItem si =
      then (Right `liftM`) `liftM` findScience obsid
      else (Left `liftM`) `liftM` findNonScience obsid
 
-findObsId :: PersistBackend m => ObsIdVal -> m (Maybe Record)
+-- | Return information on this obsid, if known about. The
+--   boolean flag is True if this is a "scheduled" observation;
+--   i.e. was found in the ScheduledItem list. If not, it is
+--   likely an "overlap observation".
+--
+findObsId :: PersistBackend m => ObsIdVal -> m (Maybe (Record, Bool))
 findObsId oi = do
   ans <- select $ (SiObsIdField ==. oi) `limitTo` 1
-  case listToMaybe ans of
-    Just si -> findItem si
-    _ -> return Nothing
+  case ans of
+    (si:_) -> do
+      rval <- findItem si
+      return $ (,True) `fmap` rval
+    _ -> do
+      ans2 <- select $ (SoObsIdField ==. oi) `limitTo` 1
+      case ans2 of
+        (so:_) -> return $ Just (Right so, False)
+        _ -> return Nothing
 
 findNonScience :: PersistBackend m => ObsIdVal -> m (Maybe NonScienceObs)
 findNonScience oi = do
@@ -117,9 +132,6 @@ getPrevObs oid t = do
   
 -- | Find the current observation and the previous/next ones.
 --
---   Allow for the possibility of there being no observation; e.g.
---   because the data base hasn't been updated.
---
 --   TODO: should check for some overlap of the observation date +
 --         exposure time to the current date, so can suggest that
 --         slewing (or if at end that run out of data...)
@@ -144,10 +156,10 @@ extractObsInfo obs = do
 
 findObsInfo :: (MonadIO m, PersistBackend m) => ObsIdVal -> m (Maybe ObsInfo)
 findObsInfo oi = do
-  res <- select $ (SiObsIdField ==. oi) `limitTo` 1
-  mobs <- extractRecord res
-  case mobs of
-    Just obs -> extractObsInfo obs
+  res <- findObsId oi
+  case res of
+    Just (obs,f) | f         -> extractObsInfo obs
+                 | otherwise -> return $ Just $ ObsInfo obs Nothing Nothing 
     _ -> return Nothing
   
 -- | Return the requested "science" observation.
@@ -157,7 +169,7 @@ getObsId = findObsInfo
 -- | Return the record of the given observation, if it
 --   exists.
 getRecord :: PersistBackend m => ObsIdVal -> m (Maybe Record)
-getRecord = findObsId
+getRecord oid = (liftM . fmap) fst $ findObsId oid
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
@@ -258,7 +270,7 @@ fetchSIMBADType stype = do
 
   names <- project SiTargetField $ (SiType3Field ==. Just stype)
   ans <- forM names $ \n -> select $ (SoTargetField ==. n)
-  return $ (sinfo, concat ans)
+  return (sinfo, concat ans)
 
 -- | Return observations which match this constellation, in time order.
 fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
@@ -323,3 +335,34 @@ reportSize = do
   liftIO $ putStrLn $ "Number of science obs       : " ++ show ns
   liftIO $ putStrLn $ "Number of non-science obs   : " ++ show nn
   liftIO $ putStrLn $ "Number of proposals         : " ++ show np
+
+-- Need to make sure the following match the constraints on the tables found
+-- in Types.hs
+
+-- | Checks that the Science observation is not known about before inserting it.
+--
+--   If it already exists in the database the new value is ignored; there is no check to
+--   make sure that the details match.
+insertScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
+insertScienceObs s = do
+  n <- count $ (SoObsIdField ==. soObsId s)
+  when (n == 0) $ insert_ s
+
+-- | Checks that the proposal is not known about before inserting it.
+--
+--   If it already exists in the database the new value is ignored; there is no check to
+--   make sure that the details match.
+insertProposal :: (MonadIO m, PersistBackend m) => Proposal -> m ()
+insertProposal p = do
+  n <- count $ (PropNumField ==. propNum p)
+  when (n == 0) $ insert_ p
+
+-- | Checks that the data is not known about before inserting it.
+--
+--   If it already exists in the database the new value is ignored; there is no check to
+--   make sure that the details match.
+insertSimbadInfo :: (MonadIO m, PersistBackend m) => SimbadInfo -> m ()
+insertSimbadInfo si = do
+  n <- count $ (SiTargetField ==. siTarget si)
+  when (n == 0) $ insert_ si
+

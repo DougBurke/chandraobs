@@ -22,8 +22,9 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import qualified Data.Set as S
 
+import Control.Applicative ((<$>))
 import Control.Arrow ((&&&))
-import Control.Monad (forM_, when)
+import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
@@ -41,13 +42,16 @@ import Database.Groundhog.Postgresql
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
 
-import System.Cmd (system) -- TODO: switch to System.Process
 import System.Environment (getArgs, getEnv, getProgName)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
 import System.IO (hFlush, hGetLine, hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempFile)
 import System.Locale (defaultTimeLocale)
+import System.Process (readProcessWithExitCode, system)
 
+import Database (insertScienceObs
+                , insertProposal
+                , insertSimbadInfo)
 import Types
 
 -- | What is the URL needed to query the ObsCat?
@@ -89,6 +93,36 @@ getConstellation ra dec = do
       cName <- hGetLine outHdl
       return $ fromMaybe (error ("Unexpected constellation short form: '" ++ cName ++ "'")) $ toConShort cName
       
+-- | What publically-available observations overlap this one?
+--
+--   The overlap is found using the find_chandra_obsid script,
+--   using a max radius of 10 arcminutes.
+getOverlaps :: ObsIdVal -> RA -> Dec -> IO [OverlapObs]
+getOverlaps oid ra dec = do
+
+  -- this raises an exception if ASCDS_INSTALL is not set
+  -- path <- getEnv "ASCDS_INSTALL"
+
+  let long = show $ _unRA ra
+      lat = show $ _unDec dec
+      args = [long,lat, "radius=10"]
+
+  -- do we need to set up the CIAO environment as we did above? probably
+  (rval, sout, serr) <- readProcessWithExitCode "find_chandra_obsid" args ""
+  when (rval /= ExitSuccess) $ do
+    hPutStrLn stderr $ "ERROR: unable to run find_chandra_obsid on " ++ show args ++ "\n  " ++ serr ++ "\n"
+    exitFailure
+    
+  now <- getCurrentTime
+  let toO xs = 
+        -- this does not handle invalid output
+        let (idvalstr:rdiststr:_) = words xs 
+            idval = ObsIdVal $ read idvalstr
+            rdist = read rdiststr
+        in OverlapObs oid idval rdist now
+
+  return $ map toO $ drop 1 $ lines sout  
+
 -- | Do we consider the two names to be the same?
 --
 --   Strip out all spaces; convert to lower case.
@@ -214,7 +248,7 @@ toJointTime :: OCAT -> L.ByteString -> Maybe TimeKS
 toJointTime m k = toTimeKS m k >>= \t -> if t <= TimeKS 0.0 then Nothing else Just t
 
 toString :: OCAT -> L.ByteString -> Maybe String
-toString m lbl = fmap L8.unpack $ M.lookup lbl m
+toString m lbl = L8.unpack <$> M.lookup lbl m
 
 toRead :: Read a => OCAT -> L.ByteString -> Maybe a
 toRead m lbl = toWrapper id lbl m
@@ -236,7 +270,7 @@ toDec =
   let tD lbs = 
         let (d:m:s:_) = map (read . L8.unpack) $ L.split (w8 ' ') rest
             (sval, rest) = case L.uncons lbs of
-                     Just (c, cs) | c == w8 '-' -> ((-1), cs)
+                     Just (c, cs) | c == w8 '-' -> (-1, cs)
                                   | c == w8 '+' -> (1, cs)
                                   | otherwise   -> (1, lbs) -- should not happen but just in case
                      _ -> (0, "0 0 0") -- if it's empty we have a problem
@@ -270,11 +304,13 @@ toC m k = do
 toProposal :: OCAT -> Maybe Proposal
 toProposal m = do
   pNum <- toPropNum m
-  pName <- toString m "PROP_TITLE"
   piName <- toString m "PI_NAME"
   cat <- toString m "CATEGORY"
   pType <- toString m "TYPE"
   pCycle <- toString m "PROP_CYCLE"
+  -- have seen one proposal (cycle 00, calibration obs) without a title
+  -- pName <- toString m "PROP_TITLE"
+  let pName = fromMaybe (if pType == "CAL" then "Calibration Observation" else "Unknown") $ toString m "PROP_TITLE"
   return Proposal {
         propNum = pNum
         , propName = pName
@@ -306,7 +342,7 @@ toSO m = do
 
   inst <- toInst m
   grat <- toGrating m
-  let det = fmap L8.unpack $ M.lookup "READOUT_DETECTOR" m
+  let det = L8.unpack <$> M.lookup "READOUT_DETECTOR" m
   let datamode = toString m "DATAMODE"
 
   haveACIS <- toString m "ACIS"
@@ -340,7 +376,7 @@ toSO m = do
       swift = toJointTime m "SWIFT"
       nustar = toJointTime m "NUSTAR"
 
-  let too = fmap L8.unpack $ M.lookup "TOO_TYPE" m
+  let too = L8.unpack <$> M.lookup "TOO_TYPE" m
   ra <- toRA m
   dec <- toDec m
 
@@ -482,7 +518,7 @@ findMissingObsIds = do
 
   let swant = S.fromList want
       shave = S.fromList have
-  return $ (S.toList (swant `S.difference` shave), unarchived)
+  return (S.toList (swant `S.difference` shave), unarchived)
 
 slen :: [a] -> String
 slen = show . length
@@ -498,10 +534,9 @@ addResults missing unarchived = do
   putStrLn $ "# Adding " ++ slen unarchived ++ " unarchived results"
   let props = S.toList $ S.fromList $ map fst missing ++ map fst unarchived
   doDB $ do
-      -- the following will fail if the data already exists (e.g. proposals and unarchived results)
-      forM_ missing $ \(_,so) -> liftIO (print so) >> insert so
-      forM_ unarchived $ \(_,so) -> liftIO (print so) >> insert so
-      forM_ props $ \p -> liftIO (print p) >> insert p
+      forM_ missing $ \(_,so) -> liftIO (print so) >> insertScienceObs so
+      forM_ unarchived $ \(_,so) -> liftIO (print so) >> insertScienceObs so
+      forM_ props $ \p -> liftIO (print p) >> insertProposal p
 
 -- | Query SIMBAD for any targets we do not know about.
 --
@@ -518,14 +553,45 @@ identifyObjects sos = do
 
   ans <- mapM (querySIMBAD False) $ S.toList todo
   putStrLn $ "## Found " ++ slen ans ++ " results"
-  doDB $ forM_ ans insert 
+  doDB $ forM_ ans insertSimbadInfo 
+
+-- | add in the overlap observations; that is, the table of
+--   overlaps and information about the overlap obs if it is
+--   not known about.
+--
+--   We do not bother finding overlaps of these overlaps.
+--
+addOverlaps :: Bool -> [OverlapObs] -> IO ()
+addOverlaps f os = do
+  let oids = S.toList $ S.fromList $ map ovOverlapId os
+  putStrLn $ "# Processing " ++ slen os ++ " overlaps with " ++ slen oids ++ " different ObsIds"
+
+  let countOid oid = count $ (SoObsIdField ==. oid)
+  cs <- doDB $ forM oids countOid 
+  let unknowns = map fst $ filter ((==0) . snd) $ zip oids cs
+  putStrLn $ "# Of these, there are " ++ slen unknowns ++ " 'new' ObsIds"
+
+  res1 <- mapM (queryObsId f) unknowns
+  res <- check res1 unknowns
+
+  let (props1, sobs) = unzip res
+      props = S.toList $ S.fromList props1
+
+  putStrLn $ "# Adding " ++ slen sobs ++ " observations"
+  putStrLn $ "# Adding " ++ slen props ++ " proposals" 
+  doDB $ do
+    -- could get away with insert for sobs if we can assume that
+    -- no other process is updating the database
+    forM_ sobs insertScienceObs
+    forM_ props insertProposal
 
 -- | Report if any obsids are missing from the OCAT results.
 --
-check :: [Maybe (Proposal, ScienceObs)] -> [ObsIdVal] -> IO [(Proposal, ScienceObs)]
+--   This does NOT include the overlap obs (i.e. they are ignored here)
+check :: [Maybe a] -> [ObsIdVal] -> IO [a]
 check ms os = do
   let missing = map snd $ filter (isNothing . fst) $ zip ms os
-  when (not (null missing)) $ do
+  unless (null missing) $ do
     putStrLn $ "### There are " ++ slen missing ++ " ObsIds with no OCAT data:"
     forM_ missing $ print . fromObsId
   return $ catMaybes ms
@@ -537,11 +603,11 @@ updateDB f = withSocketsDo $ do
   (missing, unarchived) <- findMissingObsIds
   putStrLn $ "# Found " ++ slen missing ++ " missing and " ++ slen unarchived ++ " unarchived ObsIds"
 
-  when (not (null missing)) $ putStrLn "# Processing missing"
+  unless (null missing) $ putStrLn "# Processing missing"
   res1 <- mapM (queryObsId f) missing
   mres <- check res1 missing
 
-  when (not (null missing)) $ putStrLn "# Processing unarchived"
+  unless (null missing) $ putStrLn "# Processing unarchived"
   res2 <- mapM (queryObsId f) unarchived
   ures <- check res2 unarchived
 
@@ -555,6 +621,12 @@ updateDB f = withSocketsDo $ do
   -- existing targets.
   --
   identifyObjects $ map snd mres
+
+  -- add in the overlaps
+  let sos = map snd mres ++ map snd ures
+  putStrLn $ "## Processing " ++ slen sos ++ " observations for overlaps"
+  overlaps <- forM sos $ \ScienceObs{..} -> getOverlaps soObsId soRA soDec
+  addOverlaps f $ concat overlaps
 
 viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
@@ -576,9 +648,9 @@ dump ScienceObs{..} = do
   putStrLn soTarget
   putStrLn $ showCTime soStartTime
   putStrLn $ showExpTime soApprovedTime
-  putStrLn $ show (fmap showExpTime soObservedTime)
+  print $ fmap showExpTime soObservedTime
 
-  let fC lbl c = lbl ++ ": " ++ (fromConstraint c : [])
+  let fC lbl c = lbl ++ ": " ++ [fromConstraint c]
   putStrLn $ fC "time critical" soTimeCritical
   putStrLn $ fC "      monitor" soMonitor
   putStrLn $ fC "  constrained" soConstrained
