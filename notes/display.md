@@ -32,6 +32,13 @@ could be selectable instead via a faceted browsing interfacte.
 
  - archive link to existing Chandra data
 
+   there are links we can use like 
+
+   http://cdaftp.harvard.edu/cgi-bin/chaser_ftp_retrieve_file.cgi?filename=byobsid/2/642/primary/acisf00642N005_full_img2.jpg
+
+   *but* this requires that we know the processing version
+   (in this case N005) for each observation.  
+
  - can we have a simple view showing Earth/Moon(?)/orbit and
    path during osbservation; for ongoing obs perhaps even the
    position of Chandra within the orbit and its direction?

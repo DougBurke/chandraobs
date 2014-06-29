@@ -245,32 +245,36 @@ makeSchedule rs = do
   return $ Schedule now 0 done (listToMaybe nows) todo
 
 -- | Do we have any SIMBAD information about the target?
+--
+--   Could use ObsId instead?
+--
+--   NOTE: there is no longer a constraint that the target field
+--   is unique in the SimbadInfo structure, so there could be
+--   multiple matches.
 getSimbadInfo :: (MonadIO m, PersistBackend m) => String -> m (Maybe SimbadInfo)
 getSimbadInfo tgt = do
-  ans <- select $ (SiTargetField ==. tgt)
+  ans <- select $ (SmTargetField ==. tgt) `limitTo` 1
   return $ listToMaybe ans
 
 -- | Return all observations of the given SIMBAD type.
-fetchSIMBADType :: (MonadIO m, PersistBackend m) => SimbadType -> m (SimbadTypeInfo, [ScienceObs])
+--
+fetchSIMBADType :: 
+  (MonadIO m, PersistBackend m) 
+  => SimbadType 
+  -> m (Maybe (SimbadTypeInfo, [ScienceObs]))
 fetchSIMBADType stype = do
   -- TODO: use a join, or at least have a relationship between the
   --       two tables to make use of the database, since the following
   --       is not nice!
   -- 
-  -- Why can I not just use project here?
-  -- lans <- project SiTypeField $ (SiType3Field ==. Just stype) `limitTo` 1
+  lans <- project SmTypeField $ (SmType3Field ==. stype) `limitTo` 1
+  case lans of
+    [x] -> do
+      obsids <- project SmObsIdField $ (SmType3Field ==. stype)
+      ans <- forM obsids $ \o -> select $ (SoObsIdField ==. o)
+      return $ Just ((stype,x), concat ans)
 
-  lans <- select $ (SiType3Field ==. Just stype) `limitTo` 1
-  -- the ugliness here is down to my poor data modelling
-  let sinfo = case lans of
-                [x] -> case siType x of
-                        Just y -> (stype, y)
-                        _ -> (stype, error "*db error - Simbad Type has short form but not long*")
-                _ -> (stype, error "*internal error - matchSIMBADType*")
-
-  names <- project SiTargetField $ (SiType3Field ==. Just stype)
-  ans <- forM names $ \n -> select $ (SoTargetField ==. n)
-  return (sinfo, concat ans)
+    _ -> return Nothing
 
 -- | Return observations which match this constellation, in time order.
 fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
@@ -362,7 +366,14 @@ insertProposal p = do
 --   If it already exists in the database the new value is ignored; there is no check to
 --   make sure that the details match.
 insertSimbadInfo :: (MonadIO m, PersistBackend m) => SimbadInfo -> m ()
-insertSimbadInfo si = do
-  n <- count $ (SiTargetField ==. siTarget si)
-  when (n == 0) $ insert_ si
+insertSimbadInfo sm = do
+  n <- count $ (SmObsIdField ==. smObsId sm)
+
+  -- We should not need to do this, but because the design is in
+  -- flux I am doing a run-time check here
+  m <- count $ (SmTargetField ==. smTarget sm)
+  when (n == 0 && m /= 0) $ 
+    liftIO $ putStrLn $ "WARNING: multiple Simbad objects with target = " ++ smTarget sm
+
+  when (n == 0) $ insert_ sm
 

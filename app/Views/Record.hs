@@ -38,7 +38,8 @@ import Types (ScienceObs(..), NonScienceObs(..),
               ChandraTime(..), Constraint(..),
               ConLong(..),
               getObsStatus, getJointObs, toSIMBADLink,
-              getConstellationName)
+              getConstellationName
+              , similarName)
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta
@@ -222,9 +223,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       lenVal = toHtml $ showExpTime $ fromMaybe soApprovedTime soObservedTime
 
       otherName = case msimbad of
-        Just SimbadInfo{..} -> case siName of
-          Just sName -> if siSimilar then mempty else (" - also called " <> toHtml sName <> " -")
-          _ -> mempty
+        Just sm -> if similarName sm 
+                   then mempty 
+                   else (" - also called " <> toHtml (smName sm) <> " -")
         _ -> mempty
 
 
@@ -251,26 +252,20 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                             verb, " used for the observation. " ]
         _ -> mempty
 
-      hasSimbad = case msimbad of
-        Just SimbadInfo{..} -> isJust siName -- assume siType/siType3 have same Maybe status as siName
-        _ -> False
+      hasSimbad = isJust msimbad
 
       -- TODO: check case and spaces
       simbadTxt SimbadInfo{..} = 
-        case (siName, siType, siType3) of
-          (Just sname, Just stype, Just stype3) ->
-            let slink = H.toValue $ toSIMBADLink sname
-            in mconcat [
-                  " is "
-                  , typeLinkSearch stype3 (cleanupSIMBADType stype)
-                  , ". "
-                  , subArrayTxt
-                  , "More information on the target can be found at "
-                  , a ! href slink $ "SIMBAD"
-                  , ". "
-                  ]
-
-          _ -> ". " <> subArrayTxt
+        let slink = H.toValue $ toSIMBADLink smName
+        in mconcat [
+              " is "
+              , typeLinkSearch smType3 (cleanupSIMBADType smType)
+              , ". "
+              , subArrayTxt
+              , "More information on the target can be found at "
+              , a ! href slink $ "SIMBAD"
+              , ". "
+              ]
 
       abstxt = case obsStatus of
                  Todo -> "will be observed"

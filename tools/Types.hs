@@ -42,6 +42,7 @@ import Data.Bits (Bits(..), FiniteBits(..))
 import Data.Bits (Bits(..))
 #endif
 
+import Data.Char (isSpace, toLower)
 import Data.Function (on)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
@@ -829,35 +830,55 @@ instance Parsable SimbadType where
     in maybe (Left emsg) Right (toSimbadType tstr)
 
 -- | Information on an object identifier, retrieved from SIMBAD.
---   At present only a very-limited amount of information is returned
---   and the structure isn't very Haskell-like.
 --
---   TODO:
+--   I originally stored the ra,dec of the source location here;
+--   but no longer do so. I guess if I wanted to check that it
+--   was the correct location then this should be done when processing
+--   the response from Simbad and not within the database/here.
 --
---    - it is ridiculous that siName/siType3/siType are stored
---      here, since they are really a separate record.
+--   Really there should be a Simbad record and then a map
+--   from the target name of an observation to the Simbad
+--   record, but for now this is an easier change to the
+--   existing code, and it reduces the number of table rows
+--   in the database (if not the overall database size),
+--   which is important as I don't want to have to pay for
+--   heroku. However, I really do need a table saying
+--   obsid, when was i checked to
+--     a) stop re-querying simbad for targets which we
+--        know fail
+--     b) allow really old records to be updated
 --
 data SimbadInfo = SimbadInfo {
-   siTarget :: String      -- ^ target name (presumed unique)
-   , siSimilar :: Bool     -- ^ @True@ if @siName@ and @siTarget@ are similar enough
-                           -- that they are considered the same (e.g. spaces and case
-                           -- differences)
-   , siName :: Maybe String      -- ^ the primary identifier for the object
-   , siType3 :: Maybe SimbadType      -- ^ short form identifier for siType
-   , siType :: Maybe String      -- ^ the primary type of the object (long form)
-   , siRA :: Maybe RA
-   , siDec :: Maybe Dec
-   , siLastChecked :: UTCTime
+   smObsId :: ObsIdVal     -- ^ Chandra observation
+   , smTarget :: String    -- ^ Chandra target name
+   , smName :: String      -- ^ the primary identifier for the object
+   , smType3 :: SimbadType -- ^ short form identifier for siType
+   , smType :: String      -- ^ the primary type of the object (long form)
+   , smLastChecked :: UTCTime
   }
   deriving Eq
+
+-- | Do we consider the two names to be the same?
+--
+--   Strip out all spaces; convert to lower case.
+--
+--   We do not use a simple edit distance comparison here
+--   since we do not want to equate 3C292 and 3C232.
+--
+similarName :: SimbadInfo -> Bool
+similarName SimbadInfo{..} =
+  let conv = map toLower . filter (not . isSpace)
+  in ((==) `on` conv) smTarget smName
 
 -- | The short and long forms of the type information from SIMBAD.
 type SimbadTypeInfo = (SimbadType, String)
 
--- | The name of the target string is used for ordering, since it is
---   assumed that the name is unique.
+-- | The Simbad name is used for ordering.
+--
+--   Why do we need an Ord constraint? Perhaps I should order
+--   on @siObsId@?
 instance Ord SimbadInfo where
-  compare = compare `on` siTarget
+  compare = compare `on` smName
 
 -- | Return a link to the SIMBAD site (Strasbourg) for this object.
 --
@@ -1224,7 +1245,7 @@ mkPersist defaultCodegenConfig [groundhog|
     - name: SimbadInfo
       uniques:
         - name: SimbadInfoConstraint
-          fields: [siTarget]
+          fields: [smObsId]
 |]
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()

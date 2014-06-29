@@ -77,7 +77,11 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
                     | c == '\246'  = 'o' -- o umlaut
                     | otherwise = c
             l = map clean cname
-        in "http://www.astro.wisc.edu/~dolan/constellations/constellations/" <> (toValue l) <> ".html"
+        in mconcat
+           [ "http://www.astro.wisc.edu/~dolan/constellations/constellations/"
+           , toValue l
+           , ".html"
+           ]
 
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml lbl

@@ -1,9 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 --
 -- Initialize the database using the manually-curated information
@@ -37,8 +34,8 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
 
     let cts = [n1, n2, n3, n4]
     when (any (/=0) cts) $ do
-      liftIO $ hPutStrLn stderr $ "ERROR: there is existing data!"
-      liftIO $ exitFailure
+      liftIO $ hPutStrLn stderr "ERROR: there is existing data!"
+      liftIO   exitFailure
 
     liftIO $ putStrLn "Inserting schedule"
     mapM_ insert testSchedule

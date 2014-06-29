@@ -238,10 +238,10 @@ webapp cm = do
       simbadType <- param "type"
       matches <- liftSQL $ fetchSIMBADType simbadType
       case matches of
-        (_, []) -> next -- status status404
-        (typeInfo, ms) -> do
+        Just (typeInfo, ms) -> do
            sched <- liftSQL $ makeSchedule $ map Right ms
            fromBlaze $ SearchTypes.matchPage typeInfo sched
+        _ -> next -- status status404
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
@@ -321,7 +321,7 @@ webapp cm = do
 errHandle :: L.Text -> ActionM ()
 errHandle txt = do
   liftIO $ L.putStrLn $ "Error string: " <> txt
-  fromBlaze $ NotFound.errPage
+  fromBlaze NotFound.errPage
   -- Can we change the HTTP status code? The following does not
   -- work.
   status status503

@@ -238,7 +238,7 @@ renderObsIdDetails mprop so@ScienceObs{..} =
           Just ln -> return $ (H.a H.! A.href uri) $ H.toHtml $ fromConLong ln
           _ -> Nothing
         
-      too = maybe mempty (\t -> keyVal "TOO:" (H.toHtml t)) soTOO
+      too = maybe mempty (keyVal "TOO:" . H.toHtml) soTOO
 
       -- the "chip" display depends on whether this has been archived or
       -- not (and if it's ACIS or HRC), since we display different things.
@@ -296,7 +296,7 @@ renderObsIdDetails mprop so@ScienceObs{..} =
           ]
 
       -- ignore the thead element
-      tbl = H.table $ H.tbody $ tblRows
+      tbl = H.table $ H.tbody tblRows
 
   in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       tbl

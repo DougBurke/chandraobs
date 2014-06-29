@@ -28,8 +28,7 @@ import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
-import Data.Char (isSpace, ord, toLower)
-import Data.Function (on)
+import Data.Char (ord)
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe)
@@ -123,18 +122,6 @@ getOverlaps oid ra dec = do
 
   return $ map toO $ drop 1 $ lines sout  
 
--- | Do we consider the two names to be the same?
---
---   Strip out all spaces; convert to lower case.
---
---   We do not use a simple edit distance comparison here
---   since we do not want to equate 3C292 and 3C232.
---
-similarName :: String -> String -> Bool
-similarName =
-  let conv = map toLower . filter (not . isSpace)
-  in (==) `on` conv
-
 -- | Try and clean up SIMBAD identifiers:
 --
 --   NAME xxx -> xxx (seen with NAME Chandra Deep Field South)
@@ -156,11 +143,16 @@ cleanupName s =
 --    is a match; of course, how do we then encode/match this to
 --    ScienceObservation? How about "M31 BHXNe"
 --
+
+-- TODO: XXX how to clean up the name ??
+
+
 querySIMBAD :: 
   Bool       -- ^ @True@ for debug output
+  -> ObsIdVal 
   -> String  -- ^ object name
-  -> IO SimbadInfo
-querySIMBAD f objname = do
+  -> IO (Maybe SimbadInfo)
+querySIMBAD f obsid objname = do
   putStrLn $ "Querying SIMBAD for " ++ objname
   let -- we POST the script to SIMBAD
       script = mconcat [
@@ -187,37 +179,29 @@ querySIMBAD f objname = do
       ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) $ lines body
 
   when f $ putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls
-  let rval = listToMaybe ls >>= parseObject objname
+  let rval = listToMaybe ls >>= parseObject 
   -- TODO: should have displayed the error string so this can be ignored
   when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
   return $ case rval of
-    Just (sf,a,b,c,d,e) -> SimbadInfo objname sf (Just a) (Just b) (Just c) (Just d) (Just e) cTime
-    Nothing             -> SimbadInfo objname False Nothing Nothing Nothing Nothing Nothing cTime
+    Just (a,b,c) -> Just SimbadInfo {
+                              smObsId = obsid
+                              , smTarget = objname
+                              , smName = a
+                              , smType3 = b
+                              , smType = c
+                              , smLastChecked = cTime
+                            }
+    Nothing      -> Nothing
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
-parseObject :: String -> String -> Maybe (Bool, String, SimbadType, String, RA, Dec)
-parseObject objname txt = 
+parseObject :: String -> Maybe (String, SimbadType, String)
+parseObject txt = 
   let toks = splitOn "\t" txt
       toT s = fromMaybe (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
                      $ toSimbadType s
   in case toks of
-    (name:otype3:otype:coords:[]) -> toObjectInfo objname (cleanupName name) (toT otype3) otype coords
-    _ -> Nothing
-
-toObjectInfo :: String -> String -> SimbadType -> String -> String -> Maybe (Bool, String, SimbadType, String, RA, Dec)
-toObjectInfo objname name objtype3 objtype coords = 
-  let f = similarName objname name
-  in case words coords of
-    (ras:('+':decs):[]) -> do
-      ra <- maybeRead ras
-      dec <- maybeRead decs
-      return (f, name, objtype3, objtype, RA ra, Dec dec)
-    (ras:('-':decs):[]) -> do
-      ra <- maybeRead ras
-      dec <- maybeRead decs
-      return (f, name, objtype3, objtype, RA ra, Dec (-1 * dec))
-
+    (name:otype3:otype:_:[]) -> Just (cleanupName name, toT otype3, otype)
     _ -> Nothing
 
 w8 :: Char -> Word8
@@ -549,15 +533,17 @@ addResults missing unarchived = do
 identifyObjects :: [ScienceObs] -> IO ()
 identifyObjects sos = do
   putStrLn $ "## Checking SIMBAD for " ++ slen sos ++ " targets"
-  let tgs = S.fromList $ map soTarget sos
+  let tgs = S.fromList $ map (soObsId &&& soTarget) sos
+
   -- get the list of previously-identified targets
-  knowns <- doDB $ project SiTargetField $ CondEmpty
+  knowns <- doDB $ project (SmObsIdField,SmTargetField) $ CondEmpty
   
   -- convert to sets for membership checks
   let kset = S.fromList knowns
       todo = tgs `S.difference` kset
 
-  ans <- mapM (querySIMBAD False) $ S.toList todo
+  mans <- mapM (uncurry (querySIMBAD False)) $ S.toList todo
+  let ans = catMaybes mans
   putStrLn $ "## Found " ++ slen ans ++ " results"
   doDB $ forM_ ans insertSimbadInfo 
 
@@ -700,16 +686,13 @@ dump ScienceObs{..} = do
   print soSubArraySize
 
 printSimbadInfo :: SimbadInfo -> IO ()
-printSimbadInfo SimbadInfo{..} = 
-  case (siName, siType, siRA, siDec) of
-    (Just n, Just t, Just r, Just d) -> do
-      putStrLn "## SIMBAD response"
-      putStrLn $ " target: " ++ siTarget
-      putStrLn $ "   name: " ++ n
-      putStrLn $ "   type: " ++ t
-      putStrLn $ "     ra: " ++ showRA r
-      putStrLn $ "    dec: " ++ showDec d
-    _ -> putStrLn $ "## No SIMBAD match for " ++ siTarget
+printSimbadInfo SimbadInfo{..} = do
+  putStrLn "## SIMBAD response"
+  putStrLn $ " target: " ++ smTarget
+  putStrLn $ "   name: " ++ smName
+  putStrLn $ "   type: " ++ fromSimbadType smType3
+  putStrLn $ "   type: " ++ smType
+  putStrLn $ "checked: " ++ show smLastChecked
 
 usage :: IO ()
 usage = do
@@ -730,7 +713,9 @@ main = do
              Just oid -> viewObsId oid
              _ -> usage
     ("simbad":name:[]) -> 
-      querySIMBAD True name >>= printSimbadInfo
+      querySIMBAD True (ObsIdVal 1) name 
+      >>= maybe (putStrLn ("No match found for: " ++ name))
+                printSimbadInfo
 
     _ -> usage
 
