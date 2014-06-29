@@ -836,17 +836,8 @@ instance Parsable SimbadType where
 --   was the correct location then this should be done when processing
 --   the response from Simbad and not within the database/here.
 --
---   Really there should be a Simbad record and then a map
---   from the target name of an observation to the Simbad
---   record, but for now this is an easier change to the
---   existing code, and it reduces the number of table rows
---   in the database (if not the overall database size),
---   which is important as I don't want to have to pay for
---   heroku. However, I really do need a table saying
---   obsid, when was i checked to
---     a) stop re-querying simbad for targets which we
---        know fail
---     b) allow really old records to be updated
+--   See the related `SimbadSearch` type, which indicates whether
+--   a search has been made.
 --
 data SimbadInfo = SimbadInfo {
    smObsId :: ObsIdVal     -- ^ Chandra observation
@@ -854,7 +845,17 @@ data SimbadInfo = SimbadInfo {
    , smName :: String      -- ^ the primary identifier for the object
    , smType3 :: SimbadType -- ^ short form identifier for siType
    , smType :: String      -- ^ the primary type of the object (long form)
-   , smLastChecked :: UTCTime
+  }
+  deriving Eq
+
+-- | Indicates that a search has been made of Simbad for
+--   this source. If a match is found then it is stored
+--   in a `SimbadInfo` structure.
+--
+data SimbadSearch = SimbadSearch {
+    smsObsId :: ObsIdVal   -- ^ observation
+    , smsSearchTerm :: String   -- ^ value used for the simbad search
+    , smsLastChecked :: UTCTime
   }
   deriving Eq
 
@@ -1246,6 +1247,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: SimbadInfoConstraint
           fields: [smObsId]
+- entity: SimbadSearch
+  constructors:
+    - name: SimbadSearch
+      uniques:
+        - name: SimbadSearchConstraint
+          fields: [smsObsId]
 |]
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
@@ -1257,4 +1264,5 @@ handleMigration =
     migrate (undefined :: OverlapObs)
     migrate (undefined :: Proposal)
     migrate (undefined :: SimbadInfo)
+    migrate (undefined :: SimbadSearch)
 

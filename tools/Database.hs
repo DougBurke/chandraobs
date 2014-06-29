@@ -27,6 +27,7 @@ module Database ( getCurrentObs
                 , insertScienceObs
                 , insertProposal
                 , insertSimbadInfo
+                , insertSimbadSearch
                 ) where
 
 import Control.Applicative ((<$>))
@@ -375,5 +376,14 @@ insertSimbadInfo sm = do
   when (n == 0 && m /= 0) $ 
     liftIO $ putStrLn $ "WARNING: multiple Simbad objects with target = " ++ smTarget sm
 
+  when (n == 0) $ insert_ sm
+
+-- | Checks that the data is not known about before inserting it.
+--
+--   If it already exists in the database the new value is ignored; there is no check to
+--   make sure that the details match.
+insertSimbadSearch :: (MonadIO m, PersistBackend m) => SimbadSearch -> m ()
+insertSimbadSearch sm = do
+  n <- count $ (SmsObsIdField ==. smsObsId sm)
   when (n == 0) $ insert_ sm
 

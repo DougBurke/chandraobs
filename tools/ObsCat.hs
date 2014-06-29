@@ -50,7 +50,8 @@ import System.Process (readProcessWithExitCode, system)
 
 import Database (insertScienceObs
                 , insertProposal
-                , insertSimbadInfo)
+                , insertSimbadInfo
+                , insertSimbadSearch)
 import Types
 
 -- | What is the URL needed to query the ObsCat?
@@ -146,24 +147,27 @@ cleanupName s =
 
 -- TODO: XXX how to clean up the name ??
 
-
 querySIMBAD :: 
   Bool       -- ^ @True@ for debug output
   -> ObsIdVal 
   -> String  -- ^ object name
-  -> IO (Maybe SimbadInfo)
+  -> IO (SimbadSearch, Maybe SimbadInfo)
 querySIMBAD f obsid objname = do
   putStrLn $ "Querying SIMBAD for " ++ objname
   let -- we POST the script to SIMBAD
       script = mconcat [
                  "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
-                 , "query id ", BS8.pack objname, "\n" ]
+                 , "query id ", BS8.pack searchTerm, "\n" ]
 
       -- TODO: support roll over to Strasbourg site if the ADS mirror
       --       is not accessible
       -- uriBase = "http://simbad.u-strasbg.fr/"
       uriBase = "http://simbad.harvard.edu/"
       uri = uriBase <> "simbad/sim-script"
+
+      -- TODO: "clean" the tatget name of known "issues"
+      --       that make Simbad matches fail
+      searchTerm = objname
 
   when f $ putStrLn ">> Script:" >> print script
 
@@ -182,16 +186,24 @@ querySIMBAD f obsid objname = do
   let rval = listToMaybe ls >>= parseObject 
   -- TODO: should have displayed the error string so this can be ignored
   when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
-  return $ case rval of
-    Just (a,b,c) -> Just SimbadInfo {
-                              smObsId = obsid
-                              , smTarget = objname
-                              , smName = a
-                              , smType3 = b
-                              , smType = c
-                              , smLastChecked = cTime
-                            }
-    Nothing      -> Nothing
+
+  let searchInfo = SimbadSearch {
+                     smsObsId = obsid
+                     , smsSearchTerm = searchTerm
+                     , smsLastChecked = cTime
+                     }
+
+      results = case rval of
+        Just (a,b,c) -> Just SimbadInfo {
+                                  smObsId = obsid
+                                  , smTarget = objname
+                                  , smName = a
+                                  , smType3 = b
+                                  , smType = c
+                                }
+        Nothing      -> Nothing
+
+  return (searchInfo, results)
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
@@ -501,9 +513,9 @@ findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal])
 findMissingObsIds = do
   (want, have, unarchived) <- doDB $ do
       handleMigration
-      allObsIds <- project SiObsIdField $ (SiScienceObsField ==. True)
-      haveObsIds <- project SoObsIdField $ CondEmpty      
-      unArchivedObsIds <- project SoObsIdField $ (SoStatusField /=. ("archived" :: String))
+      allObsIds <- project SiObsIdField (SiScienceObsField ==. True)
+      haveObsIds <- project SoObsIdField CondEmpty      
+      unArchivedObsIds <- project SoObsIdField (SoStatusField /=. ("archived" :: String))
       return (allObsIds, haveObsIds, unArchivedObsIds)
 
   let swant = S.fromList want
@@ -530,22 +542,29 @@ addResults missing unarchived = do
 
 -- | Query SIMBAD for any targets we do not know about.
 --
+--   For now we do not take advantage of the "age" field
+--   of the simbad search structure; i.e. we do not
+--   re-search old results, or even check to see if the
+--   logic for searches has changed (i.e. compare the field name,
+--   after \"cleaning\" to that used in the previous search).
+--
+--   Also, the comparison is per obsid rather than search name,
+--   so multiple observations of the same field will end up
+--   repeating the same simbad query.
+-- 
 identifyObjects :: [ScienceObs] -> IO ()
 identifyObjects sos = do
   putStrLn $ "## Checking SIMBAD for " ++ slen sos ++ " targets"
-  let tgs = S.fromList $ map (soObsId &&& soTarget) sos
-
-  -- get the list of previously-identified targets
-  knowns <- doDB $ project (SmObsIdField,SmTargetField) $ CondEmpty
-  
-  -- convert to sets for membership checks
-  let kset = S.fromList knowns
-      todo = tgs `S.difference` kset
-
-  mans <- mapM (uncurry (querySIMBAD False)) $ S.toList todo
-  let ans = catMaybes mans
-  putStrLn $ "## Found " ++ slen ans ++ " results"
+  dobsids <- doDB $ project SmsObsIdField CondEmpty
+  let dset = S.fromList dobsids
+      todos = filter (flip S.member dset . fst) $ map (soObsId &&& soTarget) sos
+  putStrLn $ "### After checking database, querying " ++ slen todos ++ " targets"
+  rsps <- mapM (uncurry (querySIMBAD False)) todos
+  let (searches, minfos) = unzip rsps
+      ans = catMaybes minfos
+  putStrLn $ "## Found " ++ slen ans ++ " results from " ++ slen searches ++ "searches"
   doDB $ forM_ ans insertSimbadInfo 
+  doDB $ forM_ searches insertSimbadSearch
 
 -- | add in the overlap observations; that is, the table of
 --   overlaps and information about the overlap obs if it is
@@ -558,7 +577,7 @@ addOverlaps f os = do
   let oids = S.toList $ S.fromList $ map ovOverlapId os
   putStrLn $ "# Processing " ++ slen os ++ " overlaps with " ++ slen oids ++ " different ObsIds"
 
-  let countOid oid = count $ (SoObsIdField ==. oid)
+  let countOid oid = count (SoObsIdField ==. oid)
   cs <- doDB $ forM oids countOid 
   let unknowns = map fst $ filter ((==0) . snd) $ zip oids cs
   putStrLn $ "# Of these, there are " ++ slen unknowns ++ " 'new' ObsIds"
@@ -692,7 +711,6 @@ printSimbadInfo SimbadInfo{..} = do
   putStrLn $ "   name: " ++ smName
   putStrLn $ "   type: " ++ fromSimbadType smType3
   putStrLn $ "   type: " ++ smType
-  putStrLn $ "checked: " ++ show smLastChecked
 
 usage :: IO ()
 usage = do
@@ -715,7 +733,7 @@ main = do
     ("simbad":name:[]) -> 
       querySIMBAD True (ObsIdVal 1) name 
       >>= maybe (putStrLn ("No match found for: " ++ name))
-                printSimbadInfo
+                printSimbadInfo . snd
 
     _ -> usage
 
