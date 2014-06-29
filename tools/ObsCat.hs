@@ -624,7 +624,7 @@ updateDB f = withSocketsDo $ do
 
   addResults mres ures
 
-  -- Look for any new objects (only worth doing this in the
+  -- Look for any new objects; only worth doing this in the
   -- new set of objects since I am assuming the SIMBAD 
   -- update rate for the types of object name we will find as
   -- Chandra targets is low. That is not to say we should not
@@ -633,11 +633,13 @@ updateDB f = withSocketsDo $ do
   --
   identifyObjects $ map snd mres
 
-  -- add in the overlaps
+  {-
+  -- add in the overlaps; commented out for now
   let sos = map snd mres ++ map snd ures
   putStrLn $ "## Processing " ++ slen sos ++ " observations for overlaps"
   overlaps <- forM sos $ \ScienceObs{..} -> getOverlaps soObsId soRA soDec
   addOverlaps f $ concat overlaps
+  -}
 
 viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
