@@ -304,4 +304,33 @@ sts = [
  , STS (Just 401582) (toOI 15785) (Just 2)           "SXP 1062"   "2014:180:12:03:37.884"  29.7 (Just ACISI) (Just NONE)  21.9939 (-73.5588) 109.89 108.39  74.90
  , STS Nothing (SpecialObs "T_E57") Nothing       "CAL-ER (52670)"   "2014:180:21:07:45.668"   0.1 Nothing Nothing 140.2000  (-2.6000) 235.22  48.09  97.07   
 
+  -- JUN3014B
+ , STS Nothing (SpecialObs  "GG_57") Nothing        "CAL-ER (52669)" "2014:180:23:51:32.042"   1.0  Nothing Nothing 240.0000 (-32.0000) 274.63 144.84  96.90   
+ , STS Nothing (SpecialObs  "G1_57") Nothing        "CAL-ER (52668)" "2014:181:00:54:54.828"  10.0  Nothing Nothing 292.0000   4.0000 155.02 149.86 140.46   
+ , STS Nothing (SpecialObs  "T_X58") Nothing        "CAL-ER (52667)" "2014:181:06:01:43.739"   0.1  Nothing Nothing 280.0000   2.0000 177.70 154.81  25.13   
+ , STS (Just 702973) (toOI    16522) (Just 0)            "3C 220.3" "2014:181:09:10:40.739"  45.0 (Just ACISS) (Just NONE) 144.6704  83.2641 313.18  62.23  92.89
+ , STS (Just 703022) (toOI    16310) (Just 0)             "Mkn 766" "2014:181:22:11:21.339"  61.1 (Just ACISS) (Just HETG) 184.6056  29.8371 252.00  74.62  59.61
+ , STS (Just 801396) (toOI    16142) (Just 0)   "Ophiuchus Cluster" "2014:182:15:45:13.979"  33.0 (Just ACISI) (Just NONE) 258.1021 (-23.3820) 266.99 159.54  90.20
+ , STS (Just 703022) (toOI    16629) (Just 0)             "Mkn 766" "2014:183:01:30:46.620"  35.6 (Just ACISS) (Just HETG) 184.6056  29.8371 252.00  73.70  90.20
+ , STS Nothing (SpecialObs  "I6629") Nothing        "CAL-ER (52666)" "2014:183:11:33:46.410"   0.0  Nothing Nothing 184.9477  30.8553 252.74  73.33   1.40   
+ , STS Nothing (SpecialObs  "T_E58") Nothing        "CAL-ER (52664)" "2014:183:12:20:59.640"   0.1  Nothing Nothing 184.9477  30.8553 252.76  73.30   0.02   
+ , STS Nothing (SpecialObs  "T_X59") Nothing        "CAL-ER (52663)" "2014:183:16:14:37.806"   0.1  Nothing Nothing 181.0000  43.0000 259.21  67.14  13.18   
+ , STS (Just 702973) (toOI    16081) (Just 0)            "3C 220.3" "2014:184:01:20:37.640"  45.0 (Just ACISS) (Just NONE) 144.6704  83.2641 313.18  62.18  45.80
+ , STS (Just 801421) (toOI    16279) (Just 0)       "G229.64+77.96" "2014:184:14:22:10.332"  19.0 (Just ACISI) (Just NONE) 180.2929  23.1008 240.21  70.71  72.20
+ , STS (Just 801396) (toOI    16626) (Just 0)   "Ophiuchus Cluster" "2014:184:20:14:44.248"  31.1 (Just ACISI) (Just NONE) 258.1021 (-23.3820) 266.99 157.45  91.79
+ , STS (Just 703022) (toOI    16628) (Just 0)             "Mkn 766" "2014:185:05:28:36.889"  49.6 (Just ACISS) (Just HETG) 184.6056  29.8371 252.00  71.91  90.20
+ , STS (Just 702965) (toOI    16072) (Just 0)      "SDSSJ1036+0221" "2014:185:19:39:32.243"   3.0 (Just ACISS) (Just NONE) 159.1320   2.3869 244.29  57.46  39.46
+ , STS (Just 601122) (toOI    16597) (Just 3)              "Sgr A*" "2014:185:21:08:41.115"  18.3 (Just ACISS) (Just NONE) 266.3966 (-28.9905) 287.71 163.28 106.42
+ , STS Nothing (SpecialObs  "I6597") Nothing        "CAL-ER (52661)" "2014:186:02:31:12.779"   0.0  Nothing Nothing 248.0000 (-32.0000) 277.05 146.98  16.16   
+ , STS Nothing (SpecialObs  "T_E59") Nothing        "CAL-ER (52659)" "2014:186:03:20:17.393"   0.0  Nothing Nothing 248.0000 (-32.0000) 277.02 146.95   0.03   
+ , STS Nothing (SpecialObs  "GG_59") Nothing        "CAL-ER (52658)" "2014:186:03:56:08.032"   0.1  Nothing Nothing 155.0548  (-3.2072) 239.69  56.17  90.80   
+ , STS Nothing (SpecialObs  "G1_59") Nothing        "CAL-ER (52657)" "2014:186:08:37:40.027"   0.1  Nothing Nothing  52.3454  (-6.7863) 121.95  58.69 135.22   
+ , STS Nothing (SpecialObs  "G2_59") Nothing        "CAL-ER (52656)" "2014:186:09:23:04.850"   9.0  Nothing Nothing 342.9365 (-32.3457 ) 95.16 127.72  69.01   
+ , STS Nothing (SpecialObs  "G3_59") Nothing        "CAL-ER (52655)" "2014:186:12:40:29.672"   0.9  Nothing Nothing  52.3454  (-6.7863) 121.83  58.83  69.01   
+ , STS Nothing (SpecialObs  "T_X60") Nothing        "CAL-ER (52654)" "2014:186:13:43:44.916"   0.1  Nothing Nothing 155.0548  (-3.2072) 239.55  55.78 135.21   
+ , STS (Just 801396) (toOI    16627) (Just 0)   "Ophiuchus Cluster" "2014:186:16:22:15.393"  35.0 (Just ACISI) (Just NONE) 258.1021 (-23.3820) 266.99 155.70 100.75
+ , STS (Just 502200) (toOI    15967) (Just 0)   "1WGA J1713.4-3949" "2014:187:02:29:03.599"  30.0 (Just ACISI) (Just NONE) 258.2953 (-39.9344) 299.42 151.60  36.22
+ , STS (Just 200951) (toOI    16325) (Just 0) "US 16103196-1913062" "2014:187:11:16:20.599"   3.0 (Just ACISS) (Just NONE) 242.6265 (-19.1946) 257.34 140.07  41.98
+ , STS (Just 703022) (toOI    16630) (Just 0)             "Mkn 766" "2014:187:12:38:32.154"  31.4 (Just ACISS) (Just HETG) 184.6056  29.8371 252.00  70.03  75.12
+
  ]
