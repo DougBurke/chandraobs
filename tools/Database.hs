@@ -271,8 +271,8 @@ fetchSIMBADType stype = do
   lans <- project SmTypeField $ (SmType3Field ==. stype) `limitTo` 1
   case lans of
     [x] -> do
-      obsids <- project SmObsIdField $ (SmType3Field ==. stype)
-      ans <- forM obsids $ \o -> select $ (SoObsIdField ==. o)
+      obsids <- project SmObsIdField (SmType3Field ==. stype)
+      ans <- forM obsids $ \o -> select (SoObsIdField ==. o)
       return $ Just ((stype,x), concat ans)
 
     _ -> return Nothing
@@ -285,7 +285,7 @@ fetchConstellation con =
 -- | Return observations which match this category, in time order.
 fetchCategory :: (MonadIO m, PersistBackend m) => String -> m [ScienceObs]
 fetchCategory cat = do
-  propNums <- project PropNumField $ (PropCategoryField ==. cat)
+  propNums <- project PropNumField (PropCategoryField ==. cat)
   sos <- forM propNums $ \pn -> select $ (SoProposalField ==. pn) `limitTo` 1
   return $ concat sos
 
@@ -350,7 +350,7 @@ reportSize = do
 --   make sure that the details match.
 insertScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
 insertScienceObs s = do
-  n <- count $ (SoObsIdField ==. soObsId s)
+  n <- count (SoObsIdField ==. soObsId s)
   when (n == 0) $ insert_ s
 
 -- | Checks that the proposal is not known about before inserting it.
@@ -359,7 +359,7 @@ insertScienceObs s = do
 --   make sure that the details match.
 insertProposal :: (MonadIO m, PersistBackend m) => Proposal -> m ()
 insertProposal p = do
-  n <- count $ (PropNumField ==. propNum p)
+  n <- count (PropNumField ==. propNum p)
   when (n == 0) $ insert_ p
 
 -- | Checks that the data is not known about before inserting it.
@@ -368,14 +368,7 @@ insertProposal p = do
 --   make sure that the details match.
 insertSimbadInfo :: (MonadIO m, PersistBackend m) => SimbadInfo -> m ()
 insertSimbadInfo sm = do
-  n <- count $ (SmObsIdField ==. smObsId sm)
-
-  -- We should not need to do this, but because the design is in
-  -- flux I am doing a run-time check here
-  m <- count $ (SmTargetField ==. smTarget sm)
-  when (n == 0 && m /= 0) $ 
-    liftIO $ putStrLn $ "WARNING: multiple Simbad objects with target = " ++ smTarget sm
-
+  n <- count (SmObsIdField ==. smObsId sm)
   when (n == 0) $ insert_ sm
 
 -- | Checks that the data is not known about before inserting it.
@@ -384,6 +377,6 @@ insertSimbadInfo sm = do
 --   make sure that the details match.
 insertSimbadSearch :: (MonadIO m, PersistBackend m) => SimbadSearch -> m ()
 insertSimbadSearch sm = do
-  n <- count $ (SmsObsIdField ==. smsObsId sm)
+  n <- count (SmsObsIdField ==. smsObsId sm)
   when (n == 0) $ insert_ sm
 

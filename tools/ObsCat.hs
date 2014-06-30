@@ -557,12 +557,12 @@ identifyObjects sos = do
   putStrLn $ "## Checking SIMBAD for " ++ slen sos ++ " targets"
   dobsids <- doDB $ project SmsObsIdField CondEmpty
   let dset = S.fromList dobsids
-      todos = filter (flip S.member dset . fst) $ map (soObsId &&& soTarget) sos
+      todos = filter (not . flip S.member dset . fst) $ map (soObsId &&& soTarget) sos
   putStrLn $ "### After checking database, querying " ++ slen todos ++ " targets"
   rsps <- mapM (uncurry (querySIMBAD False)) todos
   let (searches, minfos) = unzip rsps
       ans = catMaybes minfos
-  putStrLn $ "## Found " ++ slen ans ++ " results from " ++ slen searches ++ "searches"
+  putStrLn $ "## Found " ++ slen ans ++ " results from " ++ slen searches ++ " searches"
   doDB $ forM_ ans insertSimbadInfo 
   doDB $ forM_ searches insertSimbadSearch
 
