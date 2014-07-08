@@ -333,4 +333,31 @@ sts = [
  , STS (Just 200951) (toOI    16325) (Just 0) "US 16103196-1913062" "2014:187:11:16:20.599"   3.0 (Just ACISS) (Just NONE) 242.6265 (-19.1946) 257.34 140.07  41.98
  , STS (Just 703022) (toOI    16630) (Just 0)             "Mkn 766" "2014:187:12:38:32.154"  31.4 (Just ACISS) (Just HETG) 184.6056  29.8371 252.00  70.03  75.12
 
+  -- JUL0714C -- note JUL0714B starts slightly earlier so don't know if missed anything here; also, does this
+  --    account for the problem after the Mkn 766 (or whatever) observation?
+ , STS Nothing (SpecialObs "GG_60") Nothing "CAL-ER (52653)" "2014:188:21:24:23.841"   0.7  Nothing   Nothing  262.8246 (-10.0644) 238.48 153.90  85.04   
+ , STS Nothing (SpecialObs "G1_60") Nothing "CAL-ER (52652)" "2014:189:00:50:06.836"   0.1  Nothing   Nothing  315.0000 (-36.0000)  68.73 152.21 169.30   
+ , STS Nothing (SpecialObs "T_X61") Nothing "CAL-ER (52651)" "2014:189:04:34:18.157"   0.1  Nothing   Nothing   61.1048 (-14.0627) 128.41  58.03  94.29   
+ , STS (Just 401583) (toOI 15786) (Just 2)           "SXP 1062" "2014:189:07:34:13.156"  29.0 (Just ACISI) (Just NONE)  21.9880 (-73.5610) 101.15 110.18  63.65
+ , STS (Just 401562) (toOI 16636) (Just 0)         "4U 1626-67" "2014:189:16:02:06.414"  23.0  (Just HRCS) (Just LETG) 248.0058 (-67.4569) 309.94 128.70  40.73
+ , STS (Just 703022) (toOI 16311) (Just 0)            "Mkn 766" "2014:189:23:05:22.563" 125.3 (Just ACISS) (Just HETG) 184.6056  29.8371 252.00  68.04 109.96
+ , STS Nothing (SpecialObs "T_E61") Nothing "CAL-ER (52649)" "2014:191:10:38:31.548"   0.1  Nothing   Nothing  134.5944 (-20.8476) 211.18  49.60  81.76   
+ , STS Nothing (SpecialObs "GG_61") Nothing "CAL-ER (52648)" "2014:191:13:52:56.313"   0.1  Nothing   Nothing   52.0000  41.0000  87.03  51.46 156.95   
+ , STS Nothing (SpecialObs "G1_61") Nothing "CAL-ER (52647)" "2014:191:17:13:28.720"   0.2  Nothing   Nothing   76.3982 (-17.3321) 139.32  51.23  83.33   
+ , STS Nothing (SpecialObs "G2_61") Nothing "CAL-ER (52646)" "2014:191:18:32:48.581"   0.2  Nothing   Nothing  110.0000  70.0000 359.69  47.81 137.89   
+ , STS Nothing (SpecialObs "T_X62") Nothing "CAL-ER (52645)" "2014:191:20:43:02.414"   0.1  Nothing   Nothing  128.0000 (-23.0000) 202.66  48.50 157.34   
+ , STS (Just 702966) (toOI 16073) (Just 0)      "SDSS2210+1137" "2014:191:23:42:33.108"   4.0 (Just ACISS) (Just NONE) 185.2673  11.6556 250.25  72.15  76.42
+ , STS (Just 401562) (toOI 15765) (Just 0)         "4U 1626-67" "2014:192:01:25:14.958"  60.0  (Just HRCS) (Just LETG) 248.0058 (-67.4569) 309.94 127.71  92.39
+ , STS (Just 801396) (toOI 16634) (Just 0)  "Ophiuchus Cluster" "2014:192:18:36:20.789"  22.6 (Just ACISI) (Just NONE) 258.1015 (-23.3767) 261.99 149.89  70.19
+ , STS (Just 702749) (toOI 14512) (Just 1)       "RXJ1131-1231" "2014:193:01:26:33.921"  11.0 (Just ACISS) (Just NONE) 172.9657 (-12.5078) 240.65  69.80  81.23
+ , STS (Just 703008) (toOI 16530) (Just 0)           "3C 390.3" "2014:193:05:09:32.311"  50.0 (Just ACISS) (Just HETG) 280.6498  79.7819 176.89  78.09 108.63
+ , STS (Just 801396) (toOI 16635) (Just 0)  "Ophiuchus Cluster" "2014:193:19:44:42.067"  19.1 (Just ACISI) (Just NONE) 258.1015 (-23.3767) 261.99 148.90 118.48
+ , STS Nothing (SpecialObs "T_E62") Nothing "CAL-ER (52643)" "2014:194:01:40:17.178"   0.1  Nothing   Nothing  270.0000 (-42.0000) 310.59 152.67  46.84   
+ , STS Nothing (SpecialObs "GG_62") Nothing "CAL-ER (52642)" "2014:194:04:40:18.629"   0.8  Nothing   Nothing  285.0000   2.0000 196.06 155.12 125.28   
+ , STS Nothing (SpecialObs "ECT62") Nothing "CAL-ER (52641)" "2014:194:08:27:02.831"   0.4  Nothing   Nothing  268.0000  40.0000 204.81 114.11  41.07   
+ , STS Nothing (SpecialObs "G2_62") Nothing "CAL-ER (52640)" "2014:194:10:14:02.932"   0.4  Nothing   Nothing  207.8079 (-48.6439) 258.94 109.65 115.45   
+ , STS Nothing (SpecialObs "T_X63") Nothing "CAL-ER (52639)" "2014:194:11:51:04.382"   0.1  Nothing   Nothing  169.9081   3.4450 246.45  58.54  61.75   
+ , STS (Just 801396) (toOI 16143) (Just 0)  "Ophiuchus Cluster" "2014:194:14:45:29.404"  15.0 (Just ACISI) (Just NONE) 258.1015 (-23.3767) 261.99 148.14  89.78
+ , STS (Just 401562) (toOI 16637) (Just 0)         "4U 1626-67" "2014:194:19:26:35.236"  50.0  (Just HRCS) (Just LETG) 248.0058 (-67.4569) 309.94 126.49  70.19
+
  ]

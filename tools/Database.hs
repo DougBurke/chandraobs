@@ -31,6 +31,8 @@ module Database ( getCurrentObs
                 -- , insertSimbadSearch
                 , insertSimbadMatch
                 , insertSimbadNoMatch
+
+                , insertOrReplace
                 ) where
 
 import Control.Applicative ((<$>))
@@ -43,6 +45,7 @@ import Data.Maybe (catMaybes, listToMaybe)
 import Data.Ord (comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
+import Database.Groundhog.Core (PersistEntity, EntityConstr, RestrictionHolder)
 import Database.Groundhog.Postgresql
 
 import Types
@@ -364,14 +367,7 @@ insertScienceObs s = do
 --
 --   Acts as `insertScienceObs` if the observation is not known about.
 replaceScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
-replaceScienceObs s = do
-  msi <- select $ (SoObsIdField ==. soObsId s) `limitTo` 1
-  case msi of
-    [si] -> when (si /= s) $ do
-                        -- would like to use replace, but need a key for that
-                        delete (SoObsIdField ==. soObsId s)
-                        insert_ s
-    _ -> insert_ s
+replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
 
 -- | Checks that the proposal is not known about before inserting it.
 --
@@ -411,4 +407,26 @@ insertSimbadNoMatch :: (MonadIO m, PersistBackend m) => SimbadNoMatch -> m ()
 insertSimbadNoMatch sm = do
   n <- count (SmnTargetField ==. smnTarget sm)
   when (n == 0) $ insert_ sm
+
+-- | If the record is not known - as defined by the condition
+--   then add it, otherwise check the stored value and, if
+--   different, replace it.
+--
+--   Note that this does not take advantage of keys for
+--   identification or deletion, rather it uses the
+--   supplied constraint.
+--
+insertOrReplace ::
+    (MonadIO m, PersistBackend m, PersistEntity v, Eq v,
+     EntityConstr v c)
+    => Cond (PhantomDb m) (RestrictionHolder v c)
+    -> v
+    -> m ()
+insertOrReplace cond newVal = do
+  ans <- select $ cond `limitTo` 1
+  case ans of
+    (oldVal:_) -> when (oldVal /= newVal) $ do
+                                delete cond
+                                insert_ newVal
+    _ -> insert_ newVal
 
