@@ -25,9 +25,12 @@ module Database ( getCurrentObs
                 , fetchProposal
                 , fetchInstrument
                 , insertScienceObs
+                , replaceScienceObs
                 , insertProposal
-                , insertSimbadInfo
-                , insertSimbadSearch
+                -- , insertSimbadInfo
+                -- , insertSimbadSearch
+                , insertSimbadMatch
+                , insertSimbadNoMatch
                 ) where
 
 import Control.Applicative ((<$>))
@@ -247,15 +250,20 @@ makeSchedule rs = do
 
 -- | Do we have any SIMBAD information about the target?
 --
---   Could use ObsId instead?
---
---   NOTE: there is no longer a constraint that the target field
---   is unique in the SimbadInfo structure, so there could be
---   multiple matches.
-getSimbadInfo :: (MonadIO m, PersistBackend m) => String -> m (Maybe SimbadInfo)
-getSimbadInfo tgt = do
-  ans <- select $ (SmTargetField ==. tgt) `limitTo` 1
-  return $ listToMaybe ans
+getSimbadInfo :: 
+  (MonadIO m, PersistBackend m) 
+  => String   -- ^ target name (not the actual SIMBAD search term)
+  -> m (Maybe SimbadInfo)
+getSimbadInfo target = do
+  keys <- project SmmInfoField $ (SmmTargetField ==. target) `limitTo` 1
+  case keys of
+    [key] -> get key
+    _ -> return Nothing
+{-
+  case listToMaybe keys of
+    Just key -> get key
+    _ -> return Nothing
+-}
 
 -- | Return all observations of the given SIMBAD type.
 --
@@ -264,16 +272,15 @@ fetchSIMBADType ::
   => SimbadType 
   -> m (Maybe (SimbadTypeInfo, [ScienceObs]))
 fetchSIMBADType stype = do
-  -- TODO: use a join, or at least have a relationship between the
-  --       two tables to make use of the database, since the following
-  --       is not nice!
+  -- TODO: would be nice to be able to use the database to do this,
+  --       or perhaps switch to a graph databse.
   -- 
-  lans <- project SmTypeField $ (SmType3Field ==. stype) `limitTo` 1
-  case lans of
-    [x] -> do
-      obsids <- project SmObsIdField (SmType3Field ==. stype)
-      ans <- forM obsids $ \o -> select (SoObsIdField ==. o)
-      return $ Just ((stype,x), concat ans)
+  ans <- project (AutoKeyField,SmiTypeField) $ (SmiType3Field ==. stype) `limitTo` 1
+  case ans of
+    [(key,ltype)] -> do
+      targets <- project SmmTargetField (SmmInfoField ==. key)
+      sos <- forM targets $ \t -> select (SoTargetField ==. t)
+      return $ Just ((stype,ltype), concat sos)
 
     _ -> return Nothing
 
@@ -353,6 +360,19 @@ insertScienceObs s = do
   n <- count (SoObsIdField ==. soObsId s)
   when (n == 0) $ insert_ s
 
+-- | Replaces the science observation with the new values, if it is different.
+--
+--   Acts as `insertScienceObs` if the observation is not known about.
+replaceScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
+replaceScienceObs s = do
+  msi <- select $ (SoObsIdField ==. soObsId s) `limitTo` 1
+  case msi of
+    [si] -> when (si /= s) $ do
+                        -- would like to use replace, but need a key for that
+                        delete (SoObsIdField ==. soObsId s)
+                        insert_ s
+    _ -> insert_ s
+
 -- | Checks that the proposal is not known about before inserting it.
 --
 --   If it already exists in the database the new value is ignored; there is no check to
@@ -362,13 +382,15 @@ insertProposal p = do
   n <- count (PropNumField ==. propNum p)
   when (n == 0) $ insert_ p
 
+{-
+
 -- | Checks that the data is not known about before inserting it.
 --
 --   If it already exists in the database the new value is ignored; there is no check to
 --   make sure that the details match.
 insertSimbadInfo :: (MonadIO m, PersistBackend m) => SimbadInfo -> m ()
 insertSimbadInfo sm = do
-  n <- count (SmObsIdField ==. smObsId sm)
+  n <- count (SmiNameField ==. smiName sm)
   when (n == 0) $ insert_ sm
 
 -- | Checks that the data is not known about before inserting it.
@@ -376,7 +398,17 @@ insertSimbadInfo sm = do
 --   If it already exists in the database the new value is ignored; there is no check to
 --   make sure that the details match.
 insertSimbadSearch :: (MonadIO m, PersistBackend m) => SimbadSearch -> m ()
-insertSimbadSearch sm = do
-  n <- count (SmsObsIdField ==. smsObsId sm)
+insertSimbadSearch = either insertSimbadNoMatch insertSimbadMatch
+
+-}
+
+insertSimbadMatch :: (MonadIO m, PersistBackend m) => SimbadMatch -> m ()
+insertSimbadMatch sm = do
+  n <- count (SmmTargetField ==. smmTarget sm)
+  when (n == 0) $ insert_ sm
+
+insertSimbadNoMatch :: (MonadIO m, PersistBackend m) => SimbadNoMatch -> m ()
+insertSimbadNoMatch sm = do
+  n <- count (SmnTargetField ==. smnTarget sm)
   when (n == 0) $ insert_ sm
 

@@ -223,9 +223,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       lenVal = toHtml $ showExpTime $ fromMaybe soApprovedTime soObservedTime
 
       otherName = case msimbad of
-        Just sm -> if similarName sm 
+        Just sm -> if similarName sm soTarget
                    then mempty 
-                   else (" - also called " <> toHtml (smName sm) <> " -")
+                   else (" - also called " <> toHtml (smiName sm) <> " -")
         _ -> mempty
 
 
@@ -256,10 +256,10 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       -- TODO: check case and spaces
       simbadTxt SimbadInfo{..} = 
-        let slink = H.toValue $ toSIMBADLink smName
+        let slink = H.toValue $ toSIMBADLink smiName
         in mconcat [
               " is "
-              , typeLinkSearch smType3 (cleanupSIMBADType smType)
+              , typeLinkSearch smiType3 (cleanupSIMBADType smiType)
               , ". "
               , subArrayTxt
               , "More information on the target can be found at "

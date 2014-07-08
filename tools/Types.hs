@@ -831,33 +831,52 @@ instance Parsable SimbadType where
 
 -- | Information on an object identifier, retrieved from SIMBAD.
 --
---   I originally stored the ra,dec of the source location here;
---   but no longer do so. I guess if I wanted to check that it
---   was the correct location then this should be done when processing
---   the response from Simbad and not within the database/here.
+--   I originally tried to combine the SIMBAD information with
+--   the observation information, but I have finally decided to
+--   have three structures
 --
---   See the related `SimbadSearch` type, which indicates whether
---   a search has been made.
+--     - `SimbadInfo` which stores the information from SIMBAD
+--
+--     - `SimbadMatch` which matches a `ScienceObs` to a `SimbadInfo`
+--
+--     - `SimbadNoMatch` which indicates that we have not found a
+--       match when searching SIMBAD.
+--
+--   At present `SimbadSearch` is a union of `SimbadNoMatch` and
+--   `SimbadMatch`.
 --
 data SimbadInfo = SimbadInfo {
-   smObsId :: ObsIdVal     -- ^ Chandra observation
-   , smTarget :: String    -- ^ Chandra target name
-   , smName :: String      -- ^ the primary identifier for the object
-   , smType3 :: SimbadType -- ^ short form identifier for siType
-   , smType :: String      -- ^ the primary type of the object (long form)
+   smiName :: String        -- ^ the primary identifier for the object
+   , smiType3 :: SimbadType -- ^ short form identifier for siType
+   , smiType :: String      -- ^ the primary type of the object (long form)
   }
   deriving Eq
 
--- | Indicates that a search has been made of Simbad for
---   this source. If a match is found then it is stored
---   in a `SimbadInfo` structure.
+-- | Indicates that there is a SIMBAD match for the
+--   target name.
 --
-data SimbadSearch = SimbadSearch {
-    smsObsId :: ObsIdVal   -- ^ observation
-    , smsSearchTerm :: String   -- ^ value used for the simbad search
-    , smsLastChecked :: UTCTime
+data SimbadMatch = SimbadMatch {
+    smmTarget :: String   -- ^ target name
+    , smmSearchTerm :: String   -- ^ value used for the simbad search
+    , smmInfo :: DefaultKey SimbadInfo
+    , smmLastChecked :: UTCTime
+  }
+--  deriving Eq
+deriving instance Eq SimbadMatch
+
+-- | Indicates that there is no SIMBAD match for the
+--   target name. This could be folded into `SimbadMatch`
+--   if we can have a `Maybe (DefaultKey SimbadInfo)`
+--   as a type?
+--
+data SimbadNoMatch = SimbadNoMatch {
+    smnTarget :: String   -- ^ target name
+    , smnSearchTerm :: String   -- ^ value used for the simbad search
+    , smnLastChecked :: UTCTime
   }
   deriving Eq
+
+type SimbadSearch = Either SimbadNoMatch SimbadMatch
 
 -- | Do we consider the two names to be the same?
 --
@@ -866,20 +885,21 @@ data SimbadSearch = SimbadSearch {
 --   We do not use a simple edit distance comparison here
 --   since we do not want to equate 3C292 and 3C232.
 --
-similarName :: SimbadInfo -> Bool
-similarName SimbadInfo{..} =
+similarName :: SimbadInfo -> String -> Bool
+similarName SimbadInfo{..} target =
   let conv = map toLower . filter (not . isSpace)
-  in ((==) `on` conv) smTarget smName
+  in ((==) `on` conv) target smiName
 
 -- | The short and long forms of the type information from SIMBAD.
 type SimbadTypeInfo = (SimbadType, String)
 
+{-
 -- | The Simbad name is used for ordering.
 --
---   Why do we need an Ord constraint? Perhaps I should order
---   on @siObsId@?
+--   Why do we need an Ord constraint?
 instance Ord SimbadInfo where
-  compare = compare `on` smName
+  compare = compare `on` smiName
+-}
 
 -- | Return a link to the SIMBAD site (Strasbourg) for this object.
 --
@@ -1246,13 +1266,19 @@ mkPersist defaultCodegenConfig [groundhog|
     - name: SimbadInfo
       uniques:
         - name: SimbadInfoConstraint
-          fields: [smObsId]
-- entity: SimbadSearch
+          fields: [smiName]
+- entity: SimbadMatch
   constructors:
-    - name: SimbadSearch
+    - name: SimbadMatch
       uniques:
-        - name: SimbadSearchConstraint
-          fields: [smsObsId]
+        - name: SimbadMatchConstraint
+          fields: [smmTarget]
+- entity: SimbadNoMatch
+  constructors:
+    - name: SimbadNoMatch
+      uniques:
+        - name: SimbadNoMatchConstraint
+          fields: [smnTarget]
 |]
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
@@ -1264,5 +1290,6 @@ handleMigration =
     migrate (undefined :: OverlapObs)
     migrate (undefined :: Proposal)
     migrate (undefined :: SimbadInfo)
-    migrate (undefined :: SimbadSearch)
+    migrate (undefined :: SimbadMatch)
+    migrate (undefined :: SimbadNoMatch)
 

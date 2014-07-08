@@ -7,16 +7,20 @@
 --   Usage:
 --       obscat [debug]
 --       obscat [obsid]
---       obscat simbad <name>
 --
---     where the obsid and simbad/<name> arguments are for debugging
+--     where the obsid argument is for debugging
 --
 -- TODO:
 --    extract more info
+--
 --    how to update existing info
 --
+--    add in the data as we get it, rather than do all the
+--    queries then all the insertions. This makes it a bit
+--    more "resilient" to occasional failures (i.e. do not
+--    re-query for information if we can help it).
+--
 
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
@@ -29,10 +33,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
 import Data.Char (ord)
-import Data.List (isPrefixOf)
-import Data.List.Split (splitOn)
 import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe)
-import Data.Monoid ((<>), mconcat)
 import Data.Time (UTCTime, getCurrentTime, readsTime)
 import Data.Word (Word8)
 
@@ -49,9 +50,9 @@ import System.Locale (defaultTimeLocale)
 import System.Process (readProcessWithExitCode, system)
 
 import Database (insertScienceObs
+                , replaceScienceObs
                 , insertProposal
-                , insertSimbadInfo
-                , insertSimbadSearch)
+                )
 import Types
 
 -- | What is the URL needed to query the ObsCat?
@@ -122,99 +123,6 @@ getOverlaps oid ra dec = do
         in OverlapObs oid idval rdist now
 
   return $ map toO $ drop 1 $ lines sout  
-
--- | Try and clean up SIMBAD identifiers:
---
---   NAME xxx -> xxx (seen with NAME Chandra Deep Field South)
---
-cleanupName :: String -> String
-cleanupName s =
-  if "NAME " `isPrefixOf` s
-  then drop 5 s
-  else s
-
--- use ADS mirror first.
---
--- Note that I choose to use a text-based format for returning the data,
--- rather than a VoTable, since it's easier to create a parser for the
--- former.
---
--- TODO:
---    look for opportunities like "blah blah offset[...]" where "blah blah"
---    is a match; of course, how do we then encode/match this to
---    ScienceObservation? How about "M31 BHXNe"
---
-
--- TODO: XXX how to clean up the name ??
-
-querySIMBAD :: 
-  Bool       -- ^ @True@ for debug output
-  -> ObsIdVal 
-  -> String  -- ^ object name
-  -> IO (SimbadSearch, Maybe SimbadInfo)
-querySIMBAD f obsid objname = do
-  putStrLn $ "Querying SIMBAD for " ++ objname
-  let -- we POST the script to SIMBAD
-      script = mconcat [
-                 "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
-                 , "query id ", BS8.pack searchTerm, "\n" ]
-
-      -- TODO: support roll over to Strasbourg site if the ADS mirror
-      --       is not accessible
-      -- uriBase = "http://simbad.u-strasbg.fr/"
-      uriBase = "http://simbad.harvard.edu/"
-      uri = uriBase <> "simbad/sim-script"
-
-      -- TODO: "clean" the tatget name of known "issues"
-      --       that make Simbad matches fail
-      searchTerm = objname
-
-  when f $ putStrLn ">> Script:" >> print script
-
-  cTime <- getCurrentTime
-  req <- parseUrl uri
-  let hdrs = ("User-Agent", "chandraobs-obscat") : requestHeaders req
-      req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }
-  rsp <- withManager $ httpLbs req'
-  let body = L8.unpack $ responseBody rsp
-      -- TODO: need to handle data that does not match expectations
-      --       eg if there's an error field, display it and return nothing ...
-      dropUntilNext c = drop 1 . dropWhile (not . c)
-      ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) $ lines body
-
-  when f $ putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls
-  let rval = listToMaybe ls >>= parseObject 
-  -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
-
-  let searchInfo = SimbadSearch {
-                     smsObsId = obsid
-                     , smsSearchTerm = searchTerm
-                     , smsLastChecked = cTime
-                     }
-
-      results = case rval of
-        Just (a,b,c) -> Just SimbadInfo {
-                                  smObsId = obsid
-                                  , smTarget = objname
-                                  , smName = a
-                                  , smType3 = b
-                                  , smType = c
-                                }
-        Nothing      -> Nothing
-
-  return (searchInfo, results)
-
--- | Assume we have a line from SIMBAD using the script interface using the
---   format given in querySIMBAD.
-parseObject :: String -> Maybe (String, SimbadType, String)
-parseObject txt = 
-  let toks = splitOn "\t" txt
-      toT s = fromMaybe (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
-                     $ toSimbadType s
-  in case toks of
-    (name:otype3:otype:_:[]) -> Just (cleanupName name, toT otype3, otype)
-    _ -> Nothing
 
 w8 :: Char -> Word8
 w8 = fromIntegral . ord
@@ -505,7 +413,7 @@ doDB =
   runDbConn 
 
 -- | Query the database to find any scheduled observations
---   which do not have any correspinding OCAT info, and
+--   which do not have any corresponding OCAT info, and
 --   those OCAT observations which are not archived
 --   (i.e. may need to be changed)
 --
@@ -536,35 +444,12 @@ addResults missing unarchived = do
   putStrLn $ "# Adding " ++ slen unarchived ++ " unarchived results"
   let props = S.toList $ S.fromList $ map fst missing ++ map fst unarchived
   doDB $ do
+      liftIO $ putStrLn "## missing"
       forM_ missing $ \(_,so) -> liftIO (print so) >> insertScienceObs so
-      forM_ unarchived $ \(_,so) -> liftIO (print so) >> insertScienceObs so
+      liftIO $ putStrLn "## unarchived"
+      forM_ unarchived $ \(_,so) -> liftIO (print so) >> replaceScienceObs so
+      liftIO $ putStrLn "## proposals"
       forM_ props $ \p -> liftIO (print p) >> insertProposal p
-
--- | Query SIMBAD for any targets we do not know about.
---
---   For now we do not take advantage of the "age" field
---   of the simbad search structure; i.e. we do not
---   re-search old results, or even check to see if the
---   logic for searches has changed (i.e. compare the field name,
---   after \"cleaning\" to that used in the previous search).
---
---   Also, the comparison is per obsid rather than search name,
---   so multiple observations of the same field will end up
---   repeating the same simbad query.
--- 
-identifyObjects :: [ScienceObs] -> IO ()
-identifyObjects sos = do
-  putStrLn $ "## Checking SIMBAD for " ++ slen sos ++ " targets"
-  dobsids <- doDB $ project SmsObsIdField CondEmpty
-  let dset = S.fromList dobsids
-      todos = filter (not . flip S.member dset . fst) $ map (soObsId &&& soTarget) sos
-  putStrLn $ "### After checking database, querying " ++ slen todos ++ " targets"
-  rsps <- mapM (uncurry (querySIMBAD False)) todos
-  let (searches, minfos) = unzip rsps
-      ans = catMaybes minfos
-  putStrLn $ "## Found " ++ slen ans ++ " results from " ++ slen searches ++ " searches"
-  doDB $ forM_ ans insertSimbadInfo 
-  doDB $ forM_ searches insertSimbadSearch
 
 -- | add in the overlap observations; that is, the table of
 --   overlaps and information about the overlap obs if it is
@@ -623,15 +508,6 @@ updateDB f = withSocketsDo $ do
   ures <- check res2 unarchived
 
   addResults mres ures
-
-  -- Look for any new objects; only worth doing this in the
-  -- new set of objects since I am assuming the SIMBAD 
-  -- update rate for the types of object name we will find as
-  -- Chandra targets is low. That is not to say we should not
-  -- periodically look for updated or new information on
-  -- existing targets.
-  --
-  identifyObjects $ map snd mres
 
   {-
   -- add in the overlaps; commented out for now
@@ -706,21 +582,12 @@ dump ScienceObs{..} = do
   print soSubArrayStart
   print soSubArraySize
 
-printSimbadInfo :: SimbadInfo -> IO ()
-printSimbadInfo SimbadInfo{..} = do
-  putStrLn "## SIMBAD response"
-  putStrLn $ " target: " ++ smTarget
-  putStrLn $ "   name: " ++ smName
-  putStrLn $ "   type: " ++ fromSimbadType smType3
-  putStrLn $ "   type: " ++ smType
-
 usage :: IO ()
 usage = do
   pName <- getProgName
   hPutStrLn stderr $ "Usage: " ++ pName
   hPutStrLn stderr $ "       " ++ pName ++ " debug"
   hPutStrLn stderr $ "       " ++ pName ++ " <obsid>"
-  hPutStrLn stderr $ "       " ++ pName ++ " simbad <name>"
   exitFailure
 
 main :: IO ()
@@ -732,10 +599,6 @@ main = do
         | otherwise -> case fmap fst . listToMaybe $ reads x of
              Just oid -> viewObsId oid
              _ -> usage
-    ("simbad":name:[]) -> 
-      querySIMBAD True (ObsIdVal 1) name 
-      >>= maybe (putStrLn ("No match found for: " ++ name))
-                printSimbadInfo . snd
 
     _ -> usage
 

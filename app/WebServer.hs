@@ -133,17 +133,17 @@ main = do
         scottyOpts opts . webapp
 
 -- Hack; needs cleaning up
-getDBInfo :: (MonadIO m, PersistBackend m) => Record -> m (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))
+getDBInfo :: 
+  (MonadIO m, PersistBackend m) 
+  => Record 
+  -> m (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))
 getDBInfo r = do
-  as <- case r of
-          Right x -> getSimbadInfo (soTarget x)
-          _ -> return Nothing
+  as <- either (const (return Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
   return (as, bs)
 
 webapp :: ConnectionManager cm Postgresql => cm -> ScottyM ()
 webapp cm = do
-
     let liftSQL a = liftIO $ runDbConn a cm
 
     defaultHandler errHandle
