@@ -67,9 +67,33 @@ import Web.Scotty (Parsable(..))
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
 
+{-
+This is based on 'Read Color' instance of RWH, page 142, chapter 6
+but hacked to allow a list of strings that map to the same token.
+-}
+
+tryParse :: [(a, [String])] -> String -> [(a, String)]
+tryParse [] _ = []
+tryParse ((result, attempts):xs) value =
+    -- the assumption here is that there should be only one match; we
+    -- could take the first one if there are multiple matches?
+    if length res == 1
+    then res
+    else tryParse xs value
+        where
+          res = [(result, drop (length attempt) value) | attempt <- attempts, take (length attempt) value == attempt]
+
 -- | The instrument being used.
 data Instrument = ACISS | ACISI | HRCI | HRCS 
-  deriving (Eq, Show, Read)
+  deriving (Eq, Show)
+
+instance Read Instrument where
+  readsPrec _ =
+    tryParse [ (ACISS, ["ACIS-S", "ACISS"])
+             , (ACISI, ["ACIS-I", "ACISI"])
+             , (HRCI, ["HRC-I", "HRCI"])
+             , (HRCS, ["HRC-S", "HRCS"])
+             ]
 
 fromInstrument :: Instrument -> String
 fromInstrument ACISI = "ACIS-I"

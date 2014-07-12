@@ -95,7 +95,9 @@ executable initdb
      , http-types == 0.8.*
      , monad-logger == 0.3.*
      , old-locale == 1.0.*
+     , parsec == 3.1.*
      , scotty >= 0.7 && < 0.9
+     , template-haskell >= 2.8 && < 3.0
      , text >= 1.0 && < 1.2
      , time < 1.5
      , transformers == 0.3.*
@@ -105,39 +107,6 @@ executable initdb
 
 executable obscat
   main-is:             ObsCat.hs
-  hs-source-dirs:      tools/
-  other-modules:       Types
-
-  ghc-options: -Wall
-
-  if flag(tools)
-    build-depends:
-      base >= 4.6 && < 4.8
-     , blaze-html == 0.7.*
-     , bytestring == 0.10.*
-     , containers >= 0.4 && < 0.6
-     , groundhog == 0.5.*
-     , groundhog-postgresql == 0.5.*
-     , groundhog-th == 0.5.*
-     -- TODO: what versions of http-conduit can we use
-     , http-conduit == 2.1.*
-     , http-types == 0.8.*
-     , network >= 2.4 && < 2.6
-     , monad-logger == 0.3.*
-     , process >= 1.1 && < 1.3
-     , scotty >= 0.7 && < 0.9
-     , temporary >= 1.1 && < 1.3
-     , text >= 1.0 && < 1.2
-     , split == 0.2.*
-     , old-locale == 1.0.*
-     , time < 1.5
-     , transformers == 0.3.*
-
-  else
-    buildable:  False
-
-executable querysimbad
-  main-is:             QuerySimbad.hs
   hs-source-dirs:      tools/
   other-modules:       Types
 
