@@ -45,7 +45,7 @@ import Data.Bits (Bits(..))
 import Data.Char (isSpace, toLower)
 import Data.Function (on)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
-import Data.Monoid ((<>))
+import Data.Monoid ((<>), mconcat)
 import Data.String (IsString(..))
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
@@ -343,6 +343,12 @@ newtype Dec = Dec { _unDec :: Double }
   -- deriving (Eq, Show)  
   deriving Eq
 
+{-
+
+-- TODO: since these are (currently) only used for generating
+--       the ToMarkup instance, we could use super scripts
+--       for hms.
+--
 showRA :: RA -> String
 showRA (RA ra) = 
   let rah = ra / 15.0
@@ -353,7 +359,37 @@ showRA (RA ra) =
       (m, r2) = properFraction ram
       s = r2 * 60
   in printf "%dh %dm %.1fs" h m s
+-}
 
+showRA :: RA -> H.Html
+showRA (RA ra) = 
+  let rah = ra / 15.0
+      h, m :: Int
+      r1, r2 :: Double
+      (h, r1) = properFraction rah
+      ram = r1 * 60
+      (m, r2) = properFraction ram
+      s = r2 * 60
+
+      hsym = H.sup "h"
+      msym = H.sup "m"
+      ssym = H.sup "s"
+
+      hstr, mstr, sstr :: String
+      hstr = printf "%02d" h
+      mstr = printf " %02d" m
+      sstr = printf " %04.1f" s
+
+  in mconcat [ H.toMarkup hstr
+             , hsym
+             , H.toMarkup mstr
+             , msym
+             , H.toMarkup sstr
+             , ssym
+             ]
+
+-- this is intended for HTML/UTF-8 output, so instead of
+-- "d" it uses "\176", aka \u00b0, the degree symbol.
 showDec :: Dec -> String
 showDec (Dec dec) = 
   let dabs = abs dec
@@ -364,9 +400,11 @@ showDec (Dec dec) =
       (m, r2) = properFraction dm
       s = r2 * 60
       c = if dec < 0 then '-' else '+'
-  in printf "%c%dd %d' %.1f\"" c d m s
+  -- in printf "%c%d\176 %d' %.1f\"" c d m s
+  in printf "%c%02d\176 %02d' %04.1f\"" c d m s
 
 instance H.ToMarkup RA where
+  -- toMarkup = H.toMarkup . showRA
   toMarkup = H.toMarkup . showRA
 
 instance H.ToMarkup Dec where
