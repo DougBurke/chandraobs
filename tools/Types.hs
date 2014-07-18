@@ -343,12 +343,8 @@ newtype Dec = Dec { _unDec :: Double }
   -- deriving (Eq, Show)  
   deriving Eq
 
-{-
-
--- TODO: since these are (currently) only used for generating
---       the ToMarkup instance, we could use super scripts
---       for hms.
---
+-- I do use this in ObsCat.hs for informational purposes, so keep
+-- around for now.
 showRA :: RA -> String
 showRA (RA ra) = 
   let rah = ra / 15.0
@@ -359,10 +355,9 @@ showRA (RA ra) =
       (m, r2) = properFraction ram
       s = r2 * 60
   in printf "%dh %dm %.1fs" h m s
--}
 
-showRA :: RA -> H.Html
-showRA (RA ra) = 
+htmlRA :: RA -> H.Html
+htmlRA (RA ra) = 
   let rah = ra / 15.0
       h, m :: Int
       r1, r2 :: Double
@@ -405,7 +400,7 @@ showDec (Dec dec) =
 
 instance H.ToMarkup RA where
   -- toMarkup = H.toMarkup . showRA
-  toMarkup = H.toMarkup . showRA
+  toMarkup = H.toMarkup . htmlRA
 
 instance H.ToMarkup Dec where
   toMarkup = H.toMarkup . showDec
