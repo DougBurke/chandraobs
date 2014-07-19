@@ -23,7 +23,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..))
-import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp, showRA, showDec)
+import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp)
 import Utils (obsURIString,
               showTimeDeltaFwd, showTimeDeltaBwd,
               linkToRecord
@@ -93,8 +93,8 @@ makeSchedule cTime done mdoing todo =
          td $ instVal r
          let ra = recordRa r
              dec = recordDec r
-         td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml $ showRA ra
-         td ! dataAttribute "sortvalue" (toValue dec) $ toHtml $ showDec dec
+         td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml ra
+         td ! dataAttribute "sortvalue" (toValue dec) $ toHtml dec
          td $ showConstellation r
 
       cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
