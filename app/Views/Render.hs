@@ -7,14 +7,16 @@ module Views.Render ( makeSchedule
                      ) where
 
 -- import qualified Prelude as P
-import Prelude ((.), ($), (==), (-), Integer, Either(..), Maybe(..), Show, String, mapM_, maybe, return, show, truncate)
+import Prelude ((.), ($), (==), (-), (+), Int, Integer, Either(..), Maybe(..), Show, String, map, mapM_, maybe, return, show, truncate)
 
 -- import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Monad (void)
 
-import Data.Maybe (fromMaybe)
+import Data.Bits (shiftL)
+import Data.List (foldl', intercalate)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
@@ -64,11 +66,12 @@ makeSchedule cTime done mdoing todo =
       showJoint (Left _) = "n/a"
       showJoint (Right so) = maybe "n/a" (toHtml . cleanJointName) (soJointWith so)
 
-      showConstraint _ (Left _) = "n/a"
-      showConstraint f (Right so) = case f so of
-         NoConstraint -> "no"
-         Preferred    -> "preferred"
-         Required     -> "yes"
+      -- TODO: Are there any soConstrained fields with a Preferred constraint?
+      --       If so, the output of this could be improved
+      showConstraint :: (String, Constraint) -> Maybe String
+      showConstraint (_, NoConstraint) = Nothing
+      showConstraint (l, Preferred)    = Just (l <> " preferred")
+      showConstraint (l, Required)     = Just l
 
       showTOO (Left _) = "n/a"
       showTOO (Right ScienceObs{..}) = toHtml $ fromMaybe "n/a" soTOO
@@ -78,19 +81,49 @@ makeSchedule cTime done mdoing todo =
       showConstellation (Right ScienceObs{..}) =
             constellationLinkSearch soConstellation (fromConShort soConstellation)
 
+      score NoConstraint = 0
+      score Preferred    = 1
+      score Required     = 2
+
+      -- "constraints" are a combination of soTimeCritical, soMonitor, soConstrained
+      --
+      -- for the score, we have 2 bits of info for each constraint as there are
+      -- three fields in a constraint, so need to combine them by shifting by
+      -- 2, picking an order
+      constraintScore :: Either a ScienceObs -> Int
+      constraintScore (Left _) = 0
+      constraintScore (Right ScienceObs{..}) = 
+          let f o n = n + shiftL o 2
+          in foldl' f 0 $ map score [soTimeCritical, soMonitor, soConstrained]
+
+      constraintText :: Either a ScienceObs -> Html
+      constraintText (Left _) = "n/a"
+      constraintText (Right ScienceObs{..}) = 
+          let cons = [("time critical", soTimeCritical),
+                      ("monitor", soMonitor),
+                      ("constrained", soConstrained)]
+          in case mapMaybe showConstraint cons of
+               [] -> "n/a"
+               xs -> toHtml $ intercalate ", " xs
+
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
          td $ linkToRecord r
-         td $ showJoint r
-         td $ showConstraint soTimeCritical r
-         td $ showConstraint soMonitor r
-         td $ showConstraint soConstrained r
-         td $ showTOO r
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
             ! class_ "starttime" 
               $ toHtml $ ct $ recordStartTime r
          td $ instVal r
+
+         td $ showJoint r
+         td $ showTOO r
+         {-
+         td $ showConstraint soTimeCritical r
+         td $ showConstraint soMonitor r
+         td $ showConstraint soConstrained r
+         -}
+         td ! dataAttribute "sortValue" (toValue (constraintScore r)) $ constraintText r
+
          let ra = recordRa r
              dec = recordDec r
          td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml ra
@@ -106,17 +139,21 @@ makeSchedule cTime done mdoing todo =
       conv :: Show a => a -> Html
       conv = toHtml . show
 
+      -- TODO: change order
       tblBlock = table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
                     thead $ tr $ do
                       th "Target"
-                      th "Joint with"
-                      th "Time critical"
-                      th "Monitor"
-                      th "Constrained"
-                      th "TOO period"
                       th "Exposure time"
                       th "Start"
                       th "Instrument"
+                      th "Joint with"
+                      th "TOO period"
+                      {-
+                      th "Time critical"
+                      th "Monitor"
+                      th "Constrained"
+                      -}
+                      th "Constraints"
                       th "Right Ascension"
                       th "Declination"
                       th "Constellation"
