@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | An example data set taken from the Chandra Short-Term schedule.
 --

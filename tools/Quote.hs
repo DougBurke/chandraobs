@@ -6,7 +6,7 @@
 -- quasi quoter for the Chandra Short-Term schedule syntax
 --
 
-module Quote (stsParse, stsParseFile, dummyParse) where
+module Quote (stsParse, stsParseFile) where
 
 import qualified Language.Haskell.TH as TH
 
@@ -78,10 +78,4 @@ stsExpr s =
   case parseSTS s of -- NOTE: no location info
     Left e -> error $ show e
     Right v -> lift v -- [| v |]
-
-dummyParse :: QuasiQuoter
-dummyParse = QuasiQuoter dummyExpr (error "quotePat DUMMY") (error "quoteType DUMMY") (error "QuoteDec DUMMY")
-
-dummyExpr :: String -> TH.Q TH.Exp
-dummyExpr s = [| map length $ map (filter (=='x')) $ lines s |]
 
