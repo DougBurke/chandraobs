@@ -73,6 +73,7 @@ nav > ul > li > a {
   padding: 0 0.5em;
 
   border-bottom: 4px solid rgba(0,0,0,0);
+  /* border-bottom: 4px solid inherit; */
 
   -webkit-transition: all 0.2s ease-in-out;
   -moz-transition: all 0.2s ease-in-out;
@@ -213,6 +214,7 @@ div.radiobuttons label {
   color: #666; /* #aaa; */
 
   border-bottom: 4px solid rgba(0,0,0,0);
+  /* border-bottom: 4px solid inherit; */
 }
 
 div.radiobuttons label:hover {
