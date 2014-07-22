@@ -18,6 +18,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Set as S
 
 import Control.Monad (forM_, when)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
 import Data.Char (toLower)
@@ -36,7 +37,8 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
-import Database (insertSimbadMatch
+import Database (insertSimbadInfo
+                , insertSimbadMatch
                 , insertSimbadNoMatch)
 import Types
 
@@ -95,7 +97,7 @@ querySIMBAD f objname = do
       uriBase = "http://simbad.harvard.edu/"
       uri = uriBase <> "simbad/sim-script"
 
-      -- TODO: "clean" the tatget name of known "issues"
+      -- TODO: "clean" the target name of known "issues"
       --       that make Simbad matches fail
       searchTerm = cleanTargetName objname
 
@@ -182,6 +184,16 @@ gropuSorted ((a,b):xs) = go a [b] [] xs
 
 -}
 
+-- not pulling in Lens for this, so hard code it for our needs
+_2 :: (a, b, c) -> b
+_2 (_, b, _) = b
+
+putIO :: (MonadIO m) => String -> m ()
+putIO = liftIO . putStrLn
+
+blag :: (MonadIO m) => Bool -> String -> m ()
+blag f = when f . putIO
+
 -- | The flag is @True@ to get debug output from the @querySIMBAD@ calls.
 --
 -- Need to identify
@@ -251,10 +263,17 @@ updateDB f = withSocketsDo $ do
       (searchRes, minfo) <- querySIMBAD f tgt
       doDB $ case minfo of
                Just si -> do
-                          key <- insert si
+                          blag f $ ">> inserting SimbadInfo for " ++ smiName si
+                          (key, cleanFlag) <- insertSimbadInfo si
+                          blag f $ ">> and SimbadMatch with target=" ++ _2 searchRes
                           insertSimbadMatch $ toM searchRes key
-                                            
-               _ -> insertSimbadNoMatch $ toNM searchRes
+
+                          -- TODO: is this correct?
+                          when cleanFlag $ delete (SmnTargetField ==. smiName si)
+      
+               _ -> do
+                 blag f $ ">> Inserting SimbadNoMatch for target=" ++ _2 searchRes
+                 insertSimbadNoMatch $ toNM searchRes
 
   {-
   forM_ tgs $ 

@@ -27,8 +27,7 @@ module Database ( getCurrentObs
                 , insertScienceObs
                 , replaceScienceObs
                 , insertProposal
-                -- , insertSimbadInfo
-                -- , insertSimbadSearch
+                , insertSimbadInfo
                 , insertSimbadMatch
                 , insertSimbadNoMatch
 
@@ -378,25 +377,21 @@ insertProposal p = do
   n <- count (PropNumField ==. propNum p)
   when (n == 0) $ insert_ p
 
-{-
-
 -- | Checks that the data is not known about before inserting it.
 --
---   If it already exists in the database the new value is ignored; there is no check to
---   make sure that the details match.
-insertSimbadInfo :: (MonadIO m, PersistBackend m) => SimbadInfo -> m ()
+--   Returns the key for the item and a flag indicating whether
+--   the key already exists (so previous SimbadNoMatch may need
+--   to be deleted).
+--
+insertSimbadInfo :: (MonadIO m, PersistBackend m) => SimbadInfo -> m (AutoKey SimbadInfo, Bool)
 insertSimbadInfo sm = do
-  n <- count (SmiNameField ==. smiName sm)
-  when (n == 0) $ insert_ sm
-
--- | Checks that the data is not known about before inserting it.
---
---   If it already exists in the database the new value is ignored; there is no check to
---   make sure that the details match.
-insertSimbadSearch :: (MonadIO m, PersistBackend m) => SimbadSearch -> m ()
-insertSimbadSearch = either insertSimbadNoMatch insertSimbadMatch
-
--}
+  ems <- insertByAll sm
+  case ems of
+    Right newkey -> return (newkey, False)
+    Left oldkey -> do
+             Just oldsm <- get oldkey
+             when (oldsm /= sm) $ error $ "!!! SimbadInfo does not match !!!" -- TODO: what now?
+             return (oldkey, True)
 
 insertSimbadMatch :: (MonadIO m, PersistBackend m) => SimbadMatch -> m ()
 insertSimbadMatch sm = do
