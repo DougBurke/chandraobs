@@ -20,6 +20,7 @@ module Database ( getCurrentObs
                 , reportSize
                 , getSimbadInfo
                 , fetchSIMBADType
+                , fetchObjectTypes
                 , fetchConstellation
                 , fetchCategory
                 , fetchProposal
@@ -39,7 +40,8 @@ import Control.Monad (forM, liftM, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Either (partitionEithers)
-import Data.List (sortBy)
+import Data.Function (on)
+import Data.List (groupBy, sortBy)
 import Data.Maybe (catMaybes, listToMaybe)
 import Data.Ord (comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
@@ -281,7 +283,7 @@ fetchSIMBADType stype = do
   mtype <- project SmiTypeField $ (SmiType3Field ==. stype) `limitTo` 1
   case mtype of
     [ltype] -> do
-               keys <- project AutoKeyField $ (SmiType3Field ==. stype)
+               keys <- project AutoKeyField (SmiType3Field ==. stype)
                sos <- forM keys $ \key -> do
                           targets <- project SmmTargetField (SmmInfoField ==. key)
                           obs <- forM targets $ \t -> select (SoTargetField ==. t)
@@ -289,6 +291,22 @@ fetchSIMBADType stype = do
                return $ Just ((stype, ltype), concat sos)
 
     _ -> return Nothing
+
+-- | Return information on the object types we have stored.
+--
+--   The return value includes the number of objects that 
+--   have the given type.
+--
+fetchObjectTypes :: 
+  (MonadIO m, PersistBackend m) 
+  => m [(SimbadTypeInfo, Int)]
+fetchObjectTypes = do
+  -- res <- (snd `liftM`) `liftM` selectAll -- selectAll returns [(Autokey v, v)] 
+  res <- select $ CondEmpty `orderBy` [Asc SmiType3Field]
+  let srt = groupBy ((==) `on` smiType3) res
+      t [] = error "impossible fetchObjectTypes condition occurred"
+      t xs@(x:_) = ((smiType3 x, smiType x), length xs)
+  return $ map t srt 
 
 -- | Return observations which match this constellation, in time order.
 fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
@@ -394,7 +412,7 @@ insertSimbadInfo sm = do
     Right newkey -> return (newkey, False)
     Left oldkey -> do
              Just oldsm <- get oldkey
-             when (oldsm /= sm) $ error $ "!!! SimbadInfo does not match !!!" -- TODO: what now?
+             when (oldsm /= sm) $ error "!!! SimbadInfo does not match !!!" -- TODO: what now?
              return (oldkey, True)
 
 insertSimbadMatch :: (MonadIO m, PersistBackend m) => SimbadMatch -> m ()

@@ -2,23 +2,64 @@
 
 -- | Search on SIMBAD object type.
 
-module Views.Search.Types (matchPage) where
+module Views.Search.Types (indexPage, matchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), String)
+import Prelude ((.), ($), (++), Int, String, compare, fst, length, mapM_, show, snd, uncurry)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.Function (on)
+import Data.List (sortBy)
 import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), SimbadType(..), SimbadTypeInfo)
-import Utils (defaultMeta, renderFooter, jsScript)
+import Utils (defaultMeta, renderFooter, jsScript, typeLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
+
+indexPage :: 
+  [(SimbadTypeInfo, Int)]
+  -> Html
+indexPage objs =
+  docTypeHtml ! lang "en-US" $
+    head (H.title ("Chandra observations by object type")
+          <> defaultMeta
+             {-
+          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
+          <> jsScript "http://d3js.org/d3.v3.min.js"
+          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
+          <> jsScript "/js/jquery.tablesorter.min.js"
+          <> jsScript "/js/table.js"
+          <> jsScript "/js/projection.js"
+          <> link ! href   "/css/tablesorter.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+          <> link ! href   "/css/schedule.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+               -}
+          <> link ! href   "/css/main.css"
+                ! type_  "text/css" 
+                ! rel    "stylesheet"
+                ! A.title  "Default"
+                ! media  "all"
+          )
+    <>
+    body
+     (mainNavBar CPOther
+      <> (div ! id "schedule") 
+          (renderTypes objs)
+      <> renderFooter
+     )
 
 -- TODO: combine with Schedule.schedPage
 
@@ -114,3 +155,22 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
 
     tblBlock
 
+-- | Render the list of object types
+renderTypes ::
+  [(SimbadTypeInfo, Int)]
+  -> Html
+renderTypes objs = 
+  let toRow (sti,n) = tr $ do
+                        td $ uncurry typeLinkSearch sti
+                        td $ toHtml n
+
+      sobjs = sortBy (compare `on` (snd.fst)) objs
+  in div $ do
+    p $ toHtml $ "There are " ++ show (length objs) ++ " object types"
+    table $ do
+             thead $ tr $ do
+               th "Object Type"
+               th "Number"
+             tbody $ do
+               mapM_ toRow sobjs
+             

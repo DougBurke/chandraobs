@@ -42,6 +42,10 @@ idLabel = ("i" <>) . show . fromObsId . recordObsId
 -- | Create a graph and table representing the
 --   available observations.
 --
+--   Can we also send in the mapping to simbad type,
+--   where they exist, so this can be added as a
+--   column?
+--
 makeSchedule ::
   UTCTime          -- current time
   -> [Record]      -- observations in the past

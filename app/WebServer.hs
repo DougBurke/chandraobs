@@ -64,6 +64,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getProposalInfo
                  , getSimbadInfo
                  , fetchSIMBADType
+                 , fetchObjectTypes 
                  , fetchConstellation
                  , fetchCategory
                  , fetchProposal
@@ -242,6 +243,11 @@ webapp cm = do
            sched <- liftSQL $ makeSchedule $ map Right ms
            fromBlaze $ SearchTypes.matchPage typeInfo sched
         _ -> next -- status status404
+
+    -- TODO: also need a HEAD request version
+    get "/search/type/" $ do
+      matches <- liftSQL $ fetchObjectTypes
+      fromBlaze $ SearchTypes.indexPage matches
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
