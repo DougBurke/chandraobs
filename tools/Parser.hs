@@ -142,20 +142,20 @@ parseGrat = parseReadable
 
 obsLine :: Parser STS
 obsLine = do
-  seqNum <- parseInt
+  _ <- parseInt -- seqNum
   optional $ lexeme $ char 'P' >> digit
   obsid <- parseInt  
-  n <- parseInt1
-  title <- parseTitle
+  _ <- parseInt1 -- n
+  _ <- parseTitle -- title
   start <- parseTime
   texp <- parseDouble
-  inst <- parseInst
-  grat <- parseGrat
-  ra <- parseDouble
-  dec <- parseDouble
-  roll <- parseDouble
-  pitch <- parseDouble
-  slew <- parseDouble
+  _ <- parseInst -- inst
+  _ <- parseGrat -- grat
+  _ <- parseDouble -- ra
+  _ <- parseDouble -- dec
+  _ <- parseDouble -- roll
+  _ <- parseDouble -- pitch
+  _ <- parseDouble -- slew
   lexeme $ void $ string "dss pspc rass"
   -- return $ STS (Just seqNum) (toOI obsid) (Just n) title start texp (Just inst) (Just grat) ra dec roll pitch slew
 
@@ -191,8 +191,8 @@ calLine = do
   ra <- parseDouble
   dec <- parseDouble
   roll <- parseDouble
-  pitch <- parseDouble
-  slew <- parseDouble
+  _ <- parseDouble -- pitch
+  _ <- parseDouble -- slew
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
       
