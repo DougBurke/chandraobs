@@ -277,12 +277,16 @@ fetchSIMBADType stype = do
   -- TODO: would be nice to be able to use the database to do this,
   --       or perhaps switch to a graph databse.
   -- 
-  ans <- project (AutoKeyField,SmiTypeField) $ (SmiType3Field ==. stype) `limitTo` 1
-  case ans of
-    [(key,ltype)] -> do
-      targets <- project SmmTargetField (SmmInfoField ==. key)
-      sos <- forM targets $ \t -> select (SoTargetField ==. t)
-      return $ Just ((stype,ltype), concat sos)
+  -- splitting into two for now
+  mtype <- project SmiTypeField $ (SmiType3Field ==. stype) `limitTo` 1
+  case mtype of
+    [ltype] -> do
+               keys <- project AutoKeyField $ (SmiType3Field ==. stype)
+               sos <- forM keys $ \key -> do
+                          targets <- project SmmTargetField (SmmInfoField ==. key)
+                          obs <- forM targets $ \t -> select (SoTargetField ==. t)
+                          return $ concat obs
+               return $ Just ((stype, ltype), concat sos)
 
     _ -> return Nothing
 
