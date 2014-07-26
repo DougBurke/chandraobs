@@ -69,6 +69,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchCategory
                  , fetchProposal
                  , fetchInstrument
+                 , fetchInstrumentTypes
                  )
 import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
@@ -278,6 +279,11 @@ webapp cm = do
         _ -> do
            sched <- liftSQL $ makeSchedule $ map Right matches
            fromBlaze $ Instrument.matchPage inst sched
+
+    -- TODO: also need a HEAD request version
+    get "/search/instrument/" $ do
+      matches <- liftSQL $ fetchInstrumentTypes
+      fromBlaze $ Instrument.indexPage matches
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 

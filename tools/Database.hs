@@ -25,6 +25,7 @@ module Database ( getCurrentObs
                 , fetchCategory
                 , fetchProposal
                 , fetchInstrument
+                , fetchInstrumentTypes
                 , insertScienceObs
                 , replaceScienceObs
                 , insertProposal
@@ -301,7 +302,6 @@ fetchObjectTypes ::
   (MonadIO m, PersistBackend m) 
   => m [(SimbadTypeInfo, Int)]
 fetchObjectTypes = do
-  -- res <- (snd `liftM`) `liftM` selectAll -- selectAll returns [(Autokey v, v)] 
   res <- select $ CondEmpty `orderBy` [Asc SmiType3Field]
   let srt = groupBy ((==) `on` smiType3) res
       t [] = error "impossible fetchObjectTypes condition occurred"
@@ -334,6 +334,16 @@ fetchProposal pn = do
 fetchInstrument :: (MonadIO m, PersistBackend m) => Instrument -> m [ScienceObs]
 fetchInstrument inst = 
   select $ (SoInstrumentField ==. inst) `orderBy` [Asc SoStartTimeField]
+
+-- | This counts up the individual observations; should it try and group by
+--   "proposal", or at least "object per proposal"?
+fetchInstrumentTypes :: (MonadIO m, PersistBackend m) => m [(Instrument, Int)]
+fetchInstrumentTypes = do
+  res <- select $ CondEmpty `orderBy` [Asc SoInstrumentField]
+  let srt = groupBy ((==) `on` soInstrument) res
+      t [] = error "impossible fetchInstrumentTypes condition occurred"
+      t xs@(x:_) = (soInstrument x, length xs)
+  return $ map t srt 
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

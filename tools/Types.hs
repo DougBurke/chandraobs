@@ -84,8 +84,8 @@ tryParse ((result, attempts):xs) value =
           res = [(result, drop (length attempt) value) | attempt <- attempts, take (length attempt) value == attempt]
 
 -- | The instrument being used.
-data Instrument = ACISS | ACISI | HRCI | HRCS 
-  deriving (Eq, Show)
+data Instrument = ACISI | ACISS | HRCI | HRCS 
+  deriving (Eq, Show, Ord)
 
 instance Read Instrument where
   readsPrec _ =
