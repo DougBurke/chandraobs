@@ -655,9 +655,9 @@ data OverlapObs =
 --
 --   See <http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html>.
 newtype ConShort = ConShort { fromConShort :: String }
-  deriving Eq
+  deriving (Eq, Ord)
 
--- | There is no validation done on the input.
+-- | Warning: there is no validation done on the input.
 instance IsString ConShort where
   fromString = ConShort
 
@@ -687,6 +687,20 @@ instance IsString ConLong where
 --   is missing something.
 getConstellationName :: ConShort -> Maybe ConLong
 getConstellationName = flip lookup constellationMap
+
+-- | Similar to `getConstellationName`, except that unknown constellaion
+--   abbreviations are left unchanged (so it's not really unsafe in the
+--   normal usage of Haskell).
+--
+getConstellationNameUnsafe :: ConShort -> ConLong
+getConstellationNameUnsafe con = fromMaybe (ConLong (fromConShort con)) (getConstellationName con)
+
+-- | Similar to `getConstellationName`, except that unknown constellaion
+--   abbreviations are left unchanged (so it's not really unsafe in the
+--   normal usage of Haskell).
+--
+getConstellationNameStr :: ConShort -> String
+getConstellationNameStr = fromConLong . getConstellationNameUnsafe
 
 -- map from short to long form
 -- See http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html

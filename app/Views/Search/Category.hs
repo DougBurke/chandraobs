@@ -2,23 +2,64 @@
 
 -- | Search on proposal categories.
 
-module Views.Search.Category (matchPage) where
+module Views.Search.Category (indexPage, matchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), String)
+import Prelude (($), (++), Int, String, compare, fst, length, mapM_, show)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.List (sortBy)
+import Data.Function (on)
 import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..))
-import Utils (defaultMeta, renderFooter, jsScript)
+import Utils (defaultMeta, renderFooter, jsScript, categoryLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
+
+indexPage :: 
+  [(String, Int)]
+  -> Html
+indexPage cats =
+  docTypeHtml ! lang "en-US" $
+    head (H.title ("Chandra observations by category") <>
+          defaultMeta
+          {-
+          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
+          <> jsScript "http://d3js.org/d3.v3.min.js"
+          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
+          <> jsScript "/js/jquery.tablesorter.min.js"
+          <> jsScript "/js/table.js"
+          <> jsScript "/js/projection.js"
+          <> link ! href   "/css/tablesorter.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+          <> link ! href   "/css/schedule.css"
+               ! type_  "text/css" 
+               ! rel    "stylesheet"
+               -- ! A.title  "Default (TableSorter)"
+               ! media  "all"
+           -}
+          <> link ! href   "/css/main.css"
+                ! type_  "text/css" 
+                ! rel    "stylesheet"
+                ! A.title  "Default"
+                ! media  "all"
+          )
+    <>
+    body
+     (mainNavBar CPOther
+      <> (div ! id "schedule") 
+          (renderTypes cats)
+      <> renderFooter
+     )
 
 -- TODO: combine with Schedule.schedPage
 
@@ -88,3 +129,27 @@ renderMatches cat (Schedule cTime _ done mdoing todo) =
 
     tblBlock
 
+-- | Render the list of categories.
+--
+--   The input list is probably sorted already, given the
+--   way it is constructed, but at the moment do not enforce
+--   this in the types.
+--
+renderTypes ::
+  [(String, Int)]
+  -> Html
+renderTypes cats = 
+  let toRow (cat,n) = tr $ do
+                    td $ categoryLinkSearch cat cat
+                    td $ toHtml n
+
+      scats = sortBy (compare `on` fst) cats
+  in div $ do
+    p $ toHtml $ "There are " ++ show (length cats) ++ " categories."
+    table $ do
+             thead $ tr $ do
+               th "Category"
+               th "Number"
+             tbody $ do
+               mapM_ toRow scats
+             

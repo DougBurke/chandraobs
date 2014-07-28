@@ -66,7 +66,9 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchSIMBADType
                  , fetchObjectTypes 
                  , fetchConstellation
+                 , fetchConstellationTypes
                  , fetchCategory
+                 , fetchCategoryTypes
                  , fetchProposal
                  , fetchInstrument
                  , fetchInstrumentTypes
@@ -261,6 +263,11 @@ webapp cm = do
            fromBlaze $ Constellation.matchPage con sched
 
     -- TODO: also need a HEAD request version
+    get "/search/constellation/" $ do
+      matches <- liftSQL $ fetchConstellationTypes
+      fromBlaze $ Constellation.indexPage matches
+
+    -- TODO: also need a HEAD request version
     get "/search/category/:category" $ do
       cat <- param "category"
       matches <- liftSQL $ fetchCategory cat
@@ -269,6 +276,11 @@ webapp cm = do
         _ -> do
            sched <- liftSQL $ makeSchedule $ map Right matches
            fromBlaze $ Category.matchPage cat sched
+
+    -- TODO: also need a HEAD request version
+    get "/search/category/" $ do
+      matches <- liftSQL $ fetchCategoryTypes
+      fromBlaze $ Category.indexPage matches
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/:instrument" $ do
@@ -285,6 +297,13 @@ webapp cm = do
       matches <- liftSQL $ fetchInstrumentTypes
       fromBlaze $ Instrument.indexPage matches
 
+    -- TODO: also need a HEAD request version
+    {-
+    get "/search/" $ do
+      fromBlaze $ ?.indexPage
+    -}
+    get "/search/" $ redirect "/search/index.html"
+                
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
     --       set the redirect header?

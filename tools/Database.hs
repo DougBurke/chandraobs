@@ -22,7 +22,9 @@ module Database ( getCurrentObs
                 , fetchSIMBADType
                 , fetchObjectTypes
                 , fetchConstellation
+                , fetchConstellationTypes
                 , fetchCategory
+                , fetchCategoryTypes
                 , fetchProposal
                 , fetchInstrument
                 , fetchInstrumentTypes
@@ -42,7 +44,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Either (partitionEithers)
 import Data.Function (on)
-import Data.List (groupBy, sortBy)
+import Data.List (group, groupBy, sortBy)
 import Data.Maybe (catMaybes, listToMaybe)
 import Data.Ord (comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
@@ -312,6 +314,15 @@ fetchObjectTypes = do
 fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
 fetchConstellation con = 
   select $ (SoConstellationField ==. con) `orderBy` [Asc SoStartTimeField]
+
+-- | Return count of the constellations.
+fetchConstellationTypes :: (MonadIO m, PersistBackend m) => m [(ConShort, Int)]
+fetchConstellationTypes = do
+  res <- project SoConstellationField $ CondEmpty `orderBy` [Asc SoConstellationField]
+  let srt = group res
+      t [] = error "impossible fetchConstellationTypes condition occurred"
+      t xs@(x:_) = (x, length xs)
+  return $ map t srt 
     
 -- | Return observations which match this category, in time order.
 fetchCategory :: (MonadIO m, PersistBackend m) => String -> m [ScienceObs]
@@ -319,6 +330,15 @@ fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sos <- forM propNums $ \pn -> select $ (SoProposalField ==. pn) `limitTo` 1
   return $ concat sos
+
+-- | Return information on the category types.
+fetchCategoryTypes :: (MonadIO m, PersistBackend m) => m [(String, Int)]
+fetchCategoryTypes = do
+  res <- project PropCategoryField $ CondEmpty `orderBy` [Asc PropCategoryField]
+  let srt = group res
+      t [] = error "impossible fetchCategoryTypes condition occurred"
+      t xs@(x:_) = (x, length xs)
+  return $ map t srt 
 
 -- | Return all the observations which match this proposal, in time order.
 --

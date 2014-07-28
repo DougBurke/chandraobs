@@ -166,7 +166,10 @@ renderTypes objs =
 
       sobjs = sortBy (compare `on` (snd.fst)) objs
   in div $ do
-    p $ toHtml $ "There are " ++ show (length objs) ++ " object types"
+    p $ do
+      toHtml $ "There are " ++ show (length objs) ++ " object types. These types are taken from "
+      a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X" $ "the SIMBAD database"
+      toHtml ("."::String)
     table $ do
              thead $ tr $ do
                th "Object Type"
