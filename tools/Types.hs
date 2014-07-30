@@ -36,7 +36,7 @@ import qualified Text.Blaze.Html5 as H
 import Control.Arrow (first)
 import Control.Monad.Logger (NoLoggingT)
 
-#if MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 import Data.Bits (Bits(..), FiniteBits(..))
 #else
 import Data.Bits (Bits(..))
@@ -1074,7 +1074,7 @@ instance PersistField ObsIdVal where
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
   dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
-#if !MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && !MIN_VERSION_base(4, 7, 0)
     finiteBitSize = bitSize
 #endif
 
@@ -1083,7 +1083,7 @@ instance PersistField PropNum where
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
   dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
-#if !MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && !MIN_VERSION_base(4, 7, 0)
     finiteBitSize = bitSize
 #endif
 
@@ -1092,7 +1092,7 @@ instance PersistField Sequence where
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
   dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
-#if !MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && !MIN_VERSION_base(4, 7, 0)
     finiteBitSize = bitSize
 #endif
 
@@ -1235,7 +1235,7 @@ instance Bits PropNum where
   complement = PropNum . complement . _unPropNum
   shift a i = PropNum $ shift (_unPropNum a) i
   rotate a i = PropNum $ rotate (_unPropNum a) i
-#if MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . _unPropNum
 #else
@@ -1253,7 +1253,7 @@ instance Bits Sequence where
   complement = Sequence . complement . _unSequence
   shift a i = Sequence $ shift (_unSequence a) i
   rotate a i = Sequence $ rotate (_unSequence a) i
-#if MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . _unSequence
 #else
@@ -1271,7 +1271,7 @@ instance Bits ObsIdVal where
   complement = ObsIdVal . complement . fromObsId
   shift a i = ObsIdVal $ shift (fromObsId a) i
   rotate a i = ObsIdVal $ rotate (fromObsId a) i
-#if MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . fromObsId
 #else
@@ -1282,7 +1282,7 @@ instance Bits ObsIdVal where
   bit = ObsIdVal . bit
   popCount = popCount . fromObsId
 
-#if MIN_VERSION_base(4, 7, 0)
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 instance FiniteBits PropNum where
   finiteBitSize = finiteBitSize . _unPropNum
 
