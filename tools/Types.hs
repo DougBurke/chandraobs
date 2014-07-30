@@ -216,37 +216,35 @@ newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
+readsPrecF :: (Read a) => (a -> b) -> Int -> ReadS b
+readsPrecF f i s = 
+    let xs = readsPrec i s
+    in map (first f) xs
+
 -- Needed for readHelper, used by the PrimitivePersistField instance
 instance Read ChandraTime where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first ChandraTime) xs
+  readsPrec = readsPrecF ChandraTime
 
 -- TODO: validate ra as 0 to 360
 instance Read RA where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first RA) xs
+  readsPrec = readsPrecF RA
 
 -- TODO: validate dec as -90 to 90
 instance Read Dec where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first Dec) xs
+  readsPrec = readsPrecF Dec
 
 -- TODO: validate time as >= 0
 instance Read TimeKS where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first TimeKS) xs
+  readsPrec = readsPrecF TimeKS
 
 instance Read ObsIdVal where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first ObsIdVal) xs
+  readsPrec = readsPrecF ObsIdVal
 
 instance Read Sequence where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first Sequence) xs
+  readsPrec = readsPrecF Sequence
 
 instance Read PropNum where
-  readsPrec i = \s -> let xs = readsPrec i s
-                      in map (first PropNum) xs
+  readsPrec = readsPrecF PropNum
 
 -- | Convert values like "2014:132:03:08:49.668"
 -- to a time. This is
@@ -343,28 +341,25 @@ newtype Dec = Dec { _unDec :: Double }
   -- deriving (Eq, Show)  
   deriving Eq
 
+splitRA :: RA -> (Int, Int, Double)
+splitRA (RA ra) = 
+    let rah = ra / 15.0
+        (h, r1) = properFraction rah
+        ram = r1 * 60
+        (m, r2) = properFraction ram
+        s = r2 * 60
+    in (h, m, s)
+
 -- I do use this in ObsCat.hs for informational purposes, so keep
 -- around for now.
 showRA :: RA -> String
-showRA (RA ra) = 
-  let rah = ra / 15.0
-      h, m :: Int
-      r1, r2 :: Double
-      (h, r1) = properFraction rah
-      ram = r1 * 60
-      (m, r2) = properFraction ram
-      s = r2 * 60
+showRA ra = 
+  let (h, m, s) = splitRA ra
   in printf "%dh %dm %.1fs" h m s
 
 htmlRA :: RA -> H.Html
-htmlRA (RA ra) = 
-  let rah = ra / 15.0
-      h, m :: Int
-      r1, r2 :: Double
-      (h, r1) = properFraction rah
-      ram = r1 * 60
-      (m, r2) = properFraction ram
-      s = r2 * 60
+htmlRA ra = 
+  let (h, m, s) = splitRA ra
 
       hsym = H.sup "h"
       msym = H.sup "m"
@@ -1207,7 +1202,7 @@ instance PrimitivePersistField Constraint where
   toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
   fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
   -}
-  toPrimitivePersistValue _ a = PersistString (fromConstraint a : [])
+  toPrimitivePersistValue _ a = PersistString [fromConstraint a]
 
   fromPrimitivePersistValue _ (PersistString s) = case s of
     [c] -> fromMaybe (error ("Unexpected constraint value: " ++ s)) $ toConstraint c
@@ -1242,7 +1237,7 @@ instance Bits PropNum where
   bitSize = bitSize . _unPropNum
 #endif
   isSigned = isSigned . _unPropNum
-  testBit a i = testBit (_unPropNum a) i
+  testBit a = testBit (_unPropNum a)
   bit = PropNum . bit
   popCount = popCount . _unPropNum
 
@@ -1260,7 +1255,7 @@ instance Bits Sequence where
   bitSize = bitSize . _unSequence
 #endif
   isSigned = isSigned . _unSequence
-  testBit a i = testBit (_unSequence a) i
+  testBit a = testBit (_unSequence a)
   bit = Sequence . bit
   popCount = popCount . _unSequence
 
@@ -1278,7 +1273,7 @@ instance Bits ObsIdVal where
   bitSize = bitSize . fromObsId
 #endif
   isSigned = isSigned . fromObsId
-  testBit a i = testBit (fromObsId a) i
+  testBit a = testBit (fromObsId a)
   bit = ObsIdVal . bit
   popCount = popCount . fromObsId
 

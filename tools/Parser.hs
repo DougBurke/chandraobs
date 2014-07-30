@@ -140,6 +140,14 @@ parseInst = parseReadable
 parseGrat :: Parser Grating
 parseGrat = parseReadable
 
+handleTime :: String -> Double -> (TimeKS, ChandraTime, ChandraTime)
+handleTime start texp =
+  let tks = TimeKS texp
+      t1 = toCTime start
+      t2 = endCTime t1 tks
+  in (tks, t1, t2)
+
+
 obsLine :: Parser STS
 obsLine = do
   _ <- parseInt -- seqNum
@@ -159,9 +167,7 @@ obsLine = do
   lexeme $ void $ string "dss pspc rass"
   -- return $ STS (Just seqNum) (toOI obsid) (Just n) title start texp (Just inst) (Just grat) ra dec roll pitch slew
 
-  let tks = TimeKS texp
-      t1 = toCTime start
-      t2 = endCTime t1 tks
+  let (tks, t1, t2) = handleTime start texp
 
       si = ScheduleItem {
         siObsId = ObsIdVal obsid
@@ -196,9 +202,7 @@ calLine = do
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
       
-  let tks = TimeKS texp
-      t1 = toCTime start
-      t2 = endCTime t1 tks
+  let (tks, t1, t2) = handleTime start texp
 
       si = ScheduleItem {
         siObsId = ObsIdVal obsid
