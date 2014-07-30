@@ -5,7 +5,7 @@
 module Views.Search.Constellation (indexPage, matchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), (==), (.), (++), Int, String, compare, fst, length, map, mapM_, maybe, show, snd, otherwise, uncurry)
+import Prelude (($), (==), (++), Int, String, compare, fst, length, map, mapM_, show, otherwise)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -18,7 +18,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..))
-import Types (ConLong(..), ConShort(..), getConstellationNameStr)
+import Types (ConShort(..), getConstellationNameStr)
 import Utils (defaultMeta, renderFooter, jsScript, constellationLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
