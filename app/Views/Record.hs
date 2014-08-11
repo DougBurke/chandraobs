@@ -343,6 +343,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
              in mconcat [" See related observation", suffix, ": ", groupProposal soTarget matches, "."]
 
       sciencePara = p $ cts obsStatus
+                        <> " "
                         <> constellationTxt
                         <> maybe (". " <> subArrayTxt) simbadTxt msimbad
                         <> otherMatches
