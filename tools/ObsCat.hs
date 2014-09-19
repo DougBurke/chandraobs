@@ -404,7 +404,12 @@ queryObsId flag oid = do
     [(Just p, Just so)] -> do
       so2 <- addConstellation so
       return $ Just (p, so2)
-    _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
+
+    -- for now skip those with issues
+    _ -> do
+      putStrLn $ "SKIP: unable to parse ObsId " ++ show (fromObsId oid) ++ ": " ++ show ans
+      return Nothing
+    -- _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
 
 -- | Run a database action.
 doDB :: DbPersist Postgresql (NoLoggingT IO) a -> IO a
