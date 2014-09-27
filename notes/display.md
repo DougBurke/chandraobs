@@ -3,6 +3,18 @@
 Note that I am manually creating "views" of the data that
 could be selectable instead via a faceted browsing interfacte.
 
+ - the database contains scheduled observations that were
+   cancelled - e.g. 16062 and 16118. If you go to 
+
+     http://chandraobs-devel.herokuapp.com/obsid/16065
+
+   which is the observation prior to 16062, then the page
+   is displayed, but the "next observation" link is missing.
+   There are no pages for 16062 or 16118 (at least at this
+   time), because they have not been re-sheduled, so the ObsCat
+   information has no date field, which means that the obscat
+   executable skips them. What to do here? 
+
  - do we want any note of PI_NAME == Calibration ?
 
  - the links between target name and SIMBAD can be improved;

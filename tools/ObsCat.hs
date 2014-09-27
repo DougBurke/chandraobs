@@ -232,6 +232,16 @@ toProposal m = do
 --   this is because we need IO to fill in this field so it's
 --   left to a later pass.  
 --
+--   At the moment this will fail if the observation does not have
+--   a START_DATE field, which I have seen in a couple of observations
+--   that are probably ones that were dropped from the schedule due
+--   to a replan, but are still listed in the original schedule.
+--   What to do with these? IIs ignoring them the right thing to
+--   do (I think so, but forget what makes the schedule data base
+--   table; is it the data from HackData or the output of
+--   ObsCat? Hopefully the latter which means dropping should be
+--   the right thing)
+--
 toSO :: OCAT -> Maybe ScienceObs
 toSO m = do
   seqNum <- toSequence m
@@ -239,7 +249,7 @@ toSO m = do
   status <- toString m "STATUS"
   obsid <- toObsId m
   target <- toString m "TARGET_NAME"
-  sTime <- toCT m "START_DATE"
+  sTime <- toCT m "START_DATE"        -- turns out this may be a maybe (pres for cancelled obs)
   appExp <- toTimeKS m "APP_EXP"
   let obsExp = toTimeKS m "EXP_TIME"
 
