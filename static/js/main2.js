@@ -77,6 +77,31 @@ function setupCurrentClick() {
     });
 }
 
+// Given text that is intended to be displayed to the user - 
+// that is, it is *not* going to be used as an attribute value
+// or within a script tag or ... - then convert certain characters
+// to entity references.
+//
+// This is *not* intended for attribute values or script tags
+// or other HTML contexts where you have to be much more careful
+// of protection.
+//
+
+var _attributes = {
+    "<": "&lt;"
+    , ">": "&gt;"
+    , "&": "&amp;"
+    , "'": "&#39;"
+    , '"': "&quot;"
+};
+
+function escapeHtmlText(intxt) {
+    return String(intxt)
+	.replace(/[<>&'"\/]/g,
+		 function(c) { 
+		     return _attributes[c];
+		 });
+}
 
 // Extract the ObsId value (as an integer) and the target
 // name from a Record
@@ -1055,11 +1080,13 @@ function renderScienceObs($el, so, obsdata, simrsp, proprsp, relrsp) {
     
     if (hasProp) {
 	var propName = proprsp[1]["Name"];
-	h += ", and is part of the proposal <a href='/proposal/" + obsdata.propNum + "'>" +
-	    propName + "</a>";
+	h += ", and is part of the proposal <a href='/proposal/" + 
+	    obsdata.propNum + "'>" +
+	    escapeHtmlText(propName) + "</a>";
 	if (!propName.endsWith('.') && !propName.endsWith('?')) {
 	    h += ".";
 	}
+	h += " ";
     } else {
 	h += ". See why it <a href='http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&amp;obsid=" +
 	    obsdata.obsid + "'>";
