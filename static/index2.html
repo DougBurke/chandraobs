@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+  <title>What is Chandra doing now? [rewrite]</title>
+  <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script src="/js/underscore-min.js"></script>
+  <script src="/js/bootstrap-tour-standalone-0.9.3.min.js"></script>
+  <script src="/js/tour.js"></script>
+  <script src="/js/image-switch.js"></script>
+  <script src="/js/main2.js"></script>
+  <link href="/css/bootstrap-tour-standalone-0.9.3.min.css" type="text/css" rel="stylesheet" title="Default" media="all">
+  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default" media="all">
+ </head>
+ <body onload="initialize(); addTour();">
+  <nav role="navigation">
+   <ul>
+    <li><a id='currentLink' href="/index2.html#">What is Chandra doing now?</a></li>
+    <li><a href="/schedule/index.html">Schedule</a></li>
+    <li><a href="/about/index.html">About</a></li>
+    <li><a href="/about/instruments.html">Instruments</a></li>
+    <li><a href="/about/views.html">Views</a></li>
+   </ul>
+  </nav>
+
+  <nav id='obslinks'>
+    <ul>
+      <li style='display: none' class='prevLink'><a href='#'>Previous observation</a></li>
+      <li style='display: none' class='nextLink'><a href='#'>Next observation</a></li>
+    </ul>
+  </nav>
+
+  <div id='mainBar'>
+    <div id='observation'>
+      <!-- content goes here -->
+    </div>
+    <div style='display: none' class='radiobuttons'>
+      View:
+      <input type='radio' name='opttype' value='DSS' id='DSSbutton' onclick="switchOption('DSS')"></input>
+      <label for='DSSbutton'>DSS</label>
+      <input type='radio' name='opttype' value='RASS' id='RASSbutton' onclick="switchOption('RASS')"></input>
+      <label for='RASSbutton'>RASS</label>
+      <input type='radio' name='opttype' value='PSPC' id='PSPCbutton' onclick="switchOption('PSPC')"></input>
+      <label for='PSPCbutton'>PSPC</label>
+      <input type='radio' name='opttype' value='Details' id='Detailsbutton' onclick="switchOption('Details')"></input>
+      <label for='Detailsbutton'>Details</label>
+      or in
+      <a id='WWTbutton'>WWT</a>
+    </div>
+    <div style='display: none' class='links'>
+      <img alt='The instrument field-of-view on top of the DSS image of the source.' width=680 height=680 id='DSS'
+	   class='inactive'/>
+      <img alt='The instrument field-of-view on top of the RASS image of the source.' width=680 height=680 id='RASS'
+	   class='inactive'/>
+      <img alt='The instrument field-of-view on top of the PSPC image of the source.' width=680 height=680 id='PSPC'
+	   class='inactive'/>
+      <div class='inactive' id='Details'>
+      </div>
+    </div>
+  </div>
+  <div id='otherBar'>
+    <div class='tweetstream'>
+      <a class='twitter-timeline'
+	 href='https://twitter.com/chandraxray'
+	 data-widget-id='469095554312450049'>Tweets by @chandraxray</a>
+    </div>
+    <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','twitter-wjs');</script>
+  </div>
+
+  <p id="banner">
+    The 'What is Chandra doing now?' web site is written
+    by <a href="http://twitter.com/doug_burke">@doug_burke</a>,
+    comes with no warranty (in other words, I make no
+    guarantee that the information presented is correct, although
+    I try my best to make sure it is), and is not
+    an official product of the 
+    <a href="http://chandra.si.edu/">Chandra X-ray Center</a>.
+  </p>
+ </body>
+</html>
