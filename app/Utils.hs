@@ -244,7 +244,7 @@ renderObsIdDetails mprop so@ScienceObs{..} =
       -- not (and if it's ACIS or HRC), since we display different things.
       chipDetails = case soDetector of
         Just dm -> keyVal "Chips:" (H.toHtml dm)
-        _ -> fromMaybe mempty $ keyVal "ChIPS: " . H.toHtml <$> detector
+        _ -> fromMaybe mempty $ keyVal "Chips: " . H.toHtml <$> detector
 
       -- for now just convert to ACIS-??? treating optional as on
       detector = 
@@ -272,12 +272,12 @@ renderObsIdDetails mprop so@ScienceObs{..} =
 
       tblRows =
         mconcat
-          [ keyVal "Observation Details:" oLink
+          [ keyVal "Target:" (H.toHtml name)
+          , keyVal "Observation Details:" oLink
           , keyVal "Sequence Summary:" sLink
           , keyVal "Proposal Id:" pLink
           , maybe mempty propInfo mprop
           , too
-          , keyVal "Target:" (H.toHtml name)
           , keyVal "Instrument:" instInfo
           , chipDetails
           , fromMaybe mempty subArray

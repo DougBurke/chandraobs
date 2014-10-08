@@ -62,7 +62,11 @@ import Web.Scotty
 import Database (getCurrentObs, getRecord, getObsInfo
                  , getObsId, getSchedule, makeSchedule
                  , getProposalInfo
+                 , getProposalFromNumber
+                 , getRelatedObs
+                 , getObsFromProposal
                  , getSimbadInfo
+                 -- , findObsId
                  , fetchSIMBADType
                  , fetchObjectTypes 
                  , fetchConstellation
@@ -73,7 +77,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchInstrument
                  , fetchInstrumentTypes
                  )
-import Types (Record, SimbadInfo, Proposal, ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
+import Types (Record, SimbadInfo, Proposal, NonScienceObs(..), ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -158,6 +162,62 @@ webapp cm = do
     --
     -- middleware logStdoutDev
     middleware $ staticPolicy (noDots >-> addBase "static")
+
+    -- for now always return JSON; need a better success/failure
+    -- set up.
+    --
+    -- the amount of information returned by getObsId is
+    -- excessive here; probably just need the preceeding and
+    -- next obsid values (if any), but leave as is for now.
+    --
+    get "/api/current" $ do
+              -- note: this is creating/throwing away a bunch of info that could be useful
+              mrec <- liftSQL $ getCurrentObs
+              let rval o = json ("Success" :: T.Text, fromObsId o)
+              case mrec of
+                Just (Left ns) -> rval $ nsObsId ns
+                Just (Right so) -> rval $ soObsId so
+                _ -> json ("Failed" :: T.Text)
+
+    get "/api/obsid/:obsid" $ do
+              obsid <- param "obsid"
+              -- mobs <- liftSQL $ findObsId $ ObsIdVal obsid
+              mobs <- liftSQL $ getObsId $ ObsIdVal obsid
+              case mobs of
+                -- Just v -> json ("Success" :: T.Text, v) -- NOTE: v is (Record, Bool) from findObsId
+                Just v -> json ("Success" :: T.Text, v)
+                _ -> json ("Unknown ObsId" :: T.Text, obsid)
+
+    -- break down the monolithic queries into separate ones, which may or may not
+    -- be a good idea
+    get "/api/simbad/name/:name" $ do
+              name <- param "name"
+              msim <- liftSQL $ getSimbadInfo name
+              case msim of
+                Just sim -> json ("Success" :: T.Text, sim)
+                _ -> json ("Unknown Target" :: T.Text, name)
+
+    get "/api/proposal/:propnum" $ do
+              propNum <- param "propnum"
+              mres <- liftSQL $ getProposalFromNumber propNum
+              case mres of
+                Just res -> json ("Success" :: T.Text, res)
+                _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
+
+    get "/api/related/:propnum/:obsid" $ do
+              propNum <- param "propnum"
+              obsid <- param "obsid"
+              res <- liftSQL $ getRelatedObs propNum $ ObsIdVal obsid
+              -- hmmm, can't tell between an unknown propnum/obsid
+              -- pair and an observation with no related observations.
+              json ("Success" :: T.Text, res)
+
+    get "/api/related/:propnum" $ do
+              propNum <- param "propnum"
+              res <- liftSQL $ getObsFromProposal propNum
+              -- hmmm, can't tell between an unknown propnum
+              -- and an observation with no related observations.
+              json ("Success" :: T.Text, res)
 
     get "/" $ redirect "/index.html"
     get "/about.html" $ redirect "/about/index.html"

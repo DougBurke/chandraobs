@@ -15,7 +15,10 @@ module Database ( getCurrentObs
                 , getSchedule
                 , makeSchedule
                 , getProposal
+                , getProposalFromNumber
                 , getProposalObs
+                , getRelatedObs
+                , getObsFromProposal
                 , getProposalInfo
                 , reportSize
                 , getSimbadInfo
@@ -373,12 +376,34 @@ getProposal ScienceObs{..} = do
   ans <- select $ (PropNumField ==. soProposal) `limitTo` 1
   return $ listToMaybe ans
 
+-- | Return the proposal information if we have it.
+--
+getProposalFromNumber :: (MonadIO m, PersistBackend m) => PropNum -> m (Maybe Proposal)
+getProposalFromNumber propNum = do
+  ans <- select $ (PropNumField ==. propNum) `limitTo` 1
+  return $ listToMaybe ans
+
 -- | Find all the other observations in the proposal.
 --
 getProposalObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m [ScienceObs]
 getProposalObs ScienceObs{..} = 
   -- time sorting probably not needed here
   select $ ((SoProposalField ==. soProposal) &&. (SoObsIdField /=. soObsId))
+           `orderBy` [Asc SoStartTimeField]
+
+-- | Find all the other observations in the same proposal that
+--   are in the database.
+--
+getRelatedObs :: (MonadIO m, PersistBackend m) => PropNum -> ObsIdVal -> m [ScienceObs]
+getRelatedObs propNum obsId = 
+  -- time sorting probably not needed here
+  select $ ((SoProposalField ==. propNum) &&. (SoObsIdField /=. obsId))
+           `orderBy` [Asc SoStartTimeField]
+
+-- | Return the observations we know about for the given proposal.
+getObsFromProposal :: (MonadIO m, PersistBackend m) => PropNum -> m [ScienceObs]
+getObsFromProposal propNum = 
+  select $ (SoProposalField ==. propNum)
            `orderBy` [Asc SoStartTimeField]
 
 -- | A combination of `getProposal` and `getProposalObs`.

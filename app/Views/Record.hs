@@ -75,6 +75,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
+            (script ! src "/js/image-switch.js") "" <>
             (script ! src "/js/main.js") "" <>
             link ! href   "/css/main.css"
                  ! type_  "text/css" 
@@ -195,7 +196,7 @@ groupProposal tName matches =
 
   in case grps of
     [xs@(x:_)] | fst x == tName -> mconcat $ intersperse ", " (P.map (toLink . snd) xs)
-                | otherwise      -> out
+               | otherwise      -> out
     _ -> out
 
 -- | Some types do not map well into the sentence structure,
@@ -273,7 +274,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                  Done -> "was observed"
 
       endSentence [] = "." -- should not happen
-      endSentence s = if P.last s == '.' then mempty else "."
+      endSentence s = let lchar = P.last s
+                      in if lchar `elem` ".?" then mempty else "."
 
       reason = case mproposal of
         Just Proposal{..} -> ", and is part of the proposal " <>
@@ -391,7 +393,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
           in mconcat
                [ "This ", verb, " a joint observation with "
                , jvals
-               , ". However, if does not necessarily mean that the "
+               , ". However, it does not necessarily mean that the "
                , "observations ", verb2, " done at the same time! "
                ]
         Nothing -> mempty

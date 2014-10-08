@@ -795,8 +795,8 @@ constellationMap =
 
   
 
--- | Return the list of other observations that are contemporaneous with
---   this one.
+-- | Return the list of other observations that are joint - but not
+--   necessarily contemperaneous - with this one.
 --   
 --   It turns out that you can have the soJointWIth field set but
 --   no corresponding soJoint field. See ObsId 15662.
@@ -1366,20 +1366,28 @@ handleMigration =
 -- note: Record is a type alias for Either, so do not need to
 -- derive any instances
 --
-
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''NonScienceObs)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ScienceObs)
--- $(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Record)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ObsInfo)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ChandraTime)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ChipStatus)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''RA)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Dec)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ConShort)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Constraint)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ObsIdVal)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Instrument)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Grating)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''TimeKS)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''PropNum)
-$(deriveJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Sequence)
+-- it would have been nice to have a consistent naming scheme to reduce
+-- the number of different 'drop x' statements below
+--
+-- for now only bother with the ToJSON instances as do not need
+-- FromJSON.
+--
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''NonScienceObs)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ScienceObs)
+-- $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Record)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ObsInfo)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''ChandraTime)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ChipStatus)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''RA)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''Dec)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''ConShort)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Constraint)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''ObsIdVal)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Instrument)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Grating)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''TimeKS)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''PropNum)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''Sequence)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''SimbadInfo)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''SimbadType)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''Proposal)

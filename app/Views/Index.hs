@@ -80,6 +80,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
     head (H.title "What is Chandra doing now?" <>
           defaultMeta <>
           tourElements <>
+          (script ! src "/js/image-switch.js") "" <>
           (script ! src "/js/main.js") "" <>
            link ! href   "/css/main.css"
                 ! type_  "text/css" 

@@ -73,6 +73,11 @@ could be selectable instead via a faceted browsing interfacte.
 
 Doing
 
+ - working on the "api" branch that provides more information
+   via JSON (although heavily Haskell flavored) and simple
+   AJAX display, at /index2.html. The aim is to try moving
+   to an "all in one" Haskell approach a la haste/ghcjs/...
+
 Done
 
  - link to a "view by instrument" page
