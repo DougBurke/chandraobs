@@ -14,11 +14,10 @@
 // TODO: better error handling (in particular if ajax calls fail)
 //
 
-// TODO: clean up the page transitions as it's not ideal at the
-//       moment.
-
 // TODO: image loading should be asynchronous so users can
 //       be told when things are ready
+//       This has come back into focus with the changes to the
+//       page animation.
 //       ALSO: need to decide between .hide and class: inactive
 //             approach to hide/show
 //             - have put in fade in/out but not convinced this is a
@@ -211,18 +210,15 @@ function renderNavBar(obsinfo) {
 	res = _getObsIdName(prevObs);
 	if (res === undefined) {
 	    _prevObsId = undefined;
-	    // $p.hide();
 	    $p.fadeOut();
 	} else {
 	    _prevObsId = res[0];
 	    lbl = (res[1] === undefined) ? _prevObsId : res[1];
 	    $p.find('a').html(lbl);
-	    // $p.show();
 	    $p.fadeIn();
 	}
     } else {
 	_prevObsId = undefined;
-	// $p.hide();
 	$p.fadeOut();
     }
 
@@ -230,18 +226,15 @@ function renderNavBar(obsinfo) {
 	res = _getObsIdName(nextObs);
 	if (res === undefined) {
 	    _nextObsId = undefined;
-	    // $n.hide();
 	    $n.fadeOut();
 	} else {
 	    _nextObsId = res[0];
 	    lbl = (res[1] === undefined) ? _nextObsId : res[1];
 	    $n.find('a').html(lbl);
-	    // $n.show();
 	    $n.fadeIn();
 	}
     } else {
 	_nextObsId = undefined;
-	// $n.hide();
 	$n.fadeOut();
     }
 }
@@ -679,20 +672,6 @@ function showTimeDeltaBwd(time) {
     }
 }
 
-function hideImageBlock() {
-    // $( '.radiobuttons' ).hide();
-    // $( '.links' ).hide();
-    $( '.radiobuttons' ).fadeOut();
-    $( '.links' ).fadeOut();
-}
-
-function showImageBlock() {
-    // $( '.radiobuttons' ).display();
-    // $( '.links' ).display();
-    $( '.radiobuttons' ).fadeIn();
-    $( '.links' ).fadeIn();
-}
-
 // Set up the links/images/text for the image block and show it.
 //
 // How do we want to handle image loading?
@@ -866,7 +845,6 @@ function reportScienceObs($el, so) {
 
     // if there's any error, make sure previous contents are removed
     $el.html("");
-    // hideImageBlock();
 
     var errResp = "<p>Science observation.</p>";
 
@@ -1216,12 +1194,6 @@ function renderScienceObs($el, so, obsdata, simrsp, proprsp, relrsp) {
 function reportNonScienceObs($el, nso) {
     var errResp = "<p>Calibration observation.</p>";
 
-    // hide the image links
-    // $( '.radiobuttons' ).hide();
-    // $( '.links' ).hide();
-    $( '.radiobuttons' ).fadeOut();
-    $( '.links' ).fadeOut();
-
     var rsp = getStartEndTimes(nso);
     if (rsp === undefined) {
 	$el.html(errResp);
@@ -1288,27 +1260,35 @@ function reportNonScienceObs($el, nso) {
 function renderObsInfo(rsp) {
     var status = rsp[0];
     var answer = rsp[1];
+    var $parent = $( '#mainBar' );
     var $el = $( '#observation' );
 
-    hideImageBlock();
+    // bit excessive to only do the update after the fade
+    $parent.fadeOut({
+	complete: function() {
+	    $( '.radiobuttons' ).hide();
+	    $( '.links' ).hide();
 
-    if (status === "Success") {
-	renderNavBar(answer);
+	    if (status === "Success") {
+		renderNavBar(answer);
 
-	var co = answer["CurrentObs"];
-	if ("Right" in co) {
-	    $el.fadeOut();
-	    reportScienceObs($el, co["Right"]);
-	    showImageBlock();
-	    $el.fadeIn();
-	} else if ("Left" in co) {
-	    reportNonScienceObs($el, co["Left"]);
-	} else {
-	    $el.html("<p>Did not understand the response!</p>");
+		var co = answer["CurrentObs"];
+		if ("Right" in co) {
+		    reportScienceObs($el, co["Right"]);
+		    $( '.radiobuttons' ).show();
+		    $( '.links' ).show();
+		} else if ("Left" in co) {
+		    reportNonScienceObs($el, co["Left"]);
+		} else {
+		    $el.html("<p>Did not understand the response!</p>");
+		}
+	    } else {
+		$el.html("Failed: " + answer);
+	    }
+
+	    $parent.fadeIn();
 	}
-    } else {
-	$el.html("Failed: " + answer);
-    }
+    });
 }
 
 // Given an obsid, render the page.
@@ -1340,13 +1320,9 @@ function renderCurrent() {
 }
 
 function initialize() {
-
     setupCurrentClick();
     setupNavBarOnClick();
-
     renderCurrent();
 }
-
-var hack;
 
 // end
