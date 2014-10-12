@@ -68,6 +68,26 @@ import Web.Scotty (Parsable(..))
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
 
+-- | Convert a string into a value
+maybeFromString :: 
+    Read a
+    => (a -> b)
+    -> (a -> Bool)  -- ^ is value valid for conversion to b?
+    -> String
+    -> Maybe b
+maybeFromString conv p s = do
+  a <- maybeRead s
+  if p a then return (conv a) else Nothing
+
+-- | Inclusive range.
+inRange :: 
+    Ord a 
+    => a    -- ^ lower limit 
+    -> a    -- ^ upper limit
+    -> a    -- ^ value
+    -> Bool -- ^ lower limit <= value <= upper limit
+inRange lo hi v = (lo <= v) && (v <= hi)
+
 {-
 This is based on 'Read Color' instance of RWH, page 142, chapter 6
 but hacked to allow a list of strings that map to the same token.
@@ -154,6 +174,16 @@ instance H.ToValue Grating where
 newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
+
+-- | Limited validation of the input.
+toObsIdValStr :: String -> Maybe ObsIdVal
+toObsIdValStr = maybeFromString ObsIdVal (inRange 0 65535)
+
+instance Parsable ObsIdVal where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid ObsId: " <> t
+    in maybe (Left emsg) Right (toObsIdValStr tstr)
 
 instance H.ToMarkup ObsIdVal where
   toMarkup = H.toMarkup . fromObsId
@@ -302,6 +332,16 @@ newtype Sequence = Sequence { _unSequence :: Int }
    -- deriving (Eq, Ord, Show)
    deriving (Eq, Ord)
 
+-- | Limited validation of the input.
+toSequenceStr :: String -> Maybe Sequence
+toSequenceStr = maybeFromString Sequence (> 0)
+
+instance Parsable Sequence where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid Sequence: " <> t
+    in maybe (Left emsg) Right (toSequenceStr tstr)
+
 instance H.ToMarkup Sequence where
   toMarkup = H.toMarkup . _unSequence
 
@@ -316,9 +356,7 @@ newtype PropNum = PropNum { _unPropNum :: Int }
 -- | Limited validation of the input (currently only
 --   enforces a positive value).
 toPropNumStr :: String -> Maybe PropNum
-toPropNumStr s = do
-  p <- maybeRead s
-  if p > 0 then return (PropNum p) else Nothing
+toPropNumStr = maybeFromString PropNum (> 0)
 
 instance Parsable PropNum where
   parseParam t = 

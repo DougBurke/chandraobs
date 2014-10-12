@@ -17,13 +17,27 @@ Server: Warp/2.1.5.2
 
 -}
 
+-- TODO:
+--   provide cache information for JSON responses; could have a last-updated
+--   field in the database which is used to seed the last-Modified header,
+--   as a simple case
+--
+
 -- | A test webserver.
 -- 
 module Main where
 
+import qualified Data.ByteString.Base64.Lazy as B64
+-- import qualified Data.Conduit as C
+-- import qualified Data.Conduit.Combinators as CC
+
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as L
+
+import qualified Network.HTTP.Client as Client
+import qualified Network.HTTP.Conduit as NHC
 
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
@@ -36,6 +50,7 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
+import Control.Applicative ((<$>))
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
@@ -47,7 +62,9 @@ import Data.Time (getCurrentTime)
 import Database.Groundhog.Core (ConnectionManager(..))
 import Database.Groundhog.Postgresql (Postgresql(..), PersistBackend, runDbConn, withPostgresqlPool)
 
-import Network.HTTP.Types (StdMethod(HEAD), status404, status503)
+import Network.HTTP.Types (StdMethod(HEAD)
+                          , hLastModified
+                          , status404, status503)
 -- import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
@@ -77,7 +94,10 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchInstrument
                  , fetchInstrumentTypes
                  )
-import Types (Record, SimbadInfo, Proposal, NonScienceObs(..), ScienceObs(..), ObsInfo(..), ObsIdVal(..), handleMigration)
+import Types (Record, SimbadInfo, Proposal
+             , NonScienceObs(..), ScienceObs(..)
+             , ObsInfo(..), ObsIdVal(..), Sequence(..)
+             , handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -137,8 +157,18 @@ main = do
     Left emsg -> uerror emsg
     Right opts -> 
       -- TODO: what is a sensible number for the pool size?
+        {-
       withPostgresqlPool connStr 5 $ 
         scottyOpts opts . webapp
+        -}
+
+        -- Given that the manager is meant to exist for as long
+        -- as the application, there seems no need to use
+        -- withManager
+        do
+          mgr <- NHC.newManager Client.defaultManagerSettings
+          withPostgresqlPool connStr 5 $ \pool ->
+              scottyOpts opts $ webapp pool mgr
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -150,8 +180,12 @@ getDBInfo r = do
   bs <- getProposalInfo r
   return (as, bs)
 
-webapp :: ConnectionManager cm Postgresql => cm -> ScottyM ()
-webapp cm = do
+webapp :: 
+    ConnectionManager cm Postgresql 
+    => cm 
+    -> NHC.Manager
+    -> ScottyM ()
+webapp cm mgr = do
     let liftSQL a = liftIO $ runDbConn a cm
 
     defaultHandler errHandle
@@ -162,6 +196,24 @@ webapp cm = do
     --
     -- middleware logStdoutDev
     middleware $ staticPolicy (noDots >-> addBase "static")
+
+    -- proxy requests to the DSS/RASS/PSPC images so we can
+    -- access them via AJAX. *experimental*
+    --
+    get "/proxy/dss/:sequence/:obsid" $ do
+              seqVal <- param "sequence"
+              obsid <- param "obsid"
+              proxy mgr PTDSS seqVal obsid
+
+    get "/proxy/rass/:sequence/:obsid" $ do
+              seqVal <- param "sequence"
+              obsid <- param "obsid"
+              proxy mgr PTRASS seqVal obsid
+
+    get "/proxy/pspc/:sequence/:obsid" $ do
+              seqVal <- param "sequence"
+              obsid <- param "obsid"
+              proxy mgr PTPSPC seqVal obsid
 
     -- for now always return JSON; need a better success/failure
     -- set up.
@@ -417,3 +469,119 @@ errHandle txt = do
   -- work.
   status status503
 
+-- TODO: move into a separate module once it works
+-- TODO: should cache the http manager
+-- TODO: use a streaming solution/base64 converter from
+--       conduit-extra
+--
+
+data ProxyType = PTDSS | PTRASS | PTPSPC
+               deriving Eq
+
+instance Show ProxyType where
+    show PTDSS  = "dss"
+    show PTRASS = "rass"
+    show PTPSPC = "pspc"
+
+plainText :: L.Text
+plainText = "text/plain; charset=utf-8"
+
+{-   
+proxy1 :: a -> ProxyType -> Sequence -> ObsIdVal -> ActionM ()
+proxy1 _ pt seqVal obsid = do
+  let seqStr = show $ _unSequence seqVal
+      obsStr = show $ fromObsId obsid
+      url = "http://asc.harvard.edu/targets/" ++
+            seqStr ++ "/" ++ seqStr ++ "." ++
+            obsStr ++ ".soe." ++ show pt ++ ".gif"
+  -- request <- liftIO $ NHC.parseUrl url
+  liftIO $ putStrLn $ "--> " ++ url
+  bdy <- liftIO $ NHC.simpleHttp url
+  liftIO $ putStrLn $ "<-- " ++ url
+  setHeader "Content-Type" plainText
+  raw $ B64.encode bdy
+
+-}
+
+-- TODO: handle possible errors 
+proxy2 :: 
+    NHC.Manager
+    -> ProxyType
+    -> Sequence 
+    -> ObsIdVal 
+    -> ActionM ()
+proxy2 mgr pt seqVal obsid = do
+  let seqStr = show $ _unSequence seqVal
+      obsStr = show $ fromObsId obsid
+      url = "http://asc.harvard.edu/targets/" ++
+            seqStr ++ "/" ++ seqStr ++ "." ++
+            obsStr ++ ".soe." ++ show pt ++ ".gif"
+  req <- liftIO $ NHC.parseUrl url
+  -- liftIO $ putStrLn $ "--> " ++ url
+  rsp <- liftIO $ NHC.httpLbs req mgr
+  -- liftIO $ putStrLn $ "<-- " ++ url
+  setHeader "Content-Type" plainText
+
+  -- copy over etags/last-modified headers to see if that helps
+  -- with the caching; if may have done.
+  --
+  -- Since the ETag header is opaque it should be okay
+  -- to just cioy it over, since the assumption is that the
+  -- base64 encoding is not going to change.
+  let rhdrs = NHC.responseHeaders rsp
+      mLastMod = cText <$> lookup hLastModified rhdrs
+      mETag = cText <$> lookup "ETag" rhdrs
+  
+      cText =  L.fromStrict . TE.decodeUtf8
+
+  case mLastMod of
+    Just lastMod -> setHeader "Last-Modified" lastMod
+    _ -> return ()
+
+  case mETag of
+    Just eTag -> setHeader "ETag" eTag
+    _ -> return ()
+
+  raw $ B64.encode $ NHC.responseBody rsp
+
+{-
+
+can we stream the base-64 encoding?
+
+proxy3 :: 
+    NHC.Manager
+    -> ProxyType
+    -> Sequence 
+    -> ObsIdVal 
+    -> ActionM ()
+proxy3 mgr pt seqVal obsid = do
+  let seqStr = show $ _unSequence seqVal
+      obsStr = show $ fromObsId obsid
+      url = "http://asc.harvard.edu/targets/" ++
+            seqStr ++ "/" ++ seqStr ++ "." ++
+            obsStr ++ ".soe." ++ show pt ++ ".gif"
+  liftIO $ putStrLn $ "--> " ++ url
+  req <- liftIO $ NHC.parseUrl url
+  rsp <- liftIO $ NHC.http req mgr
+  liftIO $ putStrLn $ "<-- " ++ url
+  setHeader "Content-Type" plainText
+  -- how to take advantage of stream, rather than raw,
+  -- to allow a streaming solution?
+  -- b64 <- liftIO (NHC.responseBody rsp C.$$+- CC.encodeBase64)
+
+want to take the response, encode it, then convert it into a form that
+I can use stream :: StreamingBody -> ActionM () with
+  type StreamingBody = (Builder -> IO ()) -> IO () -> IO ()
+
+  b64 <- liftIO (NHC.responseBody rsp C.$$+- CC.encodeBase64)
+  raw b64
+
+-}
+
+proxy :: 
+    NHC.Manager
+    -> ProxyType
+    -> Sequence 
+    -> ObsIdVal 
+    -> ActionM ()
+proxy = proxy2

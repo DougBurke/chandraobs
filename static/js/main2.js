@@ -676,31 +676,45 @@ function showTimeDeltaBwd(time) {
 //
 // How do we want to handle image loading?
 //
-// TODO: perhaps the selection should be retained
-//   where possible - i.e. select details, move
-//   forward or back, still have details selected.
-//
 function setupImageBlock(obsdata, sobs, mprop) {
 
-    // TODO:
-    //   need to work out how to tell the user when an
-    //   image is still being loaded and to delete the
-    //   'old' image
-    var hdr = 'http://asc.harvard.edu/targets/' + obsdata.sequence + 
-	'/' + obsdata.sequence + '.' + obsdata.obsid + '.soe.';
+    // what happens if we just "break" the image, i.e. have no source
+    // - it doesn't seem, visually, too dis-pleasing on a local
+    //   connection; maybe worse with more latency?
+    // var loadimg = 'loading.gif';
+    var loadimg = ''; 
 
-    $( '#DSS'  ).prop('src', hdr + 'dss.gif');
-    $( '#RASS' ).prop('src', hdr + 'rass.gif');
-    $( '#PSPC' ).prop('src', hdr + 'pspc.gif');
+    $( '#DSS'  ).prop('src', loadimg);
+    $( '#RASS' ).prop('src', loadimg);
+    $( '#PSPC' ).prop('src', loadimg);
 
-    // $( '#DSS'   ).removeClass('inactive').addClass('active');
-    // $( '#DSS'   ).removeClass('inactive');
-    // $( '#RASS'  ).removeClass('active').addClass('inactive');
-    // $( '#PSPC'  ).removeClass('active').addClass('inactive');
+    var path = obsdata.sequence + '/' + obsdata.obsid;
+    $.ajax({
+	url: '/proxy/dss/' + path
+	, type: 'GET'
+	, dataType: 'text'
+	, cache: true
+	}).done(function(d64) {
+	    $( '#DSS' ).prop('src', 'data:image/gif;base64,' + d64);
+	});
 
-    // $( '#DSSbutton' ).prop('checked', true);
-    // $( '#RASSbutton' ).prop('checked', false);
-    // $( '#PSPCbutton' ).prop('checked', false);
+    $.ajax({
+	url: '/proxy/rass/' + path
+	, type: 'GET'
+	, dataType: 'text'
+	, cache: true
+	}).done(function(d64) {
+	    $( '#RASS' ).prop('src', 'data:image/gif;base64,' + d64);
+	});
+
+    $.ajax({
+	url: '/proxy/pspc/' + path
+	, type: 'GET'
+	, dataType: 'text'
+	, cache: true
+	}).done(function(d64) {
+	    $( '#PSPC' ).prop('src', 'data:image/gif;base64,' + d64);
+	});
 
     // TODO: could this instead be included on this page?
     $( '#WWTbutton' ).prop('href', '/obsid/' + obsdata.obsid + '/wwt')
