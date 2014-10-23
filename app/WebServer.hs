@@ -242,8 +242,11 @@ webapp cm mgr = do
 
     -- break down the monolithic queries into separate ones, which may or may not
     -- be a good idea
-    get "/api/simbad/name/:name" $ do
-              name <- param "name"
+    --
+    -- Note that for Simbad names we may have a / in them, so we use
+    -- a regex
+    get (regex "^/api/simbad/name/(.+)$") $ do
+              name <- param "1"
               msim <- liftSQL $ getSimbadInfo name
               case msim of
                 Just sim -> json ("Success" :: T.Text, sim)
