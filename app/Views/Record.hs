@@ -352,7 +352,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       addList [] = []
       addList [x] = [x]
-      addList (x1:x2:[]) = [x1, " and ", x2]
+      addList [x1, x2] = [x1, " and ", x2]
       addList xs = let (ls, [r1, r2]) = splitAt (length xs - 2) xs
                    in intersperse ", " ls ++ [r1, ", and", r2]
  

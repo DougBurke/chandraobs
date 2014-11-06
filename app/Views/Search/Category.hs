@@ -27,7 +27,7 @@ indexPage ::
   -> Html
 indexPage cats =
   docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations by category") <>
+    head (H.title "Chandra observations by category" <>
           defaultMeta
           {-
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
@@ -150,6 +150,5 @@ renderTypes cats =
              thead $ tr $ do
                th "Category"
                th "Number"
-             tbody $ do
-               mapM_ toRow scats
+             tbody $ mapM_ toRow scats
              

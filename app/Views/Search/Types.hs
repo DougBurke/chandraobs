@@ -27,7 +27,7 @@ indexPage ::
   -> Html
 indexPage objs =
   docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations by object type")
+    head (H.title "Chandra observations by object type"
           <> defaultMeta
              {-
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
@@ -174,6 +174,6 @@ renderTypes objs =
              thead $ tr $ do
                th "Object Type"
                th "Number"
-             tbody $ do
+             tbody $
                mapM_ toRow sobjs
              

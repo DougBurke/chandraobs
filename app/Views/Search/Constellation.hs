@@ -17,8 +17,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..))
-import Types (ConShort(..), getConstellationNameStr)
+import Types (Schedule(..), ConShort(..), getConstellationNameStr)
 import Utils (defaultMeta, renderFooter, jsScript, constellationLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -28,7 +27,7 @@ indexPage ::
   -> Html
 indexPage cons =
   docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations") <>
+    head (H.title "Chandra observations" <>
           defaultMeta
           {-
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
@@ -182,6 +181,5 @@ renderTypes cons =
              thead $ tr $ do
                th "Constellation"
                th "Number"
-             tbody $ do
-               mapM_ toRow scons
+             tbody $ mapM_ toRow scons
              

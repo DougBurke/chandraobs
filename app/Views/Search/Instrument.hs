@@ -27,7 +27,7 @@ indexPage ::
   -> Html
 indexPage insts =
   docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations") <>
+    head (H.title "Chandra observations" <>
           defaultMeta
           {-
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
@@ -138,12 +138,10 @@ renderTypes insts =
                         td $ toHtml n
 
       sinsts = sortBy (compare `on` fst) insts
-  in div $ do
-    -- p $ toHtml $ "There are " ++ show (length objs) ++ " "
-    table $ do
-             thead $ tr $ do
+  in div $
+     table $ do
+       thead $ tr $ do
                th "Instrument"
                th "Number"
-             tbody $ do
-               mapM_ toRow sinsts
+       tbody $ mapM_ toRow sinsts
              
