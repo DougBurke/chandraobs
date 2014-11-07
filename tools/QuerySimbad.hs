@@ -140,7 +140,7 @@ parseObject txt =
       toT s = fromMaybe (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
                      $ toSimbadType s
   in case toks of
-    (name:otype3:otype:_:[]) -> Just (cleanupName name, toT otype3, otype)
+    [name, otype3, otype, _] -> Just (cleanupName name, toT otype3, otype)
     _ -> Nothing
 
 -- | Run a database action.
