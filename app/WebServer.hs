@@ -28,8 +28,8 @@ Server: Warp/2.1.5.2
 module Main where
 
 import qualified Data.ByteString.Base64.Lazy as B64
--- import qualified Data.Conduit as C
--- import qualified Data.Conduit.Combinators as CC
+import qualified Data.Conduit as C
+import qualified Data.Conduit.Combinators as CC
 
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -50,9 +50,12 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
+import qualified Web.Scotty.Trans as Trans
+
 import Control.Applicative ((<$>))
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Resource (runResourceT)
 
 import Data.Default (def)
 import Data.Maybe (isJust)
@@ -551,6 +554,10 @@ proxy2 mgr pt seqVal obsid = do
 
 can we stream the base-64 encoding?
 
+-}
+
+{-
+
 proxy3 :: 
     NHC.Manager
     -> ProxyType
@@ -565,20 +572,31 @@ proxy3 mgr pt seqVal obsid = do
             obsStr ++ ".soe." ++ show pt ++ ".gif"
   liftIO $ putStrLn $ "--> " ++ url
   req <- liftIO $ NHC.parseUrl url
-  rsp <- liftIO $ NHC.http req mgr
-  liftIO $ putStrLn $ "<-- " ++ url
-  setHeader "Content-Type" plainText
+
+NOPITY NOPE NOPE
+
+  runResourceT $ do
+    rsp <- NHC.http req mgr
+    liftIO $ putStrLn $ "<-- " ++ url
+    Trans.setHeader "Content-Type" plainText
+
+    let src = NHC.responseBody rsp C.$=+ CC.encodeBase64
+
   -- how to take advantage of stream, rather than raw,
   -- to allow a streaming solution?
   -- b64 <- liftIO (NHC.responseBody rsp C.$$+- CC.encodeBase64)
 
-want to take the response, encode it, then convert it into a form that
-I can use stream :: StreamingBody -> ActionM () with
+  {-
+  want to take the response, encode it, then convert it into a form that
+  I can use stream :: StreamingBody -> ActionM () with
   type StreamingBody = (Builder -> IO ()) -> IO () -> IO ()
 
   b64 <- liftIO (NHC.responseBody rsp C.$$+- CC.encodeBase64)
   raw b64
 
+  -}
+
+    Trans.raw "FOO"
 -}
 
 proxy :: 

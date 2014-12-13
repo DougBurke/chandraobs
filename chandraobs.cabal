@@ -79,7 +79,7 @@ executable webserver
      -- can we go to 1.2 as well for conduit?
      , conduit == 1.1.*
      -- conduit-combinators pulls in a surprising number of extra dependencies
-     -- , conduit-combinators == 0.2.*
+     , conduit-combinators == 0.2.*
      , chandraobs
      , data-default == 0.5.*
      , groundhog
@@ -92,6 +92,7 @@ executable webserver
      , http-types
      , old-locale
      , random == 1.0.*
+     , resourcet == 1.1.*
      , scotty
      , text
      , time
