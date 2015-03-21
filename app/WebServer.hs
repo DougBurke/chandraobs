@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-} -- needed for webapp signature
 
 {-
 TODO: when all tables are removed, get errors like
@@ -60,9 +59,9 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Default (def)
 import Data.Maybe (isJust)
 import Data.Monoid ((<>))
+import Data.Pool (Pool)
 import Data.Time (getCurrentTime)
 
-import Database.Groundhog.Core (ConnectionManager(..))
 import Database.Groundhog.Postgresql (Postgresql(..), PersistBackend, runDbConn, withPostgresqlPool)
 
 import Network.HTTP.Types (StdMethod(HEAD)
@@ -183,9 +182,8 @@ getDBInfo r = do
   bs <- getProposalInfo r
   return (as, bs)
 
-webapp :: 
-    ConnectionManager cm Postgresql 
-    => cm 
+webapp ::
+    Pool Postgresql
     -> NHC.Manager
     -> ScottyM ()
 webapp cm mgr = do
@@ -227,7 +225,7 @@ webapp cm mgr = do
     --
     get "/api/current" $ do
               -- note: this is creating/throwing away a bunch of info that could be useful
-              mrec <- liftSQL $ getCurrentObs
+              mrec <- liftSQL getCurrentObs
               let rval o = json ("Success" :: T.Text, fromObsId o)
               case mrec of
                 Just (Left ns) -> rval $ nsObsId ns
@@ -367,7 +365,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/type/" $ do
-      matches <- liftSQL $ fetchObjectTypes
+      matches <- liftSQL fetchObjectTypes
       fromBlaze $ SearchTypes.indexPage matches
 
     -- TODO: also need a HEAD request version
@@ -382,7 +380,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/" $ do
-      matches <- liftSQL $ fetchConstellationTypes
+      matches <- liftSQL fetchConstellationTypes
       fromBlaze $ Constellation.indexPage matches
 
     -- TODO: also need a HEAD request version
@@ -397,7 +395,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
-      matches <- liftSQL $ fetchCategoryTypes
+      matches <- liftSQL fetchCategoryTypes
       fromBlaze $ Category.indexPage matches
 
     -- TODO: also need a HEAD request version
@@ -412,7 +410,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/" $ do
-      matches <- liftSQL $ fetchInstrumentTypes
+      matches <- liftSQL fetchInstrumentTypes
       fromBlaze $ Instrument.indexPage matches
 
     -- TODO: also need a HEAD request version
