@@ -1051,11 +1051,23 @@ instance NeverNull SimbadType
 
 -- times
 
+-- Wrapper to handle different groundhog versions (use an underscore
+-- since this symbol is exported as I have not written an explicit
+-- export list).
+--
+#if MIN_VERSION_groundhog(0,6,0)
+_pType :: DbType -> a -> b -> DbType
+_pType a _ _ = a
+#else
+_pType :: DbType -> a -> DbType
+_pType a _ = a
+#endif
+
 instance PersistField ChandraTime where
   persistName _ = "ChandraTime"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbDayTime False Nothing Nothing  
+  dbType = _pType $ DbTypePrimitive DbDayTime False Nothing Nothing  
 
 instance PrimitivePersistField ChandraTime where
   toPrimitivePersistValue _ = PersistUTCTime . _toUTCTime
@@ -1065,23 +1077,26 @@ instance PrimitivePersistField ChandraTime where
 
 -- double values
 
+doubleType :: DbType
+doubleType = DbTypePrimitive DbReal False Nothing Nothing
+
 instance PersistField RA where
   persistName _ = "RA"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbReal False Nothing Nothing
+  dbType = _pType doubleType
 
 instance PersistField Dec where
   persistName _ = "Dec"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbReal False Nothing Nothing
+  dbType = _pType doubleType
 
 instance PersistField TimeKS where
   persistName _ = "TimeKS"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbReal False Nothing Nothing
+  dbType = _pType doubleType
 
 instance PrimitivePersistField RA where
   toPrimitivePersistValue _ = PersistDouble . _unRA
@@ -1103,32 +1118,51 @@ instance PrimitivePersistField TimeKS where
 
 -- integer values
 
+-- would like to clean up the CPP here; not sure what I really want the code to do if the
+-- defined macro is not set up
+--
+-- since this is exported, as I'm too lazy to set up an export list,
+-- use an underscore to indicate it's "special"
+--
+#if defined(MIN_VERSION_groundhog) && MIN_VERSION_groundhog(0,6,0)
+
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
+_iType :: FiniteBits b => a -> b -> DbType
+_iType _ a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
+#else
+_iType :: Bits b => a -> b -> DbType
+_iType _ a = DbTypePrimitive (if bitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
+#endif
+
+#else
+
+#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
+_iType :: FiniteBits b => b -> DbType
+_iType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
+#else
+_iType :: Bits b => b -> DbType
+_iType a = DbTypePrimitive (if bitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
+#endif
+
+#endif
+
 instance PersistField ObsIdVal where
   persistName _ = "ObsIdVal"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
-#if defined(MIN_VERSION_base) && !MIN_VERSION_base(4, 7, 0)
-    finiteBitSize = bitSize
-#endif
+  dbType = _iType
 
 instance PersistField PropNum where
   persistName _ = "PropNum"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
-#if defined(MIN_VERSION_base) && !MIN_VERSION_base(4, 7, 0)
-    finiteBitSize = bitSize
-#endif
+  dbType = _iType
 
 instance PersistField Sequence where
   persistName _ = "Sequence"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing where
-#if defined(MIN_VERSION_base) && !MIN_VERSION_base(4, 7, 0)
-    finiteBitSize = bitSize
-#endif
+  dbType = _iType
 
 instance PrimitivePersistField PropNum where
   toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unPropNum
@@ -1150,43 +1184,46 @@ instance PrimitivePersistField ObsIdVal where
 
 -- enumeration/string-like types
 
+stringType :: DbType
+stringType = DbTypePrimitive DbString False Nothing Nothing
+
 instance PersistField Instrument where
   persistName _ = "Instrument"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+  dbType = _pType stringType
 
 instance PersistField Grating where
   persistName _ = "Grating"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+  dbType = _pType stringType
 
 -- can we force a size on the string?
 instance PersistField ChipStatus where
   persistName _ = "ChipStatus"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+  dbType = _pType stringType
 
 -- can we force a size on the string?
 instance PersistField SimbadType where
   persistName _ = "SimbadType"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+  dbType = _pType stringType
 
 instance PersistField Constraint where
   persistName _ = "Constraint"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+  dbType = _pType stringType
 
 instance PersistField ConShort where
   persistName _ = "ConShort"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType _ = DbTypePrimitive DbString False Nothing Nothing
+  dbType = _pType stringType
 
 instance PrimitivePersistField Instrument where
   {- The Groundhog tutorial [1] had the following, but this fails to
@@ -1386,9 +1423,14 @@ mkPersist defaultCodegenConfig [groundhog|
           fields: [smnTarget]
 |]
 
+
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
 handleMigration =
-  runMigration defaultMigrationLogger $ do
+  let doM = runMigration
+#if !MIN_VERSION_groundhog(0,7,0)
+              defaultMigrationLogger
+#endif
+  in doM $ do
     migrate (undefined :: ScheduleItem)
     migrate (undefined :: ScienceObs)
     migrate (undefined :: NonScienceObs)
