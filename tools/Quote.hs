@@ -2,6 +2,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+-- Should really use newtype wrappers to avoid orphan instances
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 --
 -- quasi quoter for the Chandra Short-Term schedule syntax
 --

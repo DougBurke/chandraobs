@@ -207,9 +207,13 @@ groupProposal tName matches =
 cleanupSIMBADType :: String -> String
 cleanupSIMBADType [] = []
 cleanupSIMBADType "Region defined in the sky" = "an area of the sky" 
-cleanupSIMBADType s@(c:_) | toLower c `elem` "aeiou" = "an " ++ s
-                          | otherwise                = "a " ++ s
-     
+cleanupSIMBADType s@(c:_) | toLower c `elem` vowels = "an " ++ s
+                          | otherwise               = "a " ++ s
+
+-- Giving an explicit type is needed in GHC 7.10     
+vowels :: String
+vowels = "aeiou"
+
 -- | Display information for a \"science\" observation.
 --
 targetInfo :: 
@@ -275,7 +279,11 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       endSentence [] = "." -- should not happen
       endSentence s = let lchar = P.last s
-                      in if lchar `elem` ".?" then mempty else "."
+                      in if lchar `elem` endChars then mempty else "."
+
+      -- Need to specify a type in GHC 7.10
+      endChars :: String
+      endChars = ".?"
 
       reason = case mproposal of
         Just Proposal{..} -> ", and is part of the proposal " <>
