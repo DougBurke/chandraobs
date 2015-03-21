@@ -68,7 +68,7 @@ import Text.Printf
 import Web.Scotty (Parsable(..))
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, addUTCTime, defaultTimeLocale, formatTime, parseTimeOrError)
+import Data.Time (UTCTime, TimeLocale, addUTCTime, defaultTimeLocale, formatTime, parseTimeOrError)
 #else
 import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 import System.Locale (defaultTimeLocale)

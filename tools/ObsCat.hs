@@ -53,7 +53,7 @@ import System.IO.Temp (withSystemTempFile)
 import System.Process (readProcessWithExitCode, system)
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, defaultTimeLocale, getCurrentTime, readSTime)
+import Data.Time (UTCTime, TimeLocale, defaultTimeLocale, getCurrentTime, readSTime)
 #else
 import Data.Time (UTCTime, getCurrentTime, readsTime)
 import System.Locale (defaultTimeLocale)
