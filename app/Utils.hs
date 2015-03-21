@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -34,22 +35,34 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Blaze.ByteString.Builder (toByteString)
 
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
+#endif
 
 import Data.Char (intToDigit)
 import Data.List (isPrefixOf)
 import Data.Maybe (fromJust, fromMaybe, isJust)
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Data.Monoid ((<>), mconcat, mempty)
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
+#else
+import Data.Monoid ((<>))
+#endif
 
 import Network.HTTP.Types.URI (encodePathSegments)
 
-import System.Locale (defaultTimeLocale)
 import System.Random (Random(..), getStdRandom)
 
 import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
+
+#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, defaultTimeLocale, diffUTCTime, formatTime)
+#else
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
+import System.Locale (defaultTimeLocale)
+#endif
 
 import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..), SimbadType(..)
              , Instrument(..)
@@ -406,7 +419,7 @@ linkToRecordA f r =
   let uri = obsURI $ recordObsId r
   in H.a H.! A.href uri $ H.toHtml $ f r
 
--- | The standard footer; needs to match up with static/*.html.
+-- | The standard footer; needs to match up with the html files in static/.
 renderFooter :: H.Html
 renderFooter =
   H.p H.! A.id "banner" $

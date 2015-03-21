@@ -1,7 +1,10 @@
+{-# LANGUAGE CPP #-}
 
 -- | Report the currently running observation.
 
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
+#endif
 
 import Database.Groundhog.Postgresql
 

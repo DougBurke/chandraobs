@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Query SIMBAD for observations. This is to
@@ -25,7 +26,13 @@ import Data.Char (toLower)
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Data.Monoid ((<>), mconcat)
+#else
+import Data.Monoid ((<>))
+#endif
+
 import Data.Time (UTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql

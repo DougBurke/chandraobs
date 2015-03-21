@@ -46,9 +46,14 @@ import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
 import Data.Function (on)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Data.Monoid ((<>), mconcat)
+#else
+import Data.Monoid ((<>))
+#endif
+
 import Data.String (IsString(..))
-import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
 
 -- I am not convinced I'm adding the PersistField values sensibly
 import Database.Groundhog.Core
@@ -58,11 +63,22 @@ import Database.Groundhog.Postgresql
 
 import Network.HTTP.Types.URI (renderSimpleQuery)
 
-import System.Locale (defaultTimeLocale)
-
 import Text.Printf
 
 import Web.Scotty (Parsable(..))
+
+#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
+import Data.Time (UTCTime, addUTCTime, defaultTimeLocale, formatTime, parseTimeOrError)
+#else
+import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
+import System.Locale (defaultTimeLocale)
+#endif
+
+#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
+-- make it easy to compile on different systems for now
+readTime :: TimeLocale -> String -> String -> UTCTime
+readTime = parseTimeOrError True
+#endif
 
 -- | Isn't this in base now?
 maybeRead :: Read a => String -> Maybe a

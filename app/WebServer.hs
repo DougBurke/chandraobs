@@ -1,5 +1,5 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
-
 {-# LANGUAGE FlexibleContexts #-} -- needed for webapp signature
 
 {-
@@ -50,7 +50,10 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
 
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
+#endif
+
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 

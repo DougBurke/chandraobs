@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -48,9 +49,11 @@ instance Lift RA where
 instance Lift Dec where
   lift Dec{..} = [| Dec _unDec |]
 
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 instance Lift Double where
   -- lift d = return $ SigE (LitE (RationalL (toRational d))) (ConT GHC.Types.Double)
   lift d = return (LitE (RationalL (toRational d))) -- do I need the explicit typing? probably so
+#endif
 
 -- UTCTime, Day, DiffTime have Data instances
 

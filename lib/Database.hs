@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
@@ -41,7 +42,10 @@ module Database ( getCurrentObs
                 , insertOrReplace
                 ) where
 
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
+#endif
+
 import Control.Monad (forM, liftM, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 

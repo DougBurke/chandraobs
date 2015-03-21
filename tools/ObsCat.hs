@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -27,7 +28,10 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import qualified Data.Set as S
 
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
+#endif
+
 import Control.Arrow ((&&&))
 import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
@@ -35,7 +39,6 @@ import Control.Monad.Logger (NoLoggingT)
 
 import Data.Char (ord)
 import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe)
-import Data.Time (UTCTime, getCurrentTime, readsTime)
 import Data.Word (Word8)
 
 import Database.Groundhog.Postgresql
@@ -47,14 +50,26 @@ import System.Environment (getArgs, getEnv, getProgName)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
 import System.IO (hFlush, hGetLine, hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempFile)
-import System.Locale (defaultTimeLocale)
 import System.Process (readProcessWithExitCode, system)
+
+#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
+import Data.Time (UTCTime, defaultTimeLocale, getCurrentTime, readSTime)
+#else
+import Data.Time (UTCTime, getCurrentTime, readsTime)
+import System.Locale (defaultTimeLocale)
+#endif
 
 import Database (insertScienceObs
                 , replaceScienceObs
                 , insertProposal
                 )
 import Types
+
+#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
+-- make it easy to compile on different systems for now
+readsTime :: TimeLocale -> String -> ReadS UTCTime
+readsTime = readSTime True
+#endif
 
 -- | What is the URL needed to query the ObsCat?
 queryObsCat :: ObsIdVal -> String
