@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -493,7 +492,10 @@ addOverlaps f os = do
   let oids = S.toList $ S.fromList $ map ovOverlapId os
   putStrLn $ "# Processing " ++ slen os ++ " overlaps with " ++ slen oids ++ " different ObsIds"
 
-  let countOid oid = count (SoObsIdField ==. oid)
+  -- avoid FlexibleInstances by being explicit with types; could make
+  -- the monad more general (I guess) but leave as is for now
+  let countOid :: ObsIdVal -> DbPersist Postgresql (NoLoggingT IO) Int 
+      countOid oid = count (SoObsIdField ==. oid)
   cs <- doDB $ forM oids countOid 
   let unknowns = map fst $ filter ((==0) . snd) $ zip oids cs
   putStrLn $ "# Of these, there are " ++ slen unknowns ++ " 'new' ObsIds"
