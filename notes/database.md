@@ -25,6 +25,20 @@ control the database schema would be preferable.
 
 Using Groundhog to enter data into postgresql:
 
+Create the account and database, e.g.
+
+    % sudo -u postgres psql postgres
+    [sudo] password for djburke: 
+    psql (9.4.5)
+    Type "help" for help.
+
+    postgres=# \password postgres
+    Enter new password: 
+    Enter it again: 
+    postgres=# \q
+
+    % sudo -u postgres createdb chandraobs
+
 Used pgadmin3/psql to drop the existing tables in the database, e.g.
 
     % psql --username=postgres --password --host=127.0.0.1 --dbname=chandraobs
@@ -37,13 +51,17 @@ Used pgadmin3/psql to drop the existing tables in the database, e.g.
 
 and then fill in the data from my hand-created version:
 
-    % ./dist/build/hackdata/hackdata
-    Migrating: CREATE TABLE "NonScienceObs" ("id" BIGSERIAL PRIMARY KEY UNIQUE, "nsName" VARCHAR NOT NULL, "nsObsId" INT8 NOT NULL, "nsTarget" VARCHAR NOT NULL, "nsStartTime" TIMESTAMP NOT NULL, "nsTime" DOUBLE PRECISION NOT NULL, "nsRa" DOUBLE PRECISION NOT NULL, "nsDec" DOUBLE PRECISION NOT NULL, "nsRoll" DOUBLE PRECISION NOT NULL, "nsPitch" DOUBLE PRECISION NOT NULL, "nsSlew" DOUBLE PRECISION NOT NULL)
-    Migrating: CREATE TABLE "ScheduleItem" ("id" BIGSERIAL PRIMARY KEY UNIQUE, "siObsName" VARCHAR NOT NULL, "siStart" TIMESTAMP NOT NULL, "siEnd" TIMESTAMP NOT NULL, "siDuration" DOUBLE PRECISION NOT NULL)
-    Migrating: CREATE TABLE "ScienceObs" ("id" BIGSERIAL PRIMARY KEY UNIQUE, "soSequence" INT8 NOT NULL, "soObsId" INT8 NOT NULL, "soTarget" VARCHAR NOT NULL, "soStartTime" TIMESTAMP NOT NULL, "soTime" DOUBLE PRECISION NOT NULL, "soInstrument" VARCHAR NOT NULL, "soGrating" VARCHAR NOT NULL, "soRa" DOUBLE PRECISION NOT NULL, "soDec" DOUBLE PRECISION NOT NULL, "soRoll" DOUBLE PRECISION NOT NULL, "soPitch" DOUBLE PRECISION NOT NULL, "soSlew" DOUBLE PRECISION NOT NULL)
-    Inserting schedule
-    Inserting science obs
-    Inserting non-science obs
+    % cabal run initdb
+    ...
+
+    The obscat tool needs an active CIAO installation:
+    
+    % cabal run obscat
+    ...
+    % cabal run querysimbad
+    ...
+    % cabal run getcurrent
+    ...    
 
     % psql --username=postgres --password --host=127.0.0.1 --dbname=chandraobs
     chandraobs=# select count(*) from "ScheduleItem";
