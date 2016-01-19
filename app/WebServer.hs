@@ -169,8 +169,9 @@ main = do
         -- withManager
         do
           mgr <- NHC.newManager Client.defaultManagerSettings
-          withPostgresqlPool connStr 5 $ \pool ->
-              scottyOpts opts $ webapp pool mgr
+          withPostgresqlPool connStr 5 $ \pool -> do
+            runDbConn handleMigration pool
+            scottyOpts opts (webapp pool mgr)
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -187,16 +188,15 @@ webapp ::
     -> NHC.Manager
     -> ScottyM ()
 webapp cm mgr = do
-    let liftSQL a = liftIO $ runDbConn a cm
+    let liftSQL a = liftIO (runDbConn a cm)
 
     defaultHandler errHandle
-    liftSQL handleMigration
 
     -- Need to find out how the static directory gets copied
     -- over by cabal; seems to be okay
     --
     -- middleware logStdoutDev
-    middleware $ staticPolicy (noDots >-> addBase "static")
+    middleware (staticPolicy (noDots >-> addBase "static"))
 
     -- proxy requests to the DSS/RASS/PSPC images so we can
     -- access them via AJAX. *experimental*
@@ -228,14 +228,14 @@ webapp cm mgr = do
               mrec <- liftSQL getCurrentObs
               let rval o = json ("Success" :: T.Text, fromObsId o)
               case mrec of
-                Just (Left ns) -> rval $ nsObsId ns
-                Just (Right so) -> rval $ soObsId so
+                Just (Left ns) -> rval (nsObsId ns)
+                Just (Right so) -> rval (soObsId so)
                 _ -> json ("Failed" :: T.Text)
 
     get "/api/obsid/:obsid" $ do
               obsid <- param "obsid"
-              -- mobs <- liftSQL $ findObsId $ ObsIdVal obsid
-              mobs <- liftSQL $ getObsId $ ObsIdVal obsid
+              -- mobs <- liftSQL (findObsId (ObsIdVal obsid))
+              mobs <- liftSQL (getObsId (ObsIdVal obsid))
               case mobs of
                 -- Just v -> json ("Success" :: T.Text, v) -- NOTE: v is (Record, Bool) from findObsId
                 Just v -> json ("Success" :: T.Text, v)
@@ -248,14 +248,14 @@ webapp cm mgr = do
     -- a regex
     get (regex "^/api/simbad/name/(.+)$") $ do
               name <- param "1"
-              msim <- liftSQL $ getSimbadInfo name
+              msim <- liftSQL (getSimbadInfo name)
               case msim of
                 Just sim -> json ("Success" :: T.Text, sim)
                 _ -> json ("Unknown Target" :: T.Text, name)
 
     get "/api/proposal/:propnum" $ do
               propNum <- param "propnum"
-              mres <- liftSQL $ getProposalFromNumber propNum
+              mres <- liftSQL (getProposalFromNumber propNum)
               case mres of
                 Just res -> json ("Success" :: T.Text, res)
                 _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
@@ -263,14 +263,14 @@ webapp cm mgr = do
     get "/api/related/:propnum/:obsid" $ do
               propNum <- param "propnum"
               obsid <- param "obsid"
-              res <- liftSQL $ getRelatedObs propNum $ ObsIdVal obsid
+              res <- liftSQL (getRelatedObs propNum (ObsIdVal obsid))
               -- hmmm, can't tell between an unknown propnum/obsid
               -- pair and an observation with no related observations.
               json ("Success" :: T.Text, res)
 
     get "/api/related/:propnum" $ do
               propNum <- param "propnum"
-              res <- liftSQL $ getObsFromProposal propNum
+              res <- liftSQL (getObsFromProposal propNum)
               -- hmmm, can't tell between an unknown propnum
               -- and an observation with no related observations.
               json ("Success" :: T.Text, res)
@@ -284,7 +284,7 @@ webapp cm mgr = do
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          dbInfo <- liftSQL $ getDBInfo $ oiCurrentObs obs
+          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
           fromBlaze $ Index.introPage cTime obs dbInfo
         _        -> do
           fact <- liftIO getFact
@@ -301,117 +301,117 @@ webapp cm mgr = do
 
     get "/obsid/:obsid" $ do
       obsid <- param "obsid"
-      mobs <- liftSQL $ getObsId $ ObsIdVal obsid
+      mobs <- liftSQL (getObsId (ObsIdVal obsid))
       mCurrent <- liftSQL getCurrentObs
       cTime <- liftIO getCurrentTime
       case mobs of
         Just obs -> do
-          dbInfo <- liftSQL $ getDBInfo $ oiCurrentObs obs
-          fromBlaze $ Record.recordPage cTime mCurrent obs dbInfo
+          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
+          fromBlaze (Record.recordPage cTime mCurrent obs dbInfo)
         _ -> next -- status status404
 
     -- TODO: send in proposal details
     get "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mobs <- liftSQL $ getRecord $ ObsIdVal obsid
+      mobs <- liftSQL (getRecord (ObsIdVal obsid))
       case mobs of
-        Just (Right so) -> fromBlaze $ WWT.wwtPage False so
+        Just (Right so) -> fromBlaze (WWT.wwtPage False so)
         _               -> next -- status status404
 
     -- TODO: head requests
     get "/proposal/:propnum" $ do
       pNum <- param "propnum"
-      (mprop, matches) <- liftSQL $ fetchProposal pNum
+      (mprop, matches) <- liftSQL (fetchProposal pNum)
       case mprop of
         Just prop -> do
-          sched <- liftSQL $ makeSchedule $ map Right matches
-          fromBlaze $ Proposal.matchPage prop sched
+          sched <- liftSQL (makeSchedule (map Right matches))
+          fromBlaze (Proposal.matchPage prop sched)
         _         -> next -- status status404
 
     get "/schedule" $ redirect "/schedule/index.html"
     get "/schedule/index.html" $ do
-      sched <- liftSQL $ getSchedule 3
-      fromBlaze $ Schedule.schedPage sched
+      sched <- liftSQL (getSchedule 3)
+      fromBlaze (Schedule.schedPage sched)
 
     get "/schedule/day" $ do
-      sched <- liftSQL $ getSchedule 1
-      fromBlaze $ Schedule.schedPage sched
+      sched <- liftSQL (getSchedule 1)
+      fromBlaze (Schedule.schedPage sched)
 
     get "/schedule/day/:ndays" $ do
       ndays <- param "ndays"
       when (ndays <= 0) next  -- TODO: better error message
-      sched <- liftSQL $ getSchedule ndays
-      fromBlaze $ Schedule.schedPage sched
+      sched <- liftSQL (getSchedule ndays)
+      fromBlaze (Schedule.schedPage sched)
 
     get "/schedule/week" $ do
-      sched <- liftSQL $ getSchedule 7
-      fromBlaze $ Schedule.schedPage sched
+      sched <- liftSQL (getSchedule 7)
+      fromBlaze (Schedule.schedPage sched)
 
     get "/schedule/week/:nweeks" $ do
       nweeks <- param "nweeks"
       when (nweeks <= 0) next  -- TODO: better error message
-      sched <- liftSQL $ getSchedule (7 * nweeks)
-      fromBlaze $ Schedule.schedPage sched
+      sched <- liftSQL (getSchedule (7 * nweeks))
+      fromBlaze (Schedule.schedPage sched)
 
     -- TODO: also need a HEAD request version
     get "/search/type/:type" $ do
       simbadType <- param "type"
-      matches <- liftSQL $ fetchSIMBADType simbadType
+      matches <- liftSQL (fetchSIMBADType simbadType)
       case matches of
         Just (typeInfo, ms) -> do
-           sched <- liftSQL $ makeSchedule $ map Right ms
-           fromBlaze $ SearchTypes.matchPage typeInfo sched
+           sched <- liftSQL (makeSchedule (map Right ms))
+           fromBlaze (SearchTypes.matchPage typeInfo sched)
         _ -> next -- status status404
 
     -- TODO: also need a HEAD request version
     get "/search/type/" $ do
       matches <- liftSQL fetchObjectTypes
-      fromBlaze $ SearchTypes.indexPage matches
+      fromBlaze (SearchTypes.indexPage matches)
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
       con <- param "constellation"
-      matches <- liftSQL $ fetchConstellation con
+      matches <- liftSQL (fetchConstellation con)
       case matches of
         [] -> next -- status status404
         _ -> do
-           sched <- liftSQL $ makeSchedule $ map Right matches
-           fromBlaze $ Constellation.matchPage con sched
+           sched <- liftSQL (makeSchedule (map Right matches))
+           fromBlaze (Constellation.matchPage con sched)
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/" $ do
       matches <- liftSQL fetchConstellationTypes
-      fromBlaze $ Constellation.indexPage matches
+      fromBlaze (Constellation.indexPage matches)
 
     -- TODO: also need a HEAD request version
     get "/search/category/:category" $ do
       cat <- param "category"
-      matches <- liftSQL $ fetchCategory cat
+      matches <- liftSQL (fetchCategory cat)
       case matches of
         [] -> next -- status status404
         _ -> do
-           sched <- liftSQL $ makeSchedule $ map Right matches
-           fromBlaze $ Category.matchPage cat sched
+           sched <- liftSQL (makeSchedule (map Right matches))
+           fromBlaze (Category.matchPage cat sched)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
       matches <- liftSQL fetchCategoryTypes
-      fromBlaze $ Category.indexPage matches
+      fromBlaze (Category.indexPage matches)
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/:instrument" $ do
       inst <- param "instrument"
-      matches <- liftSQL $ fetchInstrument inst
+      matches <- liftSQL (fetchInstrument inst)
       case matches of
         [] -> next -- status status404
         _ -> do
-           sched <- liftSQL $ makeSchedule $ map Right matches
-           fromBlaze $ Instrument.matchPage inst sched
+           sched <- liftSQL (makeSchedule (map Right matches))
+           fromBlaze (Instrument.matchPage inst sched)
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/" $ do
       matches <- liftSQL fetchInstrumentTypes
-      fromBlaze $ Instrument.indexPage matches
+      fromBlaze (Instrument.indexPage matches)
 
     -- TODO: also need a HEAD request version
     {-
@@ -437,14 +437,14 @@ webapp cm mgr = do
 
     addroute HEAD "/obsid/:obsid" $ do
       obsid <- param "obsid"
-      mobs <- liftSQL $ getObsId $ ObsIdVal obsid
+      mobs <- liftSQL (getObsId (ObsIdVal obsid))
       case mobs of
         Just _ -> standardResponse
         _      -> next -- status status404
 
     addroute HEAD "/obsid/:obsid/wwt" $ do
       obsid <- param "obsid"
-      mobs <- liftSQL $ getRecord $ ObsIdVal obsid
+      mobs <- liftSQL (getRecord (ObsIdVal obsid))
       case mobs of
         Just (Right _) -> standardResponse
         _              -> next -- status status404
@@ -461,13 +461,13 @@ webapp cm mgr = do
 
     notFound $ do
       fact <- liftIO getFact
-      fromBlaze $ NotFound.notFoundPage fact
+      fromBlaze (NotFound.notFoundPage fact)
       status status404
 
 -- | Exception handler. We should log the error.
 errHandle :: L.Text -> ActionM ()
 errHandle txt = do
-  liftIO $ L.putStrLn $ "Error string: " <> txt
+  liftIO (L.putStrLn ("Error string: " <> txt))
   fromBlaze NotFound.errPage
   -- Can we change the HTTP status code? The following does not
   -- work.
