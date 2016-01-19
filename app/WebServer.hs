@@ -55,6 +55,7 @@ import Control.Applicative ((<$>))
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+-- import Control.Monad.Logger (NoLoggingT)
 
 import Data.Default (def)
 import Data.Maybe (isJust)
@@ -62,7 +63,11 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (getCurrentTime)
 
-import Database.Groundhog.Postgresql (Postgresql(..), PersistBackend, runDbConn, withPostgresqlPool)
+-- import Database.Groundhog.Core (DbPersist)
+import Database.Groundhog.Postgresql (Postgresql(..)
+                                     , PersistBackend
+                                     , runDbConn
+                                     , withPostgresqlPool)
 
 import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
@@ -201,20 +206,14 @@ webapp cm mgr = do
     -- proxy requests to the DSS/RASS/PSPC images so we can
     -- access them via AJAX. *experimental*
     --
-    get "/proxy/dss/:sequence/:obsid" $ do
-              seqVal <- param "sequence"
-              obsid <- param "obsid"
-              proxy mgr PTDSS seqVal obsid
-
-    get "/proxy/rass/:sequence/:obsid" $ do
-              seqVal <- param "sequence"
-              obsid <- param "obsid"
-              proxy mgr PTRASS seqVal obsid
-
-    get "/proxy/pspc/:sequence/:obsid" $ do
-              seqVal <- param "sequence"
-              obsid <- param "obsid"
-              proxy mgr PTPSPC seqVal obsid
+    let proxyImg imgType = do
+          seqVal <- param "sequence"
+          obsid <- param "obsid"
+          proxy mgr imgType seqVal obsid
+          
+    get "/proxy/dss/:sequence/:obsid" (proxyImg PTDSS)
+    get "/proxy/rass/:sequence/:obsid" (proxyImg PTRASS)
+    get "/proxy/pspc/:sequence/:obsid" (proxyImg PTPSPC)
 
     -- for now always return JSON; need a better success/failure
     -- set up.
@@ -232,14 +231,28 @@ webapp cm mgr = do
                 Just (Right so) -> rval (soObsId so)
                 _ -> json ("Failed" :: T.Text)
 
+    let {-
+        dbQuery :: Parsable p
+                   => L.Text
+                   -> (p -> DbPersist Postgresql (NoLoggingT IO) v)
+                   -> ActionM (p, v)
+        -}
+        dbQuery name act = do
+          pval <- param name
+          ans <- liftSQL (act pval)
+          return (pval, ans)
+
+        -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
+        queryObsidParam = dbQuery "obsid" (getObsId . ObsIdVal)
+
+        -- queryRecord :: ActionM (Maybe (Either NonScienceObs ScienceObs))
+        queryRecord = snd <$> dbQuery "obsid" (getRecord . ObsIdVal)
+
     get "/api/obsid/:obsid" $ do
-              obsid <- param "obsid"
-              -- mobs <- liftSQL (findObsId (ObsIdVal obsid))
-              mobs <- liftSQL (getObsId (ObsIdVal obsid))
-              case mobs of
-                -- Just v -> json ("Success" :: T.Text, v) -- NOTE: v is (Record, Bool) from findObsId
-                Just v -> json ("Success" :: T.Text, v)
-                _ -> json ("Unknown ObsId" :: T.Text, obsid)
+      (obsid, mobs) <- queryObsidParam
+      case mobs of
+        Just v -> json ("Success" :: T.Text, v)
+        _ -> json ("Unknown ObsId" :: T.Text, obsid)
 
     -- break down the monolithic queries into separate ones, which may or may not
     -- be a good idea
@@ -247,37 +260,34 @@ webapp cm mgr = do
     -- Note that for Simbad names we may have a / in them, so we use
     -- a regex
     get (regex "^/api/simbad/name/(.+)$") $ do
-              name <- param "1"
-              msim <- liftSQL (getSimbadInfo name)
-              case msim of
-                Just sim -> json ("Success" :: T.Text, sim)
-                _ -> json ("Unknown Target" :: T.Text, name)
+      (name, msim) <- dbQuery "1" getSimbadInfo
+      case msim of
+        Just sim -> json ("Success" :: T.Text, sim)
+        _ -> json ("Unknown Target" :: T.Text, name)
 
     get "/api/proposal/:propnum" $ do
-              propNum <- param "propnum"
-              mres <- liftSQL (getProposalFromNumber propNum)
-              case mres of
-                Just res -> json ("Success" :: T.Text, res)
-                _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
+      (propNum, mres) <- dbQuery "propnum" getProposalFromNumber
+      case mres of
+        Just res -> json ("Success" :: T.Text, res)
+        _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
 
     get "/api/related/:propnum/:obsid" $ do
-              propNum <- param "propnum"
-              obsid <- param "obsid"
-              res <- liftSQL (getRelatedObs propNum (ObsIdVal obsid))
-              -- hmmm, can't tell between an unknown propnum/obsid
-              -- pair and an observation with no related observations.
-              json ("Success" :: T.Text, res)
+      propNum <- param "propnum"
+      obsid <- param "obsid"
+      res <- liftSQL (getRelatedObs propNum (ObsIdVal obsid))
+      -- hmmm, can't tell between an unknown propnum/obsid
+      -- pair and an observation with no related observations.
+      json ("Success" :: T.Text, res)
 
     get "/api/related/:propnum" $ do
-              propNum <- param "propnum"
-              res <- liftSQL (getObsFromProposal propNum)
-              -- hmmm, can't tell between an unknown propnum
-              -- and an observation with no related observations.
-              json ("Success" :: T.Text, res)
+      res <- snd <$> dbQuery "propnum" getObsFromProposal
+      -- hmmm, can't tell between an unknown propnum
+      -- and an observation with no related observations.
+      json ("Success" :: T.Text, res)
 
-    get "/" $ redirect "/index.html"
-    get "/about.html" $ redirect "/about/index.html"
-    get "/about" $ redirect "/about/index.html"
+    get "/" (redirect "/index.html")
+    get "/about.html" (redirect "/about/index.html")
+    get "/about" (redirect "/about/index.html")
 
     get "/index.html" $ do
       mobs <- liftSQL getObsInfo
@@ -300,63 +310,53 @@ webapp cm mgr = do
           fromBlaze $ Index.noDataPage fact
 
     get "/obsid/:obsid" $ do
-      obsid <- param "obsid"
-      mobs <- liftSQL (getObsId (ObsIdVal obsid))
-      mCurrent <- liftSQL getCurrentObs
-      cTime <- liftIO getCurrentTime
+      mobs <- snd <$> queryObsidParam
       case mobs of
         Just obs -> do
+          cTime <- liftIO getCurrentTime
+          mCurrent <- liftSQL getCurrentObs
           dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
           fromBlaze (Record.recordPage cTime mCurrent obs dbInfo)
         _ -> next -- status status404
 
     -- TODO: send in proposal details
     get "/obsid/:obsid/wwt" $ do
-      obsid <- param "obsid"
-      mobs <- liftSQL (getRecord (ObsIdVal obsid))
+      mobs <- queryRecord
       case mobs of
         Just (Right so) -> fromBlaze (WWT.wwtPage False so)
         _               -> next -- status status404
 
     -- TODO: head requests
     get "/proposal/:propnum" $ do
-      pNum <- param "propnum"
-      (mprop, matches) <- liftSQL (fetchProposal pNum)
+      (mprop, matches) <- snd <$> dbQuery "propnum" fetchProposal
       case mprop of
         Just prop -> do
           sched <- liftSQL (makeSchedule (map Right matches))
           fromBlaze (Proposal.matchPage prop sched)
         _         -> next -- status status404
 
-    get "/schedule" $ redirect "/schedule/index.html"
-    get "/schedule/index.html" $ do
-      sched <- liftSQL (getSchedule 3)
-      fromBlaze (Schedule.schedPage sched)
-
-    get "/schedule/day" $ do
-      sched <- liftSQL (getSchedule 1)
-      fromBlaze (Schedule.schedPage sched)
+    let querySchedule n = do
+          sched <- liftSQL (getSchedule n)
+          fromBlaze (Schedule.schedPage sched)
+          
+    get "/schedule" (redirect "/schedule/index.html")
+    get "/schedule/index.html" (querySchedule 3)
+    get "/schedule/day" (querySchedule 1)
+    get "/schedule/week" (querySchedule 7)
 
     get "/schedule/day/:ndays" $ do
       ndays <- param "ndays"
       when (ndays <= 0) next  -- TODO: better error message
-      sched <- liftSQL (getSchedule ndays)
-      fromBlaze (Schedule.schedPage sched)
-
-    get "/schedule/week" $ do
-      sched <- liftSQL (getSchedule 7)
-      fromBlaze (Schedule.schedPage sched)
+      querySchedule ndays
 
     get "/schedule/week/:nweeks" $ do
       nweeks <- param "nweeks"
       when (nweeks <= 0) next  -- TODO: better error message
-      sched <- liftSQL (getSchedule (7 * nweeks))
-      fromBlaze (Schedule.schedPage sched)
+      querySchedule (7 * nweeks)
 
     -- TODO: also need a HEAD request version
     get "/search/type/:type" $ do
-      simbadType <- param "type"
-      matches <- liftSQL (fetchSIMBADType simbadType)
+      matches <- snd <$> dbQuery "type" fetchSIMBADType
       case matches of
         Just (typeInfo, ms) -> do
            sched <- liftSQL (makeSchedule (map Right ms))
@@ -370,8 +370,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
-      con <- param "constellation"
-      matches <- liftSQL (fetchConstellation con)
+      (con, matches) <- dbQuery "constellation" fetchConstellation
       case matches of
         [] -> next -- status status404
         _ -> do
@@ -385,8 +384,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/category/:category" $ do
-      cat <- param "category"
-      matches <- liftSQL (fetchCategory cat)
+      (cat, matches) <- dbQuery "category" fetchCategory
       case matches of
         [] -> next -- status status404
         _ -> do
@@ -400,8 +398,7 @@ webapp cm mgr = do
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/:instrument" $ do
-      inst <- param "instrument"
-      matches <- liftSQL (fetchInstrument inst)
+      (inst, matches) <- dbQuery "instrument" fetchInstrument
       case matches of
         [] -> next -- status status404
         _ -> do
@@ -418,17 +415,17 @@ webapp cm mgr = do
     get "/search/" $ do
       fromBlaze $ ?.indexPage
     -}
-    get "/search/" $ redirect "/search/index.html"
+    get "/search/" (redirect "/search/index.html")
                 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
     --       set the redirect header?
-    addroute HEAD "/" $ standardResponse >> redirect "/index.html"
+    addroute HEAD "/" (standardResponse >> redirect "/index.html")
     addroute HEAD "/index.html" standardResponse
 
     addroute HEAD "/wwt.html" standardResponse
 
-    addroute HEAD "/about" $ standardResponse >> redirect "/about/index.html"
+    addroute HEAD "/about" (standardResponse >> redirect "/about/index.html")
 
     -- TODO: does the staticPolicy middleware deal with this?
     -- addroute HEAD "/about/index.html" standardResponse
@@ -436,15 +433,13 @@ webapp cm mgr = do
     -- addroute HEAD "/about/views.html" standardResponse
 
     addroute HEAD "/obsid/:obsid" $ do
-      obsid <- param "obsid"
-      mobs <- liftSQL (getObsId (ObsIdVal obsid))
+      mobs <- snd <$> queryObsidParam
       case mobs of
         Just _ -> standardResponse
         _      -> next -- status status404
 
     addroute HEAD "/obsid/:obsid/wwt" $ do
-      obsid <- param "obsid"
-      mobs <- liftSQL (getRecord (ObsIdVal obsid))
+      mobs <- queryRecord
       case mobs of
         Just (Right _) -> standardResponse
         _              -> next -- status status404
