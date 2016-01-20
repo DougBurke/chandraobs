@@ -129,10 +129,12 @@ parseDouble = parseReadable
 -- everything up until that point. The value of the title string is
 -- not needed for science obs, but is for non-science obs. However,
 -- this is only called for science obs.
--- It is currently hard-coded for 2014
+--
+-- Since speed is currently not a huge issue, just go ahead and
+-- check that we actually have a time field
 --
 parseTitle :: Parser String
-parseTitle = manyTill anyChar $ try $ lookAhead $ string "2014:"
+parseTitle = manyTill anyChar (try (lookAhead parseTime))
 
 parseInst :: Parser Instrument
 parseInst = parseReadable
