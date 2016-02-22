@@ -42,7 +42,7 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
   runDbConn $ do
     handleMigration
 
-    reportSize
+    _ <- reportSize
 
     o1 <- countAll (undefined :: ScheduleItem)
     o2 <- countAll (undefined :: ScienceObs)
@@ -58,7 +58,7 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
     liftIO $ putStrLn "Inserting non-science obs"
     mapM_ addNS testNonScience
 
-    reportSize
+    _ <- reportSize
 
     n1 <- countAll (undefined :: ScheduleItem)
     n2 <- countAll (undefined :: ScienceObs)

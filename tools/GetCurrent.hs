@@ -21,7 +21,7 @@ main = do
   res <- withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
     runDbConn $ do
       handleMigration
-      reportSize
+      _ <- reportSize
       getObsInfo
 
   case res of

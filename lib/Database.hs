@@ -419,17 +419,27 @@ getProposalInfo (Right so) = do
   matches <- getProposalObs so
   return (mproposal, matches)
 
+showSize :: (MonadIO m, PersistBackend m, PersistEntity v) => String -> v -> m Int
+showSize l t = do
+  n <- countAll t
+  liftIO (putStrLn ("Number of " ++ l ++ " : " ++ show n))
+  return n
+
 -- | Quick on-screen summary of the database size.
-reportSize :: (MonadIO m, PersistBackend m) => m ()
+reportSize :: (MonadIO m, PersistBackend m) => m Int
 reportSize = do
-  nall <- countAll (undefined :: ScheduleItem)
-  ns <- countAll (undefined :: ScienceObs)
-  nn <- countAll (undefined :: NonScienceObs)
-  np <- countAll (undefined :: Proposal)
-  liftIO $ putStrLn $ "Number of scheduled items   : " ++ show nall
-  liftIO $ putStrLn $ "Number of science obs       : " ++ show ns
-  liftIO $ putStrLn $ "Number of non-science obs   : " ++ show nn
-  liftIO $ putStrLn $ "Number of proposals         : " ++ show np
+  n1 <- showSize "scheduled items  " (undefined :: ScheduleItem)
+  n2 <- showSize "science obs      " (undefined :: ScienceObs)
+  n3 <- showSize "non-science obs  " (undefined :: NonScienceObs)
+  n4 <- showSize "proposals        " (undefined :: Proposal)
+  n5 <- showSize "SIMBAD match     " (undefined :: SimbadMatch)
+  n6 <- showSize "SIMBAD no match  " (undefined :: SimbadNoMatch)
+  n7 <- showSize "SIMBAD info      " (undefined :: SimbadInfo)
+  n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
+  
+  let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
+  liftIO (putStrLn ("\nNumber of rows              : " ++ show ntot))
+  return ntot
 
 -- Need to make sure the following match the constraints on the tables found
 -- in Types.hs
@@ -441,7 +451,7 @@ reportSize = do
 insertScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
 insertScienceObs s = do
   n <- count (SoObsIdField ==. soObsId s)
-  when (n == 0) $ insert_ s
+  when (n == 0) (insert_ s)
 
 -- | Replaces the science observation with the new values, if it is different.
 --
