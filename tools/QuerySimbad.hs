@@ -10,7 +10,8 @@
 --   not fully implemented yet
 --
 --   Usage:
---       querysimbad [debug]
+--       querysimbad --cfa --cds --debug
+--
 --
 
 import qualified Data.ByteString.Char8 as BS8
@@ -48,6 +49,14 @@ import Database (insertSimbadInfo
                 , insertSimbadMatch
                 , insertSimbadNoMatch)
 import Types
+
+-- | Which SIMBAD should be queried (this is in case one is down).
+--
+data SimbadLoc = SimbadCDS | SimbadCfA deriving Eq
+
+simbadBase :: SimbadLoc -> String
+simbadBase SimbadCDS = "http://simbad.u-strasbg.fr/"
+simbadBase SimbadCfA = "http://simbad.harvard.edu/"
 
 -- | Try and clean up SIMBAD identifiers:
 --
@@ -87,44 +96,43 @@ cleanTargetName tgt =
 -- requires the database key to create
 type SearchResults = (String, String, UTCTime)
 
-querySIMBAD :: 
-  Bool       -- ^ @True@ for debug output
+querySIMBAD ::
+  SimbadLoc
+  -> Bool    -- ^ @True@ for debug output
   -> String  -- ^ object name
   -> IO (SearchResults, Maybe SimbadInfo)
-querySIMBAD f objname = do
-  putStrLn $ "Querying SIMBAD for " ++ objname
+querySIMBAD sloc f objname = do
+  putStrLn ("Querying SIMBAD for " ++ objname)
   let -- we POST the script to SIMBAD
       script = mconcat [
                  "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
                  , "query id ", BS8.pack searchTerm, "\n" ]
 
-      -- TODO: support roll over to Strasbourg site if the ADS mirror
-      --       is not accessible
-      -- uriBase = "http://simbad.u-strasbg.fr/"
-      uriBase = "http://simbad.harvard.edu/"
-      uri = uriBase <> "simbad/sim-script"
+      uri = simbadBase sloc <> "simbad/sim-script"
 
       -- TODO: "clean" the target name of known "issues"
       --       that make Simbad matches fail
       searchTerm = cleanTargetName objname
 
-  when f $ putStrLn ">> Script:" >> print script
+  when f (putStrLn ">> Script:" >> print script)
 
   cTime <- getCurrentTime
   req <- parseUrl uri
   let hdrs = ("User-Agent", "chandraobs-obscat") : requestHeaders req
       req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }
-  rsp <- withManager $ httpLbs req'
-  let body = L8.unpack $ responseBody rsp
+
+  mgr <- newManager tlsManagerSettings
+  rsp <- httpLbs req' mgr
+  let body = L8.unpack (responseBody rsp)
       -- TODO: need to handle data that does not match expectations
       --       eg if there's an error field, display it and return nothing ...
       dropUntilNext c = drop 1 . dropWhile (not . c)
-      ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) $ lines body
+      ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) (lines body)
 
-  when f $ putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls
+  when f (putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls)
   let rval = listToMaybe ls >>= parseObject 
   -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) $ putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body
+  when (isNothing rval) (putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body)
 
   let searchRes = (objname, searchTerm, cTime)
 
@@ -220,8 +228,12 @@ blag f = when f . putIO
 -- Not all options are currently supported, and it would be better
 -- to do this within the database query, where possible.
 --
-updateDB :: Bool -> IO ()
-updateDB f = withSocketsDo $ do
+updateDB :: SimbadLoc -> Bool -> IO ()
+updateDB sloc f = withSocketsDo $ do
+  case sloc of
+    SimbadCfA -> putStrLn "# Using CfA SIMBAD mirror"
+    SimbadCDS -> putStrLn "# Using CDS SIMBAD"
+
   putStrLn "# Querying the database"
 
   {-
@@ -264,10 +276,15 @@ updateDB f = withSocketsDo $ do
 
   -- Could do all the database changes at once, but let's see
   -- how this works out.
-
+  --
+  -- It would also be best to run all the SIMBAD queries at once, in
+  -- terms of not having to create/tear down the HTTP manager, but
+  -- leave that for a later revision (the assumption here is that
+  -- there are not going to be too many calls to SIMBAD).
+  --
   forM_ (S.toList unidSet) $ 
     \tgt -> do
-      (searchRes, minfo) <- querySIMBAD f tgt
+      (searchRes, minfo) <- querySIMBAD sloc f tgt
       doDB $ case minfo of
                Just si -> do
                           blag f $ ">> inserting SimbadInfo for " ++ smiName si
@@ -312,16 +329,24 @@ toM (a,b,c) k = SimbadMatch {
 usage :: IO ()
 usage = do
   pName <- getProgName
-  hPutStrLn stderr $ "Usage: " ++ pName
-  hPutStrLn stderr $ "       " ++ pName ++ " debug"
+  hPutStrLn stderr ("Usage: " ++ pName ++ " --cfa --cds --debug")
+  hPutStrLn stderr "\n       default is --cfa and no debug"
   exitFailure
+
+-- For now don't bother reporting on the actual error
+parseArgs :: [String] -> Maybe (SimbadLoc, Bool)
+parseArgs = go (SimbadCfA, False)
+  where
+    go ans [] = Just ans
+    go (sloc, dbg) (x:xs) | x == "--cds" = go (SimbadCDS, dbg) xs
+                          | x == "--cfa" = go (SimbadCfA, dbg) xs
+                          | x == "--debug" = go (sloc, True) xs
+                          | otherwise = Nothing
 
 main :: IO ()
 main = do
   args <- getArgs
-  case args of
-    [] -> updateDB False
-    [x] | x == "debug" -> updateDB True
-        | otherwise -> usage
+  case parseArgs args of
+    Just (sloc, debug) -> updateDB sloc debug
     _ -> usage
 
