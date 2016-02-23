@@ -1022,11 +1022,19 @@ instance Ord SimbadInfo where
   compare = compare `on` smiName
 -}
 
+-- | Which SIMBAD should be queried (this is in case one is down).
+--
+data SimbadLoc = SimbadCDS | SimbadCfA deriving Eq
+
+simbadBase :: IsString s => SimbadLoc -> s
+simbadBase SimbadCDS = "http://simbad.u-strasbg.fr/simbad/"
+simbadBase SimbadCfA = "http://simbad.harvard.edu/simbad/"
+
 -- | Return a link to the SIMBAD site (Strasbourg) for this object.
 --
 -- TODO: need to protect the link
-toSIMBADLink :: String -> String
-toSIMBADLink name = 
+toSIMBADLink :: SimbadLoc -> String -> String
+toSIMBADLink sloc name =
   let qry = [ ("Ident", B8.pack name)
             -- , ("NbIdent", "1")
             -- , ("Radius", "2")
@@ -1036,7 +1044,7 @@ toSIMBADLink name =
 
       qryB = renderSimpleQuery True qry
 
-  in B8.unpack $ "http://simbad.harvard.edu/simbad/sim-id" <> qryB
+  in B8.unpack (simbadBase sloc <> "sim-id" <> qryB)
       
 -- * Groundhog instances
 --

@@ -46,7 +46,7 @@ module Database ( getCurrentObs
 import Control.Applicative ((<$>))
 #endif
 
-import Control.Monad (forM, liftM, when)
+import Control.Monad (forM, forM_, liftM, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Either (partitionEithers)
@@ -187,7 +187,7 @@ getObsId = findObsInfo
 -- | Return the record of the given observation, if it
 --   exists.
 getRecord :: PersistBackend m => ObsIdVal -> m (Maybe Record)
-getRecord oid = (liftM . fmap) fst $ findObsId oid
+getRecord oid = (liftM . fmap) fst (findObsId oid)
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
@@ -366,6 +366,7 @@ fetchInstrument inst =
 --   "proposal", or at least "object per proposal"?
 fetchInstrumentTypes :: (MonadIO m, PersistBackend m) => m [(Instrument, Int)]
 fetchInstrumentTypes = do
+  -- TODO: why not project out SoInstrumentField since this is all we care about?
   res <- select $ CondEmpty `orderBy` [Asc SoInstrumentField]
   let srt = groupBy ((==) `on` soInstrument) res
       t [] = error "impossible fetchInstrumentTypes condition occurred"
@@ -419,6 +420,16 @@ getProposalInfo (Right so) = do
   matches <- getProposalObs so
   return (mproposal, matches)
 
+-- | Report on the observational status of the science observations
+findObsStatusTypes :: (MonadIO m, PersistBackend m) => m [(String, Int)]
+findObsStatusTypes = do
+  statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
+  let g = group statuses
+      sfields = map head g
+      cts = map length g
+      z = zip sfields cts
+  return (sortBy (comparing snd) z)
+
 showSize :: (MonadIO m, PersistBackend m, PersistEntity v) => String -> v -> m Int
 showSize l t = do
   n <- countAll t
@@ -436,6 +447,13 @@ reportSize = do
   n6 <- showSize "SIMBAD no match  " (undefined :: SimbadNoMatch)
   n7 <- showSize "SIMBAD info      " (undefined :: SimbadInfo)
   n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
+
+  -- break down the status field of the scheduled observations
+  liftIO (putStrLn "")
+  ns <- findObsStatusTypes
+  forM_ ns (\(status, n) ->
+             liftIO (putStrLn ("  status=" ++ status ++ "  : " ++ show n)))
+  liftIO (putStrLn (" -> total = " ++ show (sum (map snd ns))))
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
   liftIO (putStrLn ("\nNumber of rows              : " ++ show ntot))

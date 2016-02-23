@@ -37,6 +37,7 @@ import Types (ScienceObs(..), NonScienceObs(..),
               ObsInfo(..), ObsStatus(..),
               ChandraTime(..), Constraint(..),
               ConLong(..),
+              SimbadLoc(SimbadCfA),
               getObsStatus, getJointObs, toSIMBADLink,
               getConstellationName
               , similarName)
@@ -261,7 +262,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       -- TODO: check case and spaces
       simbadTxt SimbadInfo{..} = 
-        let slink = H.toValue $ toSIMBADLink smiName
+        let slink = H.toValue (toSIMBADLink sloc smiName)
+            sloc = SimbadCfA  -- TODO: allow configurable, either by the app, or
+                              --       by the user
         in mconcat [
               " is "
               , typeLinkSearch smiType3 (cleanupSIMBADType smiType)

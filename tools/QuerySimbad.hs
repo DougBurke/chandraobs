@@ -50,14 +50,6 @@ import Database (insertSimbadInfo
                 , insertSimbadNoMatch)
 import Types
 
--- | Which SIMBAD should be queried (this is in case one is down).
---
-data SimbadLoc = SimbadCDS | SimbadCfA deriving Eq
-
-simbadBase :: SimbadLoc -> String
-simbadBase SimbadCDS = "http://simbad.u-strasbg.fr/"
-simbadBase SimbadCfA = "http://simbad.harvard.edu/"
-
 -- | Try and clean up SIMBAD identifiers:
 --
 --   NAME xxx -> xxx (seen with NAME Chandra Deep Field South)
@@ -108,7 +100,7 @@ querySIMBAD sloc f objname = do
                  "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
                  , "query id ", BS8.pack searchTerm, "\n" ]
 
-      uri = simbadBase sloc <> "simbad/sim-script"
+      uri = simbadBase sloc <> "sim-script"
 
       -- TODO: "clean" the target name of known "issues"
       --       that make Simbad matches fail
