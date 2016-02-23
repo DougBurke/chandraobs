@@ -61,6 +61,8 @@ import System.Locale (defaultTimeLocale)
 import Database (insertScienceObs
                 , replaceScienceObs
                 , insertProposal
+                , putIO
+                , runDb
                 )
 import Types
 
@@ -73,7 +75,7 @@ readsTime = readSTime True
 -- | What is the URL needed to query the ObsCat?
 queryObsCat :: ObsIdVal -> String
 queryObsCat oid = 
-  let oi = show $ fromObsId oid
+  let oi = show (fromObsId oid)
   in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++ oi ++ "&format=text"
 
 -- | Return the constellation name for this position. The code exits if
@@ -103,11 +105,11 @@ getConstellation ra dec = do
       
       rval <- system full
       when (rval /= ExitSuccess) $ do
-        hPutStrLn stderr $ "ERROR: unable to run prop_precess on " ++ coords ++ "\n  " ++ cstr ++ "\n"
+        hPutStrLn stderr ("ERROR: unable to run prop_precess on " ++ coords ++ "\n  " ++ cstr ++ "\n")
         exitFailure
     
       cName <- hGetLine outHdl
-      return $ fromMaybe (error ("Unexpected constellation short form: '" ++ cName ++ "'")) $ toConShort cName
+      return $ fromMaybe (error ("Unexpected constellation short form: '" ++ cName ++ "'")) (toConShort cName)
       
 -- | What publically-available observations overlap this one?
 --
@@ -119,25 +121,25 @@ getOverlaps oid ra dec = do
   -- this raises an exception if ASCDS_INSTALL is not set
   -- path <- getEnv "ASCDS_INSTALL"
 
-  let long = show $ _unRA ra
-      lat = show $ _unDec dec
-      args = [long,lat, "radius=10"]
+  let long = show (_unRA ra)
+      lat = show (_unDec dec)
+      args = [long, lat, "radius=10"]
 
   -- do we need to set up the CIAO environment as we did above? probably
   (rval, sout, serr) <- readProcessWithExitCode "find_chandra_obsid" args ""
   when (rval /= ExitSuccess) $ do
-    hPutStrLn stderr $ "ERROR: unable to run find_chandra_obsid on " ++ show args ++ "\n  " ++ serr ++ "\n"
+    hPutStrLn stderr ("ERROR: unable to run find_chandra_obsid on " ++ show args ++ "\n  " ++ serr ++ "\n")
     exitFailure
     
   now <- getCurrentTime
   let toO xs = 
         -- this does not handle invalid output
         let (idvalstr:rdiststr:_) = words xs 
-            idval = ObsIdVal $ read idvalstr
+            idval = ObsIdVal (read idvalstr)
             rdist = read rdiststr
         in OverlapObs oid idval rdist now
 
-  return $ map toO $ drop 1 $ lines sout  
+  return (map toO (drop 1 (lines sout)))
 
 w8 :: Char -> Word8
 w8 = fromIntegral . ord
@@ -436,12 +438,6 @@ queryObsId flag oid = do
       return Nothing
     -- _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
 
--- | Run a database action.
-doDB :: DbPersist Postgresql (NoLoggingT IO) a -> IO a
-doDB = 
-  withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" .
-  runDbConn 
-
 -- | Query the database to find any scheduled observations
 --   which do not have any corresponding OCAT info, and
 --   those OCAT observations which are not archived
@@ -449,8 +445,7 @@ doDB =
 --
 findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal])
 findMissingObsIds = do
-  (want, have, unarchived) <- doDB $ do
-      handleMigration
+  (want, have, unarchived) <- runDb $ do
       allObsIds <- project SiObsIdField (SiScienceObsField ==. True)
       haveObsIds <- project SoObsIdField CondEmpty      
       unArchivedObsIds <- project SoObsIdField (SoStatusField /=. ("archived" :: String))
@@ -470,16 +465,16 @@ slen = show . length
 addResults :: [(Proposal, ScienceObs)] -> [(Proposal, ScienceObs)] -> IO ()
 addResults [] [] = putStrLn "# No data needs to be added to the database."
 addResults missing unarchived = do
-  putStrLn $ "# Adding " ++ slen missing ++ " missing results"
-  putStrLn $ "# Adding " ++ slen unarchived ++ " unarchived results"
+  putStrLn ("# Adding " ++ slen missing ++ " missing results")
+  putStrLn ("# Adding " ++ slen unarchived ++ " unarchived results")
   let props = S.toList $ S.fromList $ map fst missing ++ map fst unarchived
-  doDB $ do
-      liftIO $ putStrLn "## missing"
-      forM_ missing $ \(_,so) -> liftIO (print so) >> insertScienceObs so
-      liftIO $ putStrLn "## unarchived"
-      forM_ unarchived $ \(_,so) -> liftIO (print so) >> replaceScienceObs so
-      liftIO $ putStrLn "## proposals"
-      forM_ props $ \p -> liftIO (print p) >> insertProposal p
+  runDb $ do
+      putIO "## missing"
+      forM_ missing (\(_,so) -> liftIO (print so) >> insertScienceObs so)
+      putIO "## unarchived"
+      forM_ unarchived (\(_,so) -> liftIO (print so) >> replaceScienceObs so)
+      putIO "## proposals"
+      forM_ props (\p -> liftIO (print p) >> insertProposal p)
 
 -- | add in the overlap observations; that is, the table of
 --   overlaps and information about the overlap obs if it is
@@ -489,26 +484,26 @@ addResults missing unarchived = do
 --
 addOverlaps :: Bool -> [OverlapObs] -> IO ()
 addOverlaps f os = do
-  let oids = S.toList $ S.fromList $ map ovOverlapId os
-  putStrLn $ "# Processing " ++ slen os ++ " overlaps with " ++ slen oids ++ " different ObsIds"
+  let oids = S.toList (S.fromList (map ovOverlapId os))
+  putStrLn ("# Processing " ++ slen os ++ " overlaps with " ++ slen oids ++ " different ObsIds")
 
   -- avoid FlexibleInstances by being explicit with types; could make
   -- the monad more general (I guess) but leave as is for now
   let countOid :: ObsIdVal -> DbPersist Postgresql (NoLoggingT IO) Int 
       countOid oid = count (SoObsIdField ==. oid)
-  cs <- doDB $ forM oids countOid 
-  let unknowns = map fst $ filter ((==0) . snd) $ zip oids cs
+  cs <- runDb (forM oids countOid)
+  let unknowns = map fst $ filter ((==0) . snd) (zip oids cs)
   putStrLn $ "# Of these, there are " ++ slen unknowns ++ " 'new' ObsIds"
 
   res1 <- mapM (queryObsId f) unknowns
   res <- check res1 unknowns
 
   let (props1, sobs) = unzip res
-      props = S.toList $ S.fromList props1
+      props = S.toList (S.fromList props1)
 
-  putStrLn $ "# Adding " ++ slen sobs ++ " observations"
-  putStrLn $ "# Adding " ++ slen props ++ " proposals" 
-  doDB $ do
+  putStrLn ("# Adding " ++ slen sobs ++ " observations")
+  putStrLn ("# Adding " ++ slen props ++ " proposals")
+  runDb $ do
     -- could get away with insert for sobs if we can assume that
     -- no other process is updating the database
     forM_ sobs insertScienceObs

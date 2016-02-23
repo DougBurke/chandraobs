@@ -17,11 +17,11 @@
 --
 
 import Control.Monad (when)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO)
 
 import Database.Groundhog.Postgresql
 
-import Database (insertOrReplace, reportSize)
+import Database (insertOrReplace, reportSize, putIO, runDb)
 import HackData
 import Types
 
@@ -38,10 +38,8 @@ addNS ::
 addNS ns = insertOrReplace (NsObsIdField ==. nsObsId ns) ns
 
 main :: IO ()
-main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" $ 
-  runDbConn $ do
-    handleMigration
-
+main =
+  runDb $ do
     _ <- reportSize
 
     o1 <- countAll (undefined :: ScheduleItem)
@@ -49,13 +47,13 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
     o3 <- countAll (undefined :: NonScienceObs)
     o4 <- countAll (undefined :: Proposal)
 
-    liftIO $ putStrLn "Inserting schedule"
+    putIO "Inserting schedule"
     mapM_ addSI testSchedule
 
-    -- liftIO $ putStrLn "Inserting science obs"
+    -- putIO "Inserting science obs"
     -- mapM_ insert testScience
 
-    liftIO $ putStrLn "Inserting non-science obs"
+    putIO "Inserting non-science obs"
     mapM_ addNS testNonScience
 
     _ <- reportSize
@@ -65,8 +63,7 @@ main = withPostgresqlConn "user=postgres password=postgres dbname=chandraobs hos
     n3 <- countAll (undefined :: NonScienceObs)
     n4 <- countAll (undefined :: Proposal)
 
-    let putIO = liftIO . putStrLn
-    when (o1 /= n1) $ putIO $ "# Number of scheduled items increased by " ++ show (n1-o1)
-    when (o2 /= n2) $ putIO $ "# Number of science obs     increased by " ++ show (n2-o2)
-    when (o3 /= n3) $ putIO $ "# Number of non-science obs increased by " ++ show (n3-o3)
-    when (o4 /= n4) $ putIO $ "# Number of proposals       increased by " ++ show (n4-o4)
+    when (o1 /= n1) $ putIO ("# Number of scheduled items increased by " ++ show (n1-o1))
+    when (o2 /= n2) $ putIO ("# Number of science obs     increased by " ++ show (n2-o2))
+    when (o3 /= n3) $ putIO ("# Number of non-science obs increased by " ++ show (n3-o3))
+    when (o4 /= n4) $ putIO ("# Number of proposals       increased by " ++ show (n4-o4))

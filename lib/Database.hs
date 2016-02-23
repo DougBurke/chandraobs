@@ -40,6 +40,10 @@ module Database ( getCurrentObs
                 , insertSimbadNoMatch
 
                 , insertOrReplace
+
+                , putIO
+                , runDb
+                , dbConnStr
                 ) where
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -48,12 +52,13 @@ import Control.Applicative ((<$>))
 
 import Control.Monad (forM, forM_, liftM, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Logger (NoLoggingT)
 
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (group, groupBy, sortBy)
 import Data.Maybe (catMaybes, listToMaybe)
-import Data.Ord (comparing)
+import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
 import Database.Groundhog.Core (PersistEntity, EntityConstr, RestrictionHolder)
@@ -177,7 +182,7 @@ findObsInfo oi = do
   res <- findObsId oi
   case res of
     Just (obs,f) | f         -> extractObsInfo obs
-                 | otherwise -> return $ Just $ ObsInfo obs Nothing Nothing 
+                 | otherwise -> return (Just (ObsInfo obs Nothing Nothing))
     _ -> return Nothing
   
 -- | Return the requested "science" observation.
@@ -260,7 +265,7 @@ makeSchedule rs = do
       cnow = ChandraTime now
       (done, todo) = span ((<= cnow) . recordStartTime) sorted      
 
-  return $ Schedule now 0 done (listToMaybe nows) todo
+  return (Schedule now 0 done (listToMaybe nows) todo)
 
 -- | Do we have any SIMBAD information about the target?
 --
@@ -297,8 +302,8 @@ fetchSIMBADType stype = do
                sos <- forM keys $ \key -> do
                           targets <- project SmmTargetField (SmmInfoField ==. key)
                           obs <- forM targets $ \t -> select (SoTargetField ==. t)
-                          return $ concat obs
-               return $ Just ((stype, ltype), concat sos)
+                          return (concat obs)
+               return (Just ((stype, ltype), concat sos))
 
     _ -> return Nothing
 
@@ -315,21 +320,32 @@ fetchObjectTypes = do
   let srt = groupBy ((==) `on` smiType3) res
       t [] = error "impossible fetchObjectTypes condition occurred"
       t xs@(x:_) = ((smiType3 x, smiType x), length xs)
-  return $ map t srt 
+  return (map t srt )
 
 -- | Return observations which match this constellation, in time order.
 fetchConstellation :: (MonadIO m, PersistBackend m) => ConShort -> m [ScienceObs]
 fetchConstellation con = 
   select $ (SoConstellationField ==. con) `orderBy` [Asc SoStartTimeField]
 
+-- TODO: use the database to do this computation?
+
+-- | Given a sorted list of values, return the counts of these values,
+--   in descending order.
+--
+countUp :: Eq a => [a] -> [(a, Int)]
+countUp xs =
+  let gs = group xs
+      cts = map length gs
+      ids = map head gs
+      ys = zip ids cts
+  in sortBy (comparing (Down . snd)) ys
+
+
 -- | Return count of the constellations.
 fetchConstellationTypes :: (MonadIO m, PersistBackend m) => m [(ConShort, Int)]
 fetchConstellationTypes = do
   res <- project SoConstellationField $ CondEmpty `orderBy` [Asc SoConstellationField]
-  let srt = group res
-      t [] = error "impossible fetchConstellationTypes condition occurred"
-      t xs@(x:_) = (x, length xs)
-  return $ map t srt 
+  return (countUp res)
     
 -- | Return observations which match this category, in time order.
 fetchCategory :: (MonadIO m, PersistBackend m) => String -> m [ScienceObs]
@@ -342,10 +358,7 @@ fetchCategory cat = do
 fetchCategoryTypes :: (MonadIO m, PersistBackend m) => m [(String, Int)]
 fetchCategoryTypes = do
   res <- project PropCategoryField $ CondEmpty `orderBy` [Asc PropCategoryField]
-  let srt = group res
-      t [] = error "impossible fetchCategoryTypes condition occurred"
-      t xs@(x:_) = (x, length xs)
-  return $ map t srt 
+  return (countUp res)
 
 -- | Return all the observations which match this proposal, in time order.
 --
@@ -366,12 +379,8 @@ fetchInstrument inst =
 --   "proposal", or at least "object per proposal"?
 fetchInstrumentTypes :: (MonadIO m, PersistBackend m) => m [(Instrument, Int)]
 fetchInstrumentTypes = do
-  -- TODO: why not project out SoInstrumentField since this is all we care about?
-  res <- select $ CondEmpty `orderBy` [Asc SoInstrumentField]
-  let srt = groupBy ((==) `on` soInstrument) res
-      t [] = error "impossible fetchInstrumentTypes condition occurred"
-      t xs@(x:_) = (soInstrument x, length xs)
-  return $ map t srt 
+  insts <- project SoInstrumentField $ CondEmpty `orderBy` [Asc SoInstrumentField]
+  return (countUp insts)
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
@@ -420,20 +429,21 @@ getProposalInfo (Right so) = do
   matches <- getProposalObs so
   return (mproposal, matches)
 
--- | Report on the observational status of the science observations
+-- | Report on the observational status of the science observations.
+--   The values are ordered in descending order of the counts (the list
+--   of options is assumed to be small).
 findObsStatusTypes :: (MonadIO m, PersistBackend m) => m [(String, Int)]
 findObsStatusTypes = do
   statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
-  let g = group statuses
-      sfields = map head g
-      cts = map length g
-      z = zip sfields cts
-  return (sortBy (comparing snd) z)
+  return (countUp statuses)
+
+putIO :: MonadIO m => String -> m ()
+putIO = liftIO . putStrLn
 
 showSize :: (MonadIO m, PersistBackend m, PersistEntity v) => String -> v -> m Int
 showSize l t = do
   n <- countAll t
-  liftIO (putStrLn ("Number of " ++ l ++ " : " ++ show n))
+  putIO ("Number of " ++ l ++ " : " ++ show n)
   return n
 
 -- | Quick on-screen summary of the database size.
@@ -449,14 +459,14 @@ reportSize = do
   n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
 
   -- break down the status field of the scheduled observations
-  liftIO (putStrLn "")
+  putIO ""
   ns <- findObsStatusTypes
   forM_ ns (\(status, n) ->
-             liftIO (putStrLn ("  status=" ++ status ++ "  : " ++ show n)))
-  liftIO (putStrLn (" -> total = " ++ show (sum (map snd ns))))
+             putIO ("  status=" ++ status ++ "  : " ++ show n))
+  putIO (" -> total = " ++ show (sum (map snd ns)))
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
-  liftIO (putStrLn ("\nNumber of rows              : " ++ show ntot))
+  putIO ("\nNumber of rows              : " ++ show ntot)
   return ntot
 
 -- Need to make sure the following match the constraints on the tables found
@@ -534,3 +544,13 @@ insertOrReplace cond newVal = do
                                 insert_ newVal
     _ -> insert_ newVal
 
+-- | Hard-coded connection string for the database connection.
+dbConnStr :: String
+dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
+
+-- | Run an action against the database. This includes a call to
+--   `handleMigration` before the action is run.
+--
+runDb :: DbPersist Postgresql (NoLoggingT IO) a -> IO a
+runDb act =
+  withPostgresqlConn dbConnStr (runDbConn (handleMigration >> act))

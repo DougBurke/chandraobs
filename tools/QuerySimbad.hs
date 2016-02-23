@@ -20,8 +20,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Set as S
 
 import Control.Monad (forM_, when)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Logger (NoLoggingT)
+import Control.Monad.IO.Class (MonadIO)
 
 import Data.Char (toLower)
 import Data.List (isPrefixOf)
@@ -47,7 +46,9 @@ import System.IO (hPutStrLn, stderr)
 
 import Database (insertSimbadInfo
                 , insertSimbadMatch
-                , insertSimbadNoMatch)
+                , insertSimbadNoMatch
+                , putIO
+                , runDb)
 import Types
 
 -- | Try and clean up SIMBAD identifiers:
@@ -150,12 +151,6 @@ parseObject txt =
     [name, otype3, otype, _] -> Just (cleanupName name, toT otype3, otype)
     _ -> Nothing
 
--- | Run a database action.
-doDB :: DbPersist Postgresql (NoLoggingT IO) a -> IO a
-doDB = 
-  withPostgresqlConn "user=postgres password=postgres dbname=chandraobs host=127.0.0.1" .
-  runDbConn 
-
 slen :: [a] -> String
 slen = show . length
 
@@ -182,7 +177,7 @@ groupSorted xs =
 --
 groupSorted :: Eq a => [(a,b)] -> [(a, [b])]
 groupSorted [] = []
-gropuSorted ((a,b):xs) = go a [b] [] xs
+groupSorted ((a,b):xs) = go a [b] [] xs
   where
     go a bs out [] = (a, bs) : out
     go a bs out ((a1,b1):xs)
@@ -194,9 +189,6 @@ gropuSorted ((a,b):xs) = go a [b] [] xs
 -- not pulling in Lens for this, so hard code it for our needs
 _2 :: (a, b, c) -> b
 _2 (_, b, _) = b
-
-putIO :: (MonadIO m) => String -> m ()
-putIO = liftIO . putStrLn
 
 blag :: (MonadIO m) => Bool -> String -> m ()
 blag f = when f . putIO
@@ -228,18 +220,12 @@ updateDB sloc f = withSocketsDo $ do
 
   putStrLn "# Querying the database"
 
-  {-
-  -- QUS: do I need the SoObsIdField? Not for now at least
-  obs <- doDB $ project (SoTargetField, SoObsIdField)
-                $ CondEmpty `orderBy` [Asc SoTargetField]
-  -}
+  obs <- runDb $ project (SoTargetField)
+               $ CondEmpty `orderBy` [Asc SoTargetField]
+               `distinctOn` SoTargetField
 
-  obs <- doDB $ project (SoTargetField)
-                $ CondEmpty `orderBy` [Asc SoTargetField]
-                  `distinctOn` SoTargetField
-
-  matchTargets <- doDB $ project SmmTargetField CondEmpty
-  noMatchTargets <- doDB $ project SmnTargetField CondEmpty
+  matchTargets <- runDb (project SmmTargetField CondEmpty)
+  noMatchTargets <- runDb (project SmnTargetField CondEmpty)
 
   -- these numbers aren't that useful, since the number of
   -- obsids and targets aren't the same, but leave for now
@@ -277,7 +263,7 @@ updateDB sloc f = withSocketsDo $ do
   forM_ (S.toList unidSet) $ 
     \tgt -> do
       (searchRes, minfo) <- querySIMBAD sloc f tgt
-      doDB $ case minfo of
+      runDb $ case minfo of
                Just si -> do
                           blag f $ ">> inserting SimbadInfo for " ++ smiName si
                           (key, cleanFlag) <- insertSimbadInfo si

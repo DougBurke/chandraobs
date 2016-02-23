@@ -345,6 +345,5 @@ WIth a homebrew postgres installation
 	
 STEPS:
 
-% heroku pg:reset HEROKU_POSTGRESQL_ROSE --confirm chandraobs-devel
-% PGUSER=postgres PGPASSWORD=postgres heroku pg:push chandraobs HEROKU_POSTGRESQL_ROSE --app chandraobs-devel
+% heroku pg:reset HEROKU_POSTGRESQL_ROSE --confirm chandraobs-devel ; PGUSER=postgres PGPASSWORD=postgres heroku pg:push chandraobs HEROKU_POSTGRESQL_ROSE --app chandraobs-devel
  
