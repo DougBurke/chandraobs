@@ -16,12 +16,9 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ChandraTime(..), Schedule(..))
-import Utils (defaultMeta, renderFooter)
+import Utils (defaultMeta, skymapMeta, cssLink, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
-
-jsScript :: AttributeValue -> Html
-jsScript uri = script ! src uri $ ""
 
 schedPage :: 
   Schedule
@@ -29,28 +26,10 @@ schedPage ::
 schedPage sched =
   docTypeHtml ! lang "en-US" $
     head (H.title "The Chandra schedule" 
-          <> defaultMeta 
-          <> jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
-          <> jsScript "https://d3js.org/d3.v3.min.js"
-          <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
-          <> jsScript "/js/jquery.tablesorter.min.js"
-          <> jsScript "/js/table.js"
-          <> jsScript "/js/projection.js"
-          <> link ! href   "/css/tablesorter.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               -- ! A.title  "Default (TableSorter)"
-               ! media  "all"
-          <> link ! href   "/css/schedule.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               -- ! A.title  "Default (TableSorter)"
-               ! media  "all"
-          <> link ! href   "/css/main.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               ! A.title  "Default"
-               ! media  "all"
+          <> defaultMeta
+          <> skymapMeta
+          <> cssLink "/css/schedule.css"
+          <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
     (body ! onload "createMap(obsinfo);")

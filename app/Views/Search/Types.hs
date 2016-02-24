@@ -18,7 +18,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), SimbadType(..), SimbadTypeInfo)
-import Utils (defaultMeta, renderFooter, jsScript, typeLinkSearch)
+import Utils (defaultMeta, skymapMeta, renderFooter, jsScript, cssLink, typeLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -29,29 +29,7 @@ indexPage objs =
   docTypeHtml ! lang "en-US" $
     head (H.title "Chandra observations by object type"
           <> defaultMeta
-             {-
-          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
-          <> jsScript "http://d3js.org/d3.v3.min.js"
-          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
-          <> jsScript "/js/jquery.tablesorter.min.js"
-          <> jsScript "/js/table.js"
-          <> jsScript "/js/projection.js"
-          <> link ! href   "/css/tablesorter.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               -- ! A.title  "Default (TableSorter)"
-               ! media  "all"
-          <> link ! href   "/css/schedule.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               -- ! A.title  "Default (TableSorter)"
-               ! media  "all"
-               -}
-          <> link ! href   "/css/main.css"
-                ! type_  "text/css" 
-                ! rel    "stylesheet"
-                ! A.title  "Default"
-                ! media  "all"
+          <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
     body
@@ -73,26 +51,8 @@ matchPage typeInfo sched =
     head (H.title ("Chandra observations of " <> H.toHtml lbl)
           <> defaultMeta
           <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
-          <> jsScript "http://d3js.org/d3.v3.min.js"
-          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
-          <> jsScript "/js/jquery.tablesorter.min.js"
-          <> jsScript "/js/table.js"
-          <> jsScript "/js/projection.js"
-          <> link ! href   "/css/tablesorter.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               -- ! A.title  "Default (TableSorter)"
-               ! media  "all"
-          <> link ! href   "/css/schedule.css"
-               ! type_  "text/css" 
-               ! rel    "stylesheet"
-               -- ! A.title  "Default (TableSorter)"
-               ! media  "all"
-          <> link ! href   "/css/main.css"
-                ! type_  "text/css" 
-                ! rel    "stylesheet"
-                ! A.title  "Default"
-                ! media  "all"
+          <> skymapMeta
+          <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
     (body ! onload "createMap(obsinfo);")

@@ -43,7 +43,7 @@ import Types (ScienceObs(..), NonScienceObs(..),
               , similarName)
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
-             abstractLink, defaultMeta
+             abstractLink, defaultMeta, jsScript, cssLink
              , obsURI, renderLinks
              , showTimeDeltaFwd
              , showTimeDeltaBwd
@@ -76,13 +76,9 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
-            (script ! src "/js/image-switch.js") "" <>
-            (script ! src "/js/main.js") "" <>
-            link ! href   "/css/main.css"
-                 ! type_  "text/css" 
-                 ! rel    "stylesheet"
-                 ! A.title  "Default"
-                 ! media  "all"
+            jsScript "/js/image-switch.js" <>
+            jsScript "/js/main.js" <>
+            (cssLink "/css/main.css" ! A.title  "Default")
             )
     <>
     (body ! onload initialize)

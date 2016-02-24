@@ -6,6 +6,7 @@
 
 module Utils (
      defaultMeta
+     , skymapMeta
      , fromBlaze
      , obsURI
      , obsURIString
@@ -20,6 +21,7 @@ module Utils (
      , linkToRecordA
      , renderFooter
      , jsScript
+     , cssLink
      , instLinkSearch
      , instLinkAbout
      , constellationLinkSearch
@@ -88,9 +90,32 @@ fromBlaze = html . renderHtml
 standardResponse :: ActionM ()
 standardResponse = return ()
 
+jsScript :: H.AttributeValue -> H.Html
+jsScript uri = H.script H.! A.src uri $ ""
+
+cssLink :: H.AttributeValue -> H.Html
+cssLink uri =
+  H.link H.! A.href   uri
+         H.! A.type_  "text/css"
+         H.! A.rel    "stylesheet"
+         H.! A.media  "all"
+
 defaultMeta :: H.Html
 defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
                      H.! A.content "text/html; charset=UTF-8"
+
+-- | Load the JS and CSS needed to display the sky map and table info.
+--
+skymapMeta :: H.Html
+skymapMeta =
+  jsScript "https://d3js.org/d3.v3.min.js"
+  <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
+  <> jsScript "/js/jquery.tablesorter.min.js"
+  <> jsScript "/js/table.js"
+  <> jsScript "/js/projection.js"
+  <> cssLink "/css/tablesorter.css"
+  <> cssLink "/css/schedule.css"
+
 
 plural :: Int -> String
 plural i = if i > 1 then "s" else ""
@@ -434,9 +459,6 @@ renderFooter =
       , H.a H.! A.href "http://chandra.si.edu/" $ "Chandra X-ray Center"
       , "."
     ]
-
-jsScript :: H.AttributeValue -> H.Html
-jsScript uri = H.script H.! A.src uri $ ""
 
 -- | Add in a link to the instrument search page.
 instLinkSearch :: Instrument -> H.Html

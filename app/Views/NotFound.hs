@@ -15,7 +15,7 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (defaultMeta)
+import Utils (defaultMeta, cssLink)
 import Views.Record (CurrentPage(..), renderTwitter
                     , mainNavBar)
 
@@ -24,11 +24,7 @@ notFoundPage fact =
   docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing? I am not sure!" <>
           defaultMeta <>
-           link ! href   "/css/main.css"
-                ! type_  "text/css" 
-                ! rel    "stylesheet"
-                ! A.title  "Default"
-                ! media  "all"
+          (cssLink "/css/main.css" ! A.title "Default")
           )
     <>
     body

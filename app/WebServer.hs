@@ -100,6 +100,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchProposal
                  , fetchInstrument
                  , fetchInstrumentTypes
+                 , dbConnStr
                  )
 import Types (Record, SimbadInfo, Proposal
              , NonScienceObs(..), ScienceObs(..)
@@ -123,7 +124,7 @@ development = def
 
 -- | @True@ for production/heroku, otherwise local
 getDbConnStr :: Bool -> IO String
-getDbConnStr False = return "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
+getDbConnStr False = return dbConnStr
 getDbConnStr _ = do
   cparams <- dbConnParams
   return $ T.unpack $ foldr (\(k,v) s ->
@@ -131,7 +132,7 @@ getDbConnStr _ = do
 
 uerror :: String -> IO ()
 uerror msg = do
-  hPutStrLn stderr $ "ERROR: " ++ msg
+  hPutStrLn stderr ("ERROR: " ++ msg)
   hFlush stderr
   exitFailure
 
@@ -153,12 +154,12 @@ main = do
   mports <- lookupEnv "PORT"
   let eopts = case mports of
                 Just ports -> case readInt ports of
-                                Just port -> Right $ production port
-                                _ -> Left $ "Invalid PORT argument: " ++ ports
+                                Just port -> Right (production port)
+                                _ -> Left ("Invalid PORT argument: " ++ ports)
 
                 _ -> Right development
 
-  connStr <- getDbConnStr $ isJust mports
+  connStr <- getDbConnStr (isJust mports)
  
   case eopts of
     Left emsg -> uerror emsg

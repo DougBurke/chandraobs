@@ -20,7 +20,7 @@ import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
 import Types (ScienceObs(..), Instrument(..))
-import Utils (defaultMeta, obsURI, renderFooter)
+import Utils (defaultMeta, jsScript, cssLink, obsURI, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 {-
@@ -100,18 +100,10 @@ wwtPage f ScienceObs{..} =
     head 
      (H.title titleVal
       <> defaultMeta
-      <> (script ! src "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx") ""
-      <> (script ! src "/js/wwt.js") ""
-      <> link ! href   "/css/main.css"
-              ! type_  "text/css" 
-              ! rel    "stylesheet"
-              ! A.title  "Default"
-              ! media  "all"
-      <> link ! href   "/css/wwt.css"
-              ! type_  "text/css" 
-              ! rel    "stylesheet"
-              ! media  "all"
-
+      <> jsScript "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"
+      <> jsScript "/js/wwt.js"
+      <> (cssLink "/css/main.css" ! A.title  "Default")
+      <> cssLink "/css/wwt.css"
      )
     <>
     (body ! onload initialize)
