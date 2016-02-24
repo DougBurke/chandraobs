@@ -479,3 +479,11 @@ remote: Verifying deploy... done.
 To https://git.heroku.com/chandraobs-devel-cedar-14.git
  * [new branch]      master -> master
 
+Have eventually got things working (using https resources for JS libs), so
+switch the (not-really) production branch to cedar-14:
+
+% heroku stack:set cedar-14 -a chandraobs-devel
+Stack set. Next release on chandraobs-devel will use cedar-14.
+Run git push heroku master to create a new release on chandraobs-devel.
+
+Needed to clear the cache for the rebuild to work.

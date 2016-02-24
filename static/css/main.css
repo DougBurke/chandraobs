@@ -248,6 +248,11 @@ div#Details td.value {
   float: right;
 }
 
+div#Details td.note {
+    text-align: center;
+    font-weight: bolder;
+}
+
 div#Details br { clear: both; }
 
 /* Twitter bar */

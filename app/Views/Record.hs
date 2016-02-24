@@ -70,7 +70,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   let initialize = "initialize()"
       obsId = recordObsId thisObs
 
-      mprop = fst $ snd dbInfo
+      mprop = fst (snd dbInfo)
       imgLinks = either (const mempty) (renderLinks False mprop) thisObs
 
   in docTypeHtml ! lang "en-US" $
@@ -222,7 +222,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
   let (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
       targetName = toHtml soTarget
-      lenVal = toHtml $ showExpTime $ fromMaybe soApprovedTime soObservedTime
+      lenVal = toHtml (showExpTime (fromMaybe soApprovedTime soObservedTime))
 
       otherName = case msimbad of
         Just sm -> if similarName sm soTarget
@@ -395,8 +395,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
           -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
           let jobs = getJointObs so
               jvals = if null jobs
-                      then toHtml $ cleanJointName jName
-                      else mconcat $ addList $ map toJ jobs
+                      then toHtml (cleanJointName jName)
+                      else mconcat (addList (map toJ jobs))
           in mconcat
                [ "This ", verb, " a joint observation with "
                , jvals
@@ -411,9 +411,20 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         let c = jointObs <> constrainedObs
         in if isNothing soJointWith && null copts  then mempty else p c
 
-  in sciencePara 
-     <> constraintsPara
-     <> tooPara
+  in if soStatus == "discarded"
+     then discardedPara
+     else sciencePara <> constraintsPara <> tooPara
+
+-- | How best to indicate a discarded observation? Should there be some
+--   mention of the ObsId and target?
+--
+--   Really the next/previous links are invalid here, but this would break
+--   things (unless we exclude these entities when returning results),
+--   I do not want to do this at this time.
+--
+discardedPara :: H.Html
+discardedPara = p "This observation was discarded."
+
 
 -- | Display information for a \"non-science\" observation.
 otherInfo :: 

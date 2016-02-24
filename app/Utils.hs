@@ -233,6 +233,10 @@ cleanJointName j = if "CXO-" `isPrefixOf` j then drop 4 j else j
 --   I expect the proposal to always be available, but just
 --   in case it isn't.
 --
+--   Note: for discarded observations, a "header" is added
+--   to point this out, but the details are still included
+--   "for fun".
+--
 renderObsIdDetails :: Maybe Proposal -> ScienceObs -> H.Html
 renderObsIdDetails mprop so@ScienceObs{..} =
   let name = soTarget
@@ -246,7 +250,7 @@ renderObsIdDetails mprop so@ScienceObs{..} =
       left = (H.td H.! A.class_ "key")
       right = (H.td H.! A.class_ "value")
 
-      keyVal k v = H.tr $ left k <> " " <> right v
+      keyVal k v = H.tr (left k <> " " <> right v)
 
       oLink = H.a H.! A.href (obsIdLink soObsId) $ H.toHtml soObsId
       sLink = H.a H.! A.href (seqLink soObsId)   $ H.toHtml soSequence
@@ -312,7 +316,14 @@ renderObsIdDetails mprop so@ScienceObs{..} =
           , categoryLinkSearch propCategory propCategory
           ]
 
+      discardRows = if soStatus == "discarded"
+                    then [ H.tr ((H.td H.! A.class_ "note")
+                                 "Note: the observation was discarded") ]
+                    else []
+
       tblRows =
+        mconcat discardRows
+        <>
         mconcat
           [ keyVal "Target:" (H.toHtml name)
           , keyVal "Observation Details:" oLink
@@ -338,7 +349,7 @@ renderObsIdDetails mprop so@ScienceObs{..} =
           ]
 
       -- ignore the thead element
-      tbl = H.table $ H.tbody tblRows
+      tbl = H.table (H.tbody tblRows)
 
   in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
       tbl
@@ -353,6 +364,9 @@ renderObsIdDetails mprop so@ScienceObs{..} =
 --
 -- We also display the observational details - in \"raw\" form - as a text box
 -- as part of this section.
+--
+-- This is modified somewhat for discarded observations (not sure the best way to
+-- do this at this time).
 --
 renderLinks :: 
   Bool -- True if current obs
