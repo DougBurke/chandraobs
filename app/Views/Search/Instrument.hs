@@ -18,7 +18,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), Instrument(..))
-import Utils (defaultMeta, jqueryMeta, skymapMeta, renderFooter, jsScript, cssLink, instLinkAbout, instLinkSearch)
+import Utils (defaultMeta, jqueryMeta, skymapMeta, renderFooter, cssLink, instLinkAbout, instLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
