@@ -18,7 +18,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), ConShort(..), getConstellationNameStr)
-import Utils (defaultMeta, skymapMeta, renderFooter, jsScript, cssLink, constellationLinkSearch)
+import Utils (defaultMeta, skymapMeta, jqueryMeta, renderFooter, cssLink, constellationLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -50,7 +50,7 @@ matchPage con sched =
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observations in " <> H.toHtml lbl) <>
           defaultMeta
-          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
+          <> jqueryMeta
           <> skymapMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )

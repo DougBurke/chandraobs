@@ -7,6 +7,7 @@
 module Utils (
      defaultMeta
      , skymapMeta
+     , jqueryMeta
      , fromBlaze
      , obsURI
      , obsURIString
@@ -116,6 +117,9 @@ skymapMeta =
   <> cssLink "/css/tablesorter.css"
   <> cssLink "/css/schedule.css"
 
+-- | Load JQuery
+jqueryMeta :: H.Html
+jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
 
 plural :: Int -> String
 plural i = if i > 1 then "s" else ""

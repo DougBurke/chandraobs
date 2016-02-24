@@ -17,7 +17,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..))
-import Utils (defaultMeta, jsScript, cssLink, renderLinks, renderFooter)
+import Utils (defaultMeta, jqueryMeta, jsScript, cssLink, renderLinks, renderFooter)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
 
@@ -49,7 +49,7 @@ noDataPage fact =
 
 tourElements :: Html
 tourElements =
-  jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
+  jqueryMeta
   <> jsScript "/js/bootstrap-tour-standalone-0.9.3.min.js"
   <> (cssLink "/css/bootstrap-tour-standalone-0.9.3.min.css" ! A.title  "Default")
   <> jsScript "/js/tour.js"
