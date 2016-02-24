@@ -30,9 +30,9 @@ schedPage sched =
   docTypeHtml ! lang "en-US" $
     head (H.title "The Chandra schedule" 
           <> defaultMeta 
-          <> jsScript "http://code.jquery.com/jquery-1.11.1.min.js"
-          <> jsScript "http://d3js.org/d3.v3.min.js"
-          <> jsScript "http://d3js.org/d3.geo.projection.v0.min.js"
+          <> jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
+          <> jsScript "https://d3js.org/d3.v3.min.js"
+          <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
           <> jsScript "/js/jquery.tablesorter.min.js"
           <> jsScript "/js/table.js"
           <> jsScript "/js/projection.js"

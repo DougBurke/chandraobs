@@ -54,7 +54,7 @@ noDataPage fact =
 tourElements :: Html
 tourElements =
   mconcat [
-    (script ! src "http://code.jquery.com/jquery-1.11.1.min.js") ""
+    (script ! src "https://code.jquery.com/jquery-1.11.1.min.js") ""
     , (script ! src "/js/bootstrap-tour-standalone-0.9.3.min.js") ""
     , link ! href   "/css/bootstrap-tour-standalone-0.9.3.min.css"
            ! type_  "text/css" 
