@@ -140,7 +140,11 @@ mainNavBar cp =
        <> li (instA CPInstruments)
        <> li (viewA CPView)
 
--- | Display the observation navigation bar
+-- | Display the observation navigation bar.
+--
+--   If there are no next or preceeding observation - which should
+--   mean that the observation is discarded - then add nothing.
+--
 obsNavBar :: 
   Maybe Record   -- the current observation
   -> ObsInfo 
@@ -149,32 +153,26 @@ obsNavBar mObs ObsInfo{..} =
   let prevObs = oiPrevObs
       nextObs = oiNextObs
 
-      pFlag = isJust prevObs && prevObs == mObs
-      nFlag = isJust nextObs && nextObs == mObs
+      getUri o = if Just o == mObs
+                 then "/index.html"
+                 else toValue (obsURI (recordObsId o))
 
-  in nav ! id "obslinks" $ ul $
-        fromMaybe mempty (navPrev pFlag <$> prevObs) <>
-        fromMaybe mempty (navNext nFlag <$> nextObs)
+      entry ::
+        AttributeValue  -- class
+        -> Html -- label
+        -> Record -- observation being pointed to
+        -> Html
+      entry cls lbl rs =
+        li ! class_ cls $ a ! href (getUri rs) $ lbl
 
-navPrev :: 
-  Bool   -- True if the previous link is the currently-executed observation
-  -> Record 
-  -> Html
-navPrev f rs =
-    let uri = if f then "/index.html" else toValue (obsURI (recordObsId rs))
-    in li ! class_ "prevLink"
-       $ a ! href uri
-           $ "Previous observation"
+      navPrev = entry "prevLink" "Previous observation"
+      navNext = entry "nextLink" "Next observation"
 
-navNext ::
-  Bool   -- True if the previous link is the currently-executed observation
-  -> Record 
-  -> Html
-navNext f rs = 
-    let uri = if f then "/index.html" else toValue (obsURI (recordObsId rs))
-    in li ! class_ "nextLink"
-       $ a ! href uri
-         $ "Next observation"
+      bar = nav ! id "obslinks" $ ul $
+              fromMaybe mempty (navPrev <$> prevObs) <>
+              fromMaybe mempty (navNext <$> nextObs)
+
+  in if isJust prevObs P.|| isJust nextObs then bar else mempty
 
 -- | Given a list of observations from a proposal, group them by target name.
 --
@@ -189,7 +187,7 @@ groupProposal tName matches =
 
       tgtLinks [] = mempty -- should not happen
       tgtLinks xs@(x:_) = mconcat $ [toHtml (fst x), " ("] ++ intersperse ", " (P.map (toLink . snd) xs) ++ [")"]
-      out = mconcat $ intersperse "; " $ P.map tgtLinks grps
+      out = mconcat $ intersperse "; " (P.map tgtLinks grps)
 
   in case grps of
     [xs@(x:_)] | fst x == tName -> mconcat $ intersperse ", " (P.map (toLink . snd) xs)
