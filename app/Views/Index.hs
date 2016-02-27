@@ -2,7 +2,7 @@
 
 -- | The index page.
 
-module Views.Index (introPage, noDataPage) where
+module Views.Index (introPage, noDataPage, noObsIdPage) where
 
 -- import qualified Prelude as P
 import Prelude (($), Bool(..), Maybe(..), const, either, fst, snd)
@@ -21,17 +21,36 @@ import Utils (defaultMeta, jqueryMeta, jsScript, cssLink, renderLinks, renderFoo
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
 
+noObsIdPage :: Html -> Html
+noObsIdPage fact =
+  docTypeHtml ! lang "en-US" $
+    head (H.title "Unknown observation" <>
+          defaultMeta <>
+          (cssLink "/css/main.css" ! A.title "Default")
+          )
+    <>
+    body
+     (mainNavBar CPOther
+      <> (div ! id "mainBar") (
+           (p ! class_ "error")
+            ("The observation is unknown, but I can tell you " <>
+             "this fun Chandra fact:")
+          <> (p ! class_ "fact") fact
+          )
+      <> (div ! id "otherBar") renderTwitter)
+    <> renderFooter
+
+
 noDataPage :: Html -> Html
 noDataPage fact =
   docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing? I am not sure!" <>
           defaultMeta <>
-          jsScript "/js/tour.js" <>
           (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
     body
-     (mainNavBar CPIndex
+     (mainNavBar CPOther
       <> (div ! id "mainBar") (
            (p ! class_ "error")
             ("Unfortunately there doesn't seem to be any observations in my database, " <>

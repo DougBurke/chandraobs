@@ -306,10 +306,8 @@ webapp cm mgr = do
       mobs <- liftSQL getCurrentObs
       case mobs of 
         Just (Right so) -> fromBlaze (WWT.wwtPage True so)
-        _ -> do
-          fact <- liftIO getFact
-          fromBlaze $ Index.noDataPage fact
-
+        _ -> liftIO getFact >>= fromBlaze . Index.noDataPage
+        
     get "/obsid/:obsid" $ do
       mobs <- snd <$> queryObsidParam
       case mobs of
@@ -318,7 +316,7 @@ webapp cm mgr = do
           mCurrent <- liftSQL getCurrentObs
           dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
           fromBlaze (Record.recordPage cTime mCurrent obs dbInfo)
-        _ -> next -- status status404
+        _ -> liftIO getFact >>= fromBlaze . Index.noObsIdPage
 
     -- TODO: send in proposal details
     get "/obsid/:obsid/wwt" $ do

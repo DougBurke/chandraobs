@@ -15,7 +15,7 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (defaultMeta, cssLink)
+import Utils (defaultMeta, cssLink, renderFooter)
 import Views.Record (CurrentPage(..), renderTwitter
                     , mainNavBar)
 
@@ -29,12 +29,15 @@ notFoundPage fact =
     <>
     body
      (mainNavBar CPOther
-      <> (div ! class_ "error")  
-           ("Unfortunately I don't know what to do. Whilst I am thinking, "
-            <> "how about this fun Chandra fact:")
-      <> (div ! class_ "fact") fact
-      <> renderTwitter
-     )
+      <> (div ! id "mainBar") (
+         (p ! class_ "error")  
+         ("Unfortunately there was an error and I don't know what to do. "
+          <> "To take your mind off this calamity, how about a fun "
+          <> "Chandra fact:")
+         <> (p ! class_ "fact") fact
+         )
+      <> (div ! id "otherBar") renderTwitter)
+     <> renderFooter
 
 errPage :: Html
 errPage = do
