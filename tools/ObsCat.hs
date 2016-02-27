@@ -61,6 +61,7 @@ import System.Locale (defaultTimeLocale)
 import Database (insertScienceObs
                 , replaceScienceObs
                 , insertProposal
+                , cleanupDiscarded
                 , putIO
                 , runDb
                 )
@@ -76,7 +77,8 @@ readsTime = readSTime True
 queryObsCat :: ObsIdVal -> String
 queryObsCat oid = 
   let oi = show (fromObsId oid)
-  in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++ oi ++ "&format=text"
+  in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++
+     oi ++ "&format=text"
 
 -- | Return the constellation name for this position. The code exits if
 --   there is a problem running prop_precess.
@@ -84,7 +86,6 @@ queryObsCat oid =
 --   For now we only deal with a single position at a time,
 --   and it requires that CIAO/prop_precess is available.
 --
-
 getConstellation :: RA -> Dec -> IO ConShort
 getConstellation ra dec = do
 
@@ -96,20 +97,26 @@ getConstellation ra dec = do
       let long = _unRA ra
           lat = _unDec dec
           coords = show long ++ " " ++ show lat
-          cstr = "prop_precess from j/deg to con p0: " ++ inName ++ ": " ++ outName
+          cstr = "prop_precess from j/deg to con p0: " ++ inName ++
+                 ": " ++ outName
 
-          full = ". " ++ path ++ "/bin/ciao.bash > /dev/null; " ++ cstr ++ " > /dev/null"
+          full = ". " ++ path ++ "/bin/ciao.bash > /dev/null; " ++
+                 cstr ++ " > /dev/null"
       
       hPutStrLn inHdl coords
       hFlush inHdl
       
       rval <- system full
       when (rval /= ExitSuccess) $ do
-        hPutStrLn stderr ("ERROR: unable to run prop_precess on " ++ coords ++ "\n  " ++ cstr ++ "\n")
+        let estr = "ERROR: unable to run prop_precess on " ++
+                   coords ++ "\n  " ++ cstr ++ "\n"
+        hPutStrLn stderr estr
         exitFailure
     
       cName <- hGetLine outHdl
-      return $ fromMaybe (error ("Unexpected constellation short form: '" ++ cName ++ "'")) (toConShort cName)
+      let mcon = toConShort cName
+          merr = "Unexpected constellation short form: '" ++ cName ++ "'"
+      return (fromMaybe (error merr) mcon)
       
 -- | What publically-available observations overlap this one?
 --
@@ -266,7 +273,8 @@ toSO m = do
   status <- toString m "STATUS"
   obsid <- toObsId m
   target <- toString m "TARGET_NAME"
-  sTime <- toCT m "START_DATE"        -- turns out this may be a maybe (pres for cancelled obs)
+  -- turns out this may be a maybe (presumably for cancelled obs)
+  sTime <- toCT m "START_DATE"
   appExp <- toTimeKS m "APP_EXP"
   let obsExp = toTimeKS m "EXP_TIME"
 
@@ -414,7 +422,7 @@ queryObsId flag oid = do
       tokenize = L.split (w8 '\t')
       hdr = tokenize $ head ls
       -- could use positional information, but use a map instead
-      dl = filter (not . L.null) $ drop 2 ls
+      dl = filter (not . L.null) (drop 2 ls)
       out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
 
       dropNulls = filter (not . L.null . snd)
@@ -422,15 +430,15 @@ queryObsId flag oid = do
       ans = map (toProposal &&& toSO) out
 
   when flag $ forM_ (zip [(1::Int)..] out) $ \(i,m) -> do
-    putStrLn $ "##### Map " ++ show i ++ " START #####"
+    putStrLn ("##### Map " ++ show i ++ " START #####")
     forM_ (M.toList m) print     
-    putStrLn $ "##### Map " ++ show i ++ " END #####"
+    putStrLn ("##### Map " ++ show i ++ " END #####")
 
   case ans of
     [] -> return Nothing
     [(Just p, Just so)] -> do
       so2 <- addConstellation so
-      return $ Just (p, so2)
+      return (Just (p, so2))
 
     -- for now skip those with issues
     _ -> do
@@ -467,14 +475,32 @@ addResults [] [] = putStrLn "# No data needs to be added to the database."
 addResults missing unarchived = do
   putStrLn ("# Adding " ++ slen missing ++ " missing results")
   putStrLn ("# Adding " ++ slen unarchived ++ " unarchived results")
-  let props = S.toList $ S.fromList $ map fst missing ++ map fst unarchived
+  let props = S.toList (S.fromList (map fst missing ++ map fst unarchived))
+
+      lprint :: Show a => a -> DbPersist Postgresql (NoLoggingT IO) ()
+      lprint = liftIO . print
+
+      disp ::
+        Show a
+        => (a -> DbPersist Postgresql (NoLoggingT IO) Bool)
+        -> a
+        -> DbPersist Postgresql (NoLoggingT IO) ()
+      disp act val = do
+        flag <- act val
+        when flag (lprint val)
+  
   runDb $ do
       putIO "## missing"
-      forM_ missing (\(_,so) -> liftIO (print so) >> insertScienceObs so)
+      forM_ missing (\(_,so) -> disp insertScienceObs so)
       putIO "## unarchived"
-      forM_ unarchived (\(_,so) -> liftIO (print so) >> replaceScienceObs so)
+      forM_ unarchived (\(_,so) -> replaceScienceObs so >> lprint so)
       putIO "## proposals"
-      forM_ props (\p -> liftIO (print p) >> insertProposal p)
+      forM_ props (disp insertProposal)
+
+      -- ensure that any discarded observations are removed from the
+      -- schedule
+      cleanupDiscarded
+
 
 -- | add in the overlap observations; that is, the table of
 --   overlaps and information about the overlap obs if it is

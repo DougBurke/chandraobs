@@ -39,6 +39,7 @@ module Database ( getCurrentObs
                 , insertSimbadMatch
                 , insertSimbadNoMatch
 
+                , cleanupDiscarded
                 , insertOrReplace
 
                 , putIO
@@ -550,25 +551,47 @@ reportSize = do
 --
 --   If it already exists in the database the new value is ignored;
 --   there is no check to make sure that the details match.
-insertScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
+insertScienceObs ::
+  (MonadIO m, PersistBackend m)
+  => ScienceObs
+  -> m Bool  -- ^ True if the observation was added to the database
 insertScienceObs s = do
   n <- count (SoObsIdField ==. soObsId s)
-  when (n == 0) (insert_ s)
+  let unknown = n == 0
+  when unknown (insert_ s)
+  return unknown
 
 -- | Replaces the science observation with the new values, if it is different.
 --
 --   Acts as `insertScienceObs` if the observation is not known about.
-replaceScienceObs :: (MonadIO m, PersistBackend m) => ScienceObs -> m ()
+replaceScienceObs ::
+  (MonadIO m, PersistBackend m)
+  => ScienceObs
+  -> m ()
 replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
+
+-- | Ensure that any discarded science observations are removed from the
+--   ScheduleItem table. It is just easier for me to do this in one place
+--   rather than add a check in `insertScienceObs` and `replaceScienceObs`.
+--
+cleanupDiscarded :: (MonadIO m, PersistBackend m) => m ()
+cleanupDiscarded = do
+  obsids <- project SoObsIdField (SoStatusField ==. discarded)
+  forM_ obsids (\obsid -> delete (SiObsIdField ==. obsid))
 
 -- | Checks that the proposal is not known about before inserting it.
 --
---   If it already exists in the database the new value is ignored; there is no check to
---   make sure that the details match.
-insertProposal :: (MonadIO m, PersistBackend m) => Proposal -> m ()
+--   If it already exists in the database the new value is ignored;
+--   there is no check to make sure that the details match.
+insertProposal ::
+  (MonadIO m, PersistBackend m)
+  => Proposal
+  -> m Bool  -- ^ True if the proposal was added to the database
 insertProposal p = do
   n <- count (PropNumField ==. propNum p)
-  when (n == 0) $ insert_ p
+  let unknown = n == 0
+  when unknown (insert_ p)
+  return unknown
 
 -- | Checks that the data is not known about before inserting it.
 --
@@ -614,7 +637,7 @@ insertOrReplace ::
     -> v
     -> m ()
 insertOrReplace cond newVal = do
-  ans <- select $ cond `limitTo` 1
+  ans <- select (cond `limitTo` 1)
   case ans of
     (oldVal:_) -> when (oldVal /= newVal) $ do
                                 delete cond
