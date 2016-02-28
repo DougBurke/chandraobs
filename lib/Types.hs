@@ -165,14 +165,19 @@ nullSL :: SortedList f a -> Bool
 nullSL = null . _unSL
 
 -- | Merge two sorted lists.
-mergeSL :: Ord a => SortedList f a -> SortedList f a -> SortedList f a
-mergeSL x@(SL _) (SL []) = x
-mergeSL (SL []) y@(SL _) = y
-mergeSL (SL xs) (SL ys) = SL (go xs ys)
+mergeSL ::
+  Ord b
+  => (a -> b)  -- ^ projection function
+  -> SortedList f a
+  -> SortedList f a
+  -> SortedList f a
+mergeSL _ x@(SL _) (SL []) = x
+mergeSL _ (SL []) y@(SL _) = y
+mergeSL p (SL xs) (SL ys) = SL (go xs ys)
   where
     go x0 [] = x0
     go [] y0 = y0
-    go x0@(x:x1) y0@(y:y1) | y > x = y : go x0 y1
+    go x0@(x:x1) y0@(y:y1) | p x > p y = y : go x0 y1
                            | otherwise = x : go x1 y0
 
 
@@ -398,8 +403,9 @@ showCTime ct =
 
 endCTime :: ChandraTime -> TimeKS -> ChandraTime
 endCTime (ChandraTime start) (TimeKS elen) =
-  let delta = fromRational . toRational $ 1000 * elen
-  in ChandraTime $ addUTCTime delta start
+  let nsec = 1000 * elen
+      delta = (fromRational . toRational) nsec
+  in ChandraTime (addUTCTime delta start)
 
 instance H.ToMarkup ChandraTime where
   toMarkup = H.toMarkup . showCTime

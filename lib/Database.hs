@@ -52,14 +52,14 @@ module Database ( getCurrentObs
 import Control.Applicative ((<$>))
 #endif
 
-import Control.Monad (forM, forM_, liftM, when)
+import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (group, groupBy, sortBy)
-import Data.Maybe (catMaybes, listToMaybe)
+import Data.Maybe (listToMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
@@ -88,28 +88,74 @@ pass to remove already-set items.
 discarded :: String
 discarded = "discarded"
 
-noDiscarded ::
+notDiscarded ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-noDiscarded = SoStatusField /=. discarded
+notDiscarded = SoStatusField /=. discarded
 
--- | Return the last ScheduleItem to be defined before the given time.
+-- | Is this ObsId discarded?
+isDiscarded :: PersistBackend m => ObsIdVal -> m Bool
+isDiscarded oid = do
+  ostatus <- project SoStatusField (SoObsIdField ==. oid)
+  case ostatus of
+    [status] | status == discarded -> return True
+    _ -> return False
+
+
+-- | Given two lists of observations, which are assumed to have 0 or 1
+--   elements in, identify which is the latest (has the largest start
+--   time).
 --
+identifyLatestRecord ::
+  [ScienceObs]
+  -> [NonScienceObs]
+  -> Maybe Record
+identifyLatestRecord xs ys =
+  -- rely on Ord instance of Maybe for the greater-than check
+  let sobs = listToMaybe xs
+      nsobs = listToMaybe ys
+      stime = soStartTime <$> sobs
+      ntime = nsStartTime <$> nsobs
+  in if stime > ntime then (Right <$> sobs) else (Left <$> nsobs)
+
+-- | Return the last observation (science or non-science) to be
+--   scheduled before the requested time. The observation can be
+--   finished or running. It will not be a discarded observation.
+--
+{-
 findSI :: (PersistBackend m) => UTCTime -> m (Maybe ScheduleItem)
 findSI t = do
   res <- select $ (SiStartField <=. ChandraTime t)
                   `orderBy` [Desc SiStartField]
                   `limitTo` 1
   return (listToMaybe res)
+-}
+
+-- note change in return type
+findRecord :: (PersistBackend m) => UTCTime -> m (Maybe Record)
+findRecord t = do
+  let tval = ChandraTime t
+  xs <- select (((SoStartTimeField <=. tval) &&. notDiscarded)
+                `orderBy` [Desc SoStartTimeField]
+                `limitTo` 1)
+  ys <- select ((NsStartTimeField <=. tval)
+                `orderBy` [Desc NsStartTimeField]
+                `limitTo` 1)
+
+  return (identifyLatestRecord xs ys)
 
 -- | Given a ScheduleItem, return infomation on the observation it
 --   refers to.
+--
+--   TODO: is this needed now we have findRecord?
+{-
 findItem :: PersistBackend m => ScheduleItem -> m (Maybe Record)
 findItem si = 
   let obsid = siObsId si
   in if siScienceObs si
      then (Right `liftM`) `liftM` findScience obsid
      else (Left `liftM`) `liftM` findNonScience obsid
+-}
 
 -- | Return information on this obsid, if known about. The
 --   boolean flag is True if this is a "scheduled" observation;
@@ -119,18 +165,32 @@ findItem si =
 --   TODO: should this also flag if the observation is discarded
 --         (i.e. move from Bool to an enumeration)?
 --
+--   TODO: is the Bool really needed? It makes it hard to get rid of the
+--         ScheduleItem table. See the discussion in findObsInfo
+--
+{-
 findObsId :: PersistBackend m => ObsIdVal -> m (Maybe (Record, Bool))
 findObsId oi = do
-  ans <- select $ (SiObsIdField ==. oi) `limitTo` 1
+  ans <- select ((SiObsIdField ==. oi) `limitTo` 1)
   case ans of
     (si:_) -> do
       rval <- findItem si
       return $ (,True) `fmap` rval
     _ -> do
-      ans2 <- select $ (SoObsIdField ==. oi) `limitTo` 1
+      ans2 <- select ((SoObsIdField ==. oi) `limitTo` 1)
       case ans2 of
         (so:_) -> return (Just (Right so, False))
         _ -> return Nothing
+-}
+
+findObsId :: PersistBackend m => ObsIdVal -> m (Maybe Record)
+findObsId oi = do
+  msobs <- findScience oi
+  case msobs of
+    Just sobs -> return (Just (Right sobs))
+    _ -> do
+      ans <- findNonScience oi
+      return (Left <$> ans)
 
 findNonScience :: PersistBackend m => ObsIdVal -> m (Maybe NonScienceObs)
 findNonScience oi = do
@@ -143,6 +203,7 @@ findScience oi = do
   ans <- select ((SoObsIdField ==. oi) `limitTo` 1)
   return (listToMaybe ans)
 
+{-
 -- | Given a list of schedule items, return the record of the
 --   first element, or @Nothing@ if the list is empty.
 --
@@ -150,12 +211,14 @@ findScience oi = do
 extractRecord:: PersistBackend m => [ScheduleItem] -> m (Maybe Record)
 extractRecord [] = return Nothing
 extractRecord (si:_) = findItem si
+-}
 
 -- | Return the current observation. The assumption here is that it
 --   is not a discarded observation (the only way we can find this out
 --   is to query the OCAT and this is not going to be updated in
 --   near-real time).
 --
+{-
 getCurrentObs :: DbIO m => m (Maybe Record)
 getCurrentObs = do
   now <- liftIO getCurrentTime
@@ -163,13 +226,20 @@ getCurrentObs = do
   case msi of
     Just si -> findItem si
     _ -> return Nothing
+-}
 
--- | Return the first observation to start after the given time.
+getCurrentObs :: DbIO m => m (Maybe Record)
+getCurrentObs = liftIO getCurrentTime >>= findRecord
+
+-- | Return the first observation to start after the given time,
+--   excluding discarded observations. If the input observation
+--   is discarded then nothing is returned.
 --
 --   Hmm, this is tricky now that we have science times that do not
 --   necessarily agree with the schedule times, which is why the
 --   obsid is given too
 --
+{-
 getNextObs ::
   PersistBackend m
   => ObsIdVal
@@ -180,33 +250,72 @@ getNextObs oid t = do
                   `orderBy` [Asc SiStartField]
                   `limitTo` 1
   extractRecord res
+-}
 
--- | Return the last observation to have started before the given time that is not
---   discarded. If the input observation is discarded then nothing is returned.
+getNextObs ::
+  PersistBackend m
+  => ObsIdVal
+  -> ChandraTime
+  -> m (Maybe Record)
+getNextObs oid t = do
+  flag <- isDiscarded oid
+  if flag
+    then return Nothing
+    else do
+    xs <- select (((SoStartTimeField >. t)
+                   &&. (SoObsIdField /=. oid)
+                   &&. notDiscarded)
+                  `orderBy` [Asc SoStartTimeField]
+                  `limitTo` 1)
+    ys <- select (((NsStartTimeField >. t)
+                   &&. (NsObsIdField /=. oid))
+                  `orderBy` [Asc NsStartTimeField]
+                  `limitTo` 1)
+    return (identifyLatestRecord xs ys)
+
+
+-- | Return the last observation to have started before the given time,
+--   excluding discarded observations. If the input observation
+--   is discarded then nothing is returned.
 --
 --   Perhaps this should check on @SiEndTime@.
 --
 --   See the discussion for `getNextObs`.
 --
---   TODO: this does not actually handle the discard check as described above!
---
+{-
 getPrevObs ::
   PersistBackend m
   => ObsIdVal
   -> ChandraTime
   -> m (Maybe Record)
 getPrevObs oid t = do
-  {-
-  ostatus <- project SoStatusField (SiObsIdField ==. oid)
-  case ostatus of
-    [status] | status /= discarded -> return (Just ())
-    _ -> return Nothing
-  -}
-
   res <- select $ ((SiStartField <. t) &&. (SiObsIdField /=. oid))
                   `orderBy` [Desc SiStartField]
                   `limitTo` 1
   extractRecord res
+-}
+
+getPrevObs ::
+  PersistBackend m
+  => ObsIdVal
+  -> ChandraTime
+  -> m (Maybe Record)
+getPrevObs oid t = do
+  flag <- isDiscarded oid
+  if flag
+    then return Nothing
+    else do
+    xs <- select (((SoStartTimeField <. t)
+                   &&. (SoObsIdField /=. oid)
+                   &&. notDiscarded)
+                  `orderBy` [Desc SoStartTimeField]
+                  `limitTo` 1)
+    ys <- select (((NsStartTimeField <. t)
+                   &&. (NsObsIdField /=. oid))
+                  `orderBy` [Desc NsStartTimeField]
+                  `limitTo` 1)
+    return (identifyLatestRecord xs ys)
+
 
 -- | Find the current observation and the previous/next ones.
 --
@@ -227,7 +336,7 @@ getObsInfo :: DbIO m => m (Maybe ObsInfo)
 getObsInfo = do
   mobs <- getCurrentObs
   case mobs of
-    Just obs -> extractObsInfo obs
+    Just obs -> Just <$> extractObsInfo obs
     Nothing -> return Nothing
 
 -- | Given an observation, extract the previous and next observations.
@@ -235,12 +344,19 @@ getObsInfo = do
 --   TODO: it should not do anything for discarded observations,
 --         and should not have prev/next ones that are discarded.
 --
-extractObsInfo :: PersistBackend m => Record -> m (Maybe ObsInfo)
+extractObsInfo :: PersistBackend m => Record -> m ObsInfo
 extractObsInfo obs = do
   mprev <- getPrevObs (recordObsId obs) (recordStartTime obs)
   mnext <- getNextObs (recordObsId obs) (recordStartTime obs)
-  return (Just (ObsInfo obs mprev mnext))
+  return (ObsInfo obs mprev mnext)
 
+-- | This used to check that the observation was in the
+--   ScheduleItem table before creating the previous/next fields.
+--   This needs better logic, as removing the use of that table
+--   for determining schedules, and the functionality has been
+--   (temporarily?) removed.
+--
+{-
 findObsInfo :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
 findObsInfo oi = do
   res <- findObsId oi
@@ -248,15 +364,28 @@ findObsInfo oi = do
     Just (obs,f) | f         -> extractObsInfo obs
                  | otherwise -> return (Just (ObsInfo obs Nothing Nothing))
     _ -> return Nothing
-  
--- | Return the requested "science" observation, including discarded observations.
+-}
+
+findObsInfo :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
+findObsInfo oi = do
+  mrec <- findObsId oi
+  case mrec of
+    Just r -> Just <$> extractObsInfo r
+    _ -> return Nothing
+
+-- | Return the requested "science" observation,
+--   including discarded observations.
+--
+--   TODO: note that this actually also returns non-science
+--         observations, so either the comment or code should change.
 getObsId :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
 getObsId = findObsInfo 
 
 -- | Return the record of the given observation, if it
---   exists. This includes discarded obsrevations.
+--   exists. This includes discarded observations.
+--
 getRecord :: PersistBackend m => ObsIdVal -> m (Maybe Record)
-getRecord oid = (liftM . fmap) fst (findObsId oid)
+getRecord = findObsId
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
@@ -282,25 +411,59 @@ getSchedule ndays = do
       tStart = ChandraTime (UTCTime dayStart 0)
       tEnd   = ChandraTime (UTCTime dayEnd 0)
 
+  -- Select the science and non-science observations separately
+  -- and then merge them.
+  --
+  -- TODO: in the move away from using the ScheduleItem table,
+  --       the ability to filter on the end time has been lost,
+  --       since neither the science or non-science structure
+  --       has an explicit end field. So the filtering is done
+  --       here, rather than by the datbase.
+  --
+  {-
+  xs <- select (((SoStartTimeField <. tEnd) &&.
+                 (SoEndTimeField >=. tStart) &&.
+                 notDiscarded)
+                `orderBy` [Asc SoStartTimeField])
+  ys <- select (((NsStartTimeField <. tEnd) &&.
+                 (NsEndTimeField >=. tStart))
+                `orderBy` [Asc NsStartTimeField])
+  -}
+
+  xs1 <- select (((SoStartTimeField <. tEnd) &&.
+                  notDiscarded)
+                 `orderBy` [Asc SoStartTimeField])
+  ys1 <- select ((NsStartTimeField <. tEnd)
+                 `orderBy` [Asc NsStartTimeField])
+
+  -- should filter by the actual run-time, but the following is
+  -- easier
+  let filtEnd proj_start proj_runtime o =
+        let stime = proj_start o
+            rtime = proj_runtime o
+            etime = endCTime stime rtime
+        in etime < tStart
+      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs1)
+      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys1)
+
+      res1 = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
+      res = fromSL res1
+      
+  {-
   -- This works on the schedule item list, so can not use the
-  -- noDiscarded constraint. The idea is that all the discarded items
+  -- notDiscarded constraint. The idea is that all the discarded items
   -- will have been removed from this particular table.
   res <- select $ ((SiStartField <. tEnd) &&. (SiEndField >=. tStart))
                   `orderBy` [Asc SiStartField]
-
+  -}
+  
   -- I used siStart r <= cnow, so keep with that logic for now
   -- (could use siEnd r < cnow)
   let cnow = ChandraTime now
-      (aprevs, nexts) = span ((<= cnow) . siStart) res
-      (mobs, prevs) = case reverse aprevs of
+      (aprevs, todo) = span ((<= cnow) . recordStartTime) res
+      (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
-
-  done <- catMaybes `liftM` mapM findItem prevs
-  todo <- catMaybes `liftM` mapM findItem nexts
-  mdoing <- case mobs of
-              Just obs -> findItem obs
-              _ -> return Nothing
 
   return (Schedule now ndays done mdoing todo)
 
@@ -317,13 +480,13 @@ makeSchedule ::
   -> m Schedule
 makeSchedule rs = do
   now <- liftIO getCurrentTime
-  msi <- findSI now
+  mrec <- findRecord now
   
   let cleanrs = filter removeDiscarded (fromSL rs)
       removeDiscarded (Left _) = True
       removeDiscarded (Right ScienceObs{..}) = soStatus /= discarded
 
-      mobsid = siObsId <$> msi
+      mobsid = recordObsId <$> mrec
       findNow r = if Just (recordObsId r) == mobsid then Right r else Left r
       (others, nows) = partitionEithers (map findNow cleanrs)
 
@@ -364,7 +527,7 @@ fetchSIMBADType stype = do
                           targets <- project SmmTargetField (SmmInfoField ==. key)
                           obs <- forM targets $
                                  \t -> select ((SoTargetField ==. t &&.
-                                                noDiscarded)
+                                                notDiscarded)
                                                `orderBy`
                                                [Asc SoStartTimeField])
 
@@ -401,7 +564,7 @@ fetchConstellation ::
   => ConShort
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchConstellation con = do
-  ans <- select ((SoConstellationField ==. con &&. noDiscarded)
+  ans <- select ((SoConstellationField ==. con &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -424,7 +587,7 @@ countUp xs =
 fetchConstellationTypes :: PersistBackend m => m [(ConShort, Int)]
 fetchConstellationTypes = do
   res <- project SoConstellationField
-         (noDiscarded `orderBy` [Asc SoConstellationField])
+         (notDiscarded `orderBy` [Asc SoConstellationField])
   return (countUp res)
     
 -- | Return observations which match this category,
@@ -436,7 +599,7 @@ fetchCategory ::
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sos <- forM propNums $ \pn ->
-    select ((SoProposalField ==. pn &&. noDiscarded) `limitTo` 1)
+    select ((SoProposalField ==. pn &&. notDiscarded) `limitTo` 1)
   let xs = concat sos
   return (toSL soStartTime xs)
 
@@ -457,7 +620,7 @@ fetchProposal ::
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
 fetchProposal pn = do
   mprop <- select ((PropNumField ==. pn) `limitTo` 1)
-  ms <- select ((SoProposalField ==. pn &&. noDiscarded)
+  ms <- select ((SoProposalField ==. pn &&. notDiscarded)
                 `orderBy` [Asc SoStartTimeField])
   return (listToMaybe mprop, unsafeToSL ms)
 
@@ -469,7 +632,7 @@ fetchInstrument ::
   => Instrument
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchInstrument inst = do
-  ans <- select $ (SoInstrumentField ==. inst &&. noDiscarded)
+  ans <- select $ (SoInstrumentField ==. inst &&. notDiscarded)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
@@ -480,7 +643,7 @@ fetchInstrument inst = do
 --
 fetchInstrumentTypes :: PersistBackend m => m [(Instrument, Int)]
 fetchInstrumentTypes = do
-  insts <- project SoInstrumentField (noDiscarded `orderBy`
+  insts <- project SoInstrumentField (notDiscarded `orderBy`
                                       [Asc SoInstrumentField])
   return (countUp insts)
 
@@ -511,7 +674,7 @@ getProposalObs ::
 getProposalObs ScienceObs{..} = do
   -- time sorting probably not needed here
   ans <- select (((SoProposalField ==. soProposal) &&.
-                  (SoObsIdField /=. soObsId) &&. noDiscarded)
+                  (SoObsIdField /=. soObsId) &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -525,7 +688,7 @@ getRelatedObs ::
   -> m (SortedList StartTimeOrder ScienceObs)
 getRelatedObs propNum obsId = do
   ans <- select (((SoProposalField ==. propNum) &&.
-                  (SoObsIdField /=. obsId) &&. noDiscarded)
+                  (SoObsIdField /=. obsId) &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -536,7 +699,7 @@ getObsFromProposal ::
   => PropNum
   -> m (SortedList StartTimeOrder ScienceObs)
 getObsFromProposal propNum = do
-  ans <- select ((SoProposalField ==. propNum &&. noDiscarded)
+  ans <- select ((SoProposalField ==. propNum &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
