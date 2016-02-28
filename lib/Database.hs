@@ -385,7 +385,11 @@ findObsInfo oi = do
 --
 --   TODO: note that this actually also returns non-science
 --         observations, so either the comment or code should change.
-getObsId :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
+getObsId ::
+  -- PersistBackend m
+  (Functor m, PersistBackend m)  -- Functor needed for ghc < 7.10
+  => ObsIdVal
+  -> m (Maybe ObsInfo)
 getObsId = findObsInfo 
 
 -- | Return the record of the given observation, if it
