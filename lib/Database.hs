@@ -171,7 +171,7 @@ getCurrentObs = do
 --   obsid is given too
 --
 getNextObs ::
-  DbIO m
+  PersistBackend m
   => ObsIdVal
   -> ChandraTime
   -> m (Maybe Record)
@@ -191,7 +191,7 @@ getNextObs oid t = do
 --   TODO: this does not actually handle the discard check as described above!
 --
 getPrevObs ::
-  DbIO m
+  PersistBackend m
   => ObsIdVal
   -> ChandraTime
   -> m (Maybe Record)
@@ -235,13 +235,13 @@ getObsInfo = do
 --   TODO: it should not do anything for discarded observations,
 --         and should not have prev/next ones that are discarded.
 --
-extractObsInfo :: DbIO m => Record -> m (Maybe ObsInfo)
+extractObsInfo :: PersistBackend m => Record -> m (Maybe ObsInfo)
 extractObsInfo obs = do
   mprev <- getPrevObs (recordObsId obs) (recordStartTime obs)
   mnext <- getNextObs (recordObsId obs) (recordStartTime obs)
   return (Just (ObsInfo obs mprev mnext))
 
-findObsInfo :: DbIO m => ObsIdVal -> m (Maybe ObsInfo)
+findObsInfo :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
 findObsInfo oi = do
   res <- findObsId oi
   case res of
@@ -250,7 +250,7 @@ findObsInfo oi = do
     _ -> return Nothing
   
 -- | Return the requested "science" observation, including discarded observations.
-getObsId :: DbIO m => ObsIdVal -> m (Maybe ObsInfo)
+getObsId :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
 getObsId = findObsInfo 
 
 -- | Return the record of the given observation, if it
@@ -335,7 +335,7 @@ makeSchedule rs = do
 -- | Do we have any SIMBAD information about the target?
 --
 getSimbadInfo :: 
-  DbIO m
+  PersistBackend m
   => String   -- ^ target name (not the actual SIMBAD search term)
   -> m (Maybe SimbadInfo)
 getSimbadInfo target = do
@@ -348,7 +348,7 @@ getSimbadInfo target = do
 --   discarded observations).
 --
 fetchSIMBADType :: 
-  DbIO m
+  PersistBackend m
   => SimbadType 
   -> m (Maybe (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs))
 fetchSIMBADType stype = do
@@ -384,7 +384,7 @@ fetchSIMBADType stype = do
 --   have the given type.
 --
 fetchObjectTypes :: 
-  DbIO m
+  PersistBackend m
   => m [(SimbadTypeInfo, Int)]
 fetchObjectTypes = do
   res <- select (CondEmpty `orderBy` [Asc SmiType3Field])
@@ -397,7 +397,7 @@ fetchObjectTypes = do
 --   discarded observations.
 --
 fetchConstellation ::
-  DbIO m
+  PersistBackend m
   => ConShort
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchConstellation con = do
@@ -421,15 +421,16 @@ countUp xs =
 
 -- | Return count of the constellations. Discarded observations are excluded.
 --
-fetchConstellationTypes :: DbIO m => m [(ConShort, Int)]
+fetchConstellationTypes :: PersistBackend m => m [(ConShort, Int)]
 fetchConstellationTypes = do
-  res <- project SoConstellationField (noDiscarded `orderBy` [Asc SoConstellationField])
+  res <- project SoConstellationField
+         (noDiscarded `orderBy` [Asc SoConstellationField])
   return (countUp res)
     
 -- | Return observations which match this category,
 --   excluding discarded observations.
 fetchCategory ::
-  DbIO m
+  PersistBackend m
   => String
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchCategory cat = do
@@ -440,9 +441,10 @@ fetchCategory cat = do
   return (toSL soStartTime xs)
 
 -- | Return information on the category types.
-fetchCategoryTypes :: DbIO m => m [(String, Int)]
+fetchCategoryTypes :: PersistBackend m => m [(String, Int)]
 fetchCategoryTypes = do
-  res <- project PropCategoryField (CondEmpty `orderBy` [Asc PropCategoryField])
+  res <- project PropCategoryField
+         (CondEmpty `orderBy` [Asc PropCategoryField])
   return (countUp res)
 
 -- | Return all the observations which match this proposal,
@@ -450,7 +452,7 @@ fetchCategoryTypes = do
 --
 --   See also `getProposal` and `getProposalObs`
 fetchProposal ::
-  DbIO m
+  PersistBackend m
   => PropNum
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
 fetchProposal pn = do
@@ -463,7 +465,7 @@ fetchProposal pn = do
 --   excluding discarded observations.
 --
 fetchInstrument ::
-  DbIO m
+  PersistBackend m
   => Instrument
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchInstrument inst = do
@@ -476,7 +478,7 @@ fetchInstrument inst = do
 --
 --   Discarded observations are excluded.
 --
-fetchInstrumentTypes :: DbIO m => m [(Instrument, Int)]
+fetchInstrumentTypes :: PersistBackend m => m [(Instrument, Int)]
 fetchInstrumentTypes = do
   insts <- project SoInstrumentField (noDiscarded `orderBy`
                                       [Asc SoInstrumentField])
@@ -486,14 +488,14 @@ fetchInstrumentTypes = do
 --   a) it's a science observation, and b) we have it.
 --   even if the observation was discarded.
 --
-getProposal :: DbIO m => ScienceObs -> m (Maybe Proposal)
+getProposal :: PersistBackend m => ScienceObs -> m (Maybe Proposal)
 getProposal ScienceObs{..} = do
   ans <- select ((PropNumField ==. soProposal) `limitTo` 1)
   return (listToMaybe ans)
 
 -- | Return the proposal information if we have it.
 --
-getProposalFromNumber :: DbIO m => PropNum -> m (Maybe Proposal)
+getProposalFromNumber :: PersistBackend m => PropNum -> m (Maybe Proposal)
 getProposalFromNumber propNum = do
   ans <- select ((PropNumField ==. propNum) `limitTo` 1)
   return (listToMaybe ans)
@@ -503,7 +505,7 @@ getProposalFromNumber propNum = do
 --   was discarded.
 --
 getProposalObs ::
-  DbIO m
+  PersistBackend m
   => ScienceObs
   -> m (SortedList StartTimeOrder ScienceObs)
 getProposalObs ScienceObs{..} = do
@@ -517,12 +519,11 @@ getProposalObs ScienceObs{..} = do
 --   are in the database.
 --
 getRelatedObs ::
-  DbIO m
+  PersistBackend m
   => PropNum
   -> ObsIdVal
   -> m (SortedList StartTimeOrder ScienceObs)
 getRelatedObs propNum obsId = do
-  -- time sorting probably not needed here
   ans <- select (((SoProposalField ==. propNum) &&.
                   (SoObsIdField /=. obsId) &&. noDiscarded)
                  `orderBy` [Asc SoStartTimeField])
@@ -531,7 +532,7 @@ getRelatedObs propNum obsId = do
 -- | Return the observations we know about for the given proposal
 --   (that are not discarded).
 getObsFromProposal ::
-  DbIO m
+  PersistBackend m
   => PropNum
   -> m (SortedList StartTimeOrder ScienceObs)
 getObsFromProposal propNum = do
@@ -542,7 +543,7 @@ getObsFromProposal propNum = do
 -- | A combination of `getProposal` and `getProposalObs`.
 --
 getProposalInfo ::
-  DbIO m
+  PersistBackend m
   => Record
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
 getProposalInfo (Left _) = return (Nothing, emptySL)
@@ -557,7 +558,7 @@ getProposalInfo (Right so) = do
 --
 --   This INCLUDES discarded observations.
 --
-findObsStatusTypes :: DbIO m => m [(String, Int)]
+findObsStatusTypes :: PersistBackend m => m [(String, Int)]
 findObsStatusTypes = do
   statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
   return (countUp statuses)
@@ -606,7 +607,7 @@ reportSize = do
 --   If it already exists in the database the new value is ignored;
 --   there is no check to make sure that the details match.
 insertScienceObs ::
-  DbIO m
+  PersistBackend m
   => ScienceObs
   -> m Bool  -- ^ True if the observation was added to the database
 insertScienceObs s = do
@@ -619,7 +620,7 @@ insertScienceObs s = do
 --
 --   Acts as `insertScienceObs` if the observation is not known about.
 replaceScienceObs ::
-  DbIO m
+  PersistBackend m
   => ScienceObs
   -> m ()
 replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
@@ -628,7 +629,7 @@ replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
 --   ScheduleItem table. It is just easier for me to do this in one place
 --   rather than add a check in `insertScienceObs` and `replaceScienceObs`.
 --
-cleanupDiscarded :: DbIO m => m ()
+cleanupDiscarded :: PersistBackend m => m ()
 cleanupDiscarded = do
   obsids <- project SoObsIdField (SoStatusField ==. discarded)
   forM_ obsids (\obsid -> delete (SiObsIdField ==. obsid))
@@ -638,7 +639,7 @@ cleanupDiscarded = do
 --   If it already exists in the database the new value is ignored;
 --   there is no check to make sure that the details match.
 insertProposal ::
-  DbIO m
+  PersistBackend m
   => Proposal
   -> m Bool  -- ^ True if the proposal was added to the database
 insertProposal p = do
@@ -654,7 +655,7 @@ insertProposal p = do
 --   to be deleted).
 --
 insertSimbadInfo ::
-  DbIO m
+  PersistBackend m
   => SimbadInfo
   -> m (AutoKey SimbadInfo, Bool)
 insertSimbadInfo sm = do
@@ -666,15 +667,15 @@ insertSimbadInfo sm = do
              when (oldsm /= sm) $ error "!!! SimbadInfo does not match !!!" -- TODO: what now?
              return (oldkey, True)
 
-insertSimbadMatch :: DbIO m => SimbadMatch -> m ()
+insertSimbadMatch :: PersistBackend m => SimbadMatch -> m ()
 insertSimbadMatch sm = do
   n <- count (SmmTargetField ==. smmTarget sm)
-  when (n == 0) $ insert_ sm
+  when (n == 0) (insert_ sm)
 
-insertSimbadNoMatch :: DbIO m => SimbadNoMatch -> m ()
+insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m ()
 insertSimbadNoMatch sm = do
   n <- count (SmnTargetField ==. smnTarget sm)
-  when (n == 0) $ insert_ sm
+  when (n == 0) (insert_ sm)
 
 -- | If the record is not known - as defined by the condition
 --   then add it, otherwise check the stored value and, if
@@ -685,7 +686,7 @@ insertSimbadNoMatch sm = do
 --   supplied constraint.
 --
 insertOrReplace ::
-  (DbIO m, PersistEntity v, Eq v, EntityConstr v c)
+  (PersistBackend m, PersistEntity v, Eq v, EntityConstr v c)
   => Cond (PhantomDb m) (RestrictionHolder v c)
   -> v
   -> m ()
