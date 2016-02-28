@@ -332,7 +332,10 @@ getPrevObs oid t = do
 --         updated with the relevant information until after this
 --         code could be running, but need to think about it.
 --
-getObsInfo :: DbIO m => m (Maybe ObsInfo)
+-- getObsInfo :: DbIO m => m (Maybe ObsInfo)
+getObsInfo ::
+  (Functor m, DbIO m)  -- Functor needed before ghc 7.10
+  => m (Maybe ObsInfo)
 getObsInfo = do
   mobs <- getCurrentObs
   case mobs of
@@ -366,7 +369,11 @@ findObsInfo oi = do
     _ -> return Nothing
 -}
 
-findObsInfo :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
+-- findObsInfo :: PersistBackend m => ObsIdVal -> m (Maybe ObsInfo)
+findObsInfo ::
+  (Functor m, PersistBackend m) -- Functor needed before ghc 7.10
+  => ObsIdVal
+  -> m (Maybe ObsInfo)
 findObsInfo oi = do
   mrec <- findObsId oi
   case mrec of
