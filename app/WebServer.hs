@@ -84,7 +84,8 @@ import Web.Heroku (dbConnParams)
 import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo
-                 , getObsId, getSchedule, makeSchedule
+                 , getObsId, getSchedule
+                 , makeSchedule
                  , getProposalInfo
                  , getProposalFromNumber
                  , getRelatedObs
@@ -105,6 +106,8 @@ import Database (getCurrentObs, getRecord, getObsInfo
 import Types (Record, SimbadInfo, Proposal
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..), Sequence(..)
+             , SortedList, StartTimeOrder
+             , nullSL, fromSL
              , handleMigration)
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -183,7 +186,7 @@ main = do
 getDBInfo :: 
   (MonadIO m, PersistBackend m) 
   => Record 
-  -> m (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))
+  -> m (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
 getDBInfo r = do
   as <- either (const (return Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
@@ -278,13 +281,13 @@ webapp cm mgr = do
       res <- liftSQL (getRelatedObs propNum (ObsIdVal obsid))
       -- hmmm, can't tell between an unknown propnum/obsid
       -- pair and an observation with no related observations.
-      json ("Success" :: T.Text, res)
+      json ("Success" :: T.Text, fromSL res)
 
     get "/api/related/:propnum" $ do
       res <- snd <$> dbQuery "propnum" getObsFromProposal
       -- hmmm, can't tell between an unknown propnum
       -- and an observation with no related observations.
-      json ("Success" :: T.Text, res)
+      json ("Success" :: T.Text, fromSL res)
 
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")
@@ -296,10 +299,8 @@ webapp cm mgr = do
       case mobs of
         Just obs -> do
           dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
-          fromBlaze $ Index.introPage cTime obs dbInfo
-        _        -> do
-          fact <- liftIO getFact
-          fromBlaze $ Index.noDataPage fact
+          fromBlaze (Index.introPage cTime obs dbInfo)
+        _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
 
     -- TODO: send in proposal details
     get "/wwt.html" $ do
@@ -330,7 +331,7 @@ webapp cm mgr = do
       (mprop, matches) <- snd <$> dbQuery "propnum" fetchProposal
       case mprop of
         Just prop -> do
-          sched <- liftSQL (makeSchedule (map Right matches))
+          sched <- liftSQL (makeSchedule (fmap Right matches))
           fromBlaze (Proposal.matchPage prop sched)
         _         -> next -- status status404
 
@@ -358,7 +359,7 @@ webapp cm mgr = do
       matches <- snd <$> dbQuery "type" fetchSIMBADType
       case matches of
         Just (typeInfo, ms) -> do
-           sched <- liftSQL (makeSchedule (map Right ms))
+           sched <- liftSQL (makeSchedule (fmap Right ms))
            fromBlaze (SearchTypes.matchPage typeInfo sched)
         _ -> next -- status status404
 
@@ -370,11 +371,11 @@ webapp cm mgr = do
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
       (con, matches) <- dbQuery "constellation" fetchConstellation
-      case matches of
-        [] -> next -- status status404
-        _ -> do
-           sched <- liftSQL (makeSchedule (map Right matches))
-           fromBlaze (Constellation.matchPage con sched)
+      if nullSL matches
+        then next
+        else do
+        sched <- liftSQL (makeSchedule (fmap Right matches))
+        fromBlaze (Constellation.matchPage con sched)
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/" $ do
@@ -384,11 +385,11 @@ webapp cm mgr = do
     -- TODO: also need a HEAD request version
     get "/search/category/:category" $ do
       (cat, matches) <- dbQuery "category" fetchCategory
-      case matches of
-        [] -> next -- status status404
-        _ -> do
-           sched <- liftSQL (makeSchedule (map Right matches))
-           fromBlaze (Category.matchPage cat sched)
+      if nullSL matches
+        then next
+        else do
+        sched <- liftSQL (makeSchedule (fmap Right matches))
+        fromBlaze (Category.matchPage cat sched)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
@@ -398,11 +399,11 @@ webapp cm mgr = do
     -- TODO: also need a HEAD request version
     get "/search/instrument/:instrument" $ do
       (inst, matches) <- dbQuery "instrument" fetchInstrument
-      case matches of
-        [] -> next -- status status404
-        _ -> do
-           sched <- liftSQL (makeSchedule (map Right matches))
-           fromBlaze (Instrument.matchPage inst sched)
+      if nullSL matches
+        then next -- status status404
+        else do
+        sched <- liftSQL (makeSchedule (fmap Right matches))
+        fromBlaze (Instrument.matchPage inst sched)
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/" $ do

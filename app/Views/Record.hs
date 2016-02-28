@@ -38,6 +38,8 @@ import Types (ScienceObs(..), NonScienceObs(..),
               ChandraTime(..), Constraint(..),
               ConLong(..),
               SimbadLoc(SimbadCfA),
+              SortedList, StartTimeOrder,
+              fromSL, lengthSL,
               getObsStatus, getJointObs, toSIMBADLink,
               getConstellationName
               , similarName)
@@ -64,7 +66,7 @@ recordPage ::
   UTCTime  -- the current time
   -> Maybe Record -- the currently running observation
   -> ObsInfo  -- the observation being displayed
-  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
   -> Html
 recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   let initialize = "initialize()"
@@ -100,7 +102,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
 renderStuff :: 
   UTCTime           -- Current time
   -> Record
-  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
   -> Html
 renderStuff cTime rs dbInfo = 
   div ! id "observation" $
@@ -178,9 +180,12 @@ obsNavBar mObs ObsInfo{..} =
 --
 --   There is a special case if they all have the same name as the supplied
 --   target name.
-groupProposal :: String -> [ScienceObs] -> Html
+groupProposal ::
+  String
+  -> SortedList StartTimeOrder ScienceObs
+  -> Html
 groupProposal tName matches =
-  let obs = P.map (soTarget &&& soObsId) matches
+  let obs = P.map (soTarget &&& soObsId) (fromSL matches)
       grps = groupBy ((==) `on` fst) obs
 
       toLink o = a ! href (obsURI o) $ toHtml o
@@ -214,7 +219,7 @@ vowels = "aeiou"
 targetInfo :: 
   UTCTime    -- current time
   -> ScienceObs
-  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
   -> Html
 targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let (sTime, eTime) = getTimes (Right so)
@@ -341,13 +346,11 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                 , reason
                 ]
 
-      otherMatches = 
-        if null matches
-        then mempty
-        else let suffix = case matches of
-                           [_] -> ""
-                           _   -> "s"
-             in mconcat [" See related observation", suffix, ": ", groupProposal soTarget matches, "."]
+      nmatches = lengthSL matches
+      suffix = if nmatches == 1 then "" else "s"
+      otherMatches | nmatches == 0 = mempty
+                   | otherwise = mconcat
+                                 [" See related observation", suffix, ": ", groupProposal soTarget matches, "."]
 
       sciencePara = p $ cts obsStatus
                         <> " "

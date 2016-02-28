@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
@@ -53,6 +54,7 @@ import Data.Monoid ((<>), mconcat)
 import Data.Monoid ((<>))
 #endif
 
+import Data.List (sortBy)
 import Data.String (IsString(..))
 
 -- I am not convinced I'm adding the PersistField values sensibly
@@ -103,6 +105,79 @@ inRange ::
     -> a    -- ^ value
     -> Bool -- ^ lower limit <= value <= upper limit
 inRange lo hi v = (lo <= v) && (v <= hi)
+
+-- | A list of items, in ascending order, for a given view of
+--   the data (using a phantom type for this evidence).
+--
+--   I think that really the projection function should be
+--   carried along somehow, since this is needed to really
+--   make the Monoid instance useful, but not sure how
+--   to do this.
+data SortedList f a = SL { _unSL :: [a] }
+
+{- want something like the following, but ideally without
+   having to carry the projection function around, so that
+   empty instances can be created
+data SortedList2 a b = SL2 { _slProj :: a -> b
+                           , _slList :: [a] }
+-}
+
+{-
+instance Eq a => Eq (SortedList f a) where
+  (==) = (==) `on` _unSL
+-}
+
+instance Functor (SortedList f) where
+  fmap f (SL a) = SL (fmap f a)
+
+{-
+instance Ord a => Monoid (SortedList f a) where
+  mempty = emptySL
+  mappend = mergeSL
+-}
+
+-- | The empty sorted list.
+emptySL :: SortedList f a
+emptySL = SL []
+
+lengthSL :: SortedList f a -> Int
+lengthSL (SL xs) = length xs
+
+-- | The input list *must* be sorted in ascending order, but
+--   it is not checked.
+unsafeToSL :: [a] -> SortedList f a
+unsafeToSL = SL
+
+-- | The input list need not be in ascending order.
+toSL ::
+  Ord b
+  => (a -> b)  -- ^ projection function to get the item to sort on
+  -> [a]
+  -> SortedList f a
+toSL p = SL . sortBy (compare `on` p)
+
+-- | The list remains sorted (in ascending order).
+fromSL :: SortedList f a -> [a]
+fromSL = _unSL
+
+-- | Is the list empty?
+nullSL :: SortedList f a -> Bool
+nullSL = null . _unSL
+
+-- | Merge two sorted lists.
+mergeSL :: Ord a => SortedList f a -> SortedList f a -> SortedList f a
+mergeSL x@(SL _) (SL []) = x
+mergeSL (SL []) y@(SL _) = y
+mergeSL (SL xs) (SL ys) = SL (go xs ys)
+  where
+    go x0 [] = x0
+    go [] y0 = y0
+    go x0@(x:x1) y0@(y:y1) | y > x = y : go x0 y1
+                           | otherwise = x : go x1 y0
+
+
+-- | Indicate that a list is sorted by start time
+data StartTimeOrder
 
 {-
 This is based on 'Read Color' instance of RWH, page 142, chapter 6

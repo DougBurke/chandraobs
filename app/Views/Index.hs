@@ -16,7 +16,8 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..))
+import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..)
+             , SortedList, StartTimeOrder)
 import Utils (defaultMeta, jqueryMeta, jsScript, cssLink, renderLinks, renderFooter)
 import Views.Record (CurrentPage(..), renderStuff, renderTwitter
                     , mainNavBar, obsNavBar)
@@ -77,12 +78,12 @@ tourElements =
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
-  -> (Maybe SimbadInfo, (Maybe Proposal, [ScienceObs]))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
   -> Html
 introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
   let initialize = "initialize(); addTour();"
 
-      mprop = fst $ snd dbInfo
+      mprop = fst (snd dbInfo)
       imgLinks = either (const mempty) (renderLinks True mprop) currentObs
 
   in docTypeHtml ! lang "en-US" $
