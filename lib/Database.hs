@@ -104,19 +104,33 @@ isDiscarded oid = do
 
 -- | Given two lists of observations, which are assumed to have 0 or 1
 --   elements in, identify which is the latest (has the largest start
---   time).
+--   time) or earliest.
+--
+--   These should be consolidated.
 --
 identifyLatestRecord ::
   [ScienceObs]
   -> [NonScienceObs]
   -> Maybe Record
 identifyLatestRecord xs ys =
-  -- rely on Ord instance of Maybe for the greater-than check
+  -- rely on Ord instance of Maybe for the comparison
   let sobs = listToMaybe xs
       nsobs = listToMaybe ys
       stime = soStartTime <$> sobs
       ntime = nsStartTime <$> nsobs
-  in if stime > ntime then (Right <$> sobs) else (Left <$> nsobs)
+  in if stime > ntime then Right <$> sobs else Left <$> nsobs
+
+identifyEarliestRecord ::
+  [ScienceObs]
+  -> [NonScienceObs]
+  -> Maybe Record
+identifyEarliestRecord xs ys =
+  -- rely on Ord instance of Maybe for the comparison
+  let sobs = listToMaybe xs
+      nsobs = listToMaybe ys
+      stime = soStartTime <$> sobs
+      ntime = nsStartTime <$> nsobs
+  in if stime < ntime then Right <$> sobs else Left <$> nsobs
 
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
@@ -237,7 +251,8 @@ getCurrentObs = liftIO getCurrentTime >>= findRecord
 --
 --   Hmm, this is tricky now that we have science times that do not
 --   necessarily agree with the schedule times, which is why the
---   obsid is given too
+--   obsid is given too. As I am now moving away from the schedule item
+--   search, the obsid argument could probably therefore be fropped.
 --
 {-
 getNextObs ::
@@ -271,7 +286,7 @@ getNextObs oid t = do
                    &&. (NsObsIdField /=. oid))
                   `orderBy` [Asc NsStartTimeField]
                   `limitTo` 1)
-    return (identifyLatestRecord xs ys)
+    return (identifyEarliestRecord xs ys)
 
 
 -- | Return the last observation to have started before the given time,
