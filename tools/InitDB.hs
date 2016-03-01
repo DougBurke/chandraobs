@@ -13,34 +13,49 @@
 --    obs1, obs2, obs3
 -- and then obs2 gets removed and obs1/3 are changed, the checks
 -- will only notice the obs1/3 changes, not the deletion of obs2,
--- so the old value will be left in the data base.
+-- so the old value will be left in the database.
 --
 
 import Control.Monad (when)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
+import Data.Functor (void)
 import Database.Groundhog.Postgresql
 
-import Database (insertOrReplace, reportSize, putIO, runDb)
+import Database (addScheduleItem, addNonScienceScheduleItem
+                , cleanDataBase
+                , reportSize, putIO, runDb)
 import HackData
 import Types
 
+-- | Given a schedule item, add it to the database if there is
+--   no matching observation already in the database.
+--
 addSI ::
-    (MonadIO m, PersistBackend m)
+    (Functor m, MonadIO m, PersistBackend m) -- ghc 7.8 needs Functor
     => ScheduleItem
     -> m ()
-addSI si = insertOrReplace (SiObsIdField ==. siObsId si) si
+addSI si = do
+  let obsid = fromObsId (siObsId si)
+  flag <- addScheduleItem si
+  when flag (liftIO (putStrLn (" - inserted si: " ++ show obsid)))
 
 addNS ::
-    (MonadIO m, PersistBackend m)
+    (Functor m, MonadIO m, PersistBackend m) -- ghc 7.8 needs Functor
     => NonScienceObs
     -> m ()
-addNS ns = insertOrReplace (NsObsIdField ==. nsObsId ns) ns
+addNS ns = do
+  let obsid = fromObsId (nsObsId ns)
+  flag <- addNonScienceScheduleItem ns
+  when flag (liftIO (putStrLn (" - inserted non-science: " ++ show obsid)))
 
 main :: IO ()
 main =
   runDb $ do
-    _ <- reportSize
+    void reportSize
+    putIO ""
+    putIO "-- starting"
+    putIO ""
 
     o1 <- countAll (undefined :: ScheduleItem)
     o2 <- countAll (undefined :: ScienceObs)
@@ -56,7 +71,9 @@ main =
     putIO "Inserting non-science obs"
     mapM_ addNS testNonScience
 
-    _ <- reportSize
+    cleanDataBase
+
+    void reportSize
 
     n1 <- countAll (undefined :: ScheduleItem)
     n2 <- countAll (undefined :: ScienceObs)

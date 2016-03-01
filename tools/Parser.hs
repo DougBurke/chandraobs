@@ -39,9 +39,8 @@ example
 
 module Parser (parseSTS, testParser) where
 
-import Control.Monad (void)
-
 import Data.Char (digitToInt, isSpace)
+import Data.Functor (void)
 import Data.List (intercalate)
 
 import Text.Parsec
@@ -86,15 +85,15 @@ toInt = foldl (\c i -> c * 10 + i) 0
 -- for now I do not check for overflow
 parseInt :: Parser Int
 parseInt = do
-  is <- lexeme $ many1 digit
-  return $ toInt $ map digitToInt is
+  is <- lexeme (many1 digit)
+  return (toInt (map digitToInt is))
 
 -- parse a single integer value
 parseInt1 :: Parser Int
 parseInt1 = digitToInt `fmap` lexeme digit
 
 colon :: Parser ()
-colon = void $ char ':'
+colon = void (char ':')
 
 -- just ensure we have yyyy:ddd:hh:mm:ss.sss;
 -- it seems a bit wasteful to split up the string and
@@ -110,17 +109,17 @@ parseTime = do
   mins <- count 2 digit
   colon
   ss1 <- count 2 digit
-  void $ char '.'
+  void (char '.')
   ss2 <- count 3 digit
   spaces
-  return $ intercalate ":" [year, dnum, hour, mins, ss1 ++ "." ++ ss2]
+  return (intercalate ":" [year, dnum, hour, mins, ss1 ++ "." ++ ss2])
 
 parseReadable :: Read a => Parser a
 parseReadable = do
   v <- lexeme $ many1 $ satisfy (not . isSpace)
   case reads v of
     [(t,"")] -> return t
-    _ -> fail $ "Unable to parse as readable: " ++ v
+    _ -> fail ("Unable to parse as readable: " ++ v)
 
 parseDouble :: Parser Double
 parseDouble = parseReadable
@@ -152,21 +151,21 @@ handleTime start texp =
 
 obsLine :: Parser STS
 obsLine = do
-  _ <- parseInt -- seqNum
+  void parseInt -- seqNum
   optional $ lexeme $ char 'P' >> digit
   obsid <- parseInt  
-  _ <- parseInt1 -- n
-  _ <- parseTitle -- title
+  void parseInt1 -- n
+  void parseTitle -- title
   start <- parseTime
   texp <- parseDouble
-  _ <- parseInst -- inst
-  _ <- parseGrat -- grat
-  _ <- parseDouble -- ra
-  _ <- parseDouble -- dec
-  _ <- parseDouble -- roll
-  _ <- parseDouble -- pitch
-  _ <- parseDouble -- slew
-  lexeme $ void $ string "dss pspc rass"
+  void parseInst -- inst
+  void parseGrat -- grat
+  void parseDouble -- ra
+  void parseDouble -- dec
+  void parseDouble -- roll
+  void parseDouble -- pitch
+  void parseDouble -- slew
+  lexeme (void (string "dss pspc rass"))
   -- return $ STS (Just seqNum) (toOI obsid) (Just n) title start texp (Just inst) (Just grat) ra dec roll pitch slew
 
   let (tks, t1, t2) = handleTime start texp
@@ -182,16 +181,16 @@ obsLine = do
   return (si, Nothing)
 
 sep2, sep4 :: Parser ()
-sep2 = void $ lexeme $ string "--"
-sep4 = void $ lexeme $ string "----"
+sep2 = void (lexeme (string "--"))
+sep4 = void (lexeme (string "----"))
 
 calLine :: Parser STS
 calLine = do
   sep4
-  name <- lexeme $ count 5 anyChar
+  name <- lexeme (count 5 anyChar)
   void $ string "CAL-ER ("
   obsid <- parseInt
-  lexeme $ void $ string ")"
+  lexeme (void (string ")"))  -- err, why not void (lexeme (string))
   start <- parseTime
   texp <- parseDouble
   sep2
@@ -199,8 +198,8 @@ calLine = do
   ra <- parseDouble
   dec <- parseDouble
   roll <- parseDouble
-  _ <- parseDouble -- pitch
-  _ <- parseDouble -- slew
+  void parseDouble -- pitch
+  void parseDouble -- slew
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
       
@@ -230,6 +229,6 @@ calLine = do
 stsLine :: Parser STS
 stsLine = do
   spaces
-  optional $ many (commentLine >> spaces)
+  optional (many (commentLine >> spaces))
   calLine <|> obsLine
 

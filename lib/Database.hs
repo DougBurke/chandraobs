@@ -40,8 +40,11 @@ module Database ( getCurrentObs
                 , insertSimbadMatch
                 , insertSimbadNoMatch
 
+                , cleanDataBase
                 , cleanupDiscarded
                 , insertOrReplace
+                , addScheduleItem
+                , addNonScienceScheduleItem
 
                 , putIO
                 , runDb
@@ -52,14 +55,14 @@ module Database ( getCurrentObs
 import Control.Applicative ((<$>))
 #endif
 
-import Control.Monad (forM, forM_, when)
+import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (group, groupBy, sortBy)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (isNothing, listToMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
@@ -640,10 +643,15 @@ reportSize = do
 -- Need to make sure the following match the constraints on the tables found
 -- in Types.hs
 
--- | Checks that the Science observation is not known about before inserting it.
+-- | Checks that the Science observation is not known about before
+--   inserting it.
 --
 --   If it already exists in the database the new value is ignored;
 --   there is no check to make sure that the details match.
+--
+--   There is no attempt to remove the observation from the ScheduleItem
+--   table.
+--
 insertScienceObs ::
   PersistBackend m
   => ScienceObs
@@ -657,20 +665,15 @@ insertScienceObs s = do
 -- | Replaces the science observation with the new values, if it is different.
 --
 --   Acts as `insertScienceObs` if the observation is not known about.
+--
+--   There is no attempt to remove the observation from the ScheduleItem
+--   table.
+--
 replaceScienceObs ::
   PersistBackend m
   => ScienceObs
   -> m ()
 replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
-
--- | Ensure that any discarded science observations are removed from the
---   ScheduleItem table. It is just easier for me to do this in one place
---   rather than add a check in `insertScienceObs` and `replaceScienceObs`.
---
-cleanupDiscarded :: PersistBackend m => m ()
-cleanupDiscarded = do
-  obsids <- project SoObsIdField (SoStatusField ==. discarded)
-  forM_ obsids (\obsid -> delete (SiObsIdField ==. obsid))
 
 -- | Checks that the proposal is not known about before inserting it.
 --
@@ -705,15 +708,21 @@ insertSimbadInfo sm = do
              when (oldsm /= sm) $ error "!!! SimbadInfo does not match !!!" -- TODO: what now?
              return (oldkey, True)
 
-insertSimbadMatch :: PersistBackend m => SimbadMatch -> m ()
+-- | Returns True if the database was updated.
+insertSimbadMatch :: PersistBackend m => SimbadMatch -> m Bool
 insertSimbadMatch sm = do
   n <- count (SmmTargetField ==. smmTarget sm)
-  when (n == 0) (insert_ sm)
+  let unknown = n == 0
+  when unknown (insert_ sm)
+  return unknown
 
-insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m ()
+-- | Returns True if the database was updated.
+insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m Bool
 insertSimbadNoMatch sm = do
   n <- count (SmnTargetField ==. smnTarget sm)
-  when (n == 0) (insert_ sm)
+  let unknown = n == 0
+  when unknown (insert_ sm)
+  return unknown
 
 -- | If the record is not known - as defined by the condition
 --   then add it, otherwise check the stored value and, if
@@ -722,6 +731,9 @@ insertSimbadNoMatch sm = do
 --   Note that this does not take advantage of keys for
 --   identification or deletion, rather it uses the
 --   supplied constraint.
+--
+--   It is required that the condition only matches 0 or 1 rows,
+--   but there is no check that this is true.
 --
 insertOrReplace ::
   (PersistBackend m, PersistEntity v, Eq v, EntityConstr v c)
@@ -735,6 +747,66 @@ insertOrReplace cond newVal = do
                                 delete cond
                                 insert_ newVal
     _ -> insert_ newVal
+
+-- | Add a schedule item to the database if there is no known
+--   observation for this ObsId. If the obsid already exists
+--   then nothing is done (but note that there is no check that
+--   the information is valid).
+--
+--   The return value indicates whether the item was added.
+--
+--   See also `addNonScienceScheduleItem`; it is not clear if
+--   these need to be two separate items now.
+addScheduleItem ::
+  (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
+  => ScheduleItem
+  -> m Bool
+addScheduleItem si = do
+  let obsid = siObsId si
+  noRecord <- isNothing <$> getRecord obsid
+  -- the assumption is that there is no entry in the ScheduleItem
+  -- table for this record; let's see how that goes
+  when noRecord (insert_ si)
+  return noRecord
+
+addNonScienceScheduleItem ::
+  (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
+  => NonScienceObs
+  -> m Bool
+addNonScienceScheduleItem ns = do
+  let obsid = nsObsId ns
+  noRecord <- isNothing <$> getRecord obsid
+  -- the assumption is that there is no entry in the ScheduleItem
+  -- table for this record; let's see how that goes
+  when noRecord (insert_ ns)
+  return noRecord
+
+-- | Remove unwanted information in the database. At present this is:
+--
+--   1. ScheduleItem entries for which there is a record.
+--
+--   Should cleanupDiscarded be rolled into this?
+cleanDataBase :: PersistBackend m => m ()
+cleanDataBase = do
+  -- TODO: get the primary key to make deletion easier?
+  obsids <- project SiObsIdField CondEmpty
+  forM_ obsids $ \obsid -> do
+    -- be lazy and make both requests even though could avoid
+    -- an extra look-up if the first succeeds
+    n1 <- count (SoObsIdField ==. obsid)
+    n2 <- count (NsObsIdField ==. obsid)
+    unless (n1 == 0 && n2 == 0) (delete (SiObsIdField ==. obsid))
+
+-- | Ensure that any discarded science observations are removed from the
+--   ScheduleItem table. It is just easier for me to do this in one place
+--   rather than add a check in `insertScienceObs` and `replaceScienceObs`.
+--
+--   Should this be moved into `cleanDataBase`?
+--
+cleanupDiscarded :: PersistBackend m => m ()
+cleanupDiscarded = do
+  obsids <- project SoObsIdField (SoStatusField ==. discarded)
+  forM_ obsids (\obsid -> delete (SiObsIdField ==. obsid))
 
 -- | Hard-coded connection string for the database connection.
 dbConnStr :: String

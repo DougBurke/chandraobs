@@ -62,6 +62,7 @@ import Database (insertScienceObs
                 , replaceScienceObs
                 , insertProposal
                 , cleanupDiscarded
+                , cleanDataBase
                 , putIO
                 , runDb
                 )
@@ -420,7 +421,7 @@ queryObsId flag oid = do
 
       ls = dropWhile isHash $ L.split (w8 '\n') rsp
       tokenize = L.split (w8 '\t')
-      hdr = tokenize $ head ls
+      hdr = tokenize (head ls)
       -- could use positional information, but use a map instead
       dl = filter (not . L.null) (drop 2 ls)
       out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
@@ -446,22 +447,19 @@ queryObsId flag oid = do
       return Nothing
     -- _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
 
--- | Query the database to find any scheduled observations
---   which do not have any corresponding OCAT info, and
---   those OCAT observations which are not archived
---   (i.e. may need to be changed)
+-- | Identify:
+--     - all observations in the ScheduleItem table
+--     - science observations which are not archived
+--
+-- Should this be in the PersistBackend monad rather than making
+-- it a transaction? Probably not, because want the updates to
+-- be incremental so that they can be redone.
 --
 findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal])
-findMissingObsIds = do
-  (want, have, unarchived) <- runDb $ do
-      allObsIds <- project SiObsIdField (SiScienceObsField ==. True)
-      haveObsIds <- project SoObsIdField CondEmpty      
-      unArchivedObsIds <- project SoObsIdField (SoStatusField /=. ("archived" :: String))
-      return (allObsIds, haveObsIds, unArchivedObsIds)
-
-  let swant = S.fromList want
-      shave = S.fromList have
-  return (S.toList (swant `S.difference` shave), unarchived)
+findMissingObsIds = runDb $ do
+    wants <- project SiObsIdField (SiScienceObsField ==. True)
+    unarchived <- project SoObsIdField (SoStatusField /=. ("archived" :: String))
+    return (wants, unarchived)
 
 slen :: [a] -> String
 slen = show . length
@@ -498,8 +496,11 @@ addResults missing unarchived = do
       forM_ props (disp insertProposal)
 
       -- ensure that any discarded observations are removed from the
-      -- schedule
+      -- schedule, and any observations for which we now have an obscat
+      -- value are removed (this latter should be handled by some
+      -- of the above calls but leave as is for now).
       cleanupDiscarded
+      cleanDataBase
 
 
 -- | add in the overlap observations; that is, the table of
@@ -511,14 +512,15 @@ addResults missing unarchived = do
 addOverlaps :: Bool -> [OverlapObs] -> IO ()
 addOverlaps f os = do
   let oids = S.toList (S.fromList (map ovOverlapId os))
-  putStrLn ("# Processing " ++ slen os ++ " overlaps with " ++ slen oids ++ " different ObsIds")
+  putStrLn ("# Processing " ++ slen os ++ " overlaps with " ++
+            slen oids ++ " different ObsIds")
 
   -- avoid FlexibleInstances by being explicit with types; could make
   -- the monad more general (I guess) but leave as is for now
   let countOid :: ObsIdVal -> DbPersist Postgresql (NoLoggingT IO) Int 
       countOid oid = count (SoObsIdField ==. oid)
   cs <- runDb (forM oids countOid)
-  let unknowns = map fst $ filter ((==0) . snd) (zip oids cs)
+  let unknowns = map fst (filter ((==0) . snd) (zip oids cs))
   putStrLn $ "# Of these, there are " ++ slen unknowns ++ " 'new' ObsIds"
 
   res1 <- mapM (queryObsId f) unknowns
@@ -540,24 +542,26 @@ addOverlaps f os = do
 --   This does NOT include the overlap obs (i.e. they are ignored here)
 check :: [Maybe a] -> [ObsIdVal] -> IO [a]
 check ms os = do
-  let missing = map snd $ filter (isNothing . fst) $ zip ms os
+  let missing = map snd (filter (isNothing . fst) (zip ms os))
   unless (null missing) $ do
-    putStrLn $ "### There are " ++ slen missing ++ " ObsIds with no OCAT data:"
-    forM_ missing $ print . fromObsId
-  return $ catMaybes ms
+    putStrLn ("### There are " ++ slen missing ++
+              " ObsIds with no OCAT data:")
+    forM_ missing (print . fromObsId)
+  return (catMaybes ms)
 
 -- | The flag is @True@ to get debug output from the @queryObsId@ calls.
 updateDB :: Bool -> IO ()
 updateDB f = withSocketsDo $ do
   putStrLn "# Querying the database"
   (missing, unarchived) <- findMissingObsIds
-  putStrLn $ "# Found " ++ slen missing ++ " missing and " ++ slen unarchived ++ " unarchived ObsIds"
+  putStrLn ("# Found " ++ slen missing ++ " missing and " ++
+            slen unarchived ++ " unarchived ObsIds")
 
-  unless (null missing) $ putStrLn "# Processing missing"
+  unless (null missing) (putStrLn "# Processing missing")
   res1 <- mapM (queryObsId f) missing
   mres <- check res1 missing
 
-  unless (null missing) $ putStrLn "# Processing unarchived"
+  unless (null missing) (putStrLn "# Processing unarchived")
   res2 <- mapM (queryObsId f) unarchived
   ures <- check res2 unarchived
 
@@ -575,9 +579,9 @@ viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
   ans <- queryObsId True (ObsIdVal oid)
   case ans of
-    Nothing -> putStrLn $ "Nothing found for ObsId " ++ show oid ++ "!"
+    Nothing -> putStrLn ("Nothing found for ObsId " ++ show oid ++ "!")
     Just (prop, so) -> do
-      putStrLn $ "## ObsId " ++ show oid
+      putStrLn ("## ObsId " ++ show oid)
       print prop
       print so
       dump so
@@ -589,22 +593,23 @@ dump ScienceObs{..} = do
   putStrLn soStatus
   print (fromObsId soObsId)
   putStrLn soTarget
-  putStrLn $ showCTime soStartTime
-  putStrLn $ showExpTime soApprovedTime
-  print $ fmap showExpTime soObservedTime
-  putStrLn $ "Public availability: " ++ show soPublicRelease
+  putStrLn (showCTime soStartTime)
+  putStrLn (showExpTime soApprovedTime)
+  print (fmap showExpTime soObservedTime)
+  putStrLn ("Public availability: " ++ show soPublicRelease)
 
   let fC lbl c = lbl ++ ": " ++ [fromConstraint c]
-  putStrLn $ fC "time critical" soTimeCritical
-  putStrLn $ fC "      monitor" soMonitor
-  putStrLn $ fC "  constrained" soConstrained
+  putStrLn (fC "time critical" soTimeCritical)
+  putStrLn (fC "      monitor" soMonitor)
+  putStrLn (fC "  constrained" soConstrained)
 
   print soInstrument
   print soGrating
   print soDetector
   print soDataMode
 
-  let achip lbl val = putStrLn $ "ACIS" ++ lbl ++ " " ++ fromChipStatus val
+  let achip lbl val =
+        putStrLn ("ACIS" ++ lbl ++ " " ++ fromChipStatus val)
   achip "I0" soACISI0
   achip "I1" soACISI1
   achip "I2" soACISI2
@@ -617,7 +622,8 @@ dump ScienceObs{..} = do
   achip "S5" soACISS5
 
   print soJointWith
-  let joint lbl val = putStrLn $ "Joint " ++ lbl ++ " " ++ show (fmap _toS val)
+  let joint lbl val =
+        putStrLn ("Joint " ++ lbl ++ " " ++ show (fmap _toS val))
   joint "HST" soJointHST
   joint "NOAO" soJointNOAO
   joint "NRAO" soJointNRAO
@@ -629,9 +635,9 @@ dump ScienceObs{..} = do
   joint "NUSTAR" soJointNUSTAR
 
   print soTOO
-  putStrLn $ showRA soRA
-  putStrLn $ showDec soDec
-  putStrLn $ "which is in " ++ fromConShort soConstellation
+  putStrLn (showRA soRA)
+  putStrLn (showDec soDec)
+  putStrLn ("which is in " ++ fromConShort soConstellation)
   print soRoll
   print soSubArrayStart
   print soSubArraySize
@@ -639,9 +645,9 @@ dump ScienceObs{..} = do
 usage :: IO ()
 usage = do
   pName <- getProgName
-  hPutStrLn stderr $ "Usage: " ++ pName
-  hPutStrLn stderr $ "       " ++ pName ++ " debug"
-  hPutStrLn stderr $ "       " ++ pName ++ " <obsid>"
+  hPutStrLn stderr ("Usage: " ++ pName)
+  hPutStrLn stderr ("       " ++ pName ++ " debug")
+  hPutStrLn stderr ("       " ++ pName ++ " <obsid>")
   exitFailure
 
 main :: IO ()

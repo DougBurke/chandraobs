@@ -23,6 +23,7 @@ import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (MonadIO)
 
 import Data.Char (toLower)
+import Data.Functor (void)
 import Data.List (isPrefixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
@@ -220,18 +221,18 @@ updateDB sloc f = withSocketsDo $ do
 
   putStrLn "# Querying the database"
 
-  obs <- runDb $ project (SoTargetField)
-               $ CondEmpty `orderBy` [Asc SoTargetField]
-               `distinctOn` SoTargetField
+  obs <- runDb (project SoTargetField
+                (CondEmpty `orderBy` [Asc SoTargetField]
+                 `distinctOn` SoTargetField))
 
   matchTargets <- runDb (project SmmTargetField CondEmpty)
   noMatchTargets <- runDb (project SmnTargetField CondEmpty)
 
   -- these numbers aren't that useful, since the number of
   -- obsids and targets aren't the same, but leave for now
-  putStrLn $ "# " ++ slen obs ++ " obsids / " ++ 
-             slen matchTargets ++ " targets " ++
-             slen noMatchTargets ++ " no match "
+  putStrLn ("# " ++ slen obs ++ " obsids / " ++ 
+            slen matchTargets ++ " targets " ++
+            slen noMatchTargets ++ " no match ")
 
   -- Do steps A and B - ie identify those fields for which
   -- we have no Simbad information.
@@ -250,7 +251,7 @@ updateDB sloc f = withSocketsDo $ do
 
       -- tgs = filter ((`S.member` unidSet) . fst) allTgs
 
-  putStrLn $ "# -> " ++ show (S.size unidSet) ++ " have no Simbad info"
+  putStrLn ("# -> " ++ show (S.size unidSet) ++ " have no Simbad info")
 
   -- Could do all the database changes at once, but let's see
   -- how this works out.
@@ -263,19 +264,22 @@ updateDB sloc f = withSocketsDo $ do
   forM_ (S.toList unidSet) $ 
     \tgt -> do
       (searchRes, minfo) <- querySIMBAD sloc f tgt
+      let tname = _2 searchRes
       runDb $ case minfo of
                Just si -> do
-                          blag f $ ">> inserting SimbadInfo for " ++ smiName si
+                          blag f (">> inserting SimbadInfo for " ++ smiName si)
                           (key, cleanFlag) <- insertSimbadInfo si
-                          blag f $ ">> and SimbadMatch with target=" ++ _2 searchRes
-                          insertSimbadMatch $ toM searchRes key
+                          blag f (">> and SimbadMatch with target=" ++ tname)
+                          void (insertSimbadMatch (toM searchRes key))
 
                           -- TODO: is this correct?
-                          when cleanFlag $ delete (SmnTargetField ==. smiName si)
+                          when cleanFlag
+                            (delete (SmnTargetField ==. smiName si))
       
                _ -> do
-                 blag f $ ">> Inserting SimbadNoMatch for target=" ++ _2 searchRes
-                 insertSimbadNoMatch $ toNM searchRes
+                 blag f (">> Inserting SimbadNoMatch for target=" ++ tname)
+                 void (insertSimbadNoMatch (toNM searchRes))
+                 return ()
 
   {-
   forM_ tgs $ 

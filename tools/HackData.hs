@@ -12,10 +12,10 @@ import Types
 import Quote
 
 testSchedule :: [ScheduleItem]
-testSchedule = fst $ unzip sts
+testSchedule = fst (unzip sts)
 
 testNonScience :: [NonScienceObs]
-testNonScience = catMaybes $ snd $ unzip sts
+testNonScience = catMaybes (snd (unzip sts))
 
 type STS = (ScheduleItem, Maybe NonScienceObs)
 
