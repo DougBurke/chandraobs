@@ -67,7 +67,7 @@ renderSchedule (Schedule cTime ndays done mdoing todo) =
         , "is running now, or is in the future; the same colors "
         , "are used in the table below. For repeated observations "
         , "it can be hard to make out what is going on, since the "
-        , "circles overlap! The purple outline traces the outline of "
+        , "circles overlap! The shaded regions trace "
         , "the Milky Way galaxy. "
         , "The points are plotted in the "
         , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"

@@ -7,7 +7,7 @@ var unselOpacity = 0.3;
 var selOpacity = 0.8;
 
 // This must be < 0.5; at least, once it is used it should be
-// var baseMWOpacity = 0.3;
+var baseMWOpacity = 0.3;
 
 // time for a transition, in milliseconds
 var transitionTime = 600;
@@ -90,6 +90,7 @@ function createMap(coords) {
                   for (var i3 = 0; i3 < cds[i1][i2].length; i3++) {
                       cds[i1][i2][i3][0] = 180.0 - cds[i1][i2][i3][0];
                   }
+                  cds[i1][i2].reverse();
               }
           }
       });
@@ -101,14 +102,11 @@ function createMap(coords) {
           .attr("d", path)
           .attr("fill-opacity", 0.0)
           .attr("stroke-opacity", 0.2)
-      // the following are no use until the coordinate hacking can be
-      // removed
-          // .attr("opacity", baseMWOpacity)
-          // .on('mouseover', function(d) { highlightMW(); })
-          // .on('mouseout', function(d) { revertMW(); })
-          // .append("title")
-          // .text("Milky Way");
-          ;
+          .attr("opacity", baseMWOpacity)
+          .on('mouseover', function(d) { highlightMW(); })
+          .on('mouseout', function(d) { revertMW(); })
+          .append("title")
+          .text("Milky Way");
   });
     
   svg.select("#baseplane").append("path")
@@ -178,7 +176,6 @@ function createMap(coords) {
 
 }
 
-/* currently unused
 function highlightMW() {
   d3.selectAll('.milkyway').transition()
         .duration(transitionTime)
@@ -190,7 +187,6 @@ function revertMW() {
         .duration(transitionTime)
         .attr("opacity", baseMWOpacity);
 }
-*/
 
 /* Highlight the given object in the sky map */
 function selectObs(lbl) {
