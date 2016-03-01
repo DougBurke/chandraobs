@@ -57,3 +57,11 @@ div#map svg {
   stroke-width: 2;
 }
 ***/
+
+/* Set up some basic values that may be over-ridden by JS */
+.milkyway {
+    fill: #fff;
+    fill-opacity: 0;
+    stroke: #66C;
+    stroke-opacity: 0.4;
+}

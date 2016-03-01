@@ -5,7 +5,7 @@
 module Views.Schedule (schedPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), Maybe(..))
+import Prelude (Maybe(..), ($), show)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -15,7 +15,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ChandraTime(..), Schedule(..))
+import Types (Schedule(..))
 import Utils (defaultMeta, skymapMeta, cssLink, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -48,13 +48,14 @@ renderSchedule ::
   -> Html
 renderSchedule (Schedule _ _ _ Nothing _) =
   div ! A.id "schedule" $ 
-    p "There seems to be a problem, in that I do not know what the current observation is!"
+    p ("There seems to be a problem, in that I do not know what the "
+       <> "current observation is!")
 
 renderSchedule (Schedule cTime ndays done mdoing todo) =
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
-
+      title = show ndays <> "-day Schedule"
   in div ! A.id "scheduleBlock" $ do
-    p  $ "The current time is: " <> toHtml (ChandraTime cTime) <> "."
+    h2 (toHtml title)
 
     svgBlock
 
@@ -66,7 +67,8 @@ renderSchedule (Schedule cTime ndays done mdoing todo) =
         , "is running now, or is in the future; the same colors "
         , "are used in the table below. For repeated observations "
         , "it can be hard to make out what is going on, since the "
-        , "circles overlap! "
+        , "circles overlap! The purple outline traces the outline of "
+        , "the Milky Way galaxy. "
         , "The points are plotted in the "
         , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"
         , ", using the "

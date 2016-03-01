@@ -6,6 +6,12 @@ var baseOpacity = 0.6;
 var unselOpacity = 0.3;
 var selOpacity = 0.8;
 
+// This must be < 0.5; at least, once it is used it should be
+// var baseMWOpacity = 0.3;
+
+// time for a transition, in milliseconds
+var transitionTime = 600;
+
 // coords is an array of objects with
 // ra/dec attributes in degrees (0-360 and -90 to 90)
 // as well as other attributes useful for labelling
@@ -60,7 +66,52 @@ function createMap(coords) {
     .attr("class", "fill")
     .attr("xlink:href", "#sphere");
 
-  svg.append("path")
+  // add in the Milky Way outline before anything else, so it's at
+  // the back; since the data is loaded via a callback, use 
+  // SVG groups: one for the "labelling" (Milky Way, graticules, ...)
+  // and one for the data. Note that I could add in a special
+  // group just for the MW, so that it is first, and therefore behind
+  // all the other labels, but I don't think that it's worth it.
+
+  svg.append("g").attr("id", "baseplane");
+  svg.append("g").attr("id", "dataplane");
+    
+  d3.json("/data/mw.json", function(error, mw) {
+      if (error) {
+          return console.warn("Unable to load mw.json");
+      }
+      // Because I have to flip the latitude coordinates,
+      // the inside/outside gets all messed up, so shading does
+      // not work.
+      d3.map(mw.features, function(d) {
+          cds = d['geometry']['coordinates'];
+          for (var i1 = 0; i1 < cds.length; i1++) {
+              for (var i2 = 0; i2 < cds[i1].length; i2++) {
+                  for (var i3 = 0; i3 < cds[i1][i2].length; i3++) {
+                      cds[i1][i2][i3][0] = 180.0 - cds[i1][i2][i3][0];
+                  }
+              }
+          }
+      });
+      
+      svg.select("#baseplane").selectAll(".milkyway")
+          .data(mw.features)
+          .enter().append("path")
+          .attr("class", "milkyway")
+          .attr("d", path)
+          .attr("fill-opacity", 0.0)
+          .attr("stroke-opacity", 0.2)
+      // the following are no use until the coordinate hacking can be
+      // removed
+          // .attr("opacity", baseMWOpacity)
+          // .on('mouseover', function(d) { highlightMW(); })
+          // .on('mouseout', function(d) { revertMW(); })
+          // .append("title")
+          // .text("Milky Way");
+          ;
+  });
+    
+  svg.select("#baseplane").append("path")
     .datum(graticule)
     .attr("class", "graticule")
     .attr("d", path);
@@ -71,7 +122,7 @@ function createMap(coords) {
       var lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
       return { x: pos[0], y: pos[1], lbl: lbl };
     });
-  svg.selectAll(".long")
+  svg.select("#baseplane").selectAll(".long")
       .data(longvals)
     .enter().append("text")
       .attr("class", "label long")
@@ -86,7 +137,7 @@ function createMap(coords) {
       var lbl = d + "\u00B0"; // degree symbol
       return { x: pos[0], y: pos[1], lbl: lbl };
     });
-  svg.selectAll(".lat")
+  svg.select("#baseplane").selectAll(".lat")
       .data(latvals)
     .enter().append("text")
       .attr("class", "label lat")
@@ -98,7 +149,6 @@ function createMap(coords) {
       .text(function(d) { return d.lbl; });
 
   // mark the observations
-  // TODO: highlight the table row when an observation is hovered over
 
   var points = coords.map(function (d) {
       // TODO: worry about clipping?
@@ -108,7 +158,7 @@ function createMap(coords) {
       return d;
     });
 
-  svg.selectAll(".obs")
+  svg.select("#dataplane").selectAll(".obs")
       .data(points)
     .enter()
     .append("a")
@@ -128,15 +178,33 @@ function createMap(coords) {
 
 }
 
+/* currently unused
+function highlightMW() {
+  d3.selectAll('.milkyway').transition()
+        .duration(transitionTime)
+        .attr("opacity", 2 * baseMWOpacity);
+}
+
+function revertMW() {
+  d3.selectAll('.milkyway').transition()
+        .duration(transitionTime)
+        .attr("opacity", baseMWOpacity);
+}
+*/
+
 /* Highlight the given object in the sky map */
 function selectObs(lbl) {
   d3.select('#' + lbl).classed('selrow', true);
   var idlbl = 'gfx-' + lbl;
-  d3.selectAll('.obs').transition().attr("opacity", function () { return (this.id === idlbl) ? selOpacity : unselOpacity; });
+  d3.selectAll('.obs').transition()
+        .duration(transitionTime)
+        .attr("opacity", function () { return (this.id === idlbl) ? selOpacity : unselOpacity; });
 }
 
 /* Return it to normal */
 function deselectObs(lbl) {
   d3.select('#' + lbl).classed('selrow', false);
-  d3.selectAll('.obs').transition().attr("opacity", baseOpacity);
+  d3.selectAll('.obs').transition()
+        .duration(transitionTime)
+        .attr("opacity", baseOpacity);
 }

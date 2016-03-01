@@ -27,8 +27,8 @@ indexPage ::
   -> Html
 indexPage insts =
   docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations" <>
-          defaultMeta
+    head (H.title "Chandra observations"
+          <> defaultMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
@@ -47,8 +47,8 @@ matchPage ::
   -> Html
 matchPage inst sched =
   docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations with " <> H.toHtml inst) <>
-          defaultMeta
+    head (H.title ("Chandra observations with " <> H.toHtml inst)
+          <> defaultMeta
           <> skymapMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )
@@ -70,7 +70,7 @@ renderMatches inst (Schedule cTime _ done mdoing todo) =
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
 
   in div ! A.id "scheduleBlock" $ do
-    h2 $ toHtml inst
+    h2 (toHtml inst)
 
     svgBlock
 
