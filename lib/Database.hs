@@ -474,7 +474,7 @@ fetchCategory ::
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sos <- forM propNums $ \pn ->
-    select ((SoProposalField ==. pn &&. notDiscarded) `limitTo` 1)
+    select (SoProposalField ==. pn &&. notDiscarded)
   let xs = concat sos
   return (toSL soStartTime xs)
 
