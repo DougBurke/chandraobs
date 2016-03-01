@@ -109,7 +109,8 @@ defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
 --
 skymapMeta :: H.Html
 skymapMeta =
-  jsScript "https://d3js.org/d3.v3.min.js"
+  jqueryMeta
+  <> jsScript "https://d3js.org/d3.v3.min.js"
   <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
   <> jsScript "/js/jquery.tablesorter.min.js"
   <> jsScript "/js/table.js"
@@ -117,7 +118,10 @@ skymapMeta =
   <> cssLink "/css/tablesorter.css"
   <> cssLink "/css/schedule.css"
 
--- | Load JQuery
+-- | Load JQuery.
+--
+--   It is likely that this should not be used, as you probably want
+--   skymapMeta instead.
 jqueryMeta :: H.Html
 jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
 

@@ -71,7 +71,8 @@ tourElements :: Html
 tourElements =
   jqueryMeta
   <> jsScript "/js/bootstrap-tour-standalone-0.9.3.min.js"
-  <> (cssLink "/css/bootstrap-tour-standalone-0.9.3.min.css" ! A.title  "Default")
+  <> (cssLink "/css/bootstrap-tour-standalone-0.9.3.min.css"
+      ! A.title  "Default")
   <> jsScript "/js/tour.js"
 
 -- | TODO: this should be merged with Views.Record.recordPage

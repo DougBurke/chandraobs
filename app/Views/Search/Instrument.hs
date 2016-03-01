@@ -18,7 +18,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), Instrument(..))
-import Utils (defaultMeta, jqueryMeta, skymapMeta, renderFooter, cssLink, instLinkAbout, instLinkSearch)
+import Utils (defaultMeta, skymapMeta, renderFooter, cssLink, instLinkAbout, instLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -49,7 +49,6 @@ matchPage inst sched =
   docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observations with " <> H.toHtml inst) <>
           defaultMeta
-          <> jqueryMeta
           <> skymapMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )

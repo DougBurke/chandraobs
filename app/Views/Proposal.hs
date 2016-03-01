@@ -22,7 +22,7 @@ import Types (Proposal(..)
               , ScienceObs(..)
               , Schedule(..)
               )
-import Utils (defaultMeta, skymapMeta, jqueryMeta, abstractLink, renderFooter
+import Utils (defaultMeta, skymapMeta, abstractLink, renderFooter
              , cssLink, categoryLinkSearch)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -36,7 +36,6 @@ matchPage prop@Proposal{..} sched =
     head (H.title ("Chandra proposal: " <> toHtml propNum)
           <> defaultMeta
           <> skymapMeta
-          <> jqueryMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
          )
     <>
