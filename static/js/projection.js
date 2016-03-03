@@ -76,13 +76,14 @@ function createMap(coords) {
   svg.append("g").attr("id", "baseplane");
   svg.append("g").attr("id", "dataplane");
     
-  d3.json("/data/mw.json", function(error, mw) {
+  d3.json("/data/mw-hack.json", function(error, mw) {
       if (error) {
-          return console.warn("Unable to load mw.json");
+          return console.warn("Unable to load mw-hack.json");
       }
       // Because I have to flip the latitude coordinates,
       // the inside/outside gets all messed up, so shading does
-      // not work.
+      // not work. This is not needed with mw-hack.json
+      /*
       d3.map(mw.features, function(d) {
           cds = d['geometry']['coordinates'];
           for (var i1 = 0; i1 < cds.length; i1++) {
@@ -94,6 +95,7 @@ function createMap(coords) {
               }
           }
       });
+      */
       
       svg.select("#baseplane").selectAll(".milkyway")
           .data(mw.features)

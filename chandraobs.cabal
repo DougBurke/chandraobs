@@ -25,6 +25,10 @@ flag tools
   description: build the command-line tools
   default: False
 
+flag hackmw
+  description: build the command-line hackmw tool
+  default: False
+
 -- based on https://github.com/bos/aeson/commit/730a8c42b75f38e241da39933b03735a7c905538
 flag old-locale
   description: depend on old-locale (and hence time<1.5)
@@ -202,6 +206,24 @@ executable getcurrent
      , chandraobs
      , groundhog-postgresql
      , time
+
+  else
+    buildable:  False
+
+executable hackmw
+  main-is:             HackMW.hs
+  hs-source-dirs:      tools/
+
+  ghc-options: -Wall
+
+  if flag(hackmw)
+    build-depends:
+     base
+     , aeson
+     , bytestring
+     , text
+     , vector
+     , unordered-containers == 0.2.*
 
   else
     buildable:  False
