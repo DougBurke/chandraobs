@@ -11,6 +11,7 @@ var baseMWOpacity = 0.3;
 
 // time for a transition, in milliseconds
 var transitionTime = 600;
+var mwTransitionTime = 2000;
 
 // coords is an array of objects with
 // ra/dec attributes in degrees (0-360 and -90 to 90)
@@ -96,19 +97,27 @@ function createMap(coords) {
           }
       });
       */
-      
-      svg.select("#baseplane").selectAll(".milkyway")
-          .data(mw.features)
-          .enter().append("path")
+
+      var oline = svg.select("#baseplane").selectAll(".milkyway")
+          .data(mw.features);
+
+      oline.enter()
+          .append("path")
           .attr("class", "milkyway")
           .attr("d", path)
-          .attr("fill-opacity", 0.0)
-          .attr("stroke-opacity", 0.2)
-          .attr("opacity", baseMWOpacity)
+          .attr("opacity", 0)
           .on('mouseover', function(d) { highlightMW(); })
           .on('mouseout', function(d) { revertMW(); })
           .append("title")
           .text("Milky Way");
+
+      // fade in the outline; not sure I'm 100% happy with this but
+      // it seems better than the jaring "just pop in" behavior
+      // without it, since it's being added via a callback
+      oline.transition()
+          .duration(mwTransitionTime)
+          .attr("opacity", baseMWOpacity);
+
   });
     
   svg.select("#baseplane").append("path")
