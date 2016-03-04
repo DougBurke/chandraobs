@@ -34,7 +34,9 @@ module Database ( getCurrentObs
                 , fetchInstrument
                 , fetchInstrumentTypes
                 , insertScienceObs
+                , insertNonScienceObs
                 , replaceScienceObs
+                , replaceNonScienceObs
                 , insertProposal
                 , insertSimbadInfo
                 , insertSimbadMatch
@@ -44,11 +46,32 @@ module Database ( getCurrentObs
                 , cleanupDiscarded
                 , insertOrReplace
                 , addScheduleItem
-                , addNonScienceScheduleItem
 
                 , putIO
                 , runDb
                 , dbConnStr
+                , discarded
+                , discardedTime
+                , archived
+                , notDiscarded
+                , notArchived
+
+                  -- * Hack
+                  --
+                  -- This is needed since ObsCat doesn't store the non-science
+                  -- details until after the load has been run. So the data
+                  -- from the ScheduleItem table is used as a stop gap until
+                  -- it can be replaced. Rather than do the right thing and
+                  -- add a field to the NonScienceObs item, I am using the
+                  -- nsName field as an indicator: if set to the token
+                  -- nsInObsCatName then it's been taken from the
+                  -- ObsCat, otherwise it's from the ScheduleItem table
+                  -- (where the field value is taken from the column).
+                  --
+                  , nsInObsCatName
+                  , notNsDiscarded
+                  , notFromObsCat
+                    
                 ) where
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -74,21 +97,61 @@ import Types
 
 type DbIO m = (MonadIO m, PersistBackend m)
 
+archived :: String
+archived = "archived"
+
 discarded :: String
 discarded = "discarded"
+
+nsInObsCatName :: String
+nsInObsCatName = "unknown"
+
+notArchived ::
+  DbDescriptor db
+  => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
+notArchived = SoStatusField /=. archived
 
 notDiscarded ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
 notDiscarded = SoStatusField /=. discarded
 
--- | Is this ObsId discarded?
-isDiscarded :: PersistBackend m => ObsIdVal -> m Bool
+-- | This is used for non-science observations that appear to have
+--   been discarded. It is only needed because I refuse to update
+--   the NonScienceObs data type (and hence update the database).
+--
+discardedTime :: ChandraTime
+discardedTime = toCTime "1999:000:00:00:00.000"
+
+-- | Identify non-science observations that are not from the
+--   ObsCat (i.e. ones that could be queried to see if there
+--   is data now). This excludes "discarded" observations
+--   (see `notNsDiscarded` for more information on this).
+--
+notFromObsCat ::
+  DbDescriptor db
+  => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
+notFromObsCat = (NsNameField /=. nsInObsCatName) &&. notNsDiscarded
+
+-- | Non-science observations that have not been "discarded",
+--   that is, the ObsCat field does not have a start date field.
+--
+notNsDiscarded ::
+  DbDescriptor db
+  => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
+notNsDiscarded = NsNameField /=. discarded
+
+-- | Is this ObsId discarded (either science or non-science)?
+isDiscarded ::
+  PersistBackend m
+  => ObsIdVal
+  -> m Bool  -- True is only returned if this is a discarded obs.
 isDiscarded oid = do
-  ostatus <- project SoStatusField (SoObsIdField ==. oid)
-  case ostatus of
-    [status] | status == discarded -> return True
-    _ -> return False
+  n1 <- count ((SoObsIdField ==. oid) &&.
+               (SoStatusField ==. discarded))
+  n2 <- count ((NsObsIdField ==. oid) &&.
+               (NsNameField ==. discarded))
+  return ((n1 /= 0) || (n2 /= 0))
 
 
 -- | Given two lists of observations, which are assumed to have 0 or 1
@@ -101,6 +164,9 @@ identifyLatestRecord ::
   [ScienceObs]
   -> [NonScienceObs]
   -> Maybe Record
+identifyLatestRecord [] [] = Nothing
+identifyLatestRecord (x:_) [] = Just (Right x)
+identifyLatestRecord [] (y:_) = Just (Left y)
 identifyLatestRecord xs ys =
   -- rely on Ord instance of Maybe for the comparison
   let sobs = listToMaybe xs
@@ -113,6 +179,9 @@ identifyEarliestRecord ::
   [ScienceObs]
   -> [NonScienceObs]
   -> Maybe Record
+identifyEarliestRecord [] [] = Nothing
+identifyEarliestRecord (x:_) [] = Just (Right x)
+identifyEarliestRecord [] (y:_) = Just (Left y)
 identifyEarliestRecord xs ys =
   -- rely on Ord instance of Maybe for the comparison
   let sobs = listToMaybe xs
@@ -131,7 +200,7 @@ findRecord t = do
   xs <- select (((SoStartTimeField <=. tval) &&. notDiscarded)
                 `orderBy` [Desc SoStartTimeField]
                 `limitTo` 1)
-  ys <- select ((NsStartTimeField <=. tval)
+  ys <- select (((NsStartTimeField <=. tval) &&. notNsDiscarded)
                 `orderBy` [Desc NsStartTimeField]
                 `limitTo` 1)
 
@@ -149,6 +218,9 @@ findObsId oi = do
       ans <- findNonScience oi
       return (Left <$> ans)
 
+-- | Return information on this non-science observation. This includes
+--   discarded observations.
+--
 findNonScience :: PersistBackend m => ObsIdVal -> m (Maybe NonScienceObs)
 findNonScience oi = do
   ans <- select ((NsObsIdField ==. oi) `limitTo` 1)
@@ -191,7 +263,8 @@ getNextObs oid t = do
                   `orderBy` [Asc SoStartTimeField]
                   `limitTo` 1)
     ys <- select (((NsStartTimeField >. t)
-                   &&. (NsObsIdField /=. oid))
+                   &&. (NsObsIdField /=. oid)
+                   &&. notNsDiscarded)
                   `orderBy` [Asc NsStartTimeField]
                   `limitTo` 1)
     return (identifyEarliestRecord xs ys)
@@ -219,7 +292,8 @@ getPrevObs oid t = do
                   `orderBy` [Desc SoStartTimeField]
                   `limitTo` 1)
     ys <- select (((NsStartTimeField <. t)
-                   &&. (NsObsIdField /=. oid))
+                   &&. (NsObsIdField /=. oid)
+                   &&. notNsDiscarded)
                   `orderBy` [Desc NsStartTimeField]
                   `limitTo` 1)
     return (identifyLatestRecord xs ys)
@@ -290,9 +364,6 @@ getRecord = findObsId
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
 --
---   Discarded observations are assumed to have been removed from
---   the ScheduleItem table.
---
 getSchedule ::
   DbIO m
   => Int    -- ^ Number of days to go back/forward
@@ -319,7 +390,8 @@ getSchedule ndays = do
   xs1 <- select (((SoStartTimeField <. tEnd) &&.
                   notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
-  ys1 <- select ((NsStartTimeField <. tEnd)
+  ys1 <- select (((NsStartTimeField <. tEnd) &&.
+                  notNsDiscarded)
                  `orderBy` [Asc NsStartTimeField])
 
   -- should filter by the actual run-time, but the following is
@@ -350,7 +422,7 @@ getSchedule ndays = do
 --   The number-of-days field in the structure is set to 0; this
 --   is not ideal!
 --
---   Note that any discarded science observations are removed.
+--   Note that any discarded observations are removed.
 --
 makeSchedule ::
   DbIO m
@@ -361,7 +433,7 @@ makeSchedule rs = do
   mrec <- findRecord now
   
   let cleanrs = filter removeDiscarded (fromSL rs)
-      removeDiscarded (Left _) = True
+      removeDiscarded (Left NonScienceObs{..}) = nsName /= discarded
       removeDiscarded (Right ScienceObs{..}) = soStatus /= discarded
 
       mobsid = recordObsId <$> mrec
@@ -635,9 +707,17 @@ reportSize = do
   forM_ ns (\(status, n) ->
              putIO ("  status=" ++ status ++ "  : " ++ show n))
   putIO (" -> total = " ++ show (sum (map snd ns)))
+
+  -- non-science breakdown
+  putIO ""
+  ns1 <- count notFromObsCat
+  ns2 <- count (Not notNsDiscarded)
+  putIO ("  non-science (not from obscat) = " ++ show ns1)
+  putIO ("  non-science discarded         = " ++ show ns2)
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
-  putIO ("\nNumber of rows              : " ++ show ntot)
+  putIO ""
+  putIO ("Number of rows              : " ++ show ntot)
   return ntot
 
 -- Need to make sure the following match the constraints on the tables found
@@ -656,12 +736,40 @@ insertScienceObs ::
   PersistBackend m
   => ScienceObs
   -> m Bool  -- ^ True if the observation was added to the database
-insertScienceObs s = do
-  n <- count (SoObsIdField ==. soObsId s)
-  let unknown = n == 0
-  when unknown (insert_ s)
-  return unknown
+insertScienceObs s = insertIfUnknown s (SoObsIdField ==. soObsId s)
 
+-- | Checks that the observation is not known about before
+--   inserting it.
+--
+--   If it already exists in the database the new value is ignored;
+--   there is no check to make sure that the details match.
+--
+--   There is no attempt to remove the observation from the ScheduleItem
+--   table.
+--
+insertNonScienceObs ::
+  PersistBackend m
+  => NonScienceObs
+  -> m Bool  -- ^ True if the observation was added to the database
+insertNonScienceObs ns = insertIfUnknown ns (NsObsIdField ==. nsObsId ns)
+
+-- | Update the data in the archive with the new version; errors out
+--   if the obsid is not already in the database
+replaceNonScienceObs ::
+  PersistBackend m
+  => NonScienceObs
+  -> m ()
+replaceNonScienceObs ns = do
+  n <- count (NsObsIdField ==. nsObsId ns)
+  if n == 0
+    then fail ("internal error: not in database " ++ show ns)
+    else do
+      -- rely on database constraint to make sure only one match
+      -- really should be using the unique key for this deletion
+      delete (NsObsIdField ==. nsObsId ns)
+      insert_ ns
+
+  
 -- | Replaces the science observation with the new values, if it is different.
 --
 --   Acts as `insertScienceObs` if the observation is not known about.
@@ -683,11 +791,7 @@ insertProposal ::
   PersistBackend m
   => Proposal
   -> m Bool  -- ^ True if the proposal was added to the database
-insertProposal p = do
-  n <- count (PropNumField ==. propNum p)
-  let unknown = n == 0
-  when unknown (insert_ p)
-  return unknown
+insertProposal p = insertIfUnknown p (PropNumField ==. propNum p)
 
 -- | Checks that the data is not known about before inserting it.
 --
@@ -724,6 +828,21 @@ insertSimbadNoMatch sm = do
   when unknown (insert_ sm)
   return unknown
 
+-- | If there is no entity that matches the condition then
+--   insert the item.
+--
+insertIfUnknown ::
+  (PersistEntity v, PersistBackend m, EntityConstr v c)
+  => v
+  -> Cond (PhantomDb m) (RestrictionHolder v c)
+  -> m Bool
+insertIfUnknown o cond = do
+  n <- count cond
+  let unknown = n == 0
+  when unknown (insert_ o)
+  return unknown
+
+
 -- | If the record is not known - as defined by the condition
 --   then add it, otherwise check the stored value and, if
 --   different, replace it.
@@ -750,40 +869,49 @@ insertOrReplace cond newVal = do
 
 -- | Add a schedule item to the database if there is no known
 --   observation for this ObsId. If the obsid already exists
---   then nothing is done (but note that there is no check that
+--   then nothing is done (note that there is *no* check that
 --   the information is valid).
 --
---   The return value indicates whether the item was added.
+--   For Non-Science observations *only*, a NonScienceObs
+--   item is also added if it does not already exist. This
+--   item has the nsName field set to the value from the
+--   input item. This lets down-stream determine that it
+--   needs to be updated with the obscat record, once it
+--   is available.
 --
---   See also `addNonScienceScheduleItem`; it is not clear if
---   these need to be two separate items now.
 addScheduleItem ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => ScheduleItem
-  -> m Bool
-addScheduleItem si = do
+  => (ScheduleItem, Maybe NonScienceObs)
+  -> m Bool  -- ^ True if the item was added to the database
+addScheduleItem (si, mns) = do
   let obsid = siObsId si
-  noRecord <- isNothing <$> getRecord obsid
-  -- the assumption is that there is no entry in the ScheduleItem
-  -- table for this record; let's see how that goes
-  when noRecord (insert_ si)
+  noRecord1 <- isNothing <$> getRecord obsid
+
+  -- although there are constraints on the obsid field,
+  -- let's do an explicit check.
+  noRecord <- if noRecord1
+              then do
+                n <- count (SiObsIdField ==. obsid)
+                return (n == 0)
+              else return False
+
+  -- by this point we know there's no NonScienceObs
+  -- version of the data.
+  when noRecord $ do
+    insert_ si
+    case mns of
+      Just ns -> do
+        when (nsName ns == nsInObsCatName)
+          (fail ("*** Internal invariant not maintained: " ++ show ns))
+        insert_ ns
+      _ -> return ()
+    
   return noRecord
 
-addNonScienceScheduleItem ::
-  (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => NonScienceObs
-  -> m Bool
-addNonScienceScheduleItem ns = do
-  let obsid = nsObsId ns
-  noRecord <- isNothing <$> getRecord obsid
-  -- the assumption is that there is no entry in the ScheduleItem
-  -- table for this record; let's see how that goes
-  when noRecord (insert_ ns)
-  return noRecord
 
 -- | Remove unwanted information in the database. At present this is:
 --
---   1. ScheduleItem entries for which there is a record.
+--   1. ScheduleItem entries for which there is a record (science or non-science).
 --
 --   Should cleanupDiscarded be rolled into this?
 cleanDataBase :: PersistBackend m => m ()
@@ -800,13 +928,17 @@ cleanDataBase = do
 -- | Ensure that any discarded science observations are removed from the
 --   ScheduleItem table. It is just easier for me to do this in one place
 --   rather than add a check in `insertScienceObs` and `replaceScienceObs`.
+--   Do the same for the non-science observations.
 --
 --   Should this be moved into `cleanDataBase`?
 --
 cleanupDiscarded :: PersistBackend m => m ()
 cleanupDiscarded = do
-  obsids <- project SoObsIdField (SoStatusField ==. discarded)
-  forM_ obsids (\obsid -> delete (SiObsIdField ==. obsid))
+  sobsids <- project SoObsIdField (Not notDiscarded)
+  forM_ sobsids (\obsid -> delete (SiObsIdField ==. obsid))
+  
+  nsobsids <- project NsObsIdField (Not notNsDiscarded)
+  forM_ nsobsids (\obsid -> delete (SiObsIdField ==. obsid))
 
 -- | Hard-coded connection string for the database connection.
 dbConnStr :: String

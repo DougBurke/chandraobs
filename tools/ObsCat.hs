@@ -21,6 +21,22 @@
 --    more "resilient" to occasional failures (i.e. do not
 --    re-query for information if we can help it).
 --
+--    The handling of non-science observations is not ideal,
+--    since they can end up sticking around in the ScheduleItem
+--    table, leading to unnecessary OCAT queries (e.g. for
+--    discarded items).
+--
+--    Non-Science observations are complicated since they only
+--    appear in the ObsCat after they have run, so they
+--    are initially set with values from the ScheduleItem
+--    table, and then replaced after they have been run.
+--    The nsName field is used to determine whether they have
+--    been set from the ObsCat (if the value is nsInObsCatName
+--    then they have been updated). I am also using the logic
+--    that if they are in the obscat but with no START_DATE
+--    field then they are "discarded", but this is a large
+--    number, and so I am not sure if it is correct or sensible.
+--
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
@@ -31,8 +47,7 @@ import qualified Data.Set as S
 import Control.Applicative ((<$>))
 #endif
 
-import Control.Arrow ((&&&))
-import Control.Monad (forM, forM_, unless, when)
+import Control.Monad (forM_, guard, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
@@ -49,24 +64,42 @@ import System.Environment (getArgs, getEnv, getProgName)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
 import System.IO (hFlush, hGetLine, hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempFile)
-import System.Process (readProcessWithExitCode, system)
+-- import System.Process (readProcessWithExitCode, system)
+import System.Process (system)
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, TimeLocale, defaultTimeLocale, getCurrentTime, readSTime)
+import Data.Time (TimeLocale, defaultTimeLocale, readSTime)
 #else
-import Data.Time (UTCTime, getCurrentTime, readsTime)
-import System.Locale (defaultTimeLocale)
+import System.Locale (defaultTimeLocale, readsTime)
 #endif
 
+-- import Data.Time (UTCTime, getCurrentTime)
+import Data.Time (UTCTime)
+
 import Database (insertScienceObs
+                , replaceNonScienceObs
                 , replaceScienceObs
                 , insertProposal
                 , cleanupDiscarded
                 , cleanDataBase
                 , putIO
                 , runDb
+                , discarded
+                , discardedTime
+                , notArchived
+                , nsInObsCatName
+                , notFromObsCat
                 )
 import Types
+
+-- | Assume that TYPE=ER in the OCAT means that this is a
+--   non-science observation, otherwise it is a science one.
+--
+nonScienceType :: String
+nonScienceType = "ER"
+
+isScienceObs :: OCAT -> Maybe Bool
+isScienceObs m = toString m "TYPE" >>= \ans -> return (ans /= nonScienceType)
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 -- make it easy to compile on different systems for now
@@ -75,8 +108,8 @@ readsTime = readSTime True
 #endif
 
 -- | What is the URL needed to query the ObsCat?
-queryObsCat :: ObsIdVal -> String
-queryObsCat oid = 
+getObsCatQuery :: ObsIdVal -> String
+getObsCatQuery oid = 
   let oi = show (fromObsId oid)
   in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++
      oi ++ "&format=text"
@@ -118,7 +151,9 @@ getConstellation ra dec = do
       let mcon = toConShort cName
           merr = "Unexpected constellation short form: '" ++ cName ++ "'"
       return (fromMaybe (error merr) mcon)
-      
+
+{-
+
 -- | What publically-available observations overlap this one?
 --
 --   The overlap is found using the find_chandra_obsid script,
@@ -148,6 +183,8 @@ getOverlaps oid ra dec = do
         in OverlapObs oid idval rdist now
 
   return (map toO (drop 1 (lines sout)))
+
+-}
 
 w8 :: Char -> Word8
 w8 = fromIntegral . ord
@@ -269,6 +306,10 @@ toProposal m = do
 --
 toSO :: OCAT -> Maybe ScienceObs
 toSO m = do
+
+  isScience <- isScienceObs m
+  guard isScience
+  
   seqNum <- toSequence m
   pNum <- toPropNum m
   status <- toString m "STATUS"
@@ -380,6 +421,55 @@ toSO m = do
     , soSubArraySize = subSize
      }
 
+-- | The name field is used to indicate a "discarded" observation,
+--   which here is taken to be a record with no START_DATE field.
+--   In this case the startTime field is set to discardedTime.
+--
+--   Perhaps the name field should be set to the status field?
+--   This could complicate things, since I would need to know
+--   the full enumeration for this field.
+--
+--   This would be easier if I bothered to migrate the database so that
+--   new fields could be added to NonScienceObs.
+--
+toNS :: OCAT -> Maybe NonScienceObs
+toNS m = do
+
+  isScience <- isScienceObs m
+  guard (not isScience)
+  
+  -- status <- toString m "STATUS"
+  obsid <- toObsId m
+  
+  -- turns out this may be a maybe (presumably for cancelled obs)
+  let msTime = toCT m "START_DATE"
+  
+  appExp <- toTimeKS m "APP_EXP"
+  -- let obsExp = toTimeKS m "EXP_TIME" not sure what this is
+
+  ra <- toRA m
+  dec <- toDec m
+  roll <- toRead m "SOE_ROLL"
+
+  let target = "CAL-ER (" ++ show (fromObsId obsid) ++ ")"
+      rTime = appExp
+
+      (name, sTime) = case msTime of
+        Just v -> (nsInObsCatName, v)
+        _ -> (discarded, discardedTime)
+                                                       
+  return NonScienceObs {
+    nsName = name
+    , nsObsId = obsid
+    , nsTarget = target
+    , nsStartTime = sTime
+    , nsTime = rTime
+    , nsRa = ra
+    , nsDec = dec
+    , nsRoll = roll
+    }
+
+
 {-
 
 Possibly interesting fields:
@@ -402,18 +492,16 @@ addConstellation so = do
   constellation <- getConstellation (soRA so) (soDec so)
   return $ so { soConstellation = constellation }
 
--- | Query the OCat about this observation.
+
+-- | Query the archive for information on this obsid.
 --
---   This function errors out most ungracefully if multiple matches
---   are found or if one/both of the output values can not be
---   created.
---
-queryObsId :: 
-  Bool         -- set @True@ for debug output 
-  -> ObsIdVal 
-  -> IO (Maybe (Proposal, ScienceObs))
-queryObsId flag oid = do
-  let qry = queryObsCat oid
+--   Assume that there is only one match.
+makeObsCatQuery ::
+  Bool    -- ^ True for debug output (a dump of the fields)
+  -> ObsIdVal
+  -> IO (Maybe OCAT)
+makeObsCatQuery flag oid = do
+  let qry = getObsCatQuery oid
   rsp <- simpleHttp qry
   let isHash x = case L.uncons x of 
                    Just (y, _) -> y == w8 '#'
@@ -424,42 +512,98 @@ queryObsId flag oid = do
       hdr = tokenize (head ls)
       -- could use positional information, but use a map instead
       dl = filter (not . L.null) (drop 2 ls)
-      out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
-
       dropNulls = filter (not . L.null . snd)
-
-      ans = map (toProposal &&& toSO) out
+      out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
 
   when flag $ forM_ (zip [(1::Int)..] out) $ \(i,m) -> do
     putStrLn ("##### Map " ++ show i ++ " START #####")
     forM_ (M.toList m) print     
     putStrLn ("##### Map " ++ show i ++ " END #####")
 
-  case ans of
+  case out of
+    [x] -> return (Just x)
     [] -> return Nothing
-    [(Just p, Just so)] -> do
+    (x:_) -> do
+      putStrLn ("WARNING: multiple responses for ObsId " ++
+                show (fromObsId oid) ++ " - using first match")
+      return (Just x)
+
+-- | Query the OCat about this science observation.
+--
+--   The first match reported is taken; screen messages are displayed
+--   if multiple matches are found or the data can not be
+--   processed.
+--
+queryScience :: 
+  Bool         -- set @True@ for debug output 
+  -> ObsIdVal 
+  -> IO (Maybe (Proposal, ScienceObs))
+queryScience flag oid = do
+  mout <- makeObsCatQuery flag oid
+  let mans = case mout of
+        Just out -> do
+          prop <- toProposal out
+          so <- toSO out
+          return (prop, so)
+        _ -> Nothing
+
+  -- need to add the constellation
+  case mans of
+    Just (p, so) -> do
       so2 <- addConstellation so
       return (Just (p, so2))
 
-    -- for now skip those with issues
     _ -> do
-      putStrLn $ "SKIP: unable to parse ObsId " ++ show (fromObsId oid) ++ ": " ++ show ans
+      -- for now skip those with issues
+      putStrLn ("SKIP: unable to parse science ObsId " ++ show (fromObsId oid)
+                ++ ": " ++ show mout)
       return Nothing
-    -- _ -> error $ "ObsId " ++ show (fromObsId oid) ++ " - Expected 0 or 1 matches, found " ++ show ans
+
+
+-- | Query the OCat about this non-science observation.
+--
+--   This function errors out most ungracefully if multiple matches
+--   are found or if one/both of the output values can not be
+--   created.
+--
+queryNonScience :: 
+  Bool         -- set @True@ for debug output 
+  -> ObsIdVal 
+  -> IO (Maybe NonScienceObs)
+queryNonScience flag oid = do
+  out <- makeObsCatQuery flag oid
+  let ans = out >>= toNS
+      ostr = show (fromObsId oid)
+  when (isNothing ans)
+    (putStrLn ("SKIP: unable to parse non-science ObsId " ++ ostr))
+  return ans
+
 
 -- | Identify:
---     - all observations in the ScheduleItem table
+--     - all science observations in the ScheduleItem table
+--     - all non-science observations that have not been read
+--       from the obscat and that are not discarded
+--       (TODO: add a restriction to date
+--       before now, but the number this would cut out is
+--       likely small, so do not bother with)
+--       [the idea is that there should be no non-science observations
+--        in the ScheduleItem table any more]
 --     - science observations which are not archived
 --
 -- Should this be in the PersistBackend monad rather than making
 -- it a transaction? Probably not, because want the updates to
 -- be incremental so that they can be redone.
 --
-findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal])
+findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal], [ObsIdVal])
 findMissingObsIds = runDb $ do
-    wants <- project SiObsIdField (SiScienceObsField ==. True)
-    unarchived <- project SoObsIdField (SoStatusField /=. ("archived" :: String))
-    return (wants, unarchived)
+  -- the SiScienceObsField check is technically not needed,
+  -- as I believe there should only be science obs in the
+  -- table now, but leave in as this constraint may change,
+  -- and I could be wrong.
+  swants <- project SiObsIdField (SiScienceObsField ==. True)
+  nswants <- project NsObsIdField notFromObsCat
+  unarchived <- project SoObsIdField notArchived
+  return (swants, nswants, unarchived)
 
 slen :: [a] -> String
 slen = show . length
@@ -468,11 +612,17 @@ slen = show . length
 --   "unarchived" results (they may or may not have changed but
 --   easiest for me is just to update the database).
 --
-addResults :: [(Proposal, ScienceObs)] -> [(Proposal, ScienceObs)] -> IO ()
-addResults [] [] = putStrLn "# No data needs to be added to the database."
-addResults missing unarchived = do
+addResults ::
+  [(Proposal, ScienceObs)]
+  -> [(Proposal, ScienceObs)]
+  -> [NonScienceObs]  -- ^ no longer "missing" but "not from obscat"
+  -> IO ()
+addResults [] [] [] = putStrLn "# No data needs to be added to the database."
+addResults missing unarchived nsmissing = do
   putStrLn ("# Adding " ++ slen missing ++ " missing results")
   putStrLn ("# Adding " ++ slen unarchived ++ " unarchived results")
+  putStrLn ("# Adding " ++ slen nsmissing ++ " missing non-science")
+  
   let props = S.toList (S.fromList (map fst missing ++ map fst unarchived))
 
       lprint :: Show a => a -> DbPersist Postgresql (NoLoggingT IO) ()
@@ -495,6 +645,9 @@ addResults missing unarchived = do
       putIO "## proposals"
       forM_ props (disp insertProposal)
 
+      putIO "## non-science"
+      forM_ nsmissing replaceNonScienceObs
+
       -- ensure that any discarded observations are removed from the
       -- schedule, and any observations for which we now have an obscat
       -- value are removed (this latter should be handled by some
@@ -503,6 +656,7 @@ addResults missing unarchived = do
       cleanDataBase
 
 
+{-
 -- | add in the overlap observations; that is, the table of
 --   overlaps and information about the overlap obs if it is
 --   not known about.
@@ -523,7 +677,7 @@ addOverlaps f os = do
   let unknowns = map fst (filter ((==0) . snd) (zip oids cs))
   putStrLn $ "# Of these, there are " ++ slen unknowns ++ " 'new' ObsIds"
 
-  res1 <- mapM (queryObsId f) unknowns
+  res1 <- mapM (queryScience f) unknowns
   res <- check res1 unknowns
 
   let (props1, sobs) = unzip res
@@ -537,6 +691,8 @@ addOverlaps f os = do
     forM_ sobs insertScienceObs
     forM_ props insertProposal
 
+-}
+
 -- | Report if any obsids are missing from the OCAT results.
 --
 --   This does NOT include the overlap obs (i.e. they are ignored here)
@@ -549,23 +705,32 @@ check ms os = do
     forM_ missing (print . fromObsId)
   return (catMaybes ms)
 
--- | The flag is @True@ to get debug output from the @queryObsId@ calls.
+-- | The flag is @True@ to get debug output from the query calls.
+--
+--   Loop through every item in the ScheduleItem table and add it
+--   to the relevant table in the database.
+--
 updateDB :: Bool -> IO ()
 updateDB f = withSocketsDo $ do
   putStrLn "# Querying the database"
-  (missing, unarchived) <- findMissingObsIds
+  (missing, nsmissing, unarchived) <- findMissingObsIds
   putStrLn ("# Found " ++ slen missing ++ " missing and " ++
-            slen unarchived ++ " unarchived ObsIds")
+            slen unarchived ++ " unarchived science ObsIds")
+  putStrLn ("# Found " ++ slen nsmissing ++ " missing non-science ObsIds")
 
-  unless (null missing) (putStrLn "# Processing missing")
-  res1 <- mapM (queryObsId f) missing
+  unless (null missing) (putStrLn "# Processing missing science")
+  res1 <- mapM (queryScience f) missing
   mres <- check res1 missing
 
   unless (null missing) (putStrLn "# Processing unarchived")
-  res2 <- mapM (queryObsId f) unarchived
+  res2 <- mapM (queryScience f) unarchived
   ures <- check res2 unarchived
 
-  addResults mres ures
+  unless (null nsmissing) (putStrLn "# Processing missing non-science")
+  res3 <- mapM (queryNonScience f) nsmissing
+  nsres <- check res3 nsmissing
+
+  addResults mres ures nsres
 
   {-
   -- add in the overlaps; commented out for now
@@ -577,7 +742,7 @@ updateDB f = withSocketsDo $ do
 
 viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
-  ans <- queryObsId True (ObsIdVal oid)
+  ans <- queryScience True (ObsIdVal oid)
   case ans of
     Nothing -> putStrLn ("Nothing found for ObsId " ++ show oid ++ "!")
     Just (prop, so) -> do

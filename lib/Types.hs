@@ -632,6 +632,22 @@ data ScheduleItem = ScheduleItem {
   deriving Eq
 
 -- | Represent a non-science/cal observation.
+--
+--   Note that now I am querying the ObsCat for this information,
+--   could store more. Could maybe just have an Obs type with
+--   an easy way to determine whether science or "non science"
+--   (although likely not, since that is likely better done with
+--   a sum type and I don't want to encode that into the database
+--   schema at this time).
+--
+--   TODO: really needs a status field.
+--
+--   There appear to be obsids - e.g. 52323
+--   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52323
+--   which claim to be observed but have no start_date field.
+--   I am going to assume that these are essentially rejected/discarded
+--   but that the OCAT isn't updated.
+--
 data NonScienceObs = NonScienceObs {
   nsName :: String             -- the STS has a string identifier; where does this come from?
   , nsObsId :: ObsIdVal
