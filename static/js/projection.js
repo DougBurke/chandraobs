@@ -11,7 +11,8 @@ var baseMWOpacity = 0.3;
 
 // time for a transition, in milliseconds
 var transitionTime = 600;
-var mwTransitionTime = 2000;
+// var mwTransitionTime = 2000;
+var mwTransitionTime = 800;
 
 // coords is an array of objects with
 // ra/dec attributes in degrees (0-360 and -90 to 90)
@@ -35,8 +36,9 @@ function createMap(coords) {
     .range([d3.rgb('#d8b365'), d3.rgb('#f5f5f5'), d3.rgb('#5ab4ac')]);
 
   var svg = d3.select('div#map').append('svg')
-     .attr("width", width)
-     .attr("height", height);
+      .attr("width", width)
+      .attr("height", height)
+      .attr("opacity", 0);  // opacity is re-set once MW is loaded
 
   var projection = d3.geo.aitoff()
       .scale(150)
@@ -105,7 +107,8 @@ function createMap(coords) {
           .append("path")
           .attr("class", "milkyway")
           .attr("d", path)
-          .attr("opacity", 0)
+          // .attr("opacity", 0)
+          .attr("opacity", baseMWOpacity)
           .on('mouseover', function(d) { highlightMW(); })
           .on('mouseout', function(d) { revertMW(); })
           .append("title")
@@ -113,11 +116,19 @@ function createMap(coords) {
 
       // fade in the outline; not sure I'm 100% happy with this but
       // it seems better than the jaring "just pop in" behavior
-      // without it, since it's being added via a callback
+      // without it, since it's being added via a callback.
+      //
+      // I have now switched in to fading in the whole plot once
+      // the MW has loaded.
+      /*
       oline.transition()
           .duration(mwTransitionTime)
           .attr("opacity", baseMWOpacity);
+      */
 
+      svg.transition()
+          .duration(mwTransitionTime)
+          .attr("opacity", 1);
   });
     
   svg.select("#baseplane").append("path")
