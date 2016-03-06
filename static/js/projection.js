@@ -186,6 +186,11 @@ function addMilkyWay(svg, path) {
 
 }
 
+// I have removed the display of the full constellation name
+// since there are issues on what is inside/outside the constellation
+// and given that the constellation name is displayed in the title
+// of the page, it is not a big loss.
+//
 function addConstellation (svg, path, conInfo) {
   if (!conInfo) { return; }
   var fname = "constellations.bounds-hack.json";
@@ -196,17 +201,29 @@ function addConstellation (svg, path, conInfo) {
 
       var conName = conInfo['shortName'];
       var conFullName = conInfo['longName'];
+
+      // all constellations
+      var allcon = svg.select("#baseplane").selectAll(".constellations")
+          .data(con.features);
+
+      allcon.enter()
+          .append("path")
+          .attr("class", "constellations")
+          .attr("d", path);
+
+      // selected constellation
       var features = con.features.filter(function(d) { return d['id'] == conName; });
 
-      var ocon = svg.select("#baseplane").selectAll(".constellation")
+      var selcon = svg.select("#baseplane").selectAll(".constellation")
           .data(features);
 
-      ocon.enter()
+      selcon.enter()
           .append("path")
           .attr("class", "constellation")
           .attr("d", path)
-          .append("title")
-          .text(conFullName);
+          // .append("title")   currently problems with identifying inside/outside
+          // .text(conFullName) the constellation, so remove label
+      ;
 
   });
 
