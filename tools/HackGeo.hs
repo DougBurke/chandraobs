@@ -21,6 +21,25 @@ import System.IO (hPutStrLn, stderr)
 
 {-
 
+//DSOs
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "id": "",       // short designator
+    "properties": {
+      "name": "",   // most common designator
+      "type": "",   // object type: gg, g, s, s0, ds, i, e, oc, gc, dn, bn, sfr, rn, pn, snr
+      "mag": "",    // apparent magnitude, 999 if n.a.
+      "dim": ""     // angular dimensions in arcminutes
+    },
+    "geometry": {  
+      "type": "Point",
+      "coordinates": []
+    }
+  }, { } ]
+}
+
 //Boundaries
 {
   "type": "FeatureCollection",
@@ -75,11 +94,11 @@ hackCoordMap :: A.Value -> T.Text -> A.Value -> A.Value
 hackCoordMap gType k ov =
   if k == "coordinates"
   then let startFunc = case gType of
+             A.String "Point" -> changeCoords0
              A.String "Polygon" -> changeCoords2
              A.String "MultiPolygon" -> changeCoords3
              _ -> error ("Unsupported geometry type: " ++ show (gType))
-           A.Array oa = ov
-       in A.Array (V.map startFunc oa)
+       in startFunc ov
   else ov
 
 hackArray :: A.Value -> A.Value
@@ -91,12 +110,16 @@ changeCoords3 (A.Array xs) = A.Array (V.map changeCoords2 xs)
 changeCoords3 ys = error ("coord3: Expected vector, got " ++ show ys)
 
 changeCoords2 :: A.Value -> A.Value
-changeCoords2 (A.Array xs) = A.Array (V.reverse (V.map changeCoords1 xs))
+changeCoords2 (A.Array xs) = A.Array (V.map changeCoords1 xs)
 changeCoords2 ys = error ("coord2: Expected vector, got " ++ show ys)
 
 changeCoords1 :: A.Value -> A.Value
-changeCoords1 (A.Array xs) = A.Array (hackCoords xs)
+changeCoords1 (A.Array xs) = A.Array (V.reverse (V.map changeCoords0 xs))
 changeCoords1 ys = error ("coord1: Expected vector, got " ++ show ys)
+
+changeCoords0 :: A.Value -> A.Value
+changeCoords0 (A.Array xs) = A.Array (hackCoords xs)
+changeCoords0 ys = error ("coord0: Expected vector, got " ++ show ys)
 
 -- Assumed to be a 2-element array
 hackCoords :: V.Vector A.Value -> V.Vector A.Value
