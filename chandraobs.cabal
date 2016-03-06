@@ -25,8 +25,8 @@ flag tools
   description: build the command-line tools
   default: False
 
-flag hackmw
-  description: build the command-line hackmw tool
+flag hackgeo
+  description: build the command-line hackgeo tool
   default: False
 
 -- based on https://github.com/bos/aeson/commit/730a8c42b75f38e241da39933b03735a7c905538
@@ -210,13 +210,13 @@ executable getcurrent
   else
     buildable:  False
 
-executable hackmw
-  main-is:             HackMW.hs
+executable hackgeo
+  main-is:             HackGeo.hs
   hs-source-dirs:      tools/
 
   ghc-options: -Wall
 
-  if flag(hackmw)
+  if flag(hackgeo)
     build-depends:
      base
      , aeson

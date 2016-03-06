@@ -43,10 +43,18 @@ indexPage cons =
 
 matchPage :: 
   ConShort
-  -> Schedule  -- the observations that match this type, organized into a "schedule"
+  -> Schedule
+  -- ^ the observations that match this type, organized into a "schedule"
   -> Html
 matchPage con sched =
   let lbl = getConstellationNameStr con
+      -- unlike other pages, need to send in additional information
+      jsLoad = "conInfo = {'shortName': '"
+               <> stringValue (fromConShort con)
+               <> "', 'longName': '"
+               <> stringValue (getConstellationNameStr con)
+               <> "'}; "
+               <> "createMap(obsinfo, conInfo);"
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observations in " <> H.toHtml lbl) <>
           defaultMeta
@@ -54,7 +62,7 @@ matchPage con sched =
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
-    (body ! onload "createMap(obsinfo);")
+    (body ! onload jsLoad)
      (mainNavBar CPOther
       <> (div ! id "schedule") 
           (renderMatches lbl sched)
@@ -91,34 +99,16 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
     p $ mconcat
         [ "This page shows Chandra observations of objects in the constellation "
         , (a ! href (conLink lbl)) (toHtml lbl)
-        , " (since the database only includes a "
+        , ", and the constellation outline is also shown (these outlines "
+        , "were taken from the "
+        , (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
+        , " project by Olaf Frohn). "
+        , "Since the database only includes a "
         , "small fraction of the mission you will only see a few "
-        , "matches). The format is the same as used in the "
+        , "matches. The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]
-
-    {-
-    p $ mconcat 
-        [ "This page shows ", toHtml ndays
-        , " days of the Chandra schedule, centered on today. "
-        , "The size of the circles indicate the exposure time, and "
-        , "the color shows whether the observation has been done, "
-        , "is running now, or is in the future; the same colors "
-        , "are used in the table below. For repeated observations "
-        , "it can be hard to make out what is going on, since the "
-        , "circles overlap! "
-        , "The points are plotted in the "
-        , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"
-        , ", using the "
-        , a ! href "http://en.wikipedia.org/wiki/Aitoff_projection" $ "Aitoff projection"
-        , ". See "
-        , a ! href "http://burro.astr.cwru.edu/" $ "Chris Mihos'"
-        , " page on "
-        , a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html" $ "Astronomical coordinate systems"
-        , " for more informaion."
-        ]
-    -}
 
     tblBlock
 

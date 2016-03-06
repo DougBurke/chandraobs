@@ -65,3 +65,9 @@ div#map svg {
     stroke: #CCC;
     stroke-opacity: 0.6;
 }
+
+.constellation {
+    stroke: cyan;
+    fill-opacity: 0;
+    opacity: 0.8;
+}

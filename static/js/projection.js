@@ -7,19 +7,25 @@ var unselOpacity = 0.3;
 var selOpacity = 0.8;
 
 // This must be < 0.5; at least, once it is used it should be
-var baseMWOpacity = 0.3;
+var baseOpacity = 0.3;
 
 // time for a transition, in milliseconds
 var transitionTime = 600;
-// var mwTransitionTime = 2000;
-var mwTransitionTime = 800;
+// var frameTransitionTime = 2000;
+var frameTransitionTime = 800;
+
+var foo;
 
 // coords is an array of objects with
 // ra/dec attributes in degrees (0-360 and -90 to 90)
 // as well as other attributes useful for labelling
 // and identifying the targets
 //
-function createMap(coords) {
+// The conInfo argument is optional; if set it should be an
+// object with shortName and longName fields (case sensitive),
+// that indicates the constellation boundary to draw.
+//
+function createMap(coords, conName) {
   var width = 960;
   var height = 500;
 
@@ -75,62 +81,16 @@ function createMap(coords) {
   // and one for the data. Note that I could add in a special
   // group just for the MW, so that it is first, and therefore behind
   // all the other labels, but I don't think that it's worth it.
-
+  //
+  // Drawing the constellations can lead to an outline around the whole
+  // sky, and I haven't taken the time to identify how to remove it.
+  //  
   svg.append("g").attr("id", "baseplane");
   svg.append("g").attr("id", "dataplane");
-    
-  d3.json("/data/mw-hack.json", function(error, mw) {
-      if (error) {
-          return console.warn("Unable to load mw-hack.json");
-      }
-      // Because I have to flip the latitude coordinates,
-      // the inside/outside gets all messed up, so shading does
-      // not work. This is not needed with mw-hack.json
-      /*
-      d3.map(mw.features, function(d) {
-          cds = d['geometry']['coordinates'];
-          for (var i1 = 0; i1 < cds.length; i1++) {
-              for (var i2 = 0; i2 < cds[i1].length; i2++) {
-                  for (var i3 = 0; i3 < cds[i1][i2].length; i3++) {
-                      cds[i1][i2][i3][0] = 180.0 - cds[i1][i2][i3][0];
-                  }
-                  cds[i1][i2].reverse();
-              }
-          }
-      });
-      */
 
-      var oline = svg.select("#baseplane").selectAll(".milkyway")
-          .data(mw.features);
+  addConstellation(svg, path, conInfo);
+  addMilkyWay(svg, path);
 
-      oline.enter()
-          .append("path")
-          .attr("class", "milkyway")
-          .attr("d", path)
-          // .attr("opacity", 0)
-          .attr("opacity", baseMWOpacity)
-          .on('mouseover', function(d) { highlightMW(); })
-          .on('mouseout', function(d) { revertMW(); })
-          .append("title")
-          .text("Milky Way");
-
-      // fade in the outline; not sure I'm 100% happy with this but
-      // it seems better than the jaring "just pop in" behavior
-      // without it, since it's being added via a callback.
-      //
-      // I have now switched in to fading in the whole plot once
-      // the MW has loaded.
-      /*
-      oline.transition()
-          .duration(mwTransitionTime)
-          .attr("opacity", baseMWOpacity);
-      */
-
-      svg.transition()
-          .duration(mwTransitionTime)
-          .attr("opacity", 1);
-  });
-    
   svg.select("#baseplane").append("path")
     .datum(graticule)
     .attr("class", "graticule")
@@ -198,16 +158,70 @@ function createMap(coords) {
 
 }
 
-function highlightMW() {
-  d3.selectAll('.milkyway').transition()
-        .duration(transitionTime)
-        .attr("opacity", 2 * baseMWOpacity);
+function addMilkyWay(svg, path) {
+  var fname = "mw-hack.json";
+  d3.json("/data/" + fname, function(error, mw) {
+      if (error) {
+          return console.warn("Unable to load " + fname);
+      }
+
+      var oline = svg.select("#baseplane").selectAll(".milkyway")
+          .data(mw.features);
+
+      oline.enter()
+          .append("path")
+          .attr("class", "milkyway")
+          .attr("d", path)
+          .attr("opacity", baseOpacity)
+          .on('mouseover', function(d) { highlightSel('.milkyway'); })
+          .on('mouseout', function(d) { revertSel('.milkyway'); })
+          .append("title")
+          .text("Milky Way");
+
+      // Fade in the whole SVG element
+      svg.transition()
+          .duration(frameTransitionTime)
+          .attr("opacity", 1);
+  });
+
 }
 
-function revertMW() {
-  d3.selectAll('.milkyway').transition()
+function addConstellation (svg, path, conInfo) {
+  if (!conInfo) { return; }
+  var fname = "constellations.bounds-hack.json";
+  d3.json("/data/" + fname, function(error, con) {
+      if (error) {
+          return console.warn("Unable to load " + fname);
+      }
+
+      var conName = conInfo['shortName'];
+      var conFullName = conInfo['longName'];
+      var features = con.features.filter(function(d) { return d['id'] == conName; });
+
+      var ocon = svg.select("#baseplane").selectAll(".constellation")
+          .data(features);
+
+      ocon.enter()
+          .append("path")
+          .attr("class", "constellation")
+          .attr("d", path)
+          .append("title")
+          .text(conFullName);
+
+  });
+
+}
+
+function highlightSel(sel) {
+  d3.selectAll(sel).transition()
         .duration(transitionTime)
-        .attr("opacity", baseMWOpacity);
+        .attr("opacity", 2 * baseOpacity);
+}
+
+function revertSel(sel) {
+  d3.selectAll(sel).transition()
+        .duration(transitionTime)
+        .attr("opacity", baseOpacity);
 }
 
 /* Highlight the given object in the sky map */
