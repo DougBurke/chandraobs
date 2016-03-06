@@ -13,6 +13,19 @@
 --       querysimbad --cfa --cds --debug
 --
 --
+--   TODO:
+--      I have seen some recent runs returning:
+--
+--      Querying SIMBAD for SMC X-1
+--       -- no match found
+--       -- response:
+--      !! A problem occured with the script file. It may be too large (max: 31457280 bytes) null/null/null
+--
+--      it looks like this is being taken as a "no data" match,
+--      rather than ignoring it and not adding anything to the
+--      database.
+--
+
 
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -312,12 +325,18 @@ usage :: IO ()
 usage = do
   pName <- getProgName
   hPutStrLn stderr ("Usage: " ++ pName ++ " --cfa --cds --debug")
-  hPutStrLn stderr "\n       default is --cfa and no debug"
+  -- hPutStrLn stderr "\n       default is --cfa and no debug"
+  hPutStrLn stderr "\n       default is --cds and no debug"
   exitFailure
 
 -- For now don't bother reporting on the actual error
+--
+-- I've seen recent problems with the CfA mirror, so switch back to
+-- CDS for now.
+--
 parseArgs :: [String] -> Maybe (SimbadLoc, Bool)
-parseArgs = go (SimbadCfA, False)
+-- parseArgs = go (SimbadCfA, False)
+parseArgs = go (SimbadCDS, False)
   where
     go ans [] = Just ans
     go (sloc, dbg) (x:xs) | x == "--cds" = go (SimbadCDS, dbg) xs
