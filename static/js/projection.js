@@ -25,7 +25,7 @@ var foo;
 // object with shortName and longName fields (case sensitive),
 // that indicates the constellation boundary to draw.
 //
-function createMap(coords, conName) {
+function createMap(coords, conInfo) {
   var width = 960;
   var height = 500;
 
