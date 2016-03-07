@@ -413,16 +413,31 @@ instance H.ToMarkup ChandraTime where
 instance H.ToValue ChandraTime where
   toValue = H.toValue . showCTime
 
-data ObsStatus = Done | Doing | Todo deriving Eq
+-- | This is used for non-science observations that appear to have
+--   been discarded. It is only needed because I refuse to update
+--   the NonScienceObs data type (and hence update the database).
+--
+discardedTime :: ChandraTime
+discardedTime = toCTime "1999:000:00:00:00.000"
+
+-- | Used for science observations with no start date (and that
+--   are not discarded). The intention is to support observations
+--   that were scheduled but have been removed for some reason.
+--
+futureTime :: ChandraTime
+futureTime = toCTime "2100:000:00:00:00.000"
+
+data ObsStatus = Done | Doing | Todo | Unscheduled deriving Eq
 
 getObsStatus :: 
   (ChandraTime, ChandraTime) -- observation start and end times
   -> UTCTime        -- current time
   -> ObsStatus
-getObsStatus (ChandraTime sTime, ChandraTime eTime) cTime 
-  | cTime < sTime    = Todo
-  | cTime <= eTime   = Doing
-  | otherwise        = Done
+getObsStatus (ChandraTime sTime, ChandraTime eTime) cTime
+  | sTime >= _toUTCTime futureTime = Unscheduled
+  | cTime < sTime       = Todo
+  | cTime <= eTime      = Doing
+  | otherwise           = Done
 
 -- | Represent a Chandra sequence number.
 newtype Sequence = Sequence { _unSequence :: Int } 

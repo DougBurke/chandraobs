@@ -145,7 +145,8 @@ mainNavBar cp =
 -- | Display the observation navigation bar.
 --
 --   If there are no next or preceeding observation - which should
---   mean that the observation is discarded - then add nothing.
+--   mean that the observation is discarded or unscheduled -
+--   then add nothing.
 --
 obsNavBar :: 
   Maybe Record   -- the current observation
@@ -275,6 +276,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
               ]
 
       abstxt = case obsStatus of
+                 Unscheduled -> "is planned to be observed"
                  Todo -> "will be observed"
                  Doing -> "is being observed"
                  Done -> "was observed"
@@ -288,9 +290,13 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       endChars = ".?"
 
       reason = case mproposal of
-        Just Proposal{..} -> ", and is part of the proposal " <>
-                             (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
-                             <> endSentence propName
+        Just Proposal{..} ->
+          let proplink = (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
+                         <> endSentence propName
+          in (if obsStatus == Unscheduled
+              then "It is part of the proposal "
+              else ", and is part of the proposal ") <> proplink
+                             
         _ -> ". See why it " <>
              (a ! href (abstractLink soObsId) $ abstxt)
              <> "."
@@ -317,7 +323,18 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       tooPara = fromMaybe mempty $ tooTxt obsStatus <$> soTOO
 
-      cts Todo = 
+      cts Unscheduled =
+        mconcat [ "The target - "
+                , targetName
+                , " - will be observed ", instInfo
+                , " for ", lenVal, ", but there is currently "
+                , "no scheduled date for the observation "
+                , "(it is likely that it was scheduled but for some "
+                , "reason it was not observed and so has been "
+                , "removed from the schedule)."
+                , reason
+                ]
+      cts Todo =
         mconcat [ "The target - "
                 , targetName
                 , " - will be observed ", instInfo
@@ -385,9 +402,10 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       -- TODO: integrate with the rest of the text
       (verb, verb2) = case obsStatus of
-               Todo  -> ("will be", "will all be")
-               Doing -> ("is", "will be")
-               Done  -> ("was", "were")
+        Unscheduled -> ("will be", "will all be") -- not sure 100% correct
+        Todo  -> ("will be", "will all be")
+        Doing -> ("is", "will be")
+        Done  -> ("was", "were")
 
       toJ (l, tks) = l <> " (for " <> toHtml (showExpTime tks) <> ")"
 
@@ -446,8 +464,13 @@ nonSciencePara ::
   -> NonScienceObs
   -> ObsStatus     -- ^ status of observation
   -> Html
-nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus = 
-  let showLen Todo =
+nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
+  -- should not have Unscheduled observations here, but support just in case
+  let showLen Unscheduled =
+        if nsTime > nullTime
+        then " - will run for " <> lenVal <> "."
+        else " - has no scheduled observation date."
+      showLen Todo =
         if nsTime > nullTime
         then mconcat [ " - will run for "
                 , lenVal
@@ -468,6 +491,11 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
                 ]
         else " - finished "
 
+      cts Unscheduled = 
+        mconcat [ "The calibration observation - "
+                , targetName
+                , showLen Unscheduled
+                ]
       cts Todo = 
         mconcat [ "The calibration observation - "
                 , targetName

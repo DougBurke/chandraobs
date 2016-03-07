@@ -86,7 +86,6 @@ import Database (insertScienceObs
                 , putIO
                 , runDb
                 , discarded
-                , discardedTime
                 , notArchived
                 , nsInObsCatName
                 , notFromObsCat
@@ -192,6 +191,9 @@ w8 = fromIntegral . ord
 
 type OCAT = M.Map L.ByteString L.ByteString
 
+-- Could rewrite the Maybe forms as simplifications of the
+-- Either forms, but leave that for a later revamp.
+
 lookupE :: L.ByteString -> OCAT -> Either String L.ByteString
 lookupE k m = case M.lookup k m of
   Just ans -> return ans
@@ -252,24 +254,32 @@ toReadE :: Read a => OCAT -> L.ByteString -> Either String a
 toReadE m lbl = toWrapperE id lbl m
 
 toCT :: OCAT -> L.ByteString -> Maybe ChandraTime
-toCT m lbl = ChandraTime `fmap` toUTC m lbl
+toCT m lbl = ChandraTime <$> toUTC m lbl
 
+{-
 toCTE :: OCAT -> L.ByteString -> Either String ChandraTime
-toCTE m lbl = ChandraTime `fmap` toUTCE m lbl
+toCTE m lbl = ChandraTime <$> toUTCE m lbl
+-}
 
+lbsToUTC :: L.ByteString -> Maybe UTCTime
+lbsToUTC =
+  let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
+  in c . L8.unpack
+  
+lbsToUTCE :: L.ByteString -> Either String UTCTime
+lbsToUTCE lbs =
+  let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
+      val = L8.unpack lbs
+      emsg = "Unable to convert to UTCTime: " ++ val
+  in maybe (Left emsg) Right (c val)
+  
 toUTC :: OCAT -> L.ByteString -> Maybe UTCTime
-toUTC m lbl =
-  let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
-  in M.lookup lbl m >>= c . L8.unpack
+toUTC m lbl = M.lookup lbl m >>= lbsToUTC
 
+{-
 toUTCE :: OCAT -> L.ByteString -> Either String UTCTime
-toUTCE m lbl = do
-  lbs <- lookupE lbl m
-  let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
-      tval = L8.unpack lbs
-  case c tval of
-    Just ans -> return ans
-    Nothing -> Left ("Unable to convert to UTCTime: " ++ tval)
+toUTCE m lbl = lookupE lbl m >>= lbsToUTCE
+-}
 
 -- TODO: catch parse errors
 toRAE :: OCAT -> Either String RA
@@ -350,15 +360,8 @@ toProposalE m = do
 --   this is because we need IO to fill in this field so it's
 --   left to a later pass.  
 --
---   At the moment this will fail if the observation does not have
---   a START_DATE field, which I have seen in a couple of observations
---   that are probably ones that were dropped from the schedule due
---   to a replan, but are still listed in the original schedule.
---   What to do with these? Is ignoring them the right thing to
---   do (I think so, but forget what makes the schedule data base
---   table; is it the data from HackData or the output of
---   ObsCat? Hopefully the latter which means dropping should be
---   the right thing)
+--   Observations can have no START_DATE field, but the current
+--   schema requires there to be one.
 --
 --   I am moving towards "hacking in" support for ObsId values with
 --   no start_data field, in that they will be given a start_date
@@ -382,8 +385,20 @@ toSOE m = do
   obsid <- toObsIdE m
   target <- toStringE m "TARGET_NAME"
 
-  -- turns out this may be a maybe (presumably for cancelled obs)
-  sTime <- toCTE m "START_DATE"
+  -- Turns out this may not exist. If it does not, then
+  -- replace with a time far in the future (IFF status is
+  -- not discarded). Note there's an explicit check to
+  -- not include cases where the start date exists but can
+  -- not be parsed, since that indicates a situation that
+  -- needs to be resolved differently).
+  --
+  -- sTime <- toCTE m "START_DATE"
+  sTime <- if status == discarded
+           then Right discardedTime  -- is this possible?
+           else case M.lookup "START_DATE" m of
+             Just sd -> ChandraTime <$> lbsToUTCE sd
+             Nothing -> Right futureTime 
+  
   appExp <- toTimeKSE m "APP_EXP"
   let obsExp = toTimeKS m "EXP_TIME"
 
@@ -834,7 +849,10 @@ dump ScienceObs{..} = do
   putStrLn soStatus
   print (fromObsId soObsId)
   putStrLn soTarget
-  putStrLn (showCTime soStartTime)
+  -- discardedTime is only used for non-science obs
+  if soStartTime == futureTime
+    then putStrLn "** Observation has no scheduled observation date"
+    else putStrLn (showCTime soStartTime)
   putStrLn (showExpTime soApprovedTime)
   print (fmap showExpTime soObservedTime)
   putStrLn ("Public availability: " ++ show soPublicRelease)
@@ -878,7 +896,7 @@ dump ScienceObs{..} = do
   print soTOO
   putStrLn (showRA soRA)
   putStrLn (showDec soDec)
-  putStrLn ("which is in " ++ fromConShort soConstellation)
+  putStrLn ("which is in constellation: " ++ fromConShort soConstellation)
   print soRoll
   print soSubArrayStart
   print soSubArraySize

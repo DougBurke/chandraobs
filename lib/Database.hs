@@ -51,11 +51,11 @@ module Database ( getCurrentObs
                 , runDb
                 , dbConnStr
                 , discarded
-                , discardedTime
                 , archived
                 , notDiscarded
                 , notArchived
-
+                , isScheduled
+                  
                   -- * Hack
                   --
                   -- This is needed since ObsCat doesn't store the non-science
@@ -116,12 +116,11 @@ notDiscarded ::
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
 notDiscarded = SoStatusField /=. discarded
 
--- | This is used for non-science observations that appear to have
---   been discarded. It is only needed because I refuse to update
---   the NonScienceObs data type (and hence update the database).
---
-discardedTime :: ChandraTime
-discardedTime = toCTime "1999:000:00:00:00.000"
+-- | Reject those observations which have no scheduled time.
+isScheduled ::
+  DbDescriptor db
+  => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
+isScheduled = SoStartTimeField <. futureTime
 
 -- | Identify non-science observations that are not from the
 --   ObsCat (i.e. ones that could be queried to see if there
@@ -141,14 +140,15 @@ notNsDiscarded ::
   => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
 notNsDiscarded = NsNameField /=. discarded
 
--- | Is this ObsId discarded (either science or non-science)?
-isDiscarded ::
+-- | Is this ObsId discarded (either science or non-science) or
+--   unscheduled?
+isDiscardedOrUnscheduled ::
   PersistBackend m
   => ObsIdVal
-  -> m Bool  -- True is only returned if this is a discarded obs.
-isDiscarded oid = do
+  -> m Bool  -- True is only returned if this is a discarded or unscheduled obs.
+isDiscardedOrUnscheduled oid = do
   n1 <- count ((SoObsIdField ==. oid) &&.
-               (SoStatusField ==. discarded))
+               ((SoStatusField ==. discarded) ||. (SoStartTimeField ==. futureTime)))
   n2 <- count ((NsObsIdField ==. oid) &&.
                (NsNameField ==. discarded))
   return ((n1 /= 0) || (n2 /= 0))
@@ -158,7 +158,11 @@ isDiscarded oid = do
 --   elements in, identify which is the latest (has the largest start
 --   time) or earliest.
 --
---   These should be consolidated.
+--   These should be consolidated (earliest and latest versions).
+--
+--   At present, neither variant rejects those science obs with a
+--   start date == futureTime. It is assumed that the caller has
+--   done any such filtering.
 --
 identifyLatestRecord ::
   [ScienceObs]
@@ -192,12 +196,15 @@ identifyEarliestRecord xs ys =
 
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
---   finished or running. It will not be a discarded observation.
+--   finished or running. It will not be a discarded observation
+--   or those with no scheduled time.
 --
 findRecord :: (PersistBackend m) => UTCTime -> m (Maybe Record)
 findRecord t = do
   let tval = ChandraTime t
-  xs <- select (((SoStartTimeField <=. tval) &&. notDiscarded)
+  xs <- select (((SoStartTimeField <=. tval)
+                 &&. notDiscarded
+                 &&. isScheduled) -- at present the isScheduled does not add anything
                 `orderBy` [Desc SoStartTimeField]
                 `limitTo` 1)
   ys <- select (((NsStartTimeField <=. tval) &&. notNsDiscarded)
@@ -207,7 +214,7 @@ findRecord t = do
   return (identifyLatestRecord xs ys)
 
 -- | Return information on this obsid, if known about. This includes
---   discarded observations.
+--   discarded and non-scheduled observations.
 --
 findObsId :: PersistBackend m => ObsIdVal -> m (Maybe Record)
 findObsId oi = do
@@ -226,7 +233,7 @@ findNonScience oi = do
   ans <- select ((NsObsIdField ==. oi) `limitTo` 1)
   return (listToMaybe ans)
 
--- | This will return a discarded observation.
+-- | This will return a discarded or unscheduled observation.
 findScience :: PersistBackend m => ObsIdVal -> m (Maybe ScienceObs)
 findScience oi = do
   ans <- select ((SoObsIdField ==. oi) `limitTo` 1)
@@ -234,13 +241,14 @@ findScience oi = do
 
 -- | Return the current observation (ignoring discarded observations,
 --   but in this case it is unlikely that the database will have been
---   updated with the discard information in time).
+--   updated with the discard information in time, or unscheduled
+--   observations).
 --
 getCurrentObs :: DbIO m => m (Maybe Record)
 getCurrentObs = liftIO getCurrentTime >>= findRecord
 
 -- | Return the first observation to start after the given time,
---   excluding discarded observations. If the input observation
+--   excluding discarded and unscheduled observations. If the input observation
 --   is discarded then nothing is returned.
 --
 --   It is not clear whether the obsid value is really needed, but
@@ -253,13 +261,14 @@ getNextObs ::
   -> ChandraTime
   -> m (Maybe Record)
 getNextObs oid t = do
-  flag <- isDiscarded oid
+  flag <- isDiscardedOrUnscheduled oid
   if flag
     then return Nothing
     else do
     xs <- select (((SoStartTimeField >. t)
                    &&. (SoObsIdField /=. oid)
-                   &&. notDiscarded)
+                   &&. notDiscarded
+                   &&. isScheduled)
                   `orderBy` [Asc SoStartTimeField]
                   `limitTo` 1)
     ys <- select (((NsStartTimeField >. t)
@@ -271,7 +280,7 @@ getNextObs oid t = do
 
 
 -- | Return the last observation to have started before the given time,
---   excluding discarded observations. If the input observation
+--   excluding discarded and unscheduled observations. If the input observation
 --   is discarded then nothing is returned.
 --
 --   See the discussion for `getNextObs`.
@@ -282,13 +291,14 @@ getPrevObs ::
   -> ChandraTime
   -> m (Maybe Record)
 getPrevObs oid t = do
-  flag <- isDiscarded oid
+  flag <- isDiscardedOrUnscheduled oid
   if flag
     then return Nothing
     else do
     xs <- select (((SoStartTimeField <. t)
                    &&. (SoObsIdField /=. oid)
-                   &&. notDiscarded)
+                   &&. notDiscarded
+                   &&. isScheduled)  -- at present isscheduled adds nothing
                   `orderBy` [Desc SoStartTimeField]
                   `limitTo` 1)
     ys <- select (((NsStartTimeField <. t)
@@ -345,7 +355,7 @@ findObsInfo oi = do
     _ -> return Nothing
 
 -- | Return the requested "science" observation,
---   including discarded observations.
+--   including discarded and unscheduled observations.
 --
 --   TODO: note that this actually also returns non-science
 --         observations, so either the comment or code should change.
@@ -356,7 +366,7 @@ getObsId ::
 getObsId = findObsInfo 
 
 -- | Return the record of the given observation, if it
---   exists. This includes discarded observations.
+--   exists. This includes discarded and unscheduled observations.
 --
 getRecord :: PersistBackend m => ObsIdVal -> m (Maybe Record)
 getRecord = findObsId
@@ -387,8 +397,9 @@ getSchedule ndays = do
   -- end-time field, post-process the database results here,
   -- rather than having the database do all the filtering.
   --
-  xs1 <- select (((SoStartTimeField <. tEnd) &&.
-                  notDiscarded)
+  xs1 <- select (((SoStartTimeField <. tEnd)
+                  &&. notDiscarded
+                  &&. isScheduled) -- the isScheduled check is unlikely to restrict anything
                  `orderBy` [Asc SoStartTimeField])
   ys1 <- select (((NsStartTimeField <. tEnd) &&.
                   notNsDiscarded)
@@ -422,7 +433,7 @@ getSchedule ndays = do
 --   The number-of-days field in the structure is set to 0; this
 --   is not ideal!
 --
---   Note that any discarded observations are removed.
+--   Note that any discarded or unscheduled observations are removed.
 --
 makeSchedule ::
   DbIO m
@@ -432,9 +443,10 @@ makeSchedule rs = do
   now <- liftIO getCurrentTime
   mrec <- findRecord now
   
-  let cleanrs = filter removeDiscarded (fromSL rs)
-      removeDiscarded (Left NonScienceObs{..}) = nsName /= discarded
-      removeDiscarded (Right ScienceObs{..}) = soStatus /= discarded
+  let cleanrs = filter keep (fromSL rs)
+      keep (Left NonScienceObs{..}) = nsName /= discarded
+      keep (Right ScienceObs{..}) = (soStatus /= discarded)
+                                    && (soStartTime < futureTime)
 
       mobsid = recordObsId <$> mrec
       findNow r = if Just (recordObsId r) == mobsid then Right r else Left r
@@ -458,7 +470,7 @@ getSimbadInfo target = do
     _ -> return Nothing
 
 -- | Return all observations of the given SIMBAD type (excluding
---   discarded observations).
+--   discarded and unscheduled observations).
 --
 fetchSIMBADType :: 
   PersistBackend m
@@ -476,8 +488,9 @@ fetchSIMBADType stype = do
                sos <- forM keys $ \key -> do
                           targets <- project SmmTargetField (SmmInfoField ==. key)
                           obs <- forM targets $
-                                 \t -> select ((SoTargetField ==. t &&.
-                                                notDiscarded)
+                                 \t -> select ((SoTargetField ==. t
+                                                &&. notDiscarded
+                                                &&. isScheduled)
                                                `orderBy`
                                                [Asc SoStartTimeField])
 
@@ -507,14 +520,16 @@ fetchObjectTypes = do
   return (map t srt)
 
 -- | Return observations which match this constellation, excluding
---   discarded observations.
+--   discarded and unscheduled observations.
 --
 fetchConstellation ::
   PersistBackend m
   => ConShort
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchConstellation con = do
-  ans <- select ((SoConstellationField ==. con &&. notDiscarded)
+  ans <- select ((SoConstellationField ==. con
+                  &&. notDiscarded
+                  &&. isScheduled)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -532,16 +547,19 @@ countUp xs =
   in sortBy (comparing (Down . snd)) ys
 
 
--- | Return count of the constellations. Discarded observations are excluded.
+-- | Return count of the constellations.
+--   Discarded and unscheduled observations are excluded.
 --
 fetchConstellationTypes :: PersistBackend m => m [(ConShort, Int)]
 fetchConstellationTypes = do
   res <- project SoConstellationField
-         (notDiscarded `orderBy` [Asc SoConstellationField])
+         ((notDiscarded &&. isScheduled)
+          `orderBy` [Asc SoConstellationField])
   return (countUp res)
     
 -- | Return observations which match this category,
---   excluding discarded observations.
+--   excluding discarded and unscheduled observations.
+--
 fetchCategory ::
   PersistBackend m
   => String
@@ -549,7 +567,7 @@ fetchCategory ::
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sos <- forM propNums $ \pn ->
-    select (SoProposalField ==. pn &&. notDiscarded)
+    select (SoProposalField ==. pn &&. notDiscarded &&. isScheduled)
   let xs = concat sos
   return (toSL soStartTime xs)
 
@@ -561,7 +579,8 @@ fetchCategoryTypes = do
   return (countUp res)
 
 -- | Return all the observations which match this proposal,
---   excluding discarded observations.
+--   excluding discarded observations. This includes
+--   unscheduled observations.
 --
 --   See also `getProposal` and `getProposalObs`
 fetchProposal ::
@@ -575,14 +594,14 @@ fetchProposal pn = do
   return (listToMaybe mprop, unsafeToSL ms)
 
 -- | Return all the observations which match this instrument,
---   excluding discarded observations.
+--   excluding discarded and unscheduled observations.
 --
 fetchInstrument ::
   PersistBackend m
   => Instrument
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchInstrument inst = do
-  ans <- select $ (SoInstrumentField ==. inst &&. notDiscarded)
+  ans <- select $ (SoInstrumentField ==. inst &&. notDiscarded &&. isScheduled)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
@@ -615,7 +634,7 @@ getProposalFromNumber propNum = do
 
 -- | Find all the other observations in the proposal. This does not return
 --   discarded observations, but will return matches if the input observation
---   was discarded.
+--   was discarded. It will return unscheduled observations.
 --
 getProposalObs ::
   PersistBackend m
@@ -623,13 +642,14 @@ getProposalObs ::
   -> m (SortedList StartTimeOrder ScienceObs)
 getProposalObs ScienceObs{..} = do
   -- time sorting probably not needed here
-  ans <- select (((SoProposalField ==. soProposal) &&.
-                  (SoObsIdField /=. soObsId) &&. notDiscarded)
+  ans <- select (((SoProposalField ==. soProposal)
+                  &&. (SoObsIdField /=. soObsId)
+                  &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
 -- | Find all the other non-discarded observations in the same proposal that
---   are in the database.
+--   are in the database (including unscheduled observations).
 --
 getRelatedObs ::
   PersistBackend m
@@ -637,13 +657,14 @@ getRelatedObs ::
   -> ObsIdVal
   -> m (SortedList StartTimeOrder ScienceObs)
 getRelatedObs propNum obsId = do
-  ans <- select (((SoProposalField ==. propNum) &&.
-                  (SoObsIdField /=. obsId) &&. notDiscarded)
+  ans <- select (((SoProposalField ==. propNum)
+                  &&. (SoObsIdField /=. obsId)
+                  &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
 -- | Return the observations we know about for the given proposal
---   (that are not discarded).
+--   (that are not discarded). This includes unscheduled observations.
 getObsFromProposal ::
   PersistBackend m
   => PropNum
@@ -669,7 +690,7 @@ getProposalInfo (Right so) = do
 --   The values are ordered in descending order of the counts (the list
 --   of options is assumed to be small).
 --
---   This INCLUDES discarded observations.
+--   This INCLUDES discarded and unscheduled observations.
 --
 findObsStatusTypes :: PersistBackend m => m [(String, Int)]
 findObsStatusTypes = do
@@ -707,9 +728,13 @@ reportSize = do
   forM_ ns (\(status, n) ->
              putIO ("  status=" ++ status ++ "  : " ++ show n))
   putIO (" -> total = " ++ show (sum (map snd ns)))
-
-  -- non-science breakdown
   putIO ""
+
+  -- unscheduled observations
+  nuns <- count (SoStartTimeField ==. futureTime)
+  putIO ("  un-scheduled science obs      = " ++ show nuns)
+  
+  -- non-science breakdown
   ns1 <- count notFromObsCat
   ns2 <- count (Not notNsDiscarded)
   putIO ("  non-science (not from obscat) = " ++ show ns1)
