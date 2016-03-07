@@ -71,7 +71,8 @@ import System.Process (system)
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 import Data.Time (TimeLocale, defaultTimeLocale, readSTime)
 #else
-import System.Locale (defaultTimeLocale, readsTime)
+import Data.Time (readsTime)
+import System.Locale (defaultTimeLocale)
 #endif
 
 -- import Data.Time (UTCTime, getCurrentTime)
