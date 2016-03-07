@@ -47,12 +47,13 @@ import qualified Data.Set as S
 import Control.Applicative ((<$>))
 #endif
 
-import Control.Monad (forM_, guard, unless, when)
+import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
 import Data.Char (ord)
-import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe)
+import Data.Either (isLeft, rights)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Word (Word8)
 
 import Database.Groundhog.Postgresql
@@ -98,8 +99,8 @@ import Types
 nonScienceType :: String
 nonScienceType = "ER"
 
-isScienceObs :: OCAT -> Maybe Bool
-isScienceObs m = toString m "TYPE" >>= \ans -> return (ans /= nonScienceType)
+isScienceObsE :: OCAT -> Either String Bool
+isScienceObsE m = toStringE m "TYPE" >>= \ans -> return (ans /= nonScienceType)
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 -- make it easy to compile on different systems for now
@@ -191,23 +192,45 @@ w8 = fromIntegral . ord
 
 type OCAT = M.Map L.ByteString L.ByteString
 
+lookupE :: L.ByteString -> OCAT -> Either String L.ByteString
+lookupE k m = case M.lookup k m of
+  Just ans -> return ans
+  Nothing -> Left ("Missing key: " ++ show k)
+
 maybeReadLBS :: Read a => L.ByteString -> Maybe a
 maybeReadLBS = maybeRead . L8.unpack
+
+-- Would be nice to indicate the conversion type in the error message
+eitherReadLBS :: Read a => L.ByteString -> Either String a
+eitherReadLBS lbs =
+  let val = L8.unpack lbs
+      emsg = "Unable to read value from: " ++ val
+  in maybe (Left emsg) Right (maybeRead val)
 
 toWrapper :: Read a => (a -> b) -> L.ByteString -> OCAT -> Maybe b
 toWrapper f k m = M.lookup k m >>= fmap f . maybeReadLBS
 
-toSequence :: OCAT -> Maybe Sequence
-toSequence = toWrapper Sequence "SEQ_NUM"
+toWrapperE :: Read a => (a -> b) -> L.ByteString -> OCAT -> Either String b
+toWrapperE f k m = do
+  kval <- lookupE k m
+  case eitherReadLBS kval of
+    Right val -> Right (f val)
+    Left emsg -> Left ("Unable to read key: " ++ show k ++ " -> " ++ emsg)
 
-toPropNum :: OCAT -> Maybe PropNum
-toPropNum = toWrapper PropNum "PR_NUM"
+toSequenceE :: OCAT -> Either String Sequence
+toSequenceE = toWrapperE Sequence "SEQ_NUM"
 
-toObsId :: OCAT -> Maybe ObsIdVal
-toObsId = toWrapper ObsIdVal "OBSID"
+toPropNumE :: OCAT -> Either String PropNum
+toPropNumE = toWrapperE PropNum "PR_NUM"
+
+toObsIdE :: OCAT -> Either String ObsIdVal
+toObsIdE = toWrapperE ObsIdVal "OBSID"
 
 toTimeKS :: OCAT -> L.ByteString -> Maybe TimeKS
 toTimeKS m k = toWrapper TimeKS k m
+
+toTimeKSE :: OCAT -> L.ByteString -> Either String TimeKS
+toTimeKSE m k = toWrapperE TimeKS k m
 
 -- A value of 0.0 is converted to @Nothing@.
 toJointTime :: OCAT -> L.ByteString -> Maybe TimeKS
@@ -216,70 +239,103 @@ toJointTime m k = toTimeKS m k >>= \t -> if t <= TimeKS 0.0 then Nothing else Ju
 toString :: OCAT -> L.ByteString -> Maybe String
 toString m lbl = L8.unpack <$> M.lookup lbl m
 
+toStringE :: OCAT -> L.ByteString -> Either String String
+toStringE m lbl = 
+  case L8.unpack <$> M.lookup lbl m of
+    Just ans -> return ans
+    Nothing -> Left ("Missing key " ++ show lbl)
+
 toRead :: Read a => OCAT -> L.ByteString -> Maybe a
 toRead m lbl = toWrapper id lbl m
 
+toReadE :: Read a => OCAT -> L.ByteString -> Either String a
+toReadE m lbl = toWrapperE id lbl m
+
 toCT :: OCAT -> L.ByteString -> Maybe ChandraTime
 toCT m lbl = ChandraTime `fmap` toUTC m lbl
+
+toCTE :: OCAT -> L.ByteString -> Either String ChandraTime
+toCTE m lbl = ChandraTime `fmap` toUTCE m lbl
 
 toUTC :: OCAT -> L.ByteString -> Maybe UTCTime
 toUTC m lbl =
   let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
   in M.lookup lbl m >>= c . L8.unpack
 
-toRA :: OCAT -> Maybe RA
-toRA = 
+toUTCE :: OCAT -> L.ByteString -> Either String UTCTime
+toUTCE m lbl = do
+  lbs <- lookupE lbl m
+  let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
+      tval = L8.unpack lbs
+  case c tval of
+    Just ans -> return ans
+    Nothing -> Left ("Unable to convert to UTCTime: " ++ tval)
+
+-- TODO: catch parse errors
+toRAE :: OCAT -> Either String RA
+toRAE mm = do
   let tR lbs = 
         let (h:m:s:_) = map (read . L8.unpack) $ L.split (w8 ' ') lbs
-        in RA $ 15.0 * (h + (m + s/60.0) / 60.0) 
-  in fmap tR . M.lookup "RA"
+        in RA (15.0 * (h + (m + s/60.0) / 60.0))
 
-toDec :: OCAT -> Maybe Dec
-toDec = 
+  raVal <- lookupE "RA" mm
+  return (tR raVal)
+
+-- TODO: catch parse errors
+toDecE :: OCAT -> Either String Dec
+toDecE mm = do
   let tD lbs = 
-        let (d:m:s:_) = map (read . L8.unpack) $ L.split (w8 ' ') rest
+        let (d:m:s:_) = map (read . L8.unpack) (L.split (w8 ' ') rest)
             (sval, rest) = case L.uncons lbs of
                      Just (c, cs) | c == w8 '-' -> (-1, cs)
                                   | c == w8 '+' -> (1, cs)
                                   | otherwise   -> (1, lbs) -- should not happen but just in case
                      _ -> (0, "0 0 0") -- if it's empty we have a problem
-        in Dec $ sval * (abs d + (m + s/60.0) / 60.0) 
-  in fmap tD . M.lookup "Dec"
+        in Dec (sval * (abs d + (m + s/60.0) / 60.0))
 
-toInst :: OCAT -> Maybe Instrument
-toInst m = M.lookup "INSTR" m >>= toInstrument . L8.unpack
+  decVal <- lookupE "Dec" mm
+  return (tD decVal)
+
+toInstE :: OCAT -> Either String Instrument
+toInstE m = do
+  val <- toStringE m "INSTR"
+  maybe (Left ("Unknown instrument: " ++ val)) Right (toInstrument val)
 
 -- TODO: check these are the serializations used by OCAT
-toGrating :: OCAT -> Maybe Grating
-toGrating m = 
-  let toG "NONE" = Just NONE
-      toG "HETG" = Just HETG
-      toG "LETG" = Just LETG
-      toG _ = Nothing
-  in M.lookup "GRAT" m >>= toG . L8.unpack
+toGratingE :: OCAT -> Either String Grating
+toGratingE m = 
+  let toG :: String -> Either String Grating
+      toG "NONE" = Right NONE
+      toG "HETG" = Right HETG
+      toG "LETG" = Right LETG
+      toG g = Left ("Unknown grating: " ++ g)
+  in toStringE m "GRAT" >>= toG
 
-toCS :: OCAT -> L.ByteString -> Maybe ChipStatus
-toCS m k = M.lookup k m >>= toChipStatus . L8.unpack
+toCSE :: OCAT -> L.ByteString -> Either String ChipStatus
+toCSE m k = do
+  cs <- toStringE m k
+  maybe (Left ("Invalid ChipStatus: " ++ cs)) Right (toChipStatus cs)
 
-toC :: OCAT -> L.ByteString -> Maybe Constraint
-toC m k = do
-  val <- M.lookup k m
+toCE :: OCAT -> L.ByteString -> Either String Constraint
+toCE m k = do
+  val <- lookupE k m
   case L8.uncons val of
     Just (c, rest) -> if L8.null rest
-                      then toConstraint c
-                      else error $ "Constraint value " ++ L8.unpack k ++ "=" ++ L8.unpack val
-    _ -> Nothing
+                      then maybe (Left ("unknown constraint: " ++ [c])) Right (toConstraint c)
+                      else Left ("Constraint value " ++ L8.unpack k ++ "=" ++ L8.unpack val)
+    _ -> Left ("empty string (?) key=" ++ show k ++ " val=" ++ show val)
 
-toProposal :: OCAT -> Maybe Proposal
-toProposal m = do
-  pNum <- toPropNum m
-  piName <- toString m "PI_NAME"
-  cat <- toString m "CATEGORY"
-  pType <- toString m "TYPE"
-  pCycle <- toString m "PROP_CYCLE"
+toProposalE :: OCAT -> Either String Proposal
+toProposalE m = do
+  pNum <- toPropNumE m
+  piName <- toStringE m "PI_NAME"
+  cat <- toStringE m "CATEGORY"
+  pType <- toStringE m "TYPE"
+  pCycle <- toStringE m "PROP_CYCLE"
   -- have seen one proposal (cycle 00, calibration obs) without a title
   -- pName <- toString m "PROP_TITLE"
-  let pName = fromMaybe (if pType == "CAL" then "Calibration Observation" else "Unknown") $ toString m "PROP_TITLE"
+  let defAns = if pType == "CAL" then "Calibration Observation" else "Unknown"
+      pName = fromMaybe defAns (toString m "PROP_TITLE")
   return Proposal {
         propNum = pNum
         , propName = pName
@@ -298,46 +354,57 @@ toProposal m = do
 --   a START_DATE field, which I have seen in a couple of observations
 --   that are probably ones that were dropped from the schedule due
 --   to a replan, but are still listed in the original schedule.
---   What to do with these? IIs ignoring them the right thing to
+--   What to do with these? Is ignoring them the right thing to
 --   do (I think so, but forget what makes the schedule data base
 --   table; is it the data from HackData or the output of
 --   ObsCat? Hopefully the latter which means dropping should be
 --   the right thing)
 --
-toSO :: OCAT -> Maybe ScienceObs
-toSO m = do
+--   I am moving towards "hacking in" support for ObsId values with
+--   no start_data field, in that they will be given a start_date
+--   far in the future, with the idea that these are observations
+--   that may be done (as long as they are not discarded). Ideally
+--   the start-date field would be a maybe but it currently is not.
+--   The reason for storing these is that it is possible for an obsid
+--   to go from scheduled to having no start date, which means we
+--   need to either remove the obsid or update it.
+--
+toSOE :: OCAT -> Either String ScienceObs
+toSOE m = do
 
-  isScience <- isScienceObs m
-  guard isScience
-  
-  seqNum <- toSequence m
-  pNum <- toPropNum m
-  status <- toString m "STATUS"
-  obsid <- toObsId m
-  target <- toString m "TARGET_NAME"
+  isScience <- isScienceObsE m
+  unless isScience (Left "not a science observation")
+
+  seqNum <- toSequenceE m
+  pNum <- toPropNumE m
+
+  status <- toStringE m "STATUS"
+  obsid <- toObsIdE m
+  target <- toStringE m "TARGET_NAME"
+
   -- turns out this may be a maybe (presumably for cancelled obs)
-  sTime <- toCT m "START_DATE"
-  appExp <- toTimeKS m "APP_EXP"
+  sTime <- toCTE m "START_DATE"
+  appExp <- toTimeKSE m "APP_EXP"
   let obsExp = toTimeKS m "EXP_TIME"
 
   let relDate = toUTC m "PUBLIC_AVAIL"
 
-  timeCrit <- toC m "TIME_CRIT"
-  monitor <- toC m "MONITOR"
-  constrained <- toC m "CONSTR"
+  timeCrit <- toCE m "TIME_CRIT"
+  monitor <- toCE m "MONITOR"
+  constrained <- toCE m "CONSTR"
 
-  inst <- toInst m
-  grat <- toGrating m
+  inst <- toInstE m
+  grat <- toGratingE m
   let det = L8.unpack <$> M.lookup "READOUT_DETECTOR" m
-  let datamode = toString m "DATAMODE"
+      datamode = toString m "DATAMODE"
 
-  haveACIS <- toString m "ACIS"
-  -- haveHRC <- toString m "HRC"
+  haveACIS <- toStringE m "ACIS"
+  -- haveHRC <- toStringE m "HRC"
 
   -- are these included in HRC obs? No
   let convCS = if haveACIS == "Y"
-               then toCS m
-               else const (Just ChipOff)
+               then toCSE m
+               else const (Right ChipOff)
 
   acisi0 <- convCS "I0"
   acisi1 <- convCS "I1"
@@ -362,13 +429,15 @@ toSO m = do
       swift = toJointTime m "SWIFT"
       nustar = toJointTime m "NUSTAR"
 
-  let too = L8.unpack <$> M.lookup "TOO_TYPE" m
-  ra <- toRA m
-  dec <- toDec m
-
-  roll <- toRead m "SOE_ROLL"
+      too = toString m "TOO_TYPE"
+      
+  ra <- toRAE m
+  dec <- toDecE m
+  roll <- toReadE m "SOE_ROLL"
+  
   let subStart = toRead m "STRT_ROW" >>= \s -> if s > 0 then Just s else Nothing
       subSize = toRead m "ROW_CNT" >>= \s -> if s > 0 then Just s else Nothing
+
   return ScienceObs {
     soSequence = seqNum
     , soProposal = pNum
@@ -432,24 +501,24 @@ toSO m = do
 --   This would be easier if I bothered to migrate the database so that
 --   new fields could be added to NonScienceObs.
 --
-toNS :: OCAT -> Maybe NonScienceObs
-toNS m = do
+toNSE :: OCAT -> Either String NonScienceObs
+toNSE m = do
 
-  isScience <- isScienceObs m
-  guard (not isScience)
+  isScience <- isScienceObsE m
+  when isScience (Left "a science observation")
   
   -- status <- toString m "STATUS"
-  obsid <- toObsId m
+  obsid <- toObsIdE m
   
   -- turns out this may be a maybe (presumably for cancelled obs)
   let msTime = toCT m "START_DATE"
   
-  appExp <- toTimeKS m "APP_EXP"
+  appExp <- toTimeKSE m "APP_EXP"
   -- let obsExp = toTimeKS m "EXP_TIME" not sure what this is
 
-  ra <- toRA m
-  dec <- toDec m
-  roll <- toRead m "SOE_ROLL"
+  ra <- toRAE m
+  dec <- toDecE m
+  roll <- toReadE m "SOE_ROLL"
 
   let target = "CAL-ER (" ++ show (fromObsId obsid) ++ ")"
       rTime = appExp
@@ -537,27 +606,27 @@ makeObsCatQuery flag oid = do
 queryScience :: 
   Bool         -- set @True@ for debug output 
   -> ObsIdVal 
-  -> IO (Maybe (Proposal, ScienceObs))
+  -> IO (Either String (Proposal, ScienceObs))
 queryScience flag oid = do
   mout <- makeObsCatQuery flag oid
   let mans = case mout of
         Just out -> do
-          prop <- toProposal out
-          so <- toSO out
+          prop <- toProposalE out
+          so <- toSOE out
           return (prop, so)
-        _ -> Nothing
+        _ -> Left "No output from obscat call"
 
-  -- need to add the constellation
   case mans of
-    Just (p, so) -> do
+    Right (p, so) -> do
+      -- need to add the constellation
       so2 <- addConstellation so
-      return (Just (p, so2))
+      return (Right (p, so2))
 
-    _ -> do
+    Left emsg -> do
       -- for now skip those with issues
       putStrLn ("SKIP: unable to parse science ObsId " ++ show (fromObsId oid)
-                ++ ": " ++ show mout)
-      return Nothing
+                ++ ": " ++ emsg)
+      return (Left emsg)
 
 
 -- | Query the OCat about this non-science observation.
@@ -569,14 +638,18 @@ queryScience flag oid = do
 queryNonScience :: 
   Bool         -- set @True@ for debug output 
   -> ObsIdVal 
-  -> IO (Maybe NonScienceObs)
+  -> IO (Either String NonScienceObs)
 queryNonScience flag oid = do
-  out <- makeObsCatQuery flag oid
-  let ans = out >>= toNS
+  mout <- makeObsCatQuery flag oid
+  let mans = case mout of
+        Just out -> toNSE out
+        _ -> Left "No output from obscat call"
+  
       ostr = show (fromObsId oid)
-  when (isNothing ans)
+
+  when (isLeft mans) 
     (putStrLn ("SKIP: unable to parse non-science ObsId " ++ ostr))
-  return ans
+  return mans
 
 
 -- | Identify:
@@ -696,14 +769,17 @@ addOverlaps f os = do
 -- | Report if any obsids are missing from the OCAT results.
 --
 --   This does NOT include the overlap obs (i.e. they are ignored here)
-check :: [Maybe a] -> [ObsIdVal] -> IO [a]
+check ::
+  [Either String a]  -- ^ result
+  -> [ObsIdVal]      -- ^ the obsid goes with the result
+  -> IO [a]          -- ^ results that are not missing
 check ms os = do
-  let missing = map snd (filter (isNothing . fst) (zip ms os))
+  let missing = map snd (filter (isLeft . fst) (zip ms os))
   unless (null missing) $ do
     putStrLn ("### There are " ++ slen missing ++
               " ObsIds with no OCAT data:")
     forM_ missing (print . fromObsId)
-  return (catMaybes ms)
+  return (rights ms)
 
 -- | The flag is @True@ to get debug output from the query calls.
 --
@@ -744,8 +820,8 @@ viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
   ans <- queryScience True (ObsIdVal oid)
   case ans of
-    Nothing -> putStrLn ("Nothing found for ObsId " ++ show oid ++ "!")
-    Just (prop, so) -> do
+    Left emsg -> putStrLn ("Nothing found for ObsId " ++ show oid ++ ": " ++ emsg)
+    Right (prop, so) -> do
       putStrLn ("## ObsId " ++ show oid)
       print prop
       print so
