@@ -331,7 +331,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                 , "no scheduled date for the observation "
                 , "(it is likely that it was scheduled but for some "
                 , "reason it was not observed and so has been "
-                , "removed from the schedule)."
+                , "removed from the schedule). "
                 , reason
                 ]
       cts Todo =
