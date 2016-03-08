@@ -32,7 +32,11 @@ module Database ( getCurrentObs
                 , fetchCategoryTypes
                 , fetchProposal
                 , fetchInstrument
+                , fetchGrating
+                , fetchIG
                 , fetchInstrumentTypes
+                , fetchGratingTypes
+                , fetchIGTypes
                 , insertScienceObs
                 , insertNonScienceObs
                 , replaceScienceObs
@@ -611,6 +615,32 @@ fetchInstrument inst = do
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
+-- | Return all the observations which match this grating,
+--   excluding discarded.
+--
+fetchGrating ::
+  PersistBackend m
+  => Grating
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchGrating grat = do
+  ans <- select $ (SoGratingField ==. grat &&. notDiscarded) --  &&. isScheduled)
+         `orderBy` [Asc SoStartTimeField]
+  return (unsafeToSL ans)
+
+-- | Return all the observations which match this instrument and grating,
+--   excluding discarded.
+--
+fetchIG ::
+  PersistBackend m
+  => (Instrument, Grating)
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchIG (inst, grat) = do
+  ans <- select $ ((SoInstrumentField ==. inst)
+                   &&. (SoGratingField ==. grat)
+                   &&. notDiscarded) --  &&. isScheduled)
+         `orderBy` [Asc SoStartTimeField]
+  return (unsafeToSL ans)
+
 -- | This counts up the individual observations; should it try and group by
 --   "proposal", or at least "object per proposal"?
 --
@@ -619,11 +649,38 @@ fetchInstrument inst = do
 fetchInstrumentTypes ::
   PersistBackend m
   => m [(Instrument, Int)]
-  -- ^ proposal category and the number of observations that match
+  -- ^ instrument and the number of observations that match
 fetchInstrumentTypes = do
   insts <- project SoInstrumentField (notDiscarded `orderBy`
                                       [Asc SoInstrumentField])
   return (countUp insts)
+
+-- | As `fetchInstrumentTypes` but for gratings.
+--
+--   Discarded observations are excluded.
+--
+fetchGratingTypes ::
+  PersistBackend m
+  => m [(Grating, Int)]
+  -- ^ grating and the number of observations that match
+fetchGratingTypes = do
+  grats <- project SoGratingField (notDiscarded `orderBy`
+                                   [Asc SoGratingField])
+  return (countUp grats)
+
+-- | A combination of `fetchInstrumentTypes` and `fetchGratingTypes`.
+--
+--   Discarded observations are excluded.
+--
+fetchIGTypes ::
+  PersistBackend m
+  => m [((Instrument, Grating), Int)]
+  -- ^ instrument + grating combo and the number of observations that match
+fetchIGTypes = do
+  igs <- project (SoInstrumentField, SoGratingField)
+         (notDiscarded `orderBy`
+          [Asc SoInstrumentField, Asc SoGratingField])
+  return (countUp igs)
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

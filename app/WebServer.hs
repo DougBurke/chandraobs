@@ -100,7 +100,11 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchCategoryTypes
                  , fetchProposal
                  , fetchInstrument
+                 , fetchGrating
+                 , fetchIG
                  , fetchInstrumentTypes
+                 , fetchGratingTypes
+                 , fetchIGTypes
                  , dbConnStr
                  )
 import Types (Record, SimbadInfo, Proposal
@@ -403,12 +407,39 @@ webapp cm mgr = do
         then next -- status status404
         else do
         sched <- liftSQL (makeSchedule (fmap Right matches))
-        fromBlaze (Instrument.matchPage inst sched)
+        fromBlaze (Instrument.matchInstPage inst sched)
 
     -- TODO: also need a HEAD request version
-    get "/search/instrument/" $ do
-      matches <- liftSQL fetchInstrumentTypes
-      fromBlaze (Instrument.indexPage matches)
+    get "/search/grating/:grating" $ do
+      (inst, matches) <- dbQuery "grating" fetchGrating
+      if nullSL matches
+        then next -- status status404
+        else do
+        sched <- liftSQL (makeSchedule (fmap Right matches))
+        fromBlaze (Instrument.matchGratPage inst sched)
+
+    -- TODO: also need a HEAD request version
+    get "/search/instgrat/:ig" $ do
+      (ig, matches) <- dbQuery "ig" fetchIG
+      if nullSL matches
+        then next -- status status404
+        else do
+        sched <- liftSQL (makeSchedule (fmap Right matches))
+        fromBlaze (Instrument.matchIGPage ig sched)
+
+    let igsearch = do
+          (imatches, gmatches, igmatches) <- liftSQL (
+            do
+              xs <- fetchInstrumentTypes
+              ys <- fetchGratingTypes
+              zs <- fetchIGTypes
+              return (xs, ys, zs))
+          fromBlaze (Instrument.indexPage imatches gmatches igmatches)
+          
+    -- TODO: also need a HEAD request version
+    get "/search/instrument/" igsearch
+    get "/search/grating/" igsearch
+    get "/search/instgrat/" igsearch
 
     -- TODO: also need a HEAD request version
     {-

@@ -24,7 +24,11 @@ module Utils (
      , jsScript
      , cssLink
      , instLinkSearch
+     , gratLinkSearch
+     , igLinkSearch
      , instLinkAbout
+     , gratLinkAbout
+     -- , igLinkAbout
      , constellationLinkSearch
      , typeLinkSearch
      , categoryLinkSearch
@@ -487,22 +491,57 @@ renderFooter =
       , "guarantee that the information presented is correct, although "
       , "I try my best to make sure it is), and is not "
       , "an official product of the "
-      , H.a H.! A.href "http://chandra.si.edu/" $ "Chandra X-ray Center"
+      , (H.a H.! A.href "http://chandra.si.edu/") "Chandra X-ray Center"
       , "."
     ]
+
+-- Note that there is a slight difference in the instrument and grating
+-- search links: for instrument the "nice" conversion is used to create
+-- the last element of the path (e.g. ACIS-I), rather than an internal
+-- form (ACISI); this is not true for gratings since the "nice" form
+-- looks like "Low Energy Transmission Grating" rather than "LETG".
+--
 
 -- | Add in a link to the instrument search page.
 instLinkSearch :: Instrument -> H.Html
 instLinkSearch inst = 
   let iLink = "/search/instrument/" <> H.toValue inst
-  in H.a H.! A.href iLink $ H.toHtml inst
+  in (H.a H.! A.href iLink) (H.toHtml inst)
+
+-- | Add in a link to the grating search page.
+gratLinkSearch :: Grating -> H.Html
+gratLinkSearch grat = 
+  let gLink = "/search/grating/" <> H.toValue (show grat)
+  in (H.a H.! A.href gLink) (H.toHtml grat)
+
+-- | Add in a link to the combined instrument+grating search page.
+igLinkSearch :: (Instrument, Grating) -> H.Html
+igLinkSearch (inst, grat) = 
+  let linkVal = "/search/instgrat/" <> H.toValue frag
+      frag = show inst ++ "-" ++ show grat
+      lbl = H.toHtml inst <> " with " <> H.toHtml grat
+  in (H.a H.! A.href linkVal) lbl
 
 -- | Add in a link to a "what is this" page for the
 --   instrument.
 instLinkAbout :: Instrument -> H.Html
 instLinkAbout inst = 
   let iLink = "/about/instruments.html#" <> H.toValue inst
-  in H.a H.! A.href iLink $ H.toHtml inst
+  in (H.a H.! A.href iLink) (H.toHtml inst)
+
+-- | Add in a link to a "what is this" page for the
+--   grating.
+gratLinkAbout :: Grating -> H.Html
+gratLinkAbout NONE = "no grating"
+gratLinkAbout grat = 
+  let linkVal = "/about/instruments.html#" <> H.toValue (show grat)
+  in (H.a H.! A.href linkVal) ("the " <> H.toHtml grat)
+
+{-
+-- | Link to the general instruments page
+igLinkAbout :: H.Html
+igLinkAbout = (H.a H.! A.href "/about/instruments.html") "Chandra instruments"
+-}
 
 -- | Add in a link to the constellation search page.
 constellationLinkSearch :: ConShort -> String -> H.Html

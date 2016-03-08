@@ -201,6 +201,9 @@ tryParse ((result, attempts):xs) value =
           res = [(result, drop (length attempt) value) | attempt <- attempts, take (length attempt) value == attempt]
 
 -- | The instrument being used.
+--
+--   The Ord constraint is useful when creating tables but has no
+--   real semantic meaning.
 data Instrument = ACISI | ACISS | HRCI | HRCS 
   deriving (Eq, Show, Ord)
 
@@ -250,8 +253,30 @@ instance H.ToValue Instrument where
   toValue HRCS  = "HRC-S"
 
 -- | The grating to be used.
+--
+--   The Ord constraint is useful when creating tables but has no
+--   real semantic meaning.
+--
 data Grating = LETG | HETG | NONE 
-  deriving (Eq, Show, Read)
+  deriving (Eq, Ord, Show, Read)
+
+fromGrating :: Grating -> String
+fromGrating LETG = "LETG"
+fromGrating HETG = "HETG"
+fromGrating NONE = "NONE"
+
+toGrating :: String -> Maybe Grating
+toGrating "LETG" = Just LETG
+toGrating "HETG" = Just HETG
+toGrating "NONE"  = Just NONE
+
+toGrating _ = Nothing
+
+instance Parsable Grating where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid grating name: " <> t
+    in maybe (Left emsg) Right (toGrating tstr)
 
 instance H.ToMarkup Grating where
   toMarkup LETG = "Low Energy Transmission Grating (LETG)"
@@ -263,6 +288,16 @@ instance H.ToValue Grating where
   toValue HETG = "High Energy Transmission Grating (HETG)"
   toValue NONE = "No grating"
 
+-- | Pairs are recoreded as instrument + "-" + grating
+instance Parsable (Instrument, Grating) where
+  parseParam tboth =
+    case LT.split (=='-') tboth of
+      [l, r] -> do
+        inst <- parseParam l
+        grat <- parseParam r
+        return (inst, grat)
+      _ -> Left ("Expected instrument-grating: " <> tboth)
+    
 -- | Represent an observation identifier.
 --
 --   Due to a clash with @ObsName@ we use @ObsIdVal@
