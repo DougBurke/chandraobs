@@ -75,8 +75,7 @@ import Data.Time (readsTime)
 import System.Locale (defaultTimeLocale)
 #endif
 
--- import Data.Time (UTCTime, getCurrentTime)
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, getCurrentTime)
 
 import Database (insertScienceObs
                 , replaceNonScienceObs
@@ -88,6 +87,7 @@ import Database (insertScienceObs
                 , runDb
                 , discarded
                 , notArchived
+                , notDiscarded
                 , nsInObsCatName
                 , notFromObsCat
                 )
@@ -678,21 +678,37 @@ queryNonScience flag oid = do
 --       [the idea is that there should be no non-science observations
 --        in the ScheduleItem table any more]
 --     - science observations which are not archived
+--         if observed, only if soPublicRelease < now
+--         (if no field, then re-check)
+--       For now, remove discarded obsids (the assumption being that they
+--       are not going to get recycled).
 --
 -- Should this be in the PersistBackend monad rather than making
 -- it a transaction? Probably not, because want the updates to
 -- be incremental so that they can be redone.
 --
 findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal], [ObsIdVal])
-findMissingObsIds = runDb $ do
-  -- the SiScienceObsField check is technically not needed,
-  -- as I believe there should only be science obs in the
-  -- table now, but leave in as this constraint may change,
-  -- and I could be wrong.
-  swants <- project SiObsIdField (SiScienceObsField ==. True)
-  nswants <- project NsObsIdField notFromObsCat
-  unarchived <- project SoObsIdField notArchived
-  return (swants, nswants, unarchived)
+findMissingObsIds = do
+  now <- getCurrentTime
+  runDb $ do
+    -- the SiScienceObsField check is technically not needed,
+    -- as I believe there should only be science obs in the
+    -- table now, but leave in as this constraint may change,
+    -- and I could be wrong.
+    swants <- project SiObsIdField (SiScienceObsField ==. True)
+    nswants <- project NsObsIdField notFromObsCat
+    
+    -- Could do this in the database, but split up the queries.
+    -- The idea is to reduce the number of obscat queries for observations
+    -- that are unlikely to have changed; that is, observed but not
+    -- yet in the public domain.
+    --
+    unarchived <- project SoObsIdField (notArchived &&. notDiscarded)
+    notpublic <- project SoObsIdField ((SoStatusField ==. ("observed"::String))
+                                       &&. (SoPublicReleaseField >=. Just now))
+  
+    let tosearch = S.fromList unarchived `S.difference` S.fromList notpublic
+    return (swants, nswants, S.toList tosearch)
 
 slen :: [a] -> String
 slen = show . length
@@ -807,14 +823,14 @@ updateDB f = withSocketsDo $ do
   putStrLn "# Querying the database"
   (missing, nsmissing, unarchived) <- findMissingObsIds
   putStrLn ("# Found " ++ slen missing ++ " missing and " ++
-            slen unarchived ++ " unarchived science ObsIds")
+            slen unarchived ++ " science ObsIds needing to be queried")
   putStrLn ("# Found " ++ slen nsmissing ++ " missing non-science ObsIds")
 
   unless (null missing) (putStrLn "# Processing missing science")
   res1 <- mapM (queryScience f) missing
   mres <- check res1 missing
 
-  unless (null missing) (putStrLn "# Processing unarchived")
+  unless (null unarchived) (putStrLn "# Processing 'missing' science obs")
   res2 <- mapM (queryScience f) unarchived
   ures <- check res2 unarchived
 
