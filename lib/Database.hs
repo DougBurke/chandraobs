@@ -433,7 +433,8 @@ getSchedule ndays = do
 --   The number-of-days field in the structure is set to 0; this
 --   is not ideal!
 --
---   Note that any discarded or unscheduled observations are removed.
+--   Note that any discarded observations are removed.
+--   Unscheduled ones are left in
 --
 makeSchedule ::
   DbIO m
@@ -446,7 +447,7 @@ makeSchedule rs = do
   let cleanrs = filter keep (fromSL rs)
       keep (Left NonScienceObs{..}) = nsName /= discarded
       keep (Right ScienceObs{..}) = (soStatus /= discarded)
-                                    && (soStartTime < futureTime)
+                                    -- && (soStartTime < futureTime)
 
       mobsid = recordObsId <$> mrec
       findNow r = if Just (recordObsId r) == mobsid then Right r else Left r
@@ -470,7 +471,7 @@ getSimbadInfo target = do
     _ -> return Nothing
 
 -- | Return all observations of the given SIMBAD type (excluding
---   discarded and unscheduled observations).
+--   discarded).
 --
 fetchSIMBADType :: 
   PersistBackend m
@@ -490,9 +491,9 @@ fetchSIMBADType stype = do
                           obs <- forM targets $
                                  \t -> select ((SoTargetField ==. t
                                                 &&. notDiscarded
-                                                &&. isScheduled)
-                                               `orderBy`
-                                               [Asc SoStartTimeField])
+                                                -- &&. isScheduled
+                                               )
+                                               `orderBy` [Asc SoStartTimeField])
 
                           return (concat obs)
 
@@ -512,6 +513,7 @@ fetchSIMBADType stype = do
 fetchObjectTypes :: 
   PersistBackend m
   => m [(SimbadTypeInfo, Int)]
+  -- ^ Simbad information and the number of objects that match
 fetchObjectTypes = do
   res <- select (CondEmpty `orderBy` [Asc SmiType3Field])
   let srt = groupBy ((==) `on` smiType3) res
@@ -520,7 +522,7 @@ fetchObjectTypes = do
   return (map t srt)
 
 -- | Return observations which match this constellation, excluding
---   discarded and unscheduled observations.
+--   discarded observations.
 --
 fetchConstellation ::
   PersistBackend m
@@ -529,7 +531,8 @@ fetchConstellation ::
 fetchConstellation con = do
   ans <- select ((SoConstellationField ==. con
                   &&. notDiscarded
-                  &&. isScheduled)
+                  -- &&. isScheduled
+                 )
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -548,17 +551,17 @@ countUp xs =
 
 
 -- | Return count of the constellations.
---   Discarded and unscheduled observations are excluded.
+--   Discarded observations are excluded.
 --
 fetchConstellationTypes :: PersistBackend m => m [(ConShort, Int)]
 fetchConstellationTypes = do
   res <- project SoConstellationField
-         ((notDiscarded &&. isScheduled)
+         (notDiscarded -- &&. isScheduled
           `orderBy` [Asc SoConstellationField])
   return (countUp res)
     
 -- | Return observations which match this category,
---   excluding discarded and unscheduled observations.
+--   excluding discarded observations.
 --
 fetchCategory ::
   PersistBackend m
@@ -567,20 +570,23 @@ fetchCategory ::
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sos <- forM propNums $ \pn ->
-    select (SoProposalField ==. pn &&. notDiscarded &&. isScheduled)
+    select (SoProposalField ==. pn &&. notDiscarded) --  &&. isScheduled)
   let xs = concat sos
   return (toSL soStartTime xs)
 
 -- | Return information on the category types.
-fetchCategoryTypes :: PersistBackend m => m [(String, Int)]
+--
+fetchCategoryTypes ::
+  PersistBackend m
+  => m [(String, Int)]
+  -- ^ proposal category and the number of proposals that match
 fetchCategoryTypes = do
   res <- project PropCategoryField
          (CondEmpty `orderBy` [Asc PropCategoryField])
   return (countUp res)
 
 -- | Return all the observations which match this proposal,
---   excluding discarded observations. This includes
---   unscheduled observations.
+--   excluding discarded observations.
 --
 --   See also `getProposal` and `getProposalObs`
 fetchProposal ::
@@ -594,14 +600,14 @@ fetchProposal pn = do
   return (listToMaybe mprop, unsafeToSL ms)
 
 -- | Return all the observations which match this instrument,
---   excluding discarded and unscheduled observations.
+--   excluding discarded.
 --
 fetchInstrument ::
   PersistBackend m
   => Instrument
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchInstrument inst = do
-  ans <- select $ (SoInstrumentField ==. inst &&. notDiscarded &&. isScheduled)
+  ans <- select $ (SoInstrumentField ==. inst &&. notDiscarded) --  &&. isScheduled)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
@@ -610,7 +616,10 @@ fetchInstrument inst = do
 --
 --   Discarded observations are excluded.
 --
-fetchInstrumentTypes :: PersistBackend m => m [(Instrument, Int)]
+fetchInstrumentTypes ::
+  PersistBackend m
+  => m [(Instrument, Int)]
+  -- ^ proposal category and the number of observations that match
 fetchInstrumentTypes = do
   insts <- project SoInstrumentField (notDiscarded `orderBy`
                                       [Asc SoInstrumentField])

@@ -58,7 +58,11 @@ makeSchedule cTime done mdoing todo =
         grat <- recordGrating r
         return $ instLinkSearch inst <> if grat == NONE then mempty else " with " <> toHtml grat
 
-      -- convert UTCTime to an integer
+      -- convert UTCTime to an integer; this does not have to
+      -- special case unscheduled records where the time is set
+      -- to futureTime, as that is a value intentionally set
+      -- to "the future".
+      --
       aTime :: Record -> AttributeValue
       aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . _toUTCTime . recordStartTime
 
@@ -108,7 +112,7 @@ makeSchedule cTime done mdoing todo =
                       ("constrained", soConstrained)]
           in case mapMaybe showConstraint cons of
                [] -> "n/a"
-               xs -> toHtml $ intercalate ", " xs
+               xs -> toHtml (intercalate ", " xs)
 
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
@@ -116,7 +120,7 @@ makeSchedule cTime done mdoing todo =
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
             ! class_ "starttime" 
-              $ toHtml $ ct $ recordStartTime r
+              $ toHtml (ct (recordStartTime r))
          td $ instVal r
 
          td $ showJoint r

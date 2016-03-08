@@ -18,7 +18,8 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..))
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink, categoryLinkSearch)
+import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+             , categoryLinkSearch, getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -68,7 +69,7 @@ renderMatches ::
   -> Html
 renderMatches cat (Schedule cTime _ done mdoing todo) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
-
+      
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml cat
 
@@ -79,9 +80,10 @@ renderMatches cat (Schedule cTime _ done mdoing todo) =
         [ "This page shows Chandra observations of objects from proposals "
         , "in the category "
         , toHtml cat
-        , " (since the database only includes a "
-        , "small fraction of the mission you will only see a few "
-        , "matches). The format is the same as used in the "
+        , ". "
+          -- assume the schedule is all science observations
+        , toHtml (getNumObs done mdoing todo)
+        , ". The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]
@@ -98,16 +100,16 @@ renderTypes ::
   [(String, Int)]
   -> Html
 renderTypes cats = 
-  let toRow (cat,n) = tr $ do
-                    td $ categoryLinkSearch cat cat
-                    td $ toHtml n
+  let toRow (cat, n) = tr $ do
+        td (categoryLinkSearch cat cat)
+        td (toHtml n)
 
       scats = sortBy (compare `on` fst) cats
   in div $ do
-    p $ toHtml $ "There are " ++ show (length cats) ++ " categories."
+    p (toHtml ("There are " ++ show (length cats) ++ " categories."))
     table $ do
              thead $ tr $ do
                th "Category"
-               th "Number"
-             tbody $ mapM_ toRow scats
+               th "Number of proposals"
+             tbody (mapM_ toRow scats)
              

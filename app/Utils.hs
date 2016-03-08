@@ -29,6 +29,8 @@ module Utils (
      , typeLinkSearch
      , categoryLinkSearch
      , cleanJointName
+     , schedToList
+     , getNumObs
      ) where
 
 import qualified Data.Text as T
@@ -72,7 +74,7 @@ import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime
              , ChipStatus(..)
              , Proposal(..)
               )
-import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime)
+import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, futureTime)
 import Types (getJointObs, getConstellationName)
 
 -- | Convert a record into the URI fragment that represents the
@@ -152,11 +154,16 @@ showTime = formatTime defaultTimeLocale "%A, %B %e, %Y"
 --   is probably not general enough, since it adds in a
 --   prefix (here, "in"), in most cases. So, this is to be
 --   used for time differences in the future.
+--
+--   Unlike the other "show time difference" routines, this
+--   one special cases a value where time2 == futureTime,
+--   which means that it is unscheduled.
+--
 showTimeDeltaFwd ::
   UTCTime     -- time 1
   -> ChandraTime  -- time 2, >= time 1
   -> String   -- time1 relative to time2
-showTimeDeltaFwd t1 (ChandraTime t2) = 
+showTimeDeltaFwd t1 c2@(ChandraTime t2) = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       mins = "in " <> show nm <> " minute" <> plural nm
@@ -164,15 +171,17 @@ showTimeDeltaFwd t1 (ChandraTime t2) =
       days = "in " <> show nd <> " day" <> plural nd
       other = showTime t2
 
-  in if delta < 60
-     then "now"
-     else if m < 60
-            then mins
-            else if h < 24
-                 then hours
-                 else if d < 7
-                      then days
-                      else "on " <> other
+  in if c2 == futureTime
+     then "observation is not scheduled"
+     else if delta < 60
+          then "now"
+          else if m < 60
+               then mins
+               else if h < 24
+                    then hours
+                    else if d < 7
+                         then days
+                         else "on " <> other
 
 -- | Come up with a string representing the time difference.  This is
 --   to be used for time differences in the future; see also
@@ -517,3 +526,22 @@ categoryLinkSearch cat lbl =
   let iLink = "/search/category/" <> H.toValue cat
   in H.a H.! A.href iLink $ H.toHtml lbl
 
+maybeToList :: Maybe a -> [a]
+maybeToList Nothing = []
+maybeToList (Just x) = [x]
+
+-- | Convert the schedule contents to a list (although the
+--   routine is generic in the list input.
+--
+schedToList :: [a] -> Maybe a -> [a] -> [a]
+schedToList done mdoing todo = done ++ maybeToList mdoing ++ todo
+
+getNumObs :: [a] -> Maybe a -> [a] -> String
+getNumObs done mdoing todo =
+  let xs = schedToList done mdoing todo
+      nobs = length xs
+      obslen = case nobs of
+        0 -> "are no observations"
+        1 -> "is one observation"
+        _ -> "are " ++ show nobs ++ " observations"
+  in "There " ++ obslen ++ ", but this is a small fraction of the Chandra mission"

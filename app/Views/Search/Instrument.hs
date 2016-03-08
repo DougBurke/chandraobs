@@ -18,7 +18,8 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), Instrument(..))
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink, instLinkAbout, instLinkSearch)
+import Utils (defaultMeta, skymapMeta, renderFooter, cssLink,
+              instLinkAbout, instLinkSearch, getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -78,10 +79,10 @@ renderMatches inst (Schedule cTime _ done mdoing todo) =
         [ "This page shows observations of objects that use "
         , "the "
         , instLinkAbout inst
-        , " instrument on Chandra "
-        , "(since the database only includes a "
-        , "small fraction of the mission you will only see a few "
-        , "matches). The format is the same as used in the "
+        , " instrument on Chandra."
+          -- assume the schedule is all science observations
+        , toHtml (getNumObs done mdoing todo)
+        , ". The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]
@@ -93,14 +94,14 @@ renderTypes ::
   -> Html
 renderTypes insts = 
   let toRow (inst,n) = tr $ do
-                        td $ instLinkSearch inst
-                        td $ toHtml n
+                        td (instLinkSearch inst)
+                        td (toHtml n)
 
       sinsts = sortBy (compare `on` fst) insts
   in div $
      table $ do
        thead $ tr $ do
                th "Instrument"
-               th "Number"
-       tbody $ mapM_ toRow sinsts
+               th "Number of observations"
+       tbody (mapM_ toRow sinsts)
              

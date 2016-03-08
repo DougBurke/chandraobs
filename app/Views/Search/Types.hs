@@ -18,7 +18,8 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), SimbadType(..), SimbadTypeInfo)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink, typeLinkSearch)
+import Utils (defaultMeta, skymapMeta, renderFooter
+             , cssLink, typeLinkSearch, getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -82,35 +83,19 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
 
     -- TODO: improve English here
     p $ mconcat
-        [ "This page shows the observations of ", toHtml lbl, " "
-        , "objects by Chandra (since the database only includes a "
-        , "small fraction of the mission you will only see a few "
-        , "matches). The format is the same as used in the "
+        [ "This page shows the observations of "
+        , toHtml lbl
+        , " objects by Chandra; the determination of the object type is "
+        , "taken from the target name created by the observer, and is "
+        , "often not sufficient to identify it in "
+        , (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "SIMBAD"
+        , "."
+          -- assume the schedule is all science observations
+        , toHtml (getNumObs done mdoing todo)
+        , ". The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]
-
-    {-
-    p $ mconcat 
-        [ "This page shows ", toHtml ndays
-        , " days of the Chandra schedule, centered on today. "
-        , "The size of the circles indicate the exposure time, and "
-        , "the color shows whether the observation has been done, "
-        , "is running now, or is in the future; the same colors "
-        , "are used in the table below. For repeated observations "
-        , "it can be hard to make out what is going on, since the "
-        , "circles overlap! "
-        , "The points are plotted in the "
-        , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"
-        , ", using the "
-        , a ! href "http://en.wikipedia.org/wiki/Aitoff_projection" $ "Aitoff projection"
-        , ". See "
-        , a ! href "http://burro.astr.cwru.edu/" $ "Chris Mihos'"
-        , " page on "
-        , a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html" $ "Astronomical coordinate systems"
-        , " for more informaion."
-        ]
-    -}
 
     tblBlock
 
@@ -120,19 +105,19 @@ renderTypes ::
   -> Html
 renderTypes objs = 
   let toRow (sti,n) = tr $ do
-                        td $ uncurry typeLinkSearch sti
-                        td $ toHtml n
+                        td (uncurry typeLinkSearch sti)
+                        td (toHtml n)
 
       sobjs = sortBy (compare `on` (snd.fst)) objs
   in div $ do
     p $ do
-      toHtml $ "There are " ++ show (length objs) ++ " object types. These types are taken from "
+      toHtml ("There are " ++ show (length objs) ++ " object types. These types are taken from ")
       a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X" $ "the SIMBAD database"
       toHtml ("."::String)
     table $ do
              thead $ tr $ do
                th "Object Type"
-               th "Number"
+               th "Number of objects"
              tbody $
                mapM_ toRow sobjs
              

@@ -18,7 +18,8 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), ConShort(..), getConstellationNameStr)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink, constellationLinkSearch)
+import Utils (defaultMeta, skymapMeta, renderFooter, cssLink,
+              constellationLinkSearch, getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -103,9 +104,9 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
         , "were taken from the "
         , (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
         , " project by Olaf Frohn). "
-        , "Since the database only includes a "
-        , "small fraction of the mission you will only see a few "
-        , "matches. The format is the same as used in the "
+          -- assume the schedule is all science observations
+        , toHtml (getNumObs done mdoing todo)
+        , ". The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]
@@ -118,17 +119,22 @@ renderTypes ::
   -> Html
 renderTypes cons = 
   let toRow (con,n) = tr $ do
-                    td $ constellationLinkSearch con (conLabel con)
-                    td $ toHtml n
+                    td (constellationLinkSearch con (conLabel con))
+                    td (toHtml n)
 
       conLabel = getConstellationNameStr
 
       scons = sortBy (compare `on` fst) cons
+
+      lbl = "There are " ++ show (length cons) ++ " constellations containing "
+            ++ "Chandra observations in the data base (which is a small fraction "
+            ++ "of the full Chandra schedule."
+            
   in div $ do
-    p $ toHtml $ "There are " ++ show (length cons) ++ " constellations with Chandra observations."
+    p (toHtml lbl)
     table $ do
              thead $ tr $ do
                th "Constellation"
-               th "Number"
-             tbody $ mapM_ toRow scons
+               th "Number of observations"
+             tbody (mapM_ toRow scons)
              

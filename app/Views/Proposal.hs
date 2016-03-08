@@ -6,13 +6,14 @@
 module Views.Proposal (matchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), (==), (++), Either(..), Maybe(..), length, show)
+import Prelude (($), (==), length, show)
 
 -- import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.Either (rights)
 import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -23,7 +24,7 @@ import Types (Proposal(..)
               , Schedule(..)
               )
 import Utils (defaultMeta, skymapMeta, abstractLink, renderFooter
-             , cssLink, categoryLinkSearch)
+             , cssLink, categoryLinkSearch, schedToList)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -55,10 +56,7 @@ renderProposal Proposal{..} (Schedule cTime _ done mdoing todo) =
 
       catLink = categoryLinkSearch propCategory propCategory
 
-      maybeToList Nothing = []
-      maybeToList (Just x) = [x]
-
-      obsList = [x | Right x <- done ++ maybeToList mdoing ++ todo]
+      obsList = rights (schedToList done mdoing todo)
       nobs = length obsList
       count = if nobs == 1
               then "consists of one observation"
