@@ -159,8 +159,9 @@ querySIMBAD sloc f objname = do
 parseObject :: String -> Maybe (String, SimbadType, String)
 parseObject txt = 
   let toks = splitOn "\t" txt
-      toT s = fromMaybe (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
-                     $ toSimbadType s
+      toT s = fromMaybe
+              (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
+              (toSimbadType s)
   in case toks of
     [name, otype3, otype, _] -> Just (cleanupName name, toT otype3, otype)
     _ -> Nothing
