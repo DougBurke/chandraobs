@@ -25,6 +25,7 @@ module Database ( getCurrentObs
                 , reportSize
                 , getSimbadInfo
                 , fetchSIMBADType
+                , fetchSIMBADDescendentTypes
                 , fetchObjectTypes
                 , fetchConstellation
                 , fetchConstellationTypes
@@ -89,12 +90,13 @@ import Control.Monad.Logger (NoLoggingT)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (group, groupBy, sortBy)
-import Data.Maybe (isNothing, listToMaybe)
+import Data.Maybe (fromMaybe, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
 import Database.Groundhog.Core (PersistEntity, EntityConstr,
                                 DbDescriptor, RestrictionHolder)
+import Database.Groundhog.Core (distinct)
 import Database.Groundhog.Postgresql
 
 import Types
@@ -475,7 +477,7 @@ getSimbadInfo target = do
     _ -> return Nothing
 
 -- | Return all observations of the given SIMBAD type (excluding
---   discarded).
+--   discarded). This restricts to the type only (i.e. no descendents).
 --
 fetchSIMBADType :: 
   PersistBackend m
@@ -509,6 +511,65 @@ fetchSIMBADType stype = do
 
     _ -> return Nothing
 
+
+{-
+TODO: should we return the count of number of distinct objects (rather than observations)
+in the simbad-related queries
+
+TODO: support "parent" queries
+-}
+
+-- | Return all observations of the given SIMBAD type and any
+--   'children' of this type (excluding discarded observations).
+--
+--   TODO: perhaps this should be sent in a list of types to return
+--         so that the caller can decide (and let them easily
+--         check if they got all the types they asked for).
+--
+fetchSIMBADDescendentTypes :: 
+  PersistBackend m
+  => SimbadType 
+  -> m ([SimbadTypeInfo], SortedList StartTimeOrder ScienceObs)
+  -- ^ SymbadTypeInfo list is ordered by SimbadCode setting, and
+  --   the first element is for the parent, even if no observations
+  --   match it.
+fetchSIMBADDescendentTypes parent = do
+
+  -- can we let the database do the time sorting?
+  let children = map _2 (findChildTypes parent)
+      cons = map (SmiType3Field ==.) (parent : children)
+      constraint = foldl1 (||.) cons
+
+  sinfos <- project (SmiType3Field, SmiTypeField) (distinct constraint)
+  keys <- project (AutoKeyField) constraint
+  if null keys
+    then return ([], emptySL)
+    else do
+      -- can use foldl1 below because have checked that keys is not empty
+      let keycons = map (SmmInfoField ==.) keys
+          keyconstraint = foldl1 (||.) keycons
+
+      targets <- project SmmTargetField keyconstraint
+
+      let targcons = map (SoTargetField ==.) targets
+          targconstraint = foldl1 (||.) targcons
+
+      obs <- select ((targconstraint &&. notDiscarded)
+                     `orderBy` [Asc SoStartTimeField])
+
+      let addCode sinfo =
+            case simbadTypeToCode (fst sinfo) of
+              Just scode -> Just (scode, sinfo)
+              _ -> Nothing
+          sorted = sortBy (compare `on` fst) (mapMaybe addCode sinfos)
+
+          ptype = (parent, fromMaybe "" (simbadTypeToDesc parent))
+          out = case map snd sorted of
+            xs@(p:_) | p == ptype -> xs
+            xs -> ptype : xs
+      
+      return (out, unsafeToSL obs)
+  
 -- | Return information on the object types we have stored.
 --
 --   The return value includes the number of objects that 

@@ -7,6 +7,7 @@
 module Utils (
      defaultMeta
      , skymapMeta
+     , d3Meta
      , jqueryMeta
      , fromBlaze
      , obsURI
@@ -30,13 +31,17 @@ module Utils (
      , gratLinkAbout
      -- , igLinkAbout
      , constellationLinkSearch
+     , typeLinkURI
+     , typeDLinkURI
      , typeLinkSearch
+     , typeDLinkSearch
      , categoryLinkSearch
      , cleanJointName
      , schedToList
      , getNumObs
      ) where
 
+import qualified Data.ByteString as B
 import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
@@ -115,19 +120,24 @@ defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
 --
 skymapMeta :: H.Html
 skymapMeta =
-  jqueryMeta
-  <> jsScript "https://d3js.org/d3.v3.min.js"
-  <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
+  d3Meta
   <> jsScript "/js/jquery.tablesorter.min.js"
   <> jsScript "/js/table.js"
   <> jsScript "/js/projection.js"
   <> cssLink "/css/tablesorter.css"
   <> cssLink "/css/schedule.css"
 
+-- | Load D3 and JQuery.
+d3Meta :: H.Html
+d3Meta =
+  jqueryMeta
+  <> jsScript "https://d3js.org/d3.v3.min.js"
+  <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
+
 -- | Load JQuery.
 --
 --   It is likely that this should not be used, as you probably want
---   skymapMeta instead.
+--   skymapMeta or d3Meta instead.
 jqueryMeta :: H.Html
 jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
 
@@ -549,14 +559,29 @@ constellationLinkSearch con lbl =
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
   in H.a H.! A.href iLink $ H.toHtml lbl
 
+typeLinkURI :: SimbadType -> B.ByteString
+typeLinkURI st =
+  let uri = ["search", "type", T.pack (fromSimbadType st)]
+  in toByteString (encodePathSegments uri)
+  
+typeDLinkURI :: SimbadType -> B.ByteString
+typeDLinkURI st =
+  let uri = ["search", "dtype", T.pack (fromSimbadType st)]
+  in toByteString (encodePathSegments uri)
+  
 -- | Add in a link to the object-type search page.
 --
---  Note that we take care to encode the path.
+--  Note that we take care to encode the path because of special
+--  characters in the Simbad type (in particular, '?').
+--
 typeLinkSearch :: SimbadType -> String -> H.Html
 typeLinkSearch st lbl = 
-  let iLink = H.unsafeByteStringValue $ toByteString $ encodePathSegments
-                 ["search", "type", T.pack (fromSimbadType st)]
+  let iLink = H.unsafeByteStringValue (typeLinkURI st)
+  in H.a H.! A.href iLink $ H.toHtml lbl
 
+typeDLinkSearch :: SimbadType -> String -> H.Html
+typeDLinkSearch st lbl = 
+  let iLink = H.unsafeByteStringValue (typeDLinkURI st)
   in H.a H.! A.href iLink $ H.toHtml lbl
 
 -- | Add in a link to the obervation category search page.

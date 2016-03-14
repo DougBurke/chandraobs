@@ -30,6 +30,7 @@ module Types where
 -- rather than try to track and document it.
 
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
 import qualified Text.Blaze.Html5 as H
@@ -45,6 +46,7 @@ import Data.Bits (Bits(..))
 
 import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
+import Data.Either (rights)
 import Data.Function (on)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 
@@ -1078,17 +1080,29 @@ data ConstrainedObs = ConstrainedObs {
   deriving Eq
 -}
 
--- | This is the short form of the SIMBAD type.
+-- It would have been nice to encode the hierarchy here, so that
+-- a search could be made for all elements that match a particular
+-- level in the hierarchy.
+
+-- | This is the short form of the SIMBAD type. I have enforced the
+--   restriction that this is at most three characters, but of
+--   course there's at least one four-letter match ("Pec?").
+--   For now I am going to ignore this since it appears that
+--   "Pec" is still unique, so internally things should
+--   be okay (unless there's parsing issues as well).
 --
 newtype SimbadType = SimbadType { fromSimbadType :: String }
   deriving Eq
 
+-- TODO: need a converter to a URL fragment - e.g. '?' needs protecting!
+--       actually, need to check this, since I have seen it work
+
 -- | This constructor ensures that the type is three letters
 --   or less.
 toSimbadType :: String -> Maybe SimbadType
-toSimbadType s@(_:[]) = Just $ SimbadType s
-toSimbadType s@(_:_:[]) = Just $ SimbadType s
-toSimbadType s@(_:_:_:[]) = Just $ SimbadType s
+toSimbadType s@[_] = Just (SimbadType s)
+toSimbadType s@[_,_] = Just (SimbadType s)
+toSimbadType s@[_,_,_] = Just (SimbadType s)
 toSimbadType _ = Nothing
 
 instance Parsable SimbadType where
@@ -1168,6 +1182,609 @@ type SimbadTypeInfo = (SimbadType, String)
 instance Ord SimbadInfo where
   compare = compare `on` smiName
 -}
+
+-- | Hard code the hierarchy from http://cds.u-strasbg.fr/cgi-bin/Otype?X
+--
+--   Unfortunately I did not include the numeric identifiers above
+--   and I'm too lazy to re-build the database with a new schema.
+--
+
+{-
+00.00.00.0: Unknown            ?       Object of unknown nature
+00.02.00.0: Transient          ev      transient event
+01.00.00.0:  Radio             Rad     Radio-source
+01.02.00.0:    Radio(m)        mR      metric Radio-source
+01.04.00.0:    Radio(cm)       cm      centimetric Radio-source
+01.06.00.0:    Radio(mm)       mm      millimetric Radio-source
+01.08.00.0:    Radio(sub-mm)   smm     sub-millimetric source
+01.11.00.0:    HI              HI      HI (21cm) source
+01.12.00.0:    radioBurst      rB      radio Burst
+01.14.00.0:    Maser           Mas     Maser
+02.00.00.0:  IR                IR      Infra-Red source
+02.02.00.0:    IR>30um         FIR     Far-IR source  (λ >= 30 µm)
+02.04.00.0:    IR<10um         NIR     Near-IR source (λ < 10 µm)
+03.00.00.0:  Red               red     Very red source
+03.03.00.0:    RedExtreme      ERO     Extremely Red Object
+04.00.00.0:  Blue              blu     Blue object
+05.00.00.0:  UV                UV      UV-emission source
+06.00.00.0:  X                 X       X-ray source
+06.02.00.0:    ULX?            UX?     Ultra-luminous X-ray candidate
+06.10.00.0:    ULX             ULX     Ultra-luminous X-ray source
+07.00.00.0:  gamma             gam     gamma-ray source
+07.03.00.0:    gammaBurst      gB      gamma-ray Burst
+08.00.00.0:  Inexistent        err     Not an object (error, artefact, ...)
+09.00.00.0:  Gravitation       grv     Gravitational Source
+09.03.00.0:    LensingEv       Lev     (Micro)Lensing Event
+09.06.00.0:    Candidate_LensSystem  LS?     Possible gravitational lens System
+09.07.00.0:    Candidate_Lens  Le?     Possible gravitational lens
+09.08.00.0:    Possible_lensImage LI?     Possible gravitationally lensed image
+09.09.00.0:    GravLens        gLe     Gravitational Lens
+09.11.00.0:    GravLensSystem  gLS     Gravitational Lens System (lens+images)
+10.00.00.0:  Candidates	..?	Candidate objects
+10.01.00.0:    Possible_G      G?      Possible Galaxy
+10.02.00.0:    Possible_SClG   SC?     Possible Supercluster of Galaxies
+10.03.00.0:    Possible_ClG	C?G	Possible Cluster of Galaxies
+10.04.00.0:    Possible_GrG	Gr?	Possible Group of Galaxies
+10.06.00.0:    Possible_As*     As?	
+10.11.00.0:    Candidate_**	**?	Physical Binary Candidate
+10.11.01.0:      Candidate_EB*	EB?	Eclipsing Binary Candidate
+10.11.10.0:	 Candidate_Symb* Sy?	Symbiotic Star Candidate
+10.11.11.0:      Candidate_CV*	CV?	Cataclysmic Binary Candidate
+10.11.11.6:      Candidate_Nova	No?	Nova Candidate
+10.11.12.0:      Candidate_XB*	XB?	X-ray binary Candidate
+10.11.12.2:      Candidate_LMXB LX?	Low-Mass X-ray binary Candidate
+10.11.12.3:      Candidate_HMXB HX?	High-Mass X-ray binary Candidate
+10.12.00.0:    Candidate_Pec*	Pec?	Possible Peculiar Star
+10.12.01.0:      Candidate_YSO Y*?  	Young Stellar Object Candidate
+10.12.02.0:      Candidate_pMS* pr? 	Pre-main sequence Star Candidate
+10.12.02.3:        Candidate_TTau* TT?	T Tau star Candidate
+10.12.03.0:      Candidate_C*	C*? 	Possible Carbon Star
+10.12.04.0:      Candidate_S*  S*? 	Possible S Star
+10.12.05.0:      Candidate_OH	OH?     Possible Star with envelope of OH/IR type
+10.12.06.0:      Candidate_CH  CH? 	Possible Star with envelope of CH type
+10.12.07.0:      Candidate_WR* WR?     Possible Wolf-Rayet Star
+10.12.08.0:      Candidate_Be* Be?     Possible Be Star
+10.12.09.0:      Candidate_Ae* Ae?     Possible Herbig Ae/Be Star
+10.12.11.0:      Candidate_HB*	HB?    Possible Horizontal Branch Star
+10.12.11.2:        Candidate_RRLyr RR? Possible Star of RR Lyr type
+10.12.11.3:        Candidate_Cepheid Ce? Possible Cepheid
+10.12.12.0:      Candidate_RGB* RB?    Possible Red Giant Branch star
+10.12.13.0:      Candidate_SG*  sg?  	Possible Supergiant star
+10.12.13.3:      Candidate_RSG* s?r    Possible Red supergiant star
+10.12.13.4:      Candidate_YSG* s?y    Possible Yellow supergiant star
+10.12.13.5:      Candidate_BSG* s?b    Possible Blue supergiant star
+10.12.14.0:      Candidate_AGB* AB?  	Asymptotic Giant Branch Star candidate
+10.12.14.1:      Candidate_LP*  LP?     Long Period Variable candidate
+10.12.14.2:      Candidate_Mi*  Mi?     Mira candidate
+10.12.14.3:      Candiate_sr*   sv?     Semi-regular variable candidate
+10.12.15.0:      Candidate_post-AGB* pA? Post-AGB Star Candidate
+10.12.16.0:      Candidate_BSS BS?     Candidate blue Straggler Star
+10.12.18.0:      Candidate_WD* WD?     White Dwarf Candidate
+10.12.20.0:      Candidate_NS  N*?     Neutron Star Candidate
+10.12.22.0:      Candidate_BH  BH?     Black Hole Candidate
+10.12.23.0:      Candidate_SN* SN?     SuperNova Candidate
+10.12.24.0:      Candidate_low-mass* LM? Low-mass star candidate
+10.12.26.0:      Candidate_brownD* BD?	Brown Dwarf Candidate
+ 12.00.00.0:  multiple_object   mul     Composite object
+ 12.01.00.0:    Region          reg     Region defined in the sky
+ 12.01.05.0:      Void          vid     Underdense region of the Universe
+ 12.02.00.0:    SuperClG        SCG     Supercluster of Galaxies
+ 12.03.00.0:    ClG             ClG     Cluster of Galaxies
+ 12.04.00.0:    GroupG          GrG     Group of Galaxies
+ 12.04.05.0:      Compact_Gr_G  CGG     Compact Group of Galaxies
+ 12.05.00.0:    PairG           PaG     Pair of Galaxies
+ 12.05.05.0:      IG            IG      Interacting Galaxies
+ 12.09.00.0:    Cl*?    	C?*	Possible (open) star cluster
+ 12.10.00.0:    GlCl?           Gl?     Possible Globular Cluster
+ 12.11.00.0:    Cl*             Cl*     Cluster of Stars
+ 12.11.01.0:      GlCl          GlC     Globular Cluster
+ 12.11.02.0:      OpCl          OpC     Open (galactic) Cluster
+ 12.12.00.0:    Assoc*          As*     Association of Stars
+ 12.12.01.0:      Stream*       St*     Stellar Stream
+ 12.12.02.0:      MouvGroup     MGr     Moving Group
+ 12.13.00.0:    **              **      Double or multiple star
+ 12.13.01.0:      EB*           EB*     Eclipsing binary
+ 12.13.01.1:        EB*Algol    Al*     Eclipsing binary of Algol type (detached)
+ 12.13.01.2:        EB*betLyr   bL*     Eclipsing binary of beta Lyr type (semi-detached)
+ 12.13.01.3:        EB*WUMa     WU*     Eclipsing binary of W UMa type (contact binary)
+ 12.13.01.8:        EB*Planet   EP*     Star showing eclipses by its planet
+ 12.13.02.0:      SB*           SB*     Spectroscopic binary
+ 12.13.05.0:	  EllipVar	El*	Ellipsoidal variable Star
+ 12.13.10.0:	  Symbiotic*	Sy*     Symbiotic Star
+ 12.13.11.0:      CataclyV*     CV*     Cataclysmic Variable Star
+ 12.13.11.2:        DQHer       DQ*     CV DQ Her type (intermediate polar)
+ 12.13.11.3:        AMHer       AM*     CV of AM Her type (polar)
+ 12.13.11.5:        Nova-like   NL*     Nova-like Star
+ 12.13.11.6:        Nova        No*     Nova
+ 12.13.11.7:        DwarfNova   DN*     Dwarf Nova
+ 12.13.12.0:      XB            XB*     X-ray Binary
+ 12.13.12.2:        LMXB        LXB     Low Mass X-ray Binary
+ 12.13.12.3:        HMXB        HXB     High Mass X-ray Binary
+ 13.00.00.0:  ISM               ISM     Interstellar matter
+ 13.01.00.0:    PartofCloud     PoC     Part of Cloud
+ 13.02.00.0:    PN?             PN?     Possible Planetary Nebula
+ 13.03.00.0:    ComGlob         CGb     Cometary Globule
+ 13.04.00.0:    Bubble          bub     Bubble
+ 13.06.00.0:    EmObj           EmO     Emission Object
+ 13.08.00.0:    Cloud           Cld     Cloud
+ 13.08.03.0:      GalNeb        GNe     Galactic Nebula
+ 13.08.04.0:      BrNeb         BNe     Bright Nebula
+ 13.08.06.0:      DkNeb         DNe     Dark Cloud (nebula)
+ 13.08.07.0:      RfNeb         RNe     Reflection Nebula
+ 13.08.12.0:      MolCld        MoC     Molecular Cloud
+ 13.08.12.3:        Globule     glb     Globule (low-mass dark cloud)
+ 13.08.12.6:        denseCore   cor     Dense core
+ 13.08.12.8:        SFregion    SFR     Star forming region
+ 13.08.13.0:      HVCld         HVC     High-velocity Cloud
+ 13.09.00.0:    HII             HII     HII (ionized) region
+ 13.10.00.0:    PN              PN      Planetary Nebula
+ 13.11.00.0:    HIshell         sh      HI shell
+ 13.12.00.0:    SNR?            SR?     SuperNova Remnant Candidate
+ 13.13.00.0:    SNR             SNR     SuperNova Remnant
+ 13.14.00.0:    Circumstellar	cir     CircumStellar matter
+ 13.14.01.0:	outflow?        of?	Outflow candidate
+ 13.14.15.0:	Outflow         out	Outflow
+ 13.14.16.0:	HH		HH	Herbig-Haro Object
+ 14.00.00.0:  Star              *       Star
+ 14.01.00.0:    *inCl           *iC     Star in Cluster
+ 14.02.00.0:    *inNeb          *iN     Star in Nebula
+ 14.03.00.0:    *inAssoc        *iA     Star in Association
+ 14.04.00.0:    *in**           *i*     Star in double system
+ 14.05.00.0:    V*?             V*?     Star suspected of Variability
+ 14.06.00.0:    Pec*            Pe*     Peculiar Star
+ 14.06.01.0:      HB*           HB*     Horizontal Branch Star
+ 14.06.02.0:      YSO           Y*O     Young Stellar Object
+ 14.06.02.4:        Ae*		Ae*     Herbig Ae/Be star
+ 14.06.05.0:      Em*           Em*     Emission-line Star
+ 14.06.05.3:        Be*         Be*     Be Star
+ 14.06.06.0:      BlueStraggler BS*     Blue Straggler Star
+ 14.06.10.0:      RGB*          RG*     Red Giant Branch star
+ 14.06.12.0:      AGB*          AB*     Asymptotic Giant Branch Star (He-burning)
+ 14.06.12.3:        C*          C*      Carbon Star
+ 14.06.12.6:        S*          S*      S Star
+ 14.06.13.0:      SG*           sg*     Evolved supergiant star
+ 14.06.13.3:      RedSG*        s*r     Red supergiant star
+ 14.06.13.4:      YellowSG*     s*y     Yellow supergiant star
+ 14.06.13.5:      BlueSG*       s*b     Blue supergiant star
+ 14.06.15.0:      post-AGB*     pA*     Post-AGB Star (proto-PN)
+ 14.06.16.0:      WD*           WD*     White Dwarf
+ 14.06.16.1:        pulsWD*     ZZ*     Pulsating White Dwarf
+ 14.06.17.0:      low-mass*     LM*     Low-mass star (M<1solMass)
+ 14.06.18.0:      brownD*       BD*     Brown Dwarf (M<0.08solMass)
+ 14.06.19.0:      Neutron*      N*      Confirmed Neutron Star
+ 14.06.23.0:      OH/IR         OH*     OH/IR star
+ 14.06.24.0:      CH            CH*     Star with envelope of CH type
+ 14.06.25.0:      pMS*          pr*     Pre-main sequence Star
+ 14.06.25.3:        TTau*       TT*     T Tau-type Star
+ 14.06.30.0:      WR*           WR*     Wolf-Rayet Star
+ 14.07.00.0:    PM*             PM*     High proper-motion Star
+ 14.08.00.0:    HV*             HV*     High-velocity Star
+ 14.09.00.0:    V*              V*      Variable Star
+ 14.09.01.0:      Irregular_V*  Ir*     Variable Star of irregular type
+ 14.09.01.1:        Orion_V*    Or*     Variable Star of Orion Type
+ 14.09.01.2:        Rapid_Irreg_V* RI*  Variable Star with rapid variations
+ 14.09.03.0:      Eruptive*     Er*     Eruptive variable Star
+ 14.09.03.1:        Flare*      Fl*     Flare Star
+ 14.09.03.2:        FUOr        FU*     Variable Star of FU Ori type
+ 14.09.03.4:        Erupt*RCrB  RC*     Variable Star of R CrB type
+ 14.09.03.5:        RCrB_Candidate RC?  Variable Star of R CrB type candiate
+ 14.09.04.0:      RotV*         Ro*     Rotationally variable Star
+ 14.09.04.1:        RotV*alf2CVn a2*    Variable Star of alpha2 CVn type
+ 14.09.04.3:        Pulsar      Psr     Pulsar
+ 14.09.04.4:        BYDra       BY*     Variable of BY Dra type
+ 14.09.04.5:        RSCVn       RS*     Variable of RS CVn type
+ 14.09.05.0:      PulsV*        Pu*     Pulsating variable Star
+ 14.09.05.2:        RRLyr       RR*     Variable Star of RR Lyr type
+ 14.09.05.3:        Cepheid     Ce*     Cepheid variable Star
+ 14.09.05.5:        PulsV*delSct dS*    Variable Star of delta Sct type
+ 14.09.05.6:        PulsV*RVTau RV*     Variable Star of RV Tau type
+ 14.09.05.7:        PulsV*WVir  WV*     Variable Star of W Vir type
+ 14.09.05.8:        PulsV*bCep  bC*     Variable Star of beta Cep type
+ 14.09.05.9:        deltaCep    cC*     Classical Cepheid (delta Cep type)
+ 14.09.05.10:       gammaDor    gD*     Variable Star of gamma Dor type
+ 14.09.05.11:       pulsV*SX    SX*     Variable Star of SX Phe type (subdwarf)
+ 14.09.06.0:      LPV*          LP*     Long-period variable star
+ 14.09.06.1:        Mira        Mi*     Variable Star of Mira Cet type
+ 14.09.06.4:        semi-regV*  sr*     Semi-regular pulsating Star
+ 14.09.08.0:      SN            SN*     SuperNova
+ 14.14.00.0:    Sub-stellar     su*     Sub-stellar object
+ 14.14.02.0:      Planet?       Pl?     Extra-solar Planet Candidate
+ 14.14.10.0:      Planet        Pl      Extra-solar Confirmed Planet
+ 15.00.00.0:  Galaxy            G       Galaxy
+ 15.01.00.0:    PartofG         PoG     Part of a Galaxy
+ 15.02.00.0:    GinCl           GiC     Galaxy in Cluster of Galaxies
+ 15.02.02.0:      BClG          BiC     Brightest galaxy in a Cluster (BCG)
+ 15.03.00.0:    GinGroup        GiG     Galaxy in Group of Galaxies
+ 15.04.00.0:    GinPair         GiP     Galaxy in Pair of Galaxies
+ 15.05.00.0:    High_z_G        HzG     Galaxy with high redshift
+ 15.06.00.0:    AbsLineSystem   ALS     Absorption Line system
+ 15.06.01.0:      Ly-alpha_ALS  LyA     Ly alpha Absorption Line system
+ 15.06.02.0:      DLy-alpha_ALS DLA     Damped Ly-alpha Absorption Line system
+ 15.06.03.0:      metal_ALS     mAL     metallic Absorption Line system
+ 15.06.05.0:      Ly-limit_ALS  LLS	Lyman limit system
+ 15.06.08.0:      Broad_ALS	BAL	Broad Absorption Line system
+ 15.07.00.0:    RadioG          rG      Radio Galaxy
+ 15.08.00.0:    HII_G           H2G     HII Galaxy
+ 15.09.00.0:    LSB_G           LSB     Low Surface Brightness Galaxy
+ 15.10.00.0:    AGN_Candidate   AG?     Possible Active Galaxy Nucleus
+ 15.10.07.0:      QSO_Candidate Q?      Possible Quasar
+ 15.10.11.0:      Blazar_Candidate Bz?  Possible Blazar
+ 15.10.17.0:      BLLac_Candidate BL?   Possible BL Lac
+ 15.11.00.0:    EmG             EmG     Emission-line galaxy
+ 15.12.00.0:    StarburstG      SBG     Starburst Galaxy
+ 15.13.00.0:    BlueCompG       bCG     Blue compact Galaxy
+ 15.14.00.0:    LensedImage     LeI     Gravitationally Lensed Image
+ 15.14.01.0:      LensedG       LeG     Gravitationally Lensed Image of a Galaxy
+ 15.14.07.0:      LensedQ       LeQ     Gravitationally Lensed Image of a Quasar
+ 15.15.00.0:    AGN             AGN     Active Galaxy Nucleus
+ 15.15.01.0:      LINER         LIN     LINER-type Active Galaxy Nucleus
+ 15.15.02.0:      Seyfert       SyG     Seyfert Galaxy
+ 15.15.02.1:        Seyfert_1   Sy1     Seyfert 1 Galaxy
+ 15.15.02.2:        Seyfert_2   Sy2     Seyfert 2 Galaxy
+ 15.15.03.0:      Blazar        Bla     Blazar
+ 15.15.03.1:        BLLac       BLL     BL Lac - type object
+ 15.15.03.2:        OVV         OVV     Optically Violently Variable object
+ 15.15.04.0:      QSO           QSO     Quasar
+
+-}
+
+data SimbadCode =
+  SimbadCode { _sc1 :: Int, _sc2 :: Int, _sc3 :: Int, _sc4 :: Int,
+               _scLevel :: Int }
+  deriving (Eq, Ord)
+
+instance Show SimbadCode where
+  show SimbadCode {..} =
+    printf "%02d.%02d.%02d.%d" _sc1 _sc2 _sc3 _sc4
+
+-- | The list is assumed to be in ascending SimbadCode order,
+--   but this is not checked.
+--
+simbadLabels :: [(SimbadCode, SimbadType, T.Text)]
+simbadLabels =
+  let rowConv ((i1, i2, i3, i4), _, l2, l3) = do
+        sc <- toSC4 i1 i2 i3 i4
+        st <- maybe (Left ("Invalid SIMBAD type: " ++ l2)) Right (toSimbadType l2)
+        return (sc, st, l3)
+
+      check xs = if length xs == length stbl
+                 then xs
+                 else error "*internal error* converting SIMBAD table"
+
+      stbl :: [((Int, Int, Int, Int), String, String, T.Text)]
+      stbl = 
+        [
+          ((00, 00, 00, 0), "Unknown", "?", "Object of unknown nature")
+        , ((00, 02, 00, 0), "Transient", "ev", "transient event")
+        , ((01, 00, 00, 0), "Radio", "Rad", "Radio-source")
+        , ((01, 02, 00, 0), "Radio(m)", "mR", "metric Radio-source")
+        , ((01, 04, 00, 0), "Radio(cm)", "cm", "centimetric Radio-source")
+        , ((01, 06, 00, 0), "Radio(mm)", "mm", "millimetric Radio-source")
+        , ((01, 08, 00, 0), "Radio(sub-mm)", "smm", "sub-millimetric source")
+        , ((01, 11, 00, 0), "HI", "HI", "HI (21cm) source")
+        , ((01, 12, 00, 0), "radioBurst", "rB", "radio Burst")
+        , ((01, 14, 00, 0), "Maser", "Mas", "Maser")
+        , ((02, 00, 00, 0), "IR", "IR", "Infra-Red source")
+          -- looks like unicode does not get mapped to JSON well for the following labels
+        , ((02, 02, 00, 0), "IR>30um", "FIR", "Far-IR source (λ >= 30 µm)")
+        , ((02, 04, 00, 0), "IR<10um", "NIR", "Near-IR source (λ < 10 µm)")
+        , ((03, 00, 00, 0), "Red", "red", "Very red source")
+        , ((03, 03, 00, 0), "RedExtreme", "ERO", "Extremely Red Object")
+        , ((04, 00, 00, 0), "Blue", "blu", "Blue object")
+        , ((05, 00, 00, 0), "UV", "UV", "UV-emission source")
+        , ((06, 00, 00, 0), "X", "X", "X-ray source")
+        , ((06, 02, 00, 0), "ULX?", "UX?", "Ultra-luminous X-ray candidate")
+        , ((06, 10, 00, 0), "ULX", "ULX", "Ultra-luminous X-ray source")
+        , ((07, 00, 00, 0), "gamma", "gam", "gamma-ray source")
+        , ((07, 03, 00, 0), "gammaBurst", "gB", "gamma-ray Burst")
+        , ((08, 00, 00, 0), "Inexistent", "err", "Not an object (error, artefact, ...)")
+        , ((09, 00, 00, 0), "Gravitation", "grv", "Gravitational Source")
+        , ((09, 03, 00, 0), "LensingEv", "Lev", "(Micro)Lensing Event")
+        , ((09, 06, 00, 0), "Candidate_LensSystem", "LS?", "Possible gravitational lens System")
+        , ((09, 07, 00, 0), "Candidate_Lens", "Le?", "Possible gravitational lens")
+        , ((09, 08, 00, 0), "Possible_lensImage", "LI?", "Possible gravitationally lensed image")
+        , ((09, 09, 00, 0), "GravLens", "gLe", "Gravitational Lens")
+        , ((09, 11, 00, 0), "GravLensSystem", "gLS", "Gravitational Lens System (lens+images)")
+        , ((10, 00, 00, 0), "Candidates", "..?", "Candidate objects")
+        , ((10, 01, 00, 0), "Possible_G", "G?", "Possible Galaxy")
+        , ((10, 02, 00, 0), "Possible_SClG", "SC?", "Possible Supercluster of Galaxies")
+        , ((10, 03, 00, 0), "Possible_ClG", "C?G", "Possible Cluster of Galaxies")
+        , ((10, 04, 00, 0), "Possible_GrG", "Gr?", "Possible Group of Galaxies")
+        , ((10, 06, 00, 0), "Possible_As*", "As?", "")  -- there appears to be no lable for this
+        , ((10, 11, 00, 0), "Candidate_**", "**?", "Physical Binary Candidate")
+        , ((10, 11, 01, 0), "Candidate_EB*", "EB?", "Eclipsing Binary Candidate")
+        , ((10, 11, 10, 0), "Candidate_Symb*", "Sy?", "Symbiotic Star Candidate")
+        , ((10, 11, 11, 0), "Candidate_CV*", "CV?", "Cataclysmic Binary Candidate")
+        , ((10, 11, 11, 6), "Candidate_Nova", "No?", "Nova Candidate")
+        , ((10, 11, 12, 0), "Candidate_XB*", "XB?", "X-ray binary Candidate")
+        , ((10, 11, 12, 2), "Candidate_LMXB", "LX?", "Low-Mass X-ray binary Candidate")
+        , ((10, 11, 12, 3), "Candidate_HMXB", "HX?", "High-Mass X-ray binary Candidate")
+          -- SimbadType must be 3 characters max, so replace Pec? with Pec
+          -- TODO: this is not ideal!
+          -- , ((10, 12, 00, 0), "Candidate_Pec*", "Pec?", "Possible Peculiar Star")
+        , ((10, 12, 00, 0), "Candidate_Pec*", "Pec", "Possible Peculiar Star")
+        , ((10, 12, 01, 0), "Candidate_YSO", "Y*?", "Young Stellar Object Candidate")
+        , ((10, 12, 02, 0), "Candidate_pMS*", "pr?", "Pre-main sequence Star Candidate")
+        , ((10, 12, 02, 3), "Candidate_TTau*", "TT?", "T Tau star Candidate")
+        , ((10, 12, 03, 0), "Candidate_C*", "C*?", "Possible Carbon Star")
+        , ((10, 12, 04, 0), "Candidate_S*", "S*?", "Possible S Star")
+        , ((10, 12, 05, 0), "Candidate_OH", "OH?", "Possible Star with envelope of OH/IR type")
+        , ((10, 12, 06, 0), "Candidate_CH", "CH?", "Possible Star with envelope of CH type")
+        , ((10, 12, 07, 0), "Candidate_WR*", "WR?", "Possible Wolf-Rayet Star")
+        , ((10, 12, 08, 0), "Candidate_Be*", "Be?", "Possible Be Star")
+        , ((10, 12, 09, 0), "Candidate_Ae*", "Ae?", "Possible Herbig Ae/Be Star")
+        , ((10, 12, 11, 0), "Candidate_HB*", "HB?", "Possible Horizontal Branch Star")
+        , ((10, 12, 11, 2), "Candidate_RRLyr", "RR?", "Possible Star of RR Lyr type")
+        , ((10, 12, 11, 3), "Candidate_Cepheid", "Ce?", "Possible Cepheid")
+        , ((10, 12, 12, 0), "Candidate_RGB*", "RB?", "Possible Red Giant Branch star")
+        , ((10, 12, 13, 0), "Candidate_SG*", "sg?", "Possible Supergiant star")
+        , ((10, 12, 13, 3), "Candidate_RSG*", "s?r", "Possible Red supergiant star")
+        , ((10, 12, 13, 4), "Candidate_YSG*", "s?y", "Possible Yellow supergiant star")
+        , ((10, 12, 13, 5), "Candidate_BSG*", "s?b", "Possible Blue supergiant star")
+        , ((10, 12, 14, 0), "Candidate_AGB*", "AB?", "Asymptotic Giant Branch Star candidate")
+        , ((10, 12, 14, 1), "Candidate_LP*", "LP?", "Long Period Variable candidate")
+        , ((10, 12, 14, 2), "Candidate_Mi*", "Mi?", "Mira candidate")
+        , ((10, 12, 14, 3), "Candiate_sr*", "sv?", "Semi-regular variable candidate")
+        , ((10, 12, 15, 0), "Candidate_post-AGB*", "pA?", "Post-AGB Star Candidate")
+        , ((10, 12, 16, 0), "Candidate_BSS", "BS?", "Candidate blue Straggler Star")
+        , ((10, 12, 18, 0), "Candidate_WD*", "WD?", "White Dwarf Candidate")
+        , ((10, 12, 20, 0), "Candidate_NS", "N*?", "Neutron Star Candidate")
+        , ((10, 12, 22, 0), "Candidate_BH", "BH?", "Black Hole Candidate")
+        , ((10, 12, 23, 0), "Candidate_SN*", "SN?", "SuperNova Candidate")
+        , ((10, 12, 24, 0), "Candidate_low-mass*", "LM?", "Low-mass star candidate")
+        , ((10, 12, 26, 0), "Candidate_brownD*", "BD?", "Brown Dwarf Candidate")
+        , ((12, 00, 00, 0), "multiple_object", "mul", "Composite object")
+        , ((12, 01, 00, 0), "Region", "reg", "Region defined in the sky")
+        , ((12, 01, 05, 0), "Void", "vid", "Underdense region of the Universe")
+        , ((12, 02, 00, 0), "SuperClG", "SCG", "Supercluster of Galaxies")
+        , ((12, 03, 00, 0), "ClG", "ClG", "Cluster of Galaxies")
+        , ((12, 04, 00, 0), "GroupG", "GrG", "Group of Galaxies")
+        , ((12, 04, 05, 0), "Compact_Gr_G", "CGG", "Compact Group of Galaxies")
+        , ((12, 05, 00, 0), "PairG", "PaG", "Pair of Galaxies")
+        , ((12, 05, 05, 0), "IG", "IG", "Interacting Galaxies")
+        , ((12, 09, 00, 0), "Cl*?", "C?*", "Possible (open) star cluster")
+        , ((12, 10, 00, 0), "GlCl?", "Gl?", "Possible Globular Cluster")
+        , ((12, 11, 00, 0), "Cl*", "Cl*", "Cluster of Stars")
+        , ((12, 11, 01, 0), "GlCl", "GlC", "Globular Cluster")
+        , ((12, 11, 02, 0), "OpCl", "OpC", "Open (galactic) Cluster")
+        , ((12, 12, 00, 0), "Assoc*", "As*", "Association of Stars")
+        , ((12, 12, 01, 0), "Stream*", "St*", "Stellar Stream")
+        , ((12, 12, 02, 0), "MouvGroup", "MGr", "Moving Group")
+        , ((12, 13, 00, 0), "**", "**", "Double or multiple star")
+        , ((12, 13, 01, 0), "EB*", "EB*", "Eclipsing binary")
+        , ((12, 13, 01, 1), "EB*Algol", "Al*", "Eclipsing binary of Algol type (detached)")
+        , ((12, 13, 01, 2), "EB*betLyr", "bL*", "Eclipsing binary of beta Lyr type (semi-detached)")
+        , ((12, 13, 01, 3), "EB*WUMa", "WU*", "Eclipsing binary of W UMa type (contact binary)")
+        , ((12, 13, 01, 8), "EB*Planet", "EP*", "Star showing eclipses by its planet")
+        , ((12, 13, 02, 0), "SB*", "SB*", "Spectroscopic binary")
+        , ((12, 13, 05, 0), "EllipVar", "El*", "Ellipsoidal variable Star")
+        , ((12, 13, 10, 0), "Symbiotic*", "Sy*", "Symbiotic Star")
+        , ((12, 13, 11, 0), "CataclyV*", "CV*", "Cataclysmic Variable Star")
+        , ((12, 13, 11, 2), "DQHer", "DQ*", "CV DQ Her type (intermediate polar)")
+        , ((12, 13, 11, 3), "AMHer", "AM*", "CV of AM Her type (polar)")
+        , ((12, 13, 11, 5), "Nova-like", "NL*", "Nova-like Star")
+        , ((12, 13, 11, 6), "Nova", "No*", "Nova")
+        , ((12, 13, 11, 7), "DwarfNova", "DN*", "Dwarf Nova")
+        , ((12, 13, 12, 0), "XB", "XB*", "X-ray Binary")
+        , ((12, 13, 12, 2), "LMXB", "LXB", "Low Mass X-ray Binary")
+        , ((12, 13, 12, 3), "HMXB", "HXB", "High Mass X-ray Binary")
+        , ((13, 00, 00, 0), "ISM", "ISM", "Interstellar matter")
+        , ((13, 01, 00, 0), "PartofCloud", "PoC", "Part of Cloud")
+        , ((13, 02, 00, 0), "PN?", "PN?", "Possible Planetary Nebula")
+        , ((13, 03, 00, 0), "ComGlob", "CGb", "Cometary Globule")
+        , ((13, 04, 00, 0), "Bubble", "bub", "Bubble")
+        , ((13, 06, 00, 0), "EmObj", "EmO", "Emission Object")
+        , ((13, 08, 00, 0), "Cloud", "Cld", "Cloud")
+        , ((13, 08, 03, 0), "GalNeb", "GNe", "Galactic Nebula")
+        , ((13, 08, 04, 0), "BrNeb", "BNe", "Bright Nebula")
+        , ((13, 08, 06, 0), "DkNeb", "DNe", "Dark Cloud (nebula)")
+        , ((13, 08, 07, 0), "RfNeb", "RNe", "Reflection Nebula")
+        , ((13, 08, 12, 0), "MolCld", "MoC", "Molecular Cloud")
+        , ((13, 08, 12, 3), "Globule", "glb", "Globule (low-mass dark cloud)")
+        , ((13, 08, 12, 6), "denseCore", "cor", "Dense core")
+        , ((13, 08, 12, 8), "SFregion", "SFR", "Star forming region")
+        , ((13, 08, 13, 0), "HVCld", "HVC", "High-velocity Cloud")
+        , ((13, 09, 00, 0), "HII", "HII", "HII (ionized) region")
+        , ((13, 10, 00, 0), "PN", "PN", "Planetary Nebula")
+        , ((13, 11, 00, 0), "HIshell", "sh", "HI shell")
+        , ((13, 12, 00, 0), "SNR?", "SR?", "SuperNova Remnant Candidate")
+        , ((13, 13, 00, 0), "SNR", "SNR", "SuperNova Remnant")
+        , ((13, 14, 00, 0), "Circumstellar", "cir", "CircumStellar matter")
+        , ((13, 14, 01, 0), "outflow?", "of?", "Outflow candidate")
+        , ((13, 14, 15, 0), "Outflow", "out", "Outflow")
+        , ((13, 14, 16, 0), "HH", "HH", "Herbig-Haro Object")
+        , ((14, 00, 00, 0), "Star", "*", "Star")
+        , ((14, 01, 00, 0), "*inCl", "*iC", "Star in Cluster")
+        , ((14, 02, 00, 0), "*inNeb", "*iN", "Star in Nebula")
+        , ((14, 03, 00, 0), "*inAssoc", "*iA", "Star in Association")
+        , ((14, 04, 00, 0), "*in**", "*i*", "Star in double system")
+        , ((14, 05, 00, 0), "V*?", "V*?", "Star suspected of Variability")
+        , ((14, 06, 00, 0), "Pec*", "Pe*", "Peculiar Star")
+        , ((14, 06, 01, 0), "HB*", "HB*", "Horizontal Branch Star")
+        , ((14, 06, 02, 0), "YSO", "Y*O", "Young Stellar Object")
+        , ((14, 06, 02, 4), "Ae*", "Ae*", "Herbig Ae/Be star")
+        , ((14, 06, 05, 0), "Em*", "Em*", "Emission-line Star")
+        , ((14, 06, 05, 3), "Be*", "Be*", "Be Star")
+        , ((14, 06, 06, 0), "BlueStraggler", "BS*", "Blue Straggler Star")
+        , ((14, 06, 10, 0), "RGB*", "RG*", "Red Giant Branch star")
+        , ((14, 06, 12, 0), "AGB*", "AB*", "Asymptotic Giant Branch Star (He-burning)")
+        , ((14, 06, 12, 3), "C*", "C*", "Carbon Star")
+        , ((14, 06, 12, 6), "S*", "S*", "S Star")
+        , ((14, 06, 13, 0), "SG*", "sg*", "Evolved supergiant star")
+        , ((14, 06, 13, 3), "RedSG*", "s*r", "Red supergiant star")
+        , ((14, 06, 13, 4), "YellowSG*", "s*y", "Yellow supergiant star")
+        , ((14, 06, 13, 5), "BlueSG*", "s*b", "Blue supergiant star")
+        , ((14, 06, 15, 0), "post-AGB*", "pA*", "Post-AGB Star (proto-PN)")
+        , ((14, 06, 16, 0), "WD*", "WD*", "White Dwarf")
+        , ((14, 06, 16, 1), "pulsWD*", "ZZ*", "Pulsating White Dwarf")
+        , ((14, 06, 17, 0), "low-mass*", "LM*", "Low-mass star (M<1solMass)")
+        , ((14, 06, 18, 0), "brownD*", "BD*", "Brown Dwarf (M<0.08solMass)")
+        , ((14, 06, 19, 0), "Neutron*", "N*", "Confirmed Neutron Star")
+        , ((14, 06, 23, 0), "OH/IR", "OH*", "OH/IR star")
+        , ((14, 06, 24, 0), "CH", "CH*", "Star with envelope of CH type")
+        , ((14, 06, 25, 0), "pMS*", "pr*", "Pre-main sequence Star")
+        , ((14, 06, 25, 3), "TTau*", "TT*", "T Tau-type Star")
+        , ((14, 06, 30, 0), "WR*", "WR*", "Wolf-Rayet Star")
+        , ((14, 07, 00, 0), "PM*", "PM*", "High proper-motion Star")
+        , ((14, 08, 00, 0), "HV*", "HV*", "High-velocity Star")
+        , ((14, 09, 00, 0), "V*", "V*", "Variable Star")
+        , ((14, 09, 01, 0), "Irregular_V*", "Ir*", "Variable Star of irregular type")
+        , ((14, 09, 01, 1), "Orion_V*", "Or*", "Variable Star of Orion Type")
+        , ((14, 09, 01, 2), "Rapid_Irreg_V*", "RI*", "Variable Star with rapid variations")
+        , ((14, 09, 03, 0), "Eruptive*", "Er*", "Eruptive variable Star")
+        , ((14, 09, 03, 1), "Flare*", "Fl*", "Flare Star")
+        , ((14, 09, 03, 2), "FUOr", "FU*", "Variable Star of FU Ori type")
+        , ((14, 09, 03, 4), "Erupt*RCrB", "RC*", "Variable Star of R CrB type")
+        , ((14, 09, 03, 5), "RCrB_Candidate", "RC?", "Variable Star of R CrB type candiate")
+        , ((14, 09, 04, 0), "RotV*", "Ro*", "Rotationally variable Star")
+        , ((14, 09, 04, 1), "RotV*alf2CVn", "a2*", "Variable Star of alpha2 CVn type")
+        , ((14, 09, 04, 3), "Pulsar", "Psr", "Pulsar")
+        , ((14, 09, 04, 4), "BYDra", "BY*", "Variable of BY Dra type")
+        , ((14, 09, 04, 5), "RSCVn", "RS*", "Variable of RS CVn type")
+        , ((14, 09, 05, 0), "PulsV*", "Pu*", "Pulsating variable Star")
+        , ((14, 09, 05, 2), "RRLyr", "RR*", "Variable Star of RR Lyr type")
+        , ((14, 09, 05, 3), "Cepheid", "Ce*", "Cepheid variable Star")
+        , ((14, 09, 05, 5), "PulsV*delSct", "dS*", "Variable Star of delta Sct type")
+        , ((14, 09, 05, 6), "PulsV*RVTau", "RV*", "Variable Star of RV Tau type")
+        , ((14, 09, 05, 7), "PulsV*WVir", "WV*", "Variable Star of W Vir type")
+        , ((14, 09, 05, 8), "PulsV*bCep", "bC*", "Variable Star of beta Cep type")
+        , ((14, 09, 05, 9), "deltaCep", "cC*", "Classical Cepheid (delta Cep type)")
+        , ((14, 09, 05, 10), "gammaDor", "gD*", "Variable Star of gamma Dor type")
+        , ((14, 09, 05, 11), "pulsV*SX", "SX*", "Variable Star of SX Phe type (subdwarf)")
+        , ((14, 09, 06, 0), "LPV*", "LP*", "Long-period variable star")
+        , ((14, 09, 06, 1), "Mira", "Mi*", "Variable Star of Mira Cet type")
+        , ((14, 09, 06, 4), "semi-regV*", "sr*", "Semi-regular pulsating Star")
+        , ((14, 09, 08, 0), "SN", "SN*", "SuperNova")
+        , ((14, 14, 00, 0), "Sub-stellar", "su*", "Sub-stellar object")
+        , ((14, 14, 02, 0), "Planet?", "Pl?", "Extra-solar Planet Candidate")
+        , ((14, 14, 10, 0), "Planet", "Pl", "Extra-solar Confirmed Planet")
+        , ((15, 00, 00, 0), "Galaxy", "G", "Galaxy")
+        , ((15, 01, 00, 0), "PartofG", "PoG", "Part of a Galaxy")
+        , ((15, 02, 00, 0), "GinCl", "GiC", "Galaxy in Cluster of Galaxies")
+        , ((15, 02, 02, 0), "BClG", "BiC", "Brightest galaxy in a Cluster (BCG)")
+        , ((15, 03, 00, 0), "GinGroup", "GiG", "Galaxy in Group of Galaxies")
+        , ((15, 04, 00, 0), "GinPair", "GiP", "Galaxy in Pair of Galaxies")
+        , ((15, 05, 00, 0), "High_z_G", "HzG", "Galaxy with high redshift")
+        , ((15, 06, 00, 0), "AbsLineSystem", "ALS", "Absorption Line system")
+        , ((15, 06, 01, 0), "Ly-alpha_ALS", "LyA", "Ly alpha Absorption Line system")
+        , ((15, 06, 02, 0), "DLy-alpha_ALS", "DLA", "Damped Ly-alpha Absorption Line system")
+        , ((15, 06, 03, 0), "metal_ALS", "mAL", "metallic Absorption Line system")
+        , ((15, 06, 05, 0), "Ly-limit_ALS", "LLS", "Lyman limit system")
+        , ((15, 06, 08, 0), "Broad_ALS", "BAL", "Broad Absorption Line system")
+        , ((15, 07, 00, 0), "RadioG", "rG", "Radio Galaxy")
+        , ((15, 08, 00, 0), "HII_G", "H2G", "HII Galaxy")
+        , ((15, 09, 00, 0), "LSB_G", "LSB", "Low Surface Brightness Galaxy")
+        , ((15, 10, 00, 0), "AGN_Candidate", "AG?", "Possible Active Galaxy Nucleus")
+        , ((15, 10, 07, 0), "QSO_Candidate", "Q?", "Possible Quasar")
+        , ((15, 10, 11, 0), "Blazar_Candidate", "Bz?", "Possible Blazar")
+        , ((15, 10, 17, 0), "BLLac_Candidate", "BL?", "Possible BL Lac")
+        , ((15, 11, 00, 0), "EmG", "EmG", "Emission-line galaxy")
+        , ((15, 12, 00, 0), "StarburstG", "SBG", "Starburst Galaxy")
+        , ((15, 13, 00, 0), "BlueCompG", "bCG", "Blue compact Galaxy")
+        , ((15, 14, 00, 0), "LensedImage", "LeI", "Gravitationally Lensed Image")
+        , ((15, 14, 01, 0), "LensedG", "LeG", "Gravitationally Lensed Image of a Galaxy")
+        , ((15, 14, 07, 0), "LensedQ", "LeQ", "Gravitationally Lensed Image of a Quasar")
+        , ((15, 15, 00, 0), "AGN", "AGN", "Active Galaxy Nucleus")
+        , ((15, 15, 01, 0), "LINER", "LIN", "LINER-type Active Galaxy Nucleus")
+        , ((15, 15, 02, 0), "Seyfert", "SyG", "Seyfert Galaxy")
+        , ((15, 15, 02, 1), "Seyfert_1", "Sy1", "Seyfert 1 Galaxy")
+        , ((15, 15, 02, 2), "Seyfert_2", "Sy2", "Seyfert 2 Galaxy")
+        , ((15, 15, 03, 0), "Blazar", "Bla", "Blazar")
+        , ((15, 15, 03, 1), "BLLac", "BLL", "BL Lac - type object")
+        , ((15, 15, 03, 2), "OVV", "OVV", "Optically Violently Variable object")
+        , ((15, 15, 04, 0), "QSO", "QSO", "Quasar")
+        ]
+
+  in check (rights (map rowConv stbl))
+
+
+-- | Return the matching code for the type.
+--
+--   As there's no compile-time check that there's a match between
+--   the two, return a Maybe.
+--
+simbadTypeToCode :: SimbadType -> Maybe SimbadCode
+simbadTypeToCode stype =
+  case dropWhile ((/= stype) . _2) simbadLabels of
+    ((sc, _, _):_) -> Just sc
+    [] -> Nothing
+
+
+-- | Return the long description for the type.
+--
+--   As there's no compile-time check that there's a match between
+--   the two, return a Maybe.
+--
+simbadTypeToDesc :: SimbadType -> Maybe String
+simbadTypeToDesc stype =
+  case dropWhile ((/= stype) . _2) simbadLabels of
+    ((_, _, txt):_) -> Just (T.unpack txt)
+    [] -> Nothing
+
+
+-- | Do we have a child type (i.e. an element on the branch of
+--   the parent).
+--
+isChildType ::
+  SimbadCode -- ^ parent
+  -> SimbadCode  -- ^ potential child
+  -> Bool
+isChildType parent child =
+  let toA SimbadCode{..} = [_sc1, _sc2, _sc3, _sc4]
+      p = take plvl (toA parent)
+      c = take clvl (toA child)
+
+      plvl = _scLevel parent
+      clvl = _scLevel child
+  
+  in if _scLevel parent >= _scLevel child
+     then False
+     else p == c
+  
+-- | validate input arguments
+
+toSC4 :: Int -> Int -> Int -> Int -> Either String SimbadCode
+toSC4 sc1 sc2 sc3 sc4 = do
+  i1 <- ivalidate sc1 0 15 "1"
+  i2 <- ivalidate sc2 0 15 "2"
+  i3 <- ivalidate sc3 0 30 "3"
+  i4 <- ivalidate sc4 0 11 "4"
+  let lvl = 4 - length (takeWhile (==True) (map (==0) [i4, i3, i2]))
+  return (SimbadCode i1 i2 i3 i4 lvl)
+  
+ivalidate :: Int -> Int -> Int -> String -> Either String Int
+ivalidate v minv maxv lbl =
+  if v >= minv && v <= maxv
+  then Right v
+  else Left ("Component " ++ lbl ++ " range " ++ show minv ++
+     " to " ++ show maxv ++ " sent " ++ show v)
+
+-- | Given a Simbad type, identify all the children
+--   of that type. The parent is not included in the
+--   return list.
+--
+--   This is not guaranteed to be efficient!
+--
+findChildTypes ::
+  SimbadType
+  -> [(SimbadCode, SimbadType, T.Text)]  -- ^ empty for unknown types or leaf nodes.
+findChildTypes parent =
+  let futures = dropWhile ((/= parent) . _2) simbadLabels
+      getLevel = _scLevel . _1
+  in case futures of
+    (x:xs) -> takeWhile ((> getLevel x) . getLevel) xs
+    [] -> []
+
+
+_1 :: (a, b, c) -> a
+_1 (f1, _, _) = f1
+
+_2 :: (a, b, c) -> b
+_2 (_, f2, _) = f2
+
+_3 :: (a, b, c) -> c
+_3 (_, _, f3) = f3
+
 
 -- | Which SIMBAD should be queried (this is in case one is down).
 --

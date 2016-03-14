@@ -93,6 +93,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getSimbadInfo
                  -- , findObsId
                  , fetchSIMBADType
+                 , fetchSIMBADDescendentTypes
                  , fetchObjectTypes 
                  , fetchConstellation
                  , fetchConstellationTypes
@@ -359,6 +360,8 @@ webapp cm mgr = do
       querySchedule (7 * nweeks)
 
     -- TODO: also need a HEAD request version
+    -- This returns only those observations that match this
+    -- type; contrast with /seatch/dtype/:type
     get "/search/type/:type" $ do
       matches <- snd <$> dbQuery "type" fetchSIMBADType
       case matches of
@@ -371,6 +374,30 @@ webapp cm mgr = do
     get "/search/type/" $ do
       matches <- liftSQL fetchObjectTypes
       fromBlaze (SearchTypes.indexPage matches)
+
+    -- TODO: also need a HEAD request version
+    --     FOR TESTING
+    get "/search/dtype/" $ do
+      matches <- liftSQL fetchObjectTypes
+      fromBlaze (SearchTypes.dependencyPage matches)
+
+    -- This returns those observations that match this
+    -- type and any "sub types"; contrast with /seatch/type/:type
+    -- TODO: also need a HEAD request version
+    get "/search/dtype/:type" $ do
+      (types, matches) <- snd <$> dbQuery "type" fetchSIMBADDescendentTypes
+      if null types || nullSL matches
+        then next -- status status404
+        else do
+          -- TODO: want a slightly different match page
+          sched <- liftSQL (makeSchedule (fmap Right matches))
+          fromBlaze (SearchTypes.matchDependencyPage types sched)
+
+    -- TODO: this is for testing, but I think it is generally
+    --       useful to provide a JSON api
+    get "/api/search/dtype.json" $ do
+      matches <- liftSQL fetchObjectTypes
+      json (SearchTypes.renderDependencyJSON matches)
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do

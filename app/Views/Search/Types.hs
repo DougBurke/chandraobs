@@ -2,27 +2,45 @@
 
 -- | Search on SIMBAD object type.
 
-module Views.Search.Types (indexPage, matchPage) where
+module Views.Search.Types (indexPage, dependencyPage
+                          , matchPage
+                          , matchDependencyPage
+                          , renderDependencyJSON) where
 
--- import qualified Prelude as P
-import Prelude ((.), ($), (++), Int, String, compare, fst, length, mapM_, show, snd, uncurry)
+import qualified Prelude as P
+import Prelude ((.), ($), (==), (+), Int, String
+               , compare, error, fst, length, lookup, mapM_, maybe
+               , snd, sum, uncurry, unzip)
 
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy.Char8 as LB8
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Control.Monad (void)
+
+import Data.Aeson ((.=))
 import Data.Function (on)
-import Data.List (sortBy)
-import Data.Monoid ((<>), mconcat)
+import Data.List (groupBy, intersperse, sortBy)
+import Data.Monoid ((<>), mconcat, mempty)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), SimbadType(..), SimbadTypeInfo)
-import Utils (defaultMeta, skymapMeta, renderFooter
-             , cssLink, typeLinkSearch, getNumObs)
+import Types (Schedule(..), SimbadType(..), SimbadTypeInfo, SimbadCode(..)
+             , simbadLabels, _2)
+import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
+             , jsScript , cssLink
+             , typeLinkSearch
+             , typeDLinkSearch
+             , typeDLinkURI
+             , getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
+-- | A simple tabular view of the explicit object types
 indexPage :: 
   [(SimbadTypeInfo, Int)]
   -> Html
@@ -37,6 +55,29 @@ indexPage objs =
      (mainNavBar CPOther
       <> (div ! id "schedule") 
           (renderTypes objs)
+      <> renderFooter
+     )
+
+-- | Show the "full" object hierarcy (at least, as much as we have)
+--   and allow the user to zoom around in it.
+--
+dependencyPage :: 
+  [(SimbadTypeInfo, Int)]
+  -> Html
+dependencyPage objs =
+  docTypeHtml ! lang "en-US" $
+    head (H.title "Chandra observations (dendogram view of SIMBAD objects)"
+          <> defaultMeta
+          <> d3Meta
+          <> jsScript "/js/simbad-tree.js"
+          <> cssLink "/css/simbad-tree.css"
+          <> (cssLink "/css/main.css" ! A.title  "Default")
+          )
+    <>
+    (body ! onload "createTree(typeinfo);")
+     (mainNavBar CPOther
+      <> (div ! id "schedule") 
+          (renderDependency objs)
       <> renderFooter
      )
 
@@ -59,6 +100,35 @@ matchPage typeInfo sched =
      (mainNavBar CPOther
       <> (div ! id "schedule") 
           (renderMatches lbl sched)
+      <> renderFooter
+     )
+
+matchDependencyPage :: 
+  [SimbadTypeInfo] -- ^ guaranteed not to be empty
+  -> Schedule  -- the observations that match this type, organized into a "schedule"
+  -> Html
+matchDependencyPage typeInfos sched =
+  let typeInfo0 = P.head typeInfos
+      lbl = niceType typeInfo0
+
+      -- TODO: rewrite, re-position, and make links
+      toLink = P.uncurry typeDLinkSearch 
+      typeLbls = intersperse ", " (P.map toLink (P.tail typeInfos))
+      typePara = if P.null typeLbls
+                 then mempty
+                 else p ("Includes types: " <> mconcat typeLbls <> ".")
+      
+  in docTypeHtml ! lang "en-US" $
+    head (H.title ("Chandra observations of " <> H.toHtml lbl)
+          <> defaultMeta
+          <> skymapMeta
+          <> (cssLink "/css/main.css" ! A.title  "Default")
+          )
+    <>
+    (body ! onload "createMap(obsinfo);")
+     (mainNavBar CPOther
+      <> (div ! id "schedule")
+          (typePara P.>> (renderMatches lbl sched))
       <> renderFooter
      )
 
@@ -109,15 +179,169 @@ renderTypes objs =
                         td (toHtml n)
 
       sobjs = sortBy (compare `on` (snd.fst)) objs
+      str :: String -> H.Html
+      str = toHtml
   in div $ do
     p $ do
-      toHtml ("There are " ++ show (length objs) ++ " object types. These types are taken from ")
-      a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X" $ "the SIMBAD database"
-      toHtml ("."::String)
+      str "The target names set by the proposal writers were used to identify "
+      str "the object types using "
+      (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
+      str ". Not all objects could be found, so the following list is "
+      str "incomplete (and does not include so-called serendipitous sources, "
+      str "that is, those sources that are near-enough to the target to also "
+      str "be observed by Chandra). The table below does not indicate the "
+      str "SIMBAD hierarchy; to see how these object types are related visit "
+      (a ! href "/search/dtype/") "the SIMBAD dendogram view"
+      str "."
     table $ do
              thead $ tr $ do
                th "Object Type"
                th "Number of objects"
              tbody $
                mapM_ toRow sobjs
-             
+
+
+-- | Silently remove any for which there's no code, adds elements
+--   with 0 values to match the full SIMBAD hierarchy, and
+--   then groups by the simbad code.
+--
+addCode ::
+  [(SimbadTypeInfo, Int)]
+  -> [((SimbadType, T.Text), SimbadCode, Int)]
+addCode user =
+  let user2 = P.map (\((st, _), n) -> (st, n)) user
+      out st txt sc n = ((st, txt), sc, n)
+      conv (sc, st, txt) = maybe (out st txt sc 0) (out st txt sc) (lookup st user2)
+  in P.map conv simbadLabels
+
+toTree ::
+  [((SimbadType, T.Text), SimbadCode, Int)]
+  -- ^ this is assumed to be the full hierarchy, so can have elements
+  --   with a count of zero.
+  -> Aeson.Value
+toTree sl =
+  let -- just hard code things for now
+      g x = groupBy ((==) `on` (x . _2))
+      g1 = g _sc1
+      g2 = g _sc2
+      g3 = g _sc3
+
+      c1 = g1 sl
+
+      short = fromSimbadType . fst
+      mkLink = B8.unpack . typeDLinkURI . fst
+
+      -- the assumption is that the first element in this list is the level-1
+      -- value
+      toChild1 [] = error "empty list"
+      toChild1 ((st,sc,n):xs) =
+        let lvl = _scLevel sc
+            ntot = n + sum ns
+            obj = [ "name" .= snd st
+                  , "level" .= lvl
+                  , "shortName" .= short st
+                  , "searchLink" .= mkLink st
+                  , "size" .= ntot]
+
+            l2 = g2 xs
+            (ns, cs) = unzip (P.map toChild2 l2)
+
+        in Aeson.object (if length xs == 0
+                         then obj
+                         else "children" .= cs : obj)
+        
+      toChild2 [] = (0, Aeson.object [])
+      toChild2 ((st,sc,n):xs) =
+        let lvl = _scLevel sc
+            ntot = n + sum ns
+            obj = [ "name" .= snd st
+                  , "level" .= lvl
+                  , "shortName" .= short st
+                  , "searchLink" .= mkLink st
+                  , "size" .= ntot]
+
+            l3 = g3 xs
+            (ns, cs) = unzip (P.map toChild3 l3)
+
+        in (ntot, Aeson.object (if length xs == 0
+                                then obj
+                                else "children" .= cs : obj))
+        
+      toChild3 [] = (0, Aeson.object [])
+      toChild3 ((st,sc,n):xs) =
+        let lvl = _scLevel sc
+            ntot = n + sum ns
+            obj = [ "name" .= snd st
+                  , "level" .= lvl
+                  , "shortName" .= short st
+                  , "searchLink" .= mkLink st
+                  , "size" .= ntot]
+
+            (ns, cs) = unzip (P.map toChild4 xs)
+
+        in (ntot, Aeson.object (if length xs == 0
+                                then obj
+                                else "children" .= cs : obj))
+        
+      toChild4 (st,sc,n) =
+        let lvl = _scLevel sc
+            obj = [ "name" .= snd st
+                  , "level" .= lvl
+                  , "shortName" .= short st
+                  , "searchLink" .= mkLink st
+                  , "size" .= n]
+        in (n, Aeson.object obj)
+        
+  in Aeson.object [ "name" .= ("all" :: String),
+                    "children" .= P.map toChild1 c1 ]
+
+-- | Create the SIMBAD dependency graph and render it.
+--
+renderDependency ::
+  [(SimbadTypeInfo, Int)]
+  -> Html
+renderDependency objs = 
+  let xs = toTree (addCode objs)
+        
+      svgBlock = do
+        div ! id "tree" $ ""
+        script ! type_ "text/javascript" $ do
+                   void "var typeinfo = "
+                   toHtml (LB8.unpack (Aeson.encode xs))
+                   ";"
+
+      str :: String -> H.Html
+      str = toHtml
+
+  in div $ do
+    p $ do
+      str "The target names set by the proposal writers were used to identify "
+      str "the object types using "
+      (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
+      str ". Not all objects could be found, so the following list is "
+      str "incomplete (and does not include so-called serendipitous sources, "
+      str "that is, those sources that are near-enough to the target to also "
+      str "be observed by Chandra). The "
+      (a ! href "https://en.wikipedia.org/wiki/Dendrogram") "dendogram view"
+      str " is used to show the SIMBAD hierarchy. Selecting a circle will "
+      str "close or open the children of the item (i.e. those types that are "
+      str "more specific than the selected item); a filled circle shows that "
+      str "the item has been closed (or hidden). "
+      -- note what the numbers show and how the links work
+      str "The number after a name indicates the number of objects that "
+      str "have this type, or are a descendent of this type, and "
+      str "selecting the type will show the observations of these "
+      str "objects. "
+      str "For a simpler view, which just lists the SIMBAD types but does "
+      str "not show the hierarchy, is available at "
+      (a ! href "/search/type/") "the SIMBAD types view"
+      str "."
+
+    svgBlock
+
+-- | for testing; may want to support something like this more generally
+renderDependencyJSON ::
+  [(SimbadTypeInfo, Int)]
+  -> Aeson.Value
+renderDependencyJSON = toTree . addCode
+  

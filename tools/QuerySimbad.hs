@@ -201,10 +201,6 @@ groupSorted ((a,b):xs) = go a [b] [] xs
 
 -}
 
--- not pulling in Lens for this, so hard code it for our needs
-_2 :: (a, b, c) -> b
-_2 (_, b, _) = b
-
 blag :: (MonadIO m) => Bool -> String -> m ()
 blag f = when f . putIO
 

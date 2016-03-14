@@ -1,0 +1,27 @@
+
+
+.node {
+  cursor: pointer;
+}
+
+.node circle {
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+// Thanks to
+// http://stackoverflow.com/questions/13728513/how-to-include-links-in-a-d3-visualisations-text-element
+// for the pointer-events tip
+//
+.node text {
+  font: 10px sans-serif;
+  pointer-events: all; // not sure where best place for this is
+}
+
+.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+
