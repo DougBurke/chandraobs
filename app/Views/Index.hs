@@ -5,7 +5,7 @@
 module Views.Index (introPage, noDataPage, noObsIdPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), Bool(..), Maybe(..), const, either, fst, snd)
+import Prelude (($), Bool(..), Maybe(..), const, either)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -79,13 +79,14 @@ tourElements =
 introPage :: 
   UTCTime     -- current time
   -> ObsInfo 
-  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
+  -- other observations in the proposal
   -> Html
 introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
   let initialize = "initialize(); addTour();"
 
-      mprop = fst (snd dbInfo)
-      imgLinks = either (const mempty) (renderLinks True mprop) currentObs
+      (msimbad, (mprop, _)) = dbInfo
+      imgLinks = either (const mempty) (renderLinks True mprop msimbad) currentObs
 
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>
