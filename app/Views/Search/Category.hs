@@ -67,8 +67,8 @@ renderMatches ::
   String           -- ^ Category name
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderMatches cat (Schedule cTime _ done mdoing todo) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderMatches cat (Schedule cTime _ done mdoing todo simbad) = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
       
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml cat

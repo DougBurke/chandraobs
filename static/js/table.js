@@ -11,13 +11,14 @@ $(document).ready(function() {
         type: 'numeric'
     });
 
-        $("#scheduledObs").tablesorter( {
-            headers: { 1: { sorter: 'extsort' },
-                       2: { sorter: 'extsort' },
-                       6: { sorter: 'extsort' },
-                       7: { sorter: 'extsort' },
-                       8: { sorter: 'extsort' }
-                     }
-            }
-         ); 
+    // column numbers start at 0
+    $("#scheduledObs").tablesorter( {
+        headers: { 2: { sorter: 'extsort' },
+                   3: { sorter: 'extsort' },
+                   7: { sorter: 'extsort' },
+                   8: { sorter: 'extsort' },
+                   9: { sorter: 'extsort' }
+                 }
+        }
+     ); 
 }); 

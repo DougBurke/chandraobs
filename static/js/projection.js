@@ -154,7 +154,10 @@ function createMap(coords, conInfo) {
     .on('mouseover', function(d) { selectObs(d.idname); })
     .on('mouseout', function(d) { deselectObs(d.idname); })
     .append("title")
-      .text(function(d) { return d.label; });  
+        .text(function(d) {
+            if (!d.simbadType) { return d.label }
+            else { return d.label + " - " + d.simbadType; }
+        });  
 
 }
 

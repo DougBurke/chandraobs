@@ -24,7 +24,7 @@ import Control.Monad (void)
 import Data.Aeson ((.=))
 import Data.Function (on)
 import Data.List (groupBy, intersperse, sortBy)
-import Data.Monoid ((<>), mconcat, mempty)
+import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -99,7 +99,7 @@ matchPage typeInfo sched =
     (body ! onload "createMap(obsinfo);")
      (mainNavBar CPOther
       <> (div ! id "schedule") 
-          (renderMatches lbl sched)
+          (renderMatches lbl sched [])
       <> renderFooter
      )
 
@@ -111,13 +111,6 @@ matchDependencyPage typeInfos sched =
   let typeInfo0 = P.head typeInfos
       lbl = niceType typeInfo0
 
-      -- TODO: rewrite, re-position, and make links
-      toLink = P.uncurry typeDLinkSearch 
-      typeLbls = intersperse ", " (P.map toLink (P.tail typeInfos))
-      typePara = if P.null typeLbls
-                 then mempty
-                 else p ("Includes types: " <> mconcat typeLbls <> ".")
-      
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observations of " <> H.toHtml lbl)
           <> defaultMeta
@@ -128,7 +121,7 @@ matchDependencyPage typeInfos sched =
     (body ! onload "createMap(obsinfo);")
      (mainNavBar CPOther
       <> (div ! id "schedule")
-          (typePara P.>> (renderMatches lbl sched))
+          (renderMatches lbl sched (P.tail typeInfos))
       <> renderFooter
      )
 
@@ -142,9 +135,20 @@ niceType (_, l) = l
 renderMatches ::
   String           -- ^ SIMBAD type, as a string
   -> Schedule      -- ^ non-empty list of matches
+  -> [SimbadTypeInfo]  -- ^ children of this type included in the page (if any)
   -> Html
-renderMatches lbl (Schedule cTime _ done mdoing todo) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+
+      -- TODO: rewrite, re-position, and make links
+      toLink = P.uncurry typeDLinkSearch 
+      typeLbls = intersperse ", " (P.map toLink children)
+      childTxt = case typeLbls of
+        [] -> "."
+        [c] -> "; this includes the " <> c <> " type."
+        _ -> "; the following types are included: "
+             <> mconcat typeLbls <> "."
+      
 
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml lbl
@@ -155,14 +159,17 @@ renderMatches lbl (Schedule cTime _ done mdoing todo) =
     p $ mconcat
         [ "This page shows the observations of "
         , toHtml lbl
-        , " objects by Chandra; the determination of the object type is "
-        , "taken from the target name created by the observer, and is "
-        , "often not sufficient to identify it in "
+        , " objects by Chandra"
+        , childTxt
+        , "The object type is based on the target name created by the "
+        , "observer, and is often not sufficient to identify it in "
         , (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "SIMBAD"
-        , "."
+        , ", which is why not all observations have a type (it is also "
+        , "true that the Chandra field of view is large enough to contain "
+        , "more objects than just the observation target!). "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
+        , ", and the format used here is the same as that of the "
         , (a ! href "/schedule") "schedule view"
         , "."
         ]

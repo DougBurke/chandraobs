@@ -9,6 +9,7 @@ module Views.Render ( makeSchedule
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+), Int, Integer, Either(..), Maybe(..), Show, String, map, mapM_, maybe, return, show, truncate)
 
+import qualified Data.Map.Strict as M
 -- import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -24,15 +25,20 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..), RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..))
-import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, recordInstrument, recordGrating, recordRa, recordDec, showExp)
-import Utils (obsURIString,
-              showTimeDeltaFwd, showTimeDeltaBwd,
-              linkToRecord
-              , instLinkSearch
-              , constellationLinkSearch
-              , cleanJointName
-              )
+import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
+             , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
+             , SimbadInfo(..), Record)
+import Types (recordObsId, recordTarget, recordStartTime, recordTime
+             , recordInstrument, recordGrating, recordRa, recordDec
+             , showExp)
+import Utils (obsURIString
+             , showTimeDeltaFwd, showTimeDeltaBwd
+             , linkToRecord
+             , instLinkSearch
+             , typeDLinkSearch
+             , constellationLinkSearch
+             , cleanJointName
+             )
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
@@ -42,21 +48,30 @@ idLabel = ("i" <>) . show . fromObsId . recordObsId
 -- | Create a graph and table representing the
 --   available observations.
 --
---   Can we also send in the mapping to simbad type,
---   where they exist, so this can be added as a
---   column?
+--   The column search javascript code must be updated
+--   if any columns are added or removed. This is in
+--   static/js/table.js
 --
 makeSchedule ::
   UTCTime          -- current time
   -> [Record]      -- observations in the past
   -> Maybe Record  -- the current observation (if there is one)
   -> [Record]      -- observations in the future
+  -> M.Map String SimbadInfo
+  -- Target information (may be empty)
   -> (Html, Html)  -- ("graph", table)
-makeSchedule cTime done mdoing todo =
+makeSchedule cTime done mdoing todo simbad =
   let instVal r = fromMaybe "n/a" $ do
         inst <- recordInstrument r
         grat <- recordGrating r
         return $ instLinkSearch inst <> if grat == NONE then mempty else " with " <> toHtml grat
+
+      -- TODO: add in a sortvalue for this column so that "n/a" and "" can be
+      --       moved before or after the other types
+      linkToSimbad (Left _) = ""
+      linkToSimbad (Right so) = case M.lookup (soTarget so) simbad of
+        Just si -> typeDLinkSearch (smiType3 si) (smiType si)
+        Nothing -> "n/a"
 
       -- convert UTCTime to an integer; this does not have to
       -- special case unscheduled records where the time is set
@@ -116,27 +131,29 @@ makeSchedule cTime done mdoing todo =
 
       toRow :: (ChandraTime -> String) -> Record -> Html
       toRow ct r = hover r $ do
-         td $ linkToRecord r
+         td (linkToRecord r)
+         td (linkToSimbad r)
          td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
          td ! dataAttribute "sortvalue" (aTime r)
             ! class_ "starttime" 
               $ toHtml (ct (recordStartTime r))
-         td $ instVal r
+         td (instVal r)
 
-         td $ showJoint r
-         td $ showTOO r
+         td (showJoint r)
+         td (showTOO r)
          {-
          td $ showConstraint soTimeCritical r
          td $ showConstraint soMonitor r
          td $ showConstraint soConstrained r
          -}
-         td ! dataAttribute "sortValue" (toValue (constraintScore r)) $ constraintText r
+         (td ! dataAttribute "sortValue" (toValue (constraintScore r)))
+           (constraintText r)
 
          let ra = recordRa r
              dec = recordDec r
-         td ! dataAttribute "sortvalue" (toValue ra)  $ toHtml ra
-         td ! dataAttribute "sortvalue" (toValue dec) $ toHtml dec
-         td $ showConstellation r
+         (td ! dataAttribute "sortvalue" (toValue ra))  (toHtml ra)
+         (td ! dataAttribute "sortvalue" (toValue dec)) (toHtml dec)
+         td (showConstellation r)
 
       cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
       pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
@@ -151,6 +168,7 @@ makeSchedule cTime done mdoing todo =
       tblBlock = table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
                     thead $ tr $ do
                       th "Target"
+                      th "Object type"
                       th "Exposure time"
                       th "Start"
                       th "Instrument"
@@ -171,16 +189,26 @@ makeSchedule cTime done mdoing todo =
                       mapM_ nRow todo
 
       -- gah - manual conversion to JSON
+      -- TODO: create a JSON object and then let Aeson serialize it
+      --       it
       dataRow :: String -> Record -> Html
       dataRow s r =
         let (x, y) = getLongLat r
+            -- repeats the linkToSimbad logic; but this time assumes that
+            -- it is safe to include non-science obs as they won't match
+            sinfo = case M.lookup (recordTarget r) simbad of
+              Just si -> ", simbadType: " <> conv (smiType si)
+              Nothing -> ""
+              
         -- we want to store the raw values, so extract numeric values from
-        -- RA/Dec/time/... where appropriate    
+        -- RA/Dec/time/... where appropriate
+        -- could also include object type if available
         in mconcat [" { longitude: ", toHtml (180 - _unRA x),
                     ", latitude: ", toHtml (_unDec y),
                     ", texp: ", toHtml (_toS (recordTime r)),
                     ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),
+                    sinfo,
                     ", urifrag: ", conv (obsURIString (recordObsId r)),
                     ", status: ", conv s
                    , " }, "

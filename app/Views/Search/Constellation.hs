@@ -77,8 +77,8 @@ renderMatches ::
   String           -- ^ Constellation name
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderMatches lbl (Schedule cTime _ done mdoing todo) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderMatches lbl (Schedule cTime _ done mdoing todo simbad) = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
       conLink cname =
         let clean c | c == ' '  = '_'

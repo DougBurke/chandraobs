@@ -83,14 +83,16 @@ module Database ( getCurrentObs
 import Control.Applicative ((<$>))
 #endif
 
+import qualified Data.Map.Strict as M
+
 import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
 import Data.Either (partitionEithers)
 import Data.Function (on)
-import Data.List (group, groupBy, sortBy)
-import Data.Maybe (fromMaybe, isNothing, listToMaybe, mapMaybe)
+import Data.List (group, groupBy, nub, sortBy)
+import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
@@ -432,7 +434,8 @@ getSchedule ndays = do
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
 
-  return (Schedule now ndays done mdoing todo)
+  simbad <- getSimbadList res
+  return (Schedule now ndays done mdoing todo simbad)
 
 -- | Creates a schedule structure of the list of observations.
 --
@@ -462,7 +465,30 @@ makeSchedule rs = do
       cnow = ChandraTime now
       (done, todo) = span ((<= cnow) . recordStartTime) others
 
-  return (Schedule now 0 done (listToMaybe nows) todo)
+  simbad <- getSimbadList cleanrs
+  return (Schedule now 0 done (listToMaybe nows) todo simbad)
+
+
+getSimbadList ::
+  PersistBackend m
+  => [Record]  -- ^ records; assumed to be filtered
+  -> m (M.Map String SimbadInfo)
+getSimbadList rs = do
+  let getName = either (const Nothing) (Just . soTarget)
+      tnames = nub (mapMaybe getName rs)
+
+  -- Is it best to index on target name or ObsId or ...?
+  mtargets <- forM tnames $ \tname -> do
+    ans <- project SmmInfoField ((SmmTargetField ==. tname) `limitTo` 1)
+    case ans of
+      [key] -> do
+        val <- get key
+        return ((tname, ) <$> val)
+      _ -> return Nothing
+
+  return (M.fromList (catMaybes mtargets))
+
+
 
 -- | Do we have any SIMBAD information about the target?
 --

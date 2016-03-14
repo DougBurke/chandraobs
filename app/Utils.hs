@@ -78,7 +78,11 @@ import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 import System.Locale (defaultTimeLocale)
 #endif
 
-import Types (ScienceObs(..), ObsIdVal(..), Instrument, Grating(..), ChandraTime(..), TimeKS(..), Constraint(..), ConLong(..), ConShort(..), SimbadType(..)
+import Types (ScienceObs(..), ObsIdVal(..)
+             , Instrument, Grating(..)
+             , ChandraTime(..), TimeKS(..)
+             , Constraint(..), ConLong(..), ConShort(..)
+             , SimbadType(..)
              , Instrument(..)
              , ChipStatus(..)
              , Proposal(..)
@@ -103,7 +107,7 @@ standardResponse :: ActionM ()
 standardResponse = return ()
 
 jsScript :: H.AttributeValue -> H.Html
-jsScript uri = H.script H.! A.src uri $ ""
+jsScript uri = (H.script H.! A.src uri) ""
 
 cssLink :: H.AttributeValue -> H.Html
 cssLink uri =
@@ -577,18 +581,18 @@ typeDLinkURI st =
 typeLinkSearch :: SimbadType -> String -> H.Html
 typeLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeLinkURI st)
-  in H.a H.! A.href iLink $ H.toHtml lbl
+  in (H.a H.! A.href iLink) (H.toHtml lbl)
 
 typeDLinkSearch :: SimbadType -> String -> H.Html
 typeDLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
-  in H.a H.! A.href iLink $ H.toHtml lbl
+  in (H.a H.! A.href iLink) (H.toHtml lbl)
 
 -- | Add in a link to the obervation category search page.
 categoryLinkSearch :: String -> String -> H.Html
 categoryLinkSearch cat lbl = 
   let iLink = "/search/category/" <> H.toValue cat
-  in H.a H.! A.href iLink $ H.toHtml lbl
+  in (H.a H.! A.href iLink) (H.toHtml lbl)
 
 maybeToList :: Maybe a -> [a]
 maybeToList Nothing = []

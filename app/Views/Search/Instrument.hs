@@ -117,8 +117,8 @@ renderInstMatches ::
   Instrument       
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderInstMatches inst (Schedule cTime _ done mdoing todo) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderInstMatches inst (Schedule cTime _ done mdoing todo simbad) = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml inst)
@@ -143,8 +143,8 @@ renderGratMatches ::
   Grating       
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderGratMatches grat (Schedule cTime _ done mdoing todo) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderGratMatches grat (Schedule cTime _ done mdoing todo simbad) = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml grat)
@@ -168,8 +168,8 @@ renderIGMatches ::
   (Instrument, Grating)
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderIGMatches (inst, grat) (Schedule cTime _ done mdoing todo) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderIGMatches (inst, grat) (Schedule cTime _ done mdoing todo simbad) = 
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml inst <> " and " <> toHtml grat)

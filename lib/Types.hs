@@ -30,6 +30,7 @@ module Types where
 -- rather than try to track and document it.
 
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -603,6 +604,9 @@ data Schedule =
    , scDone  :: [Record]     -- ^ those that were done (ascending time order)
    , scDoing :: Maybe Record -- ^ current observation
    , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
+   , scSimbad :: M.Map String SimbadInfo
+     -- ^ mapping from target to SIMBAD info for the observations in this
+     --   schedule (it may be empty)
    }
 
 -- | Represent a value in kiloseconds.

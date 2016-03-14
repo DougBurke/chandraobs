@@ -51,8 +51,8 @@ renderProposal ::
   Proposal
   -> Schedule
   -> Html
-renderProposal Proposal{..} (Schedule cTime _ done mdoing todo) =
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderProposal Proposal{..} (Schedule cTime _ done mdoing todo simbad) =
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
       catLink = categoryLinkSearch propCategory propCategory
 

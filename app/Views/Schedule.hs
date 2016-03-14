@@ -46,13 +46,13 @@ schedPage sched =
 renderSchedule :: 
   Schedule
   -> Html
-renderSchedule (Schedule _ _ _ Nothing _) =
+renderSchedule (Schedule _ _ _ Nothing _ _) =
   div ! A.id "schedule" $ 
     p ("There seems to be a problem, in that I do not know what the "
        <> "current observation is!")
 
-renderSchedule (Schedule cTime ndays done mdoing todo) =
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo
+renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
+  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
       title = show ndays <> "-day Schedule"
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml title)
