@@ -64,7 +64,7 @@ matchPage con sched =
           )
     <>
     (body ! onload jsLoad)
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderMatches lbl sched)
       <> renderFooter
