@@ -45,6 +45,7 @@ import qualified Views.Record as Record
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Instrument as Instrument
+import qualified Views.Search.Target as Target
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
@@ -57,7 +58,9 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 -- import Control.Monad.Logger (NoLoggingT)
 
+-- import Data.Aeson((.=), object)
 import Data.Default (def)
+import Data.List (nub)
 import Data.Maybe (isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
@@ -106,6 +109,10 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchInstrumentTypes
                  , fetchGratingTypes
                  , fetchIGTypes
+
+                 , findNameMatch
+                 , findTarget
+                   
                  , dbConnStr
                  )
 import Types (Record, SimbadInfo, Proposal
@@ -224,22 +231,6 @@ webapp cm mgr = do
     get "/proxy/rass/:sequence/:obsid" (proxyImg PTRASS)
     get "/proxy/pspc/:sequence/:obsid" (proxyImg PTPSPC)
 
-    -- for now always return JSON; need a better success/failure
-    -- set up.
-    --
-    -- the amount of information returned by getObsId is
-    -- excessive here; probably just need the preceeding and
-    -- next obsid values (if any), but leave as is for now.
-    --
-    get "/api/current" $ do
-              -- note: this is creating/throwing away a bunch of info that could be useful
-              mrec <- liftSQL getCurrentObs
-              let rval o = json ("Success" :: T.Text, fromObsId o)
-              case mrec of
-                Just (Left ns) -> rval (nsObsId ns)
-                Just (Right so) -> rval (soObsId so)
-                _ -> json ("Failed" :: T.Text)
-
     let {-
         dbQuery :: Parsable p
                    => L.Text
@@ -256,6 +247,22 @@ webapp cm mgr = do
 
         -- queryRecord :: ActionM (Maybe (Either NonScienceObs ScienceObs))
         queryRecord = snd <$> dbQuery "obsid" (getRecord . ObsIdVal)
+
+    -- for now always return JSON; need a better success/failure
+    -- set up.
+    --
+    -- the amount of information returned by getObsId is
+    -- excessive here; probably just need the preceeding and
+    -- next obsid values (if any), but leave as is for now.
+    --
+    get "/api/current" $ do
+              -- note: this is creating/throwing away a bunch of info that could be useful
+              mrec <- liftSQL getCurrentObs
+              let rval o = json ("Success" :: T.Text, fromObsId o)
+              case mrec of
+                Just (Left ns) -> rval (nsObsId ns)
+                Just (Right so) -> rval (soObsId so)
+                _ -> json ("Failed" :: T.Text)
 
     get "/api/obsid/:obsid" $ do
       (obsid, mobs) <- queryObsidParam
@@ -294,6 +301,26 @@ webapp cm mgr = do
       -- and an observation with no related observations.
       json ("Success" :: T.Text, fromSL res)
 
+    get "/api/search/dtype" $ do
+      matches <- liftSQL fetchObjectTypes
+      json (SearchTypes.renderDependencyJSON matches)
+
+    -- note that this is different from /api/simbad/name since it
+    -- is a search, rather than exact match
+    {-
+    get "/api/search/name" $ do
+      (query, (exact, other)) <- dbQuery "term" findNameMatch
+      json (object [ "query" .= query
+                   , "exact" .= exact
+                   , "other" .= other])
+    -}
+    get "/api/search/name" $ do
+      (_, (exact, other)) <- dbQuery "term" findNameMatch
+      -- for now, flatten out the response
+      -- TODO: should also remove excess spaces, but this requires some
+      --       thought on how the search functionality should work
+      json (nub (exact ++ other))
+    
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")
     get "/about" (redirect "/about/index.html")
@@ -393,12 +420,6 @@ webapp cm mgr = do
           sched <- liftSQL (makeSchedule (fmap Right matches))
           fromBlaze (SearchTypes.matchDependencyPage types sched)
 
-    -- TODO: this is for testing, but I think it is generally
-    --       useful to provide a JSON api
-    get "/api/search/dtype.json" $ do
-      matches <- liftSQL fetchObjectTypes
-      json (SearchTypes.renderDependencyJSON matches)
-
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation" $ do
       (con, matches) <- dbQuery "constellation" fetchConstellation
@@ -467,6 +488,16 @@ webapp cm mgr = do
     get "/search/instrument/" igsearch
     get "/search/grating/" igsearch
     get "/search/instgrat/" igsearch
+
+    get "/search/name" $ do
+      (target, matches) <- dbQuery "target" findTarget
+      if nullSL matches
+        then do
+          -- TODO: set an error code? Once have sorted out search info
+          fromBlaze (Target.noMatchPage target)
+        else do
+          sched <- liftSQL (makeSchedule (fmap Right matches))
+          fromBlaze (Target.targetPage target sched)
 
     -- TODO: also need a HEAD request version
     {-

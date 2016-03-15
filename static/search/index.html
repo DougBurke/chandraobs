@@ -3,7 +3,11 @@
  <head>
   <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
   <title>Searching the 'What is Chandra doing now?' site</title>
-  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default" media="all">
+  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default"
+        media="all">
+  <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
  </head>
  <body>
   <nav role="navigation">
@@ -32,6 +36,30 @@
     <li>and <a href="/search/category/">by proposal category</a>.</li>
   </ul>
 
+  <div>
+    <form action="/search/name" method="get">
+      <label for="namesearch">
+        You can also try searching by target name:
+        (this is rather experimental!)
+      </label>
+      <input type="text" autocomplete="off" id="namesearch" name="target" />
+      <p>
+        You may need to hit return (or enter) twice; once to
+        select the choice from the options, and then to actually
+        run the search. There is also the <em>slight</em> problem
+        that not all the suggested names will result in a match
+        (due to <em>&ldquo;reasons&rdquo;</em>).
+        These are being worked on!
+    </form>
+  </div>
+
+  <script>
+    $("#namesearch").autocomplete({
+    minLength: 3,
+    source: '/api/search/name'
+    });
+  </script>
+  
   <p id="banner">
     The 'What is Chandra doing now?' web site is written
     by <a href="http://twitter.com/doug_burke">@doug_burke</a>,

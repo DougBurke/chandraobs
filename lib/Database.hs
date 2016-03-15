@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
@@ -38,6 +39,10 @@ module Database ( getCurrentObs
                 , fetchInstrumentTypes
                 , fetchGratingTypes
                 , fetchIGTypes
+
+                , findNameMatch
+                , findTarget
+                  
                 , insertScienceObs
                 , insertNonScienceObs
                 , replaceScienceObs
@@ -89,6 +94,7 @@ import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
+import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (group, groupBy, nub, sortBy)
@@ -850,6 +856,58 @@ findObsStatusTypes = do
   statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
   return (countUp statuses)
 
+
+-- | Try supporting "name matching". This is complicated by the fact that there
+--   are both the target names (soTarget) and the SIMBAD-matched names (smmTarget)
+--   that could be searched. 
+--
+--   TODO: SIMBAD names can have multiple spaces (e.g. NGC family, so a query of
+--         'NGC 3' should probably map to '%NGC% %3%' - but then this matches
+--         'NGC 623' which might not be the expected result).
+--
+--         Also, should protect/remove the search-specific terms.
+--
+findNameMatch ::
+  (PersistBackend m, SqlDb (PhantomDb m))
+  => String
+  -- ^ a case-insensitive match is made for this string; an empty string matches
+  --   everything
+  -> m ([String], [String])
+  -- ^ object names - first the target names, then the "also known as" from SIMBAD
+  --   - names in the database.
+findNameMatch instr = do
+  let matchStr = '%' : (map toUpper instr) ++ "%"
+  targets <- project SoTargetField (distinct ((upper SoTargetField) `like` matchStr))
+  -- do not use SmmTargetField
+  simbads <- project SmiNameField (distinct ((upper SmiNameField) `like` matchStr))
+  return (targets, simbads)
+
+
+-- | Find observations of the given target. The input name is searched - using a
+--   case-insensitive match - against both the observation target name and
+--   Simbad matches.
+--
+--   It is related to `findNameMatch`.
+--
+--   TODO:
+--     add in SIMBAD search
+--     improve space matching
+--     filter out % and _ ?
+--
+findTarget ::
+  (PersistBackend m, SqlDb (PhantomDb m))
+  => String
+  -> m (SortedList StartTimeOrder ScienceObs)
+findTarget target = do
+  -- need to think about how the SIMBAD search is going to work
+  -- simbads <- select ((upper SmiNameField) =. (upper target))
+  let searchTerm = map toUpper target
+  sobs <- select ((upper SoTargetField ==. searchTerm)
+                  `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL sobs)
+  
+  
+  
 putIO :: MonadIO m => String -> m ()
 putIO = liftIO . putStrLn
 
