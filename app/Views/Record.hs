@@ -116,7 +116,7 @@ renderStuff cTime rs dbInfo =
 --   pages, since separating out these is currently un-needed.
 --
 data CurrentPage = 
-  CPIndex | CPSchedule | CPAbout | CPInstruments | CPView | CPOther
+  CPIndex | CPSchedule | CPExplore | CPAbout | CPInstruments | CPView | CPOther
   deriving Eq
 
 -- | Display the main navigation bar.
@@ -128,16 +128,20 @@ mainNavBar cp =
 
       indexA = mkA "home"  "/index.html"             "What is Chandra doing now?"
       schedA = mkA "sched" "/schedule/index.html"    "Schedule"
+      explA  = mkA "expl"  "/search/index.html"      "Explore"
       aboutA = mkA "about" "/about/index.html"       "About"
       instA  = mkA "insts" "/about/instruments.html" "Instruments"
       viewA  = mkA "views" "/about/views.html"       "Views"
 
-      -- since using float: right need to do all but the first in
-      -- right-to-left order
+      -- The first a objects are float left, the remaining are float right,
+      -- and so need to be in reverse order. Check static/css/main.css
+      -- 'nav ul li:nth-child(-n+a)' to find out what a is.
 
   in nav ! customAttribute "role" "navigation" $ ul $
        li (indexA CPIndex)
        <> li (schedA CPSchedule)
+       <> li (explA CPExplore)
+       -- remaining elements are in reverse display order (looking left-to-right)
        <> li (aboutA CPAbout)
        <> li (instA CPInstruments)
        <> li (viewA CPView)

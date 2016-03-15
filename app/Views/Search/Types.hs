@@ -52,7 +52,7 @@ indexPage objs =
           )
     <>
     body
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderTypes objs)
       <> renderFooter
@@ -75,7 +75,7 @@ dependencyPage objs =
           )
     <>
     (body ! onload "createTree(typeinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderDependency objs)
       <> renderFooter
@@ -97,7 +97,7 @@ matchPage typeInfo sched =
           )
     <>
     (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderMatches lbl sched [])
       <> renderFooter
@@ -119,7 +119,7 @@ matchDependencyPage typeInfos sched =
           )
     <>
     (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule")
           (renderMatches lbl sched (P.tail typeInfos))
       <> renderFooter

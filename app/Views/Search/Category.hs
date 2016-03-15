@@ -34,7 +34,7 @@ indexPage cats =
           )
     <>
     body
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderTypes cats)
       <> renderFooter
@@ -55,7 +55,7 @@ matchPage cat sched =
           )
     <>
     (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderMatches cat sched)
       <> renderFooter

@@ -42,7 +42,7 @@ indexPage insts grats igs =
           )
     <>
     body
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderTypes insts grats igs)
       <> renderFooter
@@ -63,7 +63,7 @@ matchInstPage inst sched =
           )
     <>
     (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderInstMatches inst sched)
       <> renderFooter
@@ -82,7 +82,7 @@ matchGratPage grat sched =
           )
     <>
     (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderGratMatches grat sched)
       <> renderFooter
@@ -105,7 +105,7 @@ matchIGPage ig@(inst, grat) sched =
           )
     <>
     (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderIGMatches ig sched)
       <> renderFooter

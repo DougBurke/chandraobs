@@ -54,6 +54,18 @@ var tour = new Tour({
     content: "The Chandra schedule (several days in the past and planned observations)."
   },
   {
+    element: "#expl",
+    placement: "bottom",
+    title: "Explore",
+    content: "A variety of ways to search the Chandra schedule, and find out more about the objects it observes."
+  },
+  {
+    element: "#tour",
+    placement: "bottom",
+    title: "A quick tour of the site",
+    content: "Display this tour ;-)"
+  },
+  {
     element: "#views",
     placement: "bottom",
     title: "Views",

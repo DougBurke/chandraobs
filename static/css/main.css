@@ -41,6 +41,8 @@ p#banner {
   color: #666; /* #aaa; */
 }
 
+/* Set up the main navigation bar */
+
 nav {
   border-bottom: 1px solid rgb(153,153,153);
 }
@@ -57,7 +59,7 @@ nav ul li {
 }
 
 /* nav ul li:first-child { */
-nav ul li:nth-child(-n+2) {
+nav ul li:nth-child(-n+3) {
   float: left;
 }
 

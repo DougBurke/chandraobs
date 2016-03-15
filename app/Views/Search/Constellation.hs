@@ -34,7 +34,7 @@ indexPage cons =
           )
     <>
     body
-     (mainNavBar CPOther
+     (mainNavBar CPExplore
       <> (div ! id "schedule") 
           (renderTypes cons)
       <> renderFooter
