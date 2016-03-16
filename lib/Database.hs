@@ -899,12 +899,24 @@ findTarget ::
   => String
   -> m (SortedList StartTimeOrder ScienceObs)
 findTarget target = do
-  -- need to think about how the SIMBAD search is going to work
-  -- simbads <- select ((upper SmiNameField) =. (upper target))
+  -- have to do a direct search on SoTargetField, and an
+  -- indirect search in case the match is against the SmiNameField.
+  --
+  -- TODO: need a better story with spaces - would like to ignore
+  --       them completely
   let searchTerm = map toUpper target
-  sobs <- select ((upper SoTargetField ==. searchTerm)
-                  `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL sobs)
+  direct <- select ((upper SoTargetField ==. searchTerm)
+                    `orderBy` [Asc SoStartTimeField])
+
+  -- I expect there to be zero or one matches (for skeys and snames),
+  -- but I want to see how in_ works
+  skeys <- project AutoKeyField (upper SmiNameField ==. searchTerm)
+  snames <- project SmmTargetField (SmmInfoField `in_` skeys)
+  indirect <- select ((SoTargetField `in_` snames)
+                      `orderBy` [Asc SoStartTimeField])
+
+  let sobs = mergeSL soStartTime (unsafeToSL direct) (unsafeToSL indirect)
+  return sobs
   
   
   
