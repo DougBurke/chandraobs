@@ -1740,10 +1740,9 @@ isChildType parent child =
 
       plvl = _scLevel parent
       clvl = _scLevel child
-  
-  in if _scLevel parent >= _scLevel child
-     then False
-     else p == c
+
+  in (_scLevel parent < _scLevel child) && (p == c)
+
   
 -- | validate input arguments
 

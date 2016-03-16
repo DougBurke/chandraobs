@@ -182,31 +182,34 @@ identifyLatestRecord ::
   [ScienceObs]
   -> [NonScienceObs]
   -> Maybe Record
-identifyLatestRecord [] [] = Nothing
-identifyLatestRecord (x:_) [] = Just (Right x)
-identifyLatestRecord [] (y:_) = Just (Left y)
-identifyLatestRecord xs ys =
-  -- rely on Ord instance of Maybe for the comparison
-  let sobs = listToMaybe xs
-      nsobs = listToMaybe ys
-      stime = soStartTime <$> sobs
-      ntime = nsStartTime <$> nsobs
-  in if stime > ntime then Right <$> sobs else Left <$> nsobs
+identifyLatestRecord = identifyHelper soStartTime nsStartTime (>)
 
 identifyEarliestRecord ::
   [ScienceObs]
   -> [NonScienceObs]
   -> Maybe Record
-identifyEarliestRecord [] [] = Nothing
-identifyEarliestRecord (x:_) [] = Just (Right x)
-identifyEarliestRecord [] (y:_) = Just (Left y)
-identifyEarliestRecord xs ys =
+identifyEarliestRecord = identifyHelper soStartTime nsStartTime (<)
+
+identifyHelper ::
+  Ord c
+  => (a -> c)
+  -> (b -> c)
+  -> (Maybe c -> Maybe c -> Bool)
+  -- ^ ordering option; if True pick the first (a), otherwise
+  --   b
+  -> [a]
+  -> [b]
+  -> Maybe (Either b a)
+identifyHelper _ _ _ [] [] = Nothing
+identifyHelper _ _ _ (x:_) [] = Just (Right x)
+identifyHelper _ _ _ [] (y:_) = Just (Left y)
+identifyHelper px py ord xs ys =
   -- rely on Ord instance of Maybe for the comparison
-  let sobs = listToMaybe xs
-      nsobs = listToMaybe ys
-      stime = soStartTime <$> sobs
-      ntime = nsStartTime <$> nsobs
-  in if stime < ntime then Right <$> sobs else Left <$> nsobs
+  let mx = listToMaybe xs
+      my = listToMaybe ys
+      ox = px <$> mx
+      oy = py <$> my
+  in if ord ox oy then Right <$> mx else Left <$> my
 
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
@@ -461,7 +464,7 @@ makeSchedule rs = do
   
   let cleanrs = filter keep (fromSL rs)
       keep (Left NonScienceObs{..}) = nsName /= discarded
-      keep (Right ScienceObs{..}) = (soStatus /= discarded)
+      keep (Right ScienceObs{..}) = soStatus /= discarded
                                     -- && (soStartTime < futureTime)
 
       mobsid = recordObsId <$> mrec
@@ -573,7 +576,7 @@ fetchSIMBADDescendentTypes parent = do
       constraint = foldl1 (||.) cons
 
   sinfos <- project (SmiType3Field, SmiTypeField) (distinct constraint)
-  keys <- project (AutoKeyField) constraint
+  keys <- project AutoKeyField constraint
   if null keys
     then return ([], emptySL)
     else do
@@ -876,10 +879,9 @@ findNameMatch ::
   -- ^ object names - first the target names, then the "also known as" from SIMBAD
   --   - names in the database.
 findNameMatch instr = do
-  let matchStr = '%' : (map toUpper instr) ++ "%"
-  targets <- project SoTargetField (distinct ((upper SoTargetField) `like` matchStr))
-  -- do not use SmmTargetField
-  simbads <- project SmiNameField (distinct ((upper SmiNameField) `like` matchStr))
+  let matchStr = '%' : map toUpper instr ++ "%"
+  targets <- project SoTargetField (distinct (upper SoTargetField `like` matchStr))
+  simbads <- project SmiNameField (distinct (upper SmiNameField `like` matchStr))
   return (targets, simbads)
 
 
@@ -1062,19 +1064,11 @@ insertSimbadInfo sm = do
 
 -- | Returns True if the database was updated.
 insertSimbadMatch :: PersistBackend m => SimbadMatch -> m Bool
-insertSimbadMatch sm = do
-  n <- count (SmmTargetField ==. smmTarget sm)
-  let unknown = n == 0
-  when unknown (insert_ sm)
-  return unknown
+insertSimbadMatch sm = insertIfUnknown sm (SmmTargetField ==. smmTarget sm)
 
 -- | Returns True if the database was updated.
 insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m Bool
-insertSimbadNoMatch sm = do
-  n <- count (SmnTargetField ==. smnTarget sm)
-  let unknown = n == 0
-  when unknown (insert_ sm)
-  return unknown
+insertSimbadNoMatch sm = insertIfUnknown sm (SmnTargetField ==. smnTarget sm)
 
 -- | If there is no entity that matches the condition then
 --   insert the item.
