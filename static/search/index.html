@@ -44,20 +44,35 @@
       </label>
       <input type="text" autocomplete="off" id="namesearch" name="target" />
       <p>
-        You may need to hit return (or enter) twice; once to
-        select the choice from the options, and then to actually
-        run the search. This is being worked on (the previous problem
-        where some suggested names would not actually match anything
-        has been fixed - these were for "alternative" names provided
-        by SIMBAD, such as <tt>COMA A</tt> - although there's still
-        some less-than-ideal behavior with spaces).
+        Note that there is an issue with spaces - ideally the names
+        would be normalized (or the search would be), but at present
+        they are not, so <tt>NGC   404</tt>, <tt>NGC 404</tt>, and
+        <tt>NGC404</tt> are different.
     </form>
   </div>
 
   <script>
+    // from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+function fixedEncodeURIComponent (str) {
+  return encodeURIComponent(str).replace(/[!'()*]/g, function(c) {
+    return '%' + c.charCodeAt(0).toString(16);
+  });
+}
+    
     $("#namesearch").autocomplete({
     minLength: 3,
-    source: '/api/search/name'
+    source: '/api/search/name',
+    close: function(event,ui) {
+    // skip if the event has been cancelled; for now only support
+    // event=Enter, as not sure what the event types can be, but
+    // this may need to be changed (e.g. touch screens).
+    //
+    if (event.key == "Enter") {
+      var term = event.target.value;
+      // argh; hard-coding path
+      window.location = "/search/name?target=" + fixedEncodeURIComponent(term);
+      }
+    }
     });
   </script>
   
