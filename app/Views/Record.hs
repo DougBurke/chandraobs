@@ -53,6 +53,7 @@ import Utils (
              , renderFooter
              , instLinkSearch
              , typeLinkSearch
+             , nameLinkSearch
              , constellationLinkSearch
              , cleanJointName
              )
@@ -229,13 +230,21 @@ targetInfo ::
 targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
-      targetName = toHtml soTarget
+      -- targetName = toHtml soTarget
+      targetName = nameLinkSearch soTarget
       lenVal = toHtml (showExpTime (fromMaybe soApprovedTime soObservedTime))
 
+      -- The search using the alternative name could well return different
+      -- items (until the search is normalised so that it handles this),
+      -- although from my initial tests I don't see any (could do a search to
+      -- find a case), so leave off for now
       otherName = case msimbad of
         Just sm -> if similarName sm soTarget
                    then mempty 
-                   else (" - also called " <> toHtml (smiName sm) <> " -")
+                   else (" - also called "
+                         <> toHtml (smiName sm)
+                         -- <> nameLinkSearch (smiName sm)
+                         <> " -")
         _ -> mempty
 
 

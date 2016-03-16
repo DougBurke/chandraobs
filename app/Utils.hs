@@ -36,12 +36,14 @@ module Utils (
      , typeLinkSearch
      , typeDLinkSearch
      , categoryLinkSearch
+     , nameLinkSearch
      , cleanJointName
      , schedToList
      , getNumObs
      ) where
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
@@ -63,7 +65,9 @@ import Data.Monoid ((<>), mconcat, mempty)
 import Data.Monoid ((<>))
 #endif
 
-import Network.HTTP.Types.URI (encodePathSegments)
+import Network.HTTP.Types.URI (encodePath
+                              , encodePathSegments
+                              , simpleQueryToQuery)
 
 import System.Random (Random(..), getStdRandom)
 
@@ -363,7 +367,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
         mconcat discardRows
         <>
         mconcat
-          [ keyVal "Target:" (H.toHtml name)
+          [ keyVal "Target:" (nameLinkSearch name)
           , maybe mempty simbadInfo msimbad
           , keyVal "Observation Details:" oLink
           , keyVal "Sequence Summary:" sLink
@@ -579,7 +583,7 @@ typeLinkURI :: SimbadType -> B.ByteString
 typeLinkURI st =
   let uri = ["search", "type", T.pack (fromSimbadType st)]
   in toByteString (encodePathSegments uri)
-  
+
 typeDLinkURI :: SimbadType -> B.ByteString
 typeDLinkURI st =
   let uri = ["search", "dtype", T.pack (fromSimbadType st)]
@@ -606,6 +610,15 @@ categoryLinkSearch cat lbl =
   let iLink = "/search/category/" <> H.toValue cat
   in (H.a H.! A.href iLink) (H.toHtml lbl)
 
+-- | Add a link to the name-search for an object.
+nameLinkSearch :: String -> H.Html
+nameLinkSearch name =
+  let uriBS = toByteString (encodePath ["search", "name"] qry)
+      uri = H.unsafeByteStringValue uriBS
+      -- be explicit that query has a value
+      qry = simpleQueryToQuery [("target", B8.pack name)]
+  in (H.a H.! A.href uri) (H.toHtml name)
+    
 maybeToList :: Maybe a -> [a]
 maybeToList Nothing = []
 maybeToList (Just x) = [x]
