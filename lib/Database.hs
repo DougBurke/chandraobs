@@ -42,6 +42,8 @@ module Database ( getCurrentObs
 
                 , findNameMatch
                 , findTarget
+
+                , getNumObsPerDay
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -147,7 +149,10 @@ notFromObsCat ::
 notFromObsCat = (NsNameField /=. nsInObsCatName) &&. notNsDiscarded
 
 -- | Non-science observations that have not been "discarded",
---   that is, the ObsCat field does not have a start date field.
+--   that is, the ObsCat field does not have a start date field
+--   (have to be careful, since the ObsCat field appears to have
+--    no start date when the object hasn't been observed yet as
+--    well).
 --
 notNsDiscarded ::
   DbDescriptor db
@@ -920,8 +925,32 @@ findTarget target = do
   let sobs = mergeSL soStartTime (unsafeToSL direct) (unsafeToSL indirect)
   return sobs
   
-  
-  
+
+-- | Get the number of science observations per day.
+--
+--   This is likely horribly inefficient, as I couldn't find an easy way
+--   to get the database to do this with Groundhog.
+--
+getNumObsPerDay ::
+  PersistBackend m
+  => Day
+  -- ^ The upper limit for when to search; this is so that items
+  --   in the long-term schedule do not "show up" in the output.
+  --   It is assumed that this is before `futureTime`.
+  -> m (M.Map Day Int)
+  -- ^ The return value is the number of science observations
+  --   in each day. For dates in the future it uses the planned
+  --   observations.
+getNumObsPerDay maxDay = do
+  let maxTime = ChandraTime (UTCTime maxDay 0)
+  times <- project SoStartTimeField
+           (((SoStartTimeField <=. maxTime) &&. notDiscarded)
+            `orderBy` [Asc SoStartTimeField])
+
+  let days = map (\t -> ((utctDay . _toUTCTime) t, 1)) times
+  return (M.fromAscListWith (+) days)
+
+
 putIO :: MonadIO m => String -> m ()
 putIO = liftIO . putStrLn
 

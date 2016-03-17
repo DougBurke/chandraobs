@@ -42,6 +42,7 @@ import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
 import qualified Views.Proposal as Proposal
 import qualified Views.Record as Record
+import qualified Views.Search.Calendar as Calendar
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Instrument as Instrument
@@ -64,7 +65,7 @@ import Data.List (nub)
 import Data.Maybe (isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
-import Data.Time (getCurrentTime)
+import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
 
 -- import Database.Groundhog.Core (DbPersist)
 import Database.Groundhog.Postgresql (Postgresql(..)
@@ -112,6 +113,8 @@ import Database (getCurrentObs, getRecord, getObsInfo
 
                  , findNameMatch
                  , findTarget
+
+                 , getNumObsPerDay
                    
                  , dbConnStr
                  )
@@ -499,6 +502,13 @@ webapp cm mgr = do
           sched <- liftSQL (makeSchedule (fmap Right matches))
           fromBlaze (Target.targetPage target sched)
 
+    -- Try displaying a "calendar" view
+    get "/search/calendar" $ do
+      now <- liftIO getCurrentTime
+      let maxDay = addDays 14 (utctDay now)
+      cts <- liftSQL (getNumObsPerDay maxDay)
+      fromBlaze (Calendar.indexPage cts)
+        
     -- TODO: also need a HEAD request version
     {-
     get "/search/" $ do
