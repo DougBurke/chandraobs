@@ -5,15 +5,39 @@
 --
 module HackData (STS, stsList) where
 
+import qualified Data.Set as S
+
+import Data.List (foldl')
+
 import Types
 
 import Quote
 
 type STS = (ScheduleItem, Maybe NonScienceObs)
 
--- could parse from files
+-- Take the first matching element for an ObsId.
 stsList :: [STS]
-stsList = [stsParse|
+stsList =
+  let process orig@(oset, olist) record =
+        let obsid = siObsId (fst record)
+        in if S.notMember obsid oset
+           then (S.insert obsid oset, record : olist)
+           else orig
+                
+  in (reverse . snd) (foldl' process (S.empty, []) stsListAll)
+          
+-- could parse from files
+--
+-- Ideally order would not matter, since the OCAT is queried for the details.
+-- Unfortunately this only appears to work for science observations, as
+-- the OCAT doesn't have useful information like proposed observation date
+-- for the non-science observations.
+--
+-- So, take the first element processed for a particular obsid, and hope it's
+-- in "effective" order. This requires adding new entries to the start.
+--
+stsListAll :: [STS]
+stsListAll = [stsParse|
 
 #JUN0313B
 801243    15114 0      G165.08+54.11 2013:154:02:20:54.118  10.4 ACIS-I NONE 155.9060  49.1274 258.61  70.10  45.22 dss pspc rass

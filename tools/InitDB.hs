@@ -45,7 +45,7 @@ import Database.Groundhog.Postgresql
 import Database (addScheduleItem
                 , cleanDataBase
                 , reportSize, putIO, runDb)
-import HackData
+import HackData (STS, stsList)
 import Types
 
 -- | Given a schedule item, add it to the database if there is
@@ -61,7 +61,7 @@ addSTS sts = do
   when flag (liftIO (putStrLn (" - inserted si: " ++ show obsid)))
 
 main :: IO ()
-main =
+main = 
   runDb $ do
     void reportSize
     putIO ""

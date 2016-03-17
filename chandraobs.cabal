@@ -136,6 +136,7 @@ executable initdb
     build-depends:
      base
      , chandraobs
+     , containers
      , groundhog-postgresql
      , parsec == 3.1.*
      , template-haskell >= 2.8 && < 3.0
