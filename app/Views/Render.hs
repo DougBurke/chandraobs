@@ -13,9 +13,8 @@ import qualified Data.Map.Strict as M
 -- import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Control.Monad (void)
-
 import Data.Bits (shiftL)
+import Data.Functor (void)
 import Data.List (foldl', intercalate)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)

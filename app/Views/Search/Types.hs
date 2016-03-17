@@ -19,10 +19,9 @@ import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Control.Monad (void)
-
 import Data.Aeson ((.=))
 import Data.Function (on)
+import Data.Functor (void)
 import Data.List (groupBy, intersperse, sortBy)
 import Data.Monoid ((<>), mconcat)
 
