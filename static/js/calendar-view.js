@@ -1,6 +1,14 @@
 //
 // Based on https://bl.ocks.org/mbostock/4063318
 //
+// TODO:
+//   there are two sorts of 0-count cells; ideally the
+//   0-count cells would be white, those outside the
+//   range of interest would be gray. This is possible
+//   now.
+//
+//   Or, only draw cells for which we have data!
+//
 
 var width = 960,
     height = 136,
@@ -13,12 +21,12 @@ var color;
 var svg;
 var rect;
 
-// opacity for the cells
-/*
-var opacityRest = 0.8;
-var opacitySel = 1.0;
-var opacityUnSel = 0.5;
-*/
+// opacity for the cells; for now have a subtle transition to a
+// slightly-faded version of the cell on mouse-over. This is not
+// ideal (i.e. is likely surprising), but other approaches I tried
+// (fading everything else out or increasing the boundary thickness
+// of the cell) did not appear that useful either.
+// 
 var opacityRest = 1.0;
 var opacitySel = 0.8;
 
@@ -34,22 +42,6 @@ function createCalendar(cal) {
     var minCount = 1;
     var maxCount = d3.max(d3.values(counts)) || minCount;
 
-    /*
-    // use a non-linear scaling; log squashes things too much
-    // I think I prefer a more cube-helix (or GitHub) like scheme
-    var domain = [minCount, maxCount].map(Math.sqrt);
-    color = d3.scale.quantize()
-        .domain(domain)
-        .range(d3.range(11).map(function(d) { return "q" + d + "-11"; }));
-    */
-
-    /*
-    var domain = [minCount, maxCount];
-    color = d3.scale.quantize()
-        .domain(domain)
-        .range(d3.range(10).map(function(d) { return "q" + d + "-10"; }));
-    */
-
     var domain = [1, 9];
     color = d3.scale.quantize()
         .domain(domain)
@@ -63,8 +55,6 @@ function createCalendar(cal) {
         .attr("class", "year")
         .attr("width", width)
         .attr("height", height)
-        // .attr("class", "RdYlGn")
-        // .attr("class", "d3cat10")
         .append("g")
         .attr("transform",
               "translate(" + ((width - cellSize * 53) / 2) + "," + (height - cellSize * 7 - 1) + ")");
@@ -76,6 +66,10 @@ function createCalendar(cal) {
         .text(function(d) { return d; });
 
     // draw each day
+    //
+    // TODO: instead of datum(format), perhaps should create an object with
+    // all the information needed to create labels and links.
+    //
     rect = svg.selectAll(".day")
         .data(function(d) { return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
         .enter().append("rect")
@@ -88,7 +82,7 @@ function createCalendar(cal) {
 
     // label with the date
     rect.append("title")
-        .text(function(d) { return d; });
+        .text(function(d) { return d + ": no data"; });
 
     // month boundaries
     svg.selectAll(".month")
@@ -98,25 +92,50 @@ function createCalendar(cal) {
         .attr("d", monthPath);
 
     // add counts info for those days that have it
-    rect.filter(function(d) { return d in counts; })
-        .attr("class", function(d) { return "day " + color(counts[d]); })
+    //
+    // it is much simpler to have a filter of the form
+    //     function(d) { return d in counts; }
+    // but I want to include those values with 0 counts,
+    // and they are not included in the map. They could
+    // be added, but let's try to support sparse data.
+    //
+    rect.filter(function(d) {
+        var day = new Date(d);
+        return (day >= startDate) && (day <= endDate);
+    })
+        .attr("class", function(d) {
+            if (d in counts) {
+                return "day " + color(counts[d]);
+            } else {
+                return "day";
+            }
+        })
         .attr("opacity", opacityRest)
         .on('mouseover', highlightDay)
         .on('mouseout', unhighlightDay)
         .select("title")
         .text(function(d) {
-            var n = counts[d];
-            var lbl = d + ": " + counts[d] + " observation";
-            if (n > 1) { lbl += "s"; }
+            var n = "no";
+            if (d in counts) { n = counts[d]; }
+            var lbl = d + ": " + n + " observation";
+            if (n !== 1) { lbl += "s"; }
             return lbl;
         });
-
+    
     addColorbar(15);
     
 }
 
 /*
  * Add a SVG block displaying the color bar used to color the boxes.
+ * I tried having the counts in the box, but thought that it was hard
+ * to read for the darker cells, so have moved the text below the box.
+ * This means that the cells could be drawn at "normal" size, but
+ * the labels still need to be large, so leave as is.
+ *
+ * The padding argument adds vertical space above the display, and is
+ * a hack to let it be drawn after the plots (for the first version,
+ * call with padding=0).
  */
 
 function addColorbar(padding) {
@@ -128,7 +147,7 @@ function addColorbar(padding) {
         .append("svg")
         .attr("class", "colorbar")
         .attr("width", width) // use the same size as the year displays
-        .attr("height", cellSize * 2 + padding)
+        .attr("height", cellSize * 3 + padding)
         .append("g")
         .attr("transform", "translate(0," + padding + ")");
     
@@ -153,15 +172,18 @@ function addColorbar(padding) {
         .attr("text-anchor", "end")
         .text("Number of observations started in a day:");
 
+    // draw the labels below the cells; unfortunately the sizes
+    // are in pixels so this is rather dependent on the font size
+    // to display nicely
     cbar.selectAll(".label")
         .data(dataset)
         .enter()
         .append("text")
         .attr("class", "label")
         .attr("x", function(d) { return xpos + d * cellSize * 2; })
-        .attr("y", cellSize)
+        .attr("y", cellSize * 2)
         .attr("dx", "1em")
-        .attr("dy", "0.5em")
+        .attr("dy", "1em")
         .attr("text-anchor", "middle")
         .text(function(d) { if (d < 8) { return String(d+1); } else { return "9+"; } });
 }
