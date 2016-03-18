@@ -88,7 +88,9 @@ import Web.Heroku (dbConnParams)
 import Web.Scotty
 
 import Database (getCurrentObs, getRecord, getObsInfo
-                 , getObsId, getSchedule
+                 , getObsId
+                 , getSchedule
+                 , getScheduleDate
                  , makeSchedule
                  , getProposalInfo
                  , getProposalFromNumber
@@ -374,6 +376,10 @@ webapp cm mgr = do
           sched <- liftSQL (getSchedule n)
           fromBlaze (Schedule.schedPage sched)
           
+        queryScheduleDate date n = do
+          sched <- liftSQL (getScheduleDate date n)
+          fromBlaze (Schedule.schedDatePage date sched)
+          
     get "/schedule" (redirect "/schedule/index.html")
     get "/schedule/index.html" (querySchedule 3)
     get "/schedule/day" (querySchedule 1)
@@ -388,6 +394,19 @@ webapp cm mgr = do
       nweeks <- param "nweeks"
       when (nweeks <= 0) next  -- TODO: better error message
       querySchedule (7 * nweeks)
+
+    -- allow the schedule to be centered on a date
+    --
+    -- TODO: when should the validity of the input date be checked?
+    get "/schedule/date/:date/:ndays" $ do
+      -- there is no Parsable instance for Date, so rather than have
+      -- an orphan instance, deal with conversion manually
+      dateText <- param "date"
+      ndays <- param "ndays"
+      when (ndays <= 0) next  -- TODO: better error message
+      case readEither dateText of
+        Left _ -> next -- TODO: better error message
+        Right date -> queryScheduleDate date ndays
 
     -- TODO: also need a HEAD request version
     -- This returns only those observations that match this

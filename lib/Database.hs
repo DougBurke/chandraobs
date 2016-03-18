@@ -16,6 +16,7 @@ module Database ( getCurrentObs
                 , getObsId
                 , getRecord
                 , getSchedule
+                , getScheduleDate
                 , makeSchedule
                 , getProposal
                 , getProposalFromNumber
@@ -408,6 +409,9 @@ getSchedule ndays = do
   --
   let dayNow = utctDay now
       dayEnd = addDays (fromIntegral ndays + 1) dayNow
+      -- TODO: why not
+      --   dayStart = addDays (- fromIntegral ndays) day
+      -- ?
       day = toModifiedJulianDay dayNow - fromIntegral ndays
       dayStart = ModifiedJulianDay day
 
@@ -418,6 +422,8 @@ getSchedule ndays = do
   -- and then merge them. As the science observations have no
   -- end-time field, post-process the database results here,
   -- rather than having the database do all the filtering.
+  --
+  -- TODO: not sure this is a good idea any more
   --
   xs1 <- select (((SoStartTimeField <. tEnd)
                   &&. notDiscarded
@@ -450,6 +456,78 @@ getSchedule ndays = do
 
   simbad <- getSimbadList res
   return (Schedule now ndays done mdoing todo simbad)
+
+-- | TODO: handle the case when the current observation, which has
+--   just started, has an exposure time > ndays.
+--
+getScheduleDate ::
+  DbIO m
+  => Day    -- ^ center the schedule on this day
+  -> Int    -- ^ Number of days to go back/forward
+  -> m Schedule
+getScheduleDate day ndays = do
+  -- return all observations which have any part of their
+  -- observation within the time span tStart to tEnd.
+  --
+  let dayEnd = addDays (fromIntegral ndays + 1) day
+      dayStart = addDays (- fromIntegral ndays) day
+
+      tStart = ChandraTime (UTCTime dayStart 0)
+      tEnd   = ChandraTime (UTCTime dayEnd 0)
+      
+  -- Select the science and non-science observations separately
+  -- and then merge them. As the science observations have no
+  -- end-time field, post-process the database results here,
+  -- rather than having the database do all the filtering.
+  --
+  -- TODO: not sure this is a good idea any more
+  --
+  xs1 <- select (((SoStartTimeField <. tEnd)
+                  &&. notDiscarded
+                  &&. isScheduled) -- the isScheduled check is unlikely to restrict anything
+                 `orderBy` [Asc SoStartTimeField])
+  ys1 <- select (((NsStartTimeField <. tEnd) &&.
+                  notNsDiscarded)
+                 `orderBy` [Asc NsStartTimeField])
+
+  -- should filter by the actual run-time, but the following is
+  -- easier
+  let filtEnd proj_start proj_runtime o =
+        let stime = proj_start o
+            rtime = proj_runtime o
+            etime = endCTime stime rtime
+        in etime < tStart
+      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs1)
+      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys1)
+
+      res1 = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
+      res = fromSL res1
+      
+  simbad <- getSimbadList res
+
+  -- TODO: this logic is more general than getSchedule, perhaps
+  --       it should be used there too?
+  --       HOWEVER, have to be careful; in getSchedule I have
+  --       labelled the "next" observation as current - i.e.
+  --       there's always expected to be a current observation
+  --       (unless not updated the database), whereas here
+  --       it is less clear how to match that logic cleanly
+  --
+  now <- liftIO getCurrentTime
+  let cnow = ChandraTime now
+
+  let sched = if tStart > cnow
+              then Schedule now ndays [] Nothing res simbad
+              else if tEnd < cnow
+                   then Schedule now ndays res Nothing [] simbad
+                   else Schedule now ndays done mdoing todo simbad
+
+      (aprevs, todo) = span ((<= cnow) . recordStartTime) res
+      (mdoing, done) = case reverse aprevs of
+        [] -> (Nothing, [])
+        (current:cs) -> (Just current, reverse cs)
+
+  return sched
 
 -- | Creates a schedule structure of the list of observations.
 --
