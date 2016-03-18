@@ -87,15 +87,10 @@ renderMatches cts =
         , "day. It is " <> em "very" <> " experimental and the results should "
         , "not be taken too seriously as there are a lot of issues regarding "
         , "getting hold of an accurate schedule. There's also the fact that "
-        , "I only currently include a small fraction of the total schedule!"
+        , "I only currently include a small fraction of the total schedule! "
+        , "The shaded regions indicate the number of science observations that "
+        , "started on that day; normally there are only a handful, but occasionally "
+        , "the count can get quite high. I plan on allowing a week's schedule to "
+        , "be shown by selecting a day, but that's not available yet."
         ]
-
-    p $ mconcat
-      [ "The shaded regions indicate the number of science observations on "
-      , "that day; normally there are only a handful, but occasionally the "
-      , "count can get quite high. I do plan to add a scale to the color bar "
-      , "but for now you will have to mouse over each day to get a count for "
-      , "that day. It might also be nice to select a day and jump to the "
-      , "schedule, but that's for the future."
-      ]
 
