@@ -90,7 +90,13 @@ renderMatches cts =
         , "I only currently include a small fraction of the total schedule! "
         , "The shaded regions indicate the number of science observations that "
         , "started on that day; normally there are only a handful, but occasionally "
-        , "the count can get quite high. I plan on allowing a week's schedule to "
-        , "be shown by selecting a day, but that's not available yet."
+        , "the count can get quite high, which normally means a set of "
+        , "calibration observations of Ar Lac - for instance, "
+        , (a ! href "/schedule/date/2015-09-26/1")
+          "the twenty-one observations on September 26, 2015"
+        , " - but it can sometimes be something different. "
+        , "Selecting a day will bring up a schedule for that day, along with "
+        , "a few days on either side, so you can explore; see if you can find "
+        , "the Venus observations!"
         ]
 

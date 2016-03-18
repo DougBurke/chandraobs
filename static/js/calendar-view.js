@@ -72,7 +72,15 @@ function createCalendar(cal) {
     //
     rect = svg.selectAll(".day")
         .data(function(d) { return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
-        .enter().append("rect")
+
+    /*
+    can we filter this, if so can then add a link;
+    could add a link here anyway as a test
+    */
+        .enter()
+        .append("a")
+        .attr("xlink:href", function(d) { return "/schedule/date/" + format(d) + "/3"; })
+        .append("rect")
         .attr("class", "day")
         .attr("width", cellSize)
         .attr("height", cellSize)
