@@ -35,14 +35,25 @@ function createCalendar(cal) {
     var startDate = new Date(cal.startDate);
     var endDate = new Date(cal.endDate);
 
+    // add a day onto the end date, as that (hopefully) fixes some issues
+    // seen below (maybe there's a timezone conversion going on with some
+    // of these dates, which can lead to an apparent issue with dates),
+    // so adding on a day is a "hack"
+    endDate.setUTCDate(endDate.getUTCDate() + 1);
+    
     var startYear = startDate.getUTCFullYear();
     var endYear = endDate.getUTCFullYear();
+
+    var startMonth = new Date(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1);
+    var endMonth = new Date(endDate.getUTCFullYear(), endDate.getUTCMonth() + 1, 1); 
 
     var counts = cal.counts;
     var minCount = 1;
     var maxCount = d3.max(d3.values(counts)) || minCount;
 
-    var domain = [1, 9];
+    // TODO: can now go to a scale starting at 0 counts; would be nice to go to 9+
+    //       rather than 8+
+    var domain = [0, 8];
     color = d3.scale.quantize()
         .domain(domain)
         .range(d3.range(9).map(function(d) { return "q" + d + "-9"; }));
@@ -71,7 +82,10 @@ function createCalendar(cal) {
     // all the information needed to create labels and links.
     //
     rect = svg.selectAll(".day")
-        .data(function(d) { return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
+        .data(function(d) {
+            var days = d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+            return days.filter(function (d) { return (d >= startDate) && (d <= endDate); });
+        })
 
     /*
     can we filter this, if so can then add a link;
@@ -94,7 +108,10 @@ function createCalendar(cal) {
 
     // month boundaries
     svg.selectAll(".month")
-        .data(function(d) { return d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
+        .data(function(d) {
+            var months = d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+            return months.filter(function (d) { return (d >= startMonth) && (d < endMonth); });
+        })
         .enter().append("path")
         .attr("class", "month")
         .attr("d", monthPath);
@@ -112,11 +129,8 @@ function createCalendar(cal) {
         return (day >= startDate) && (day <= endDate);
     })
         .attr("class", function(d) {
-            if (d in counts) {
-                return "day " + color(counts[d]);
-            } else {
-                return "day";
-            }
+            var n = counts[d] || 0;
+            return "day " + color(n);
         })
         .attr("opacity", opacityRest)
         .on('mouseover', highlightDay)
@@ -149,7 +163,7 @@ function createCalendar(cal) {
 function addColorbar(padding) {
     
     // add a color bar to the display
-    var dataset = d3.range(0, 9)
+    var dataset = d3.range(0, 9);
 
     var cbar = d3.select("div#calendar")
         .append("svg")
@@ -193,7 +207,7 @@ function addColorbar(padding) {
         .attr("dx", "1em")
         .attr("dy", "1em")
         .attr("text-anchor", "middle")
-        .text(function(d) { if (d < 8) { return String(d+1); } else { return "9+"; } });
+        .text(function(d) { if (d < 8) { return String(d); } else { return "8+"; } });
 }
 
 

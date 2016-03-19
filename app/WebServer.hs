@@ -522,9 +522,15 @@ webapp cm mgr = do
           fromBlaze (Target.targetPage target sched)
 
     -- Try displaying a "calendar" view
+    -- TODO: the choice of 21 days is somewhat arbitrary, but the idea
+    --       is to support STS elements, which should be about 2 weeks
+    --       of data; however, I've seen a case where there's a few more
+    --       days, so bump up to 21. This may begin to include LTS
+    --       data, but live with that for now.
+    --
     get "/search/calendar" $ do
       now <- liftIO getCurrentTime
-      let maxDay = addDays 14 (utctDay now)
+      let maxDay = addDays 21 (utctDay now)
       cts <- liftSQL (getNumObsPerDay maxDay)
       fromBlaze (Calendar.indexPage cts)
         
