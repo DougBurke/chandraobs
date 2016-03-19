@@ -7,7 +7,9 @@
         media="all">
   <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
   <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
-  <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  <link href="/css/search.css" type="text/css" rel="stylesheet">
  </head>
  <body>
   <nav role="navigation">
@@ -22,7 +24,8 @@
   </nav>
 
   <div class="explanation">
-    Here are some ways to explore the observations by Chandra:
+    Here are some ways to explore the observations
+    performed by Chandra:
   </div>
 
   <ul>
@@ -43,41 +46,84 @@
     <form action="/search/name" method="get">
       <label for="namesearch">
         You can also try searching by target name:
-        (this is rather experimental!)
       </label>
       <input type="text" autocomplete="off" id="namesearch" name="target" />
-      <p>
-        Note that there is an issue with spaces - ideally the names
-        would be normalized (or the search would be), but at present
-        they are not, so <tt>NGC   404</tt>, <tt>NGC 404</tt>, and
-        <tt>NGC404</tt> are different.
     </form>
   </div>
 
+  <div>
+    <form action="/search/proposal" method="get">
+      <label for="propnamesearch">
+        How about searching proposals by name?
+      </label>
+      <input type="text" autocomplete="off" id="propnamesearch" name="target" />
+    </form>
+  </div>
+
+  <p>
+    The text search will match your input against the schedule, and provide
+    suggestions, but this only happens after three or more characters
+    are entered. The searches are case insensitive and
+    exact, so you can not search for all
+    observations of targets containing the string <tt>NGC</tt>.
+    Note that there is an issue with spaces in the text searches; ideally the names
+    would be normalized (or the search would be), but at present
+    they are not, so <tt>NGC   404</tt>, <tt>NGC 404</tt>, and
+    <tt>NGC404</tt> are different.
+  </p>
+
   <script>
     // from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
-function fixedEncodeURIComponent (str) {
+function fixedEncodeURIComponent(str) {
   return encodeURIComponent(str).replace(/[!'()*]/g, function(c) {
     return '%' + c.charCodeAt(0).toString(16);
   });
 }
-    
-    $("#namesearch").autocomplete({
-    minLength: 3,
-    source: '/api/search/name',
-    close: function(event,ui) {
+
+function selected(prefix) {
+    return function(event, ui) {
     // skip if the event has been cancelled; for now only support
     // event=Enter, as not sure what the event types can be, but
     // this may need to be changed (e.g. touch screens).
     //
     if (event.key == "Enter") {
       var term = event.target.value;
-      // argh; hard-coding path
-      window.location = "/search/name?target=" + fixedEncodeURIComponent(term);
+      window.location = prefix + fixedEncodeURIComponent(term);
       }
-    }
+    };
+}
+    
+    $("#namesearch").autocomplete({
+    minLength: 3,
+    source: '/api/search/name',
+    close: selected("/search/name?target=")
     });
-  </script>
+
+    /* the UI is a bit confusing here since the text gets replaced by
+       the number; there must be a better way */
+    $("#propnamesearch").autocomplete({
+    minLength: 3,
+    source: function(request, response) {
+    $.ajax({
+          url: "/api/search/proposal",
+          dataType: "json",
+          data: {
+            term: request.term
+          },
+          success: function(data) {
+    response(data.map(function(d) {
+      return { label: d.title, value: d.number };
+    }));
+          },
+          error: function(data) {
+            /* not sure what the expected behavior here is */
+            response([]);
+          },
+        });
+    },
+    close: selected("/proposal/")
+    });
+</script>
   
   <p id="banner">
     The 'What is Chandra doing now?' web site is written

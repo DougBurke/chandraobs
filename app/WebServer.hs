@@ -59,7 +59,7 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 -- import Control.Monad.Logger (NoLoggingT)
 
--- import Data.Aeson((.=), object)
+import Data.Aeson((.=), object)
 import Data.Default (def)
 import Data.List (nub)
 import Data.Maybe (isJust)
@@ -114,6 +114,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchIGTypes
 
                  , findNameMatch
+                 , findProposalNameMatch
                  , findTarget
 
                  , getNumObsPerDay
@@ -121,6 +122,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , dbConnStr
                  )
 import Types (Record, SimbadInfo, Proposal
+             , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..), Sequence(..)
              , SortedList, StartTimeOrder
@@ -312,6 +314,14 @@ webapp cm mgr = do
 
     -- note that this is different from /api/simbad/name since it
     -- is a search, rather than exact match
+    --
+    -- also, the handling of spaces is not ideal, since it is
+    -- likely that I just want to ignore all spaces: possible
+    -- that there are some cases this is not wanted, but it
+    -- seems like it is the most useful behavior. Unfortunately,
+    -- not easy to search the db in this manner with the current
+    -- set up.
+    --
     {-
     get "/api/search/name" $ do
       (query, (exact, other)) <- dbQuery "term" findNameMatch
@@ -325,6 +335,16 @@ webapp cm mgr = do
       -- TODO: should also remove excess spaces, but this requires some
       --       thought on how the search functionality should work
       json (nub (exact ++ other))
+    
+    get "/api/search/proposal" $ do
+      (_, matches) <- dbQuery "term" findProposalNameMatch
+      -- for now, explicitly convert the PropNum field to an integer
+      -- for easy serialization, but maybe this should be the default
+      -- ToJSON serialization?
+      let out = fmap conv matches
+          conv (title, pnum) = object [ "title" .= title
+                                      , "number" .= _unPropNum pnum ]
+      json out
     
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")

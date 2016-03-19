@@ -1,0 +1,16 @@
+/*
+ * limit the number of visible responses in the autocomplete boxes
+ * taken from https://jqueryui.com/autocomplete/#maxheight
+ */
+.ui-autocomplete {
+    max-height: 15em;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* at the moment it looks like the load time is quick enough,
+   in general, that this isn't needed
+.ui-autocomplete-loading {
+    background: white url("images/ui-anim_basic_16x16.gif") right center no-repeat;
+}
+*/

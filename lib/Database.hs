@@ -42,6 +42,7 @@ module Database ( getCurrentObs
                 , fetchIGTypes
 
                 , findNameMatch
+                , findProposalNameMatch
                 , findTarget
 
                 , getNumObsPerDay
@@ -966,6 +967,20 @@ findNameMatch instr = do
   targets <- project SoTargetField (distinct (upper SoTargetField `like` matchStr))
   simbads <- project SmiNameField (distinct (upper SmiNameField `like` matchStr))
   return (targets, simbads)
+
+-- | Find proposals whose titles match the given string
+findProposalNameMatch ::
+  (PersistBackend m, SqlDb (PhantomDb m))
+  => String
+  -- ^ a case-insensitive match is made for this string; an empty string matches
+  --   everything
+  -> m [(String, PropNum)]
+  -- ^ Matching proposal titles and numbers. The ordering is not set (in that I
+  --   haven't decided if it's worth enforcing an ordering).
+findProposalNameMatch instr = 
+  let matchStr = '%' : map toUpper instr ++ "%"
+  in project (PropNameField, PropNumField)
+     ((upper PropNameField `like` matchStr) `orderBy` [Asc PropNameField])
 
 
 -- | Find observations of the given target. The input name is searched - using a
