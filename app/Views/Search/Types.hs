@@ -52,8 +52,7 @@ indexPage objs =
     <>
     body
      (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderTypes objs)
+      <> renderTypes objs
       <> renderFooter
      )
 
@@ -75,8 +74,7 @@ dependencyPage objs =
     <>
     (body ! onload "createTree(typeinfo);")
      (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderDependency objs)
+      <> renderDependency objs
       <> renderFooter
      )
 
@@ -97,8 +95,7 @@ matchPage typeInfo sched =
     <>
     (body ! onload "createMap(obsinfo);")
      (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderMatches lbl sched [])
+      <> renderMatches lbl sched []
       <> renderFooter
      )
 
@@ -119,8 +116,7 @@ matchDependencyPage typeInfos sched =
     <>
     (body ! onload "createMap(obsinfo);")
      (mainNavBar CPExplore
-      <> (div ! id "schedule")
-          (renderMatches lbl sched (P.tail typeInfos))
+      <> renderMatches lbl sched (P.tail typeInfos)
       <> renderFooter
      )
 
@@ -150,7 +146,7 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
       
 
   in div ! A.id "scheduleBlock" $ do
-    h2 $ toHtml lbl
+    h2 (toHtml lbl)
 
     svgBlock
 
@@ -240,59 +236,41 @@ toTree sl =
       addChildren xs cs obj =
         Aeson.object (if null xs then obj else "children" .= cs : obj)
 
+      makeObj st sc ntot =
+        let lvl = _scLevel sc
+        in [ "name" .= snd st
+           , "level" .= lvl
+           , "shortName" .= short st
+           , "searchLink" .= mkLink st
+           , "size" .= ntot]
+
       -- the assumption is that the first element in this list is the level-1
       -- value
       toChild1 [] = error "empty list"
       toChild1 ((st,sc,n):xs) =
-        let lvl = _scLevel sc
-            ntot = n + sum ns
-            obj = [ "name" .= snd st
-                  , "level" .= lvl
-                  , "shortName" .= short st
-                  , "searchLink" .= mkLink st
-                  , "size" .= ntot]
-
+        let obj = makeObj st sc ntot
             l2 = g2 xs
+            ntot = n + sum ns
             (ns, cs) = unzip (P.map toChild2 l2)
-
         in addChildren xs cs obj
         
       toChild2 [] = (0, Aeson.object [])
       toChild2 ((st,sc,n):xs) =
-        let lvl = _scLevel sc
-            ntot = n + sum ns
-            obj = [ "name" .= snd st
-                  , "level" .= lvl
-                  , "shortName" .= short st
-                  , "searchLink" .= mkLink st
-                  , "size" .= ntot]
-
+        let obj = makeObj st sc ntot
             l3 = g3 xs
+            ntot = n + sum ns
             (ns, cs) = unzip (P.map toChild3 l3)
-
         in (ntot, addChildren xs cs obj)
         
       toChild3 [] = (0, Aeson.object [])
       toChild3 ((st,sc,n):xs) =
-        let lvl = _scLevel sc
+        let obj = makeObj st sc ntot
             ntot = n + sum ns
-            obj = [ "name" .= snd st
-                  , "level" .= lvl
-                  , "shortName" .= short st
-                  , "searchLink" .= mkLink st
-                  , "size" .= ntot]
-
             (ns, cs) = unzip (P.map toChild4 xs)
-
         in (ntot, addChildren xs cs obj)
         
       toChild4 (st,sc,n) =
-        let lvl = _scLevel sc
-            obj = [ "name" .= snd st
-                  , "level" .= lvl
-                  , "shortName" .= short st
-                  , "searchLink" .= mkLink st
-                  , "size" .= n]
+        let obj = makeObj st sc n
         in (n, Aeson.object obj)
         
   in Aeson.object [ "name" .= ("all" :: String),

@@ -110,7 +110,7 @@ renderMatches cts =
         [ "The left-hand column shows the "
         , (a ! href "/search/category/") "proposal categories"
         , " and the right-hand column the "
-        , (a ! href "/search/type/") "SIMBAD categories"
+        , (a ! href "/search/type/") "SIMBAD types"
         , " for the objects observed by Chandra "
         , "(since SIMBAD does not include solar-system objects, the "
         , "solar system category is not included)."
