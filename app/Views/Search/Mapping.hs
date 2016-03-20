@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -6,7 +7,13 @@
 module Views.Search.Mapping (indexPage) where
 
 import qualified Prelude as P
-import Prelude ((<$>), ($), (+), (++), Int, String, fst, length, snd, zip)
+import Prelude (($), (+), (++), Int, String, fst, length, snd, zip)
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
+import Control.Applicative ((<$>))
+#else
+import Prelude ((<$>))
+#endif
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
