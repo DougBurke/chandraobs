@@ -1022,7 +1022,7 @@ findTarget target = do
 
 -- | Return the number of object types per proposal category
 getProposalObjectMapping ::
-  PersistBackend m
+  (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
   => m (M.Map (String, String) Int)
   -- ^ The proposal category, the SIMBAD type, and the number of
   --   objects with that type in the category.
