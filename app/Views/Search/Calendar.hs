@@ -45,8 +45,7 @@ indexPage cts =
     <>
     (body ! onload jsLoad)
      (mainNavBar CPExplore
-      <> (div ! id "calendar") 
-          (renderMatches cts)
+      <> renderMatches cts
       <> renderFooter
      )
 
@@ -80,8 +79,6 @@ renderMatches cts =
   in div ! A.id "calendarBlock" $ do
     h2 $ toHtml ("Calendar"::String)
 
-    svgBlock
-
     p $ mconcat
         [ "This page shows the number of Chandra science observations per "
         , "day. It is " <> em "very" <> " experimental and the results should "
@@ -99,4 +96,6 @@ renderMatches cts =
         , "a few days on either side, so you can explore; see if you can find "
         , "the Venus observations!"
         ]
+
+    svgBlock
 

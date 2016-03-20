@@ -80,9 +80,12 @@ executable webserver
                        Views.Record
                        Views.Render
                        Views.Schedule
+                       Views.Search.Calendar
                        Views.Search.Category
                        Views.Search.Constellation
                        Views.Search.Instrument
+                       Views.Search.Mapping
+                       Views.Search.Target
                        Views.Search.Types
                        Views.WWT
   hs-source-dirs:      app/

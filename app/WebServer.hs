@@ -46,6 +46,7 @@ import qualified Views.Search.Calendar as Calendar
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Instrument as Instrument
+import qualified Views.Search.Mapping as Mapping
 import qualified Views.Search.Target as Target
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
@@ -117,6 +118,8 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , findProposalNameMatch
                  , findTarget
 
+                 , getProposalObjectMapping
+                   
                  , getNumObsPerDay
                    
                  , dbConnStr
@@ -553,7 +556,12 @@ webapp cm mgr = do
       let maxDay = addDays 21 (utctDay now)
       cts <- liftSQL (getNumObsPerDay maxDay)
       fromBlaze (Calendar.indexPage cts)
-        
+
+    -- map between proposal category and SIMBAD object types.
+    get "/search/mappings" $ do
+      mapping <- liftSQL getProposalObjectMapping
+      fromBlaze (Mapping.indexPage mapping)
+      
     -- TODO: also need a HEAD request version
     {-
     get "/search/" $ do

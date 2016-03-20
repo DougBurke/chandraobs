@@ -45,6 +45,8 @@ module Database ( getCurrentObs
                 , findProposalNameMatch
                 , findTarget
 
+                , getProposalObjectMapping
+
                 , getNumObsPerDay
                   
                 , insertScienceObs
@@ -517,11 +519,10 @@ getScheduleDate day ndays = do
   now <- liftIO getCurrentTime
   let cnow = ChandraTime now
 
-  let sched = if tStart > cnow
-              then Schedule now ndays [] Nothing res simbad
-              else if tEnd < cnow
-                   then Schedule now ndays res Nothing [] simbad
-                   else Schedule now ndays done mdoing todo simbad
+  let sched
+        | tStart > cnow = Schedule now ndays [] Nothing res simbad
+        | tEnd < cnow   = Schedule now ndays res Nothing [] simbad
+        | otherwise     = Schedule now ndays done mdoing todo simbad
 
       (aprevs, todo) = span ((<= cnow) . recordStartTime) res
       (mdoing, done) = case reverse aprevs of
@@ -1017,7 +1018,37 @@ findTarget target = do
 
   let sobs = mergeSL soStartTime (unsafeToSL direct) (unsafeToSL indirect)
   return sobs
-  
+
+
+-- | Return the number of object types per proposal category
+getProposalObjectMapping ::
+  PersistBackend m
+  => m (M.Map (String, String) Int)
+  -- ^ The proposal category, the SIMBAD type, and the number of
+  --   objects with that type in the category.
+  --   Actually, it's the number of observations, not number of
+  --   objects. Need to think about how to restrict to unique targets.
+getProposalObjectMapping = do
+  sos <- project (SoTargetField, SoProposalField) CondEmpty
+
+  -- do it individually for now
+  ms <- forM sos $ \(target, propNum) -> do
+    xs <- listToMaybe <$> project SmmInfoField ((SmmTargetField ==. target) `limitTo` 1)
+    case xs of
+      Just skey -> do
+        ys <- listToMaybe <$> project SmiTypeField ((AutoKeyField ==. skey) `limitTo` 1)
+        case ys of
+          Just targetType -> do
+            zs <- listToMaybe <$> project PropCategoryField ((PropNumField ==. propNum) `limitTo` 1)
+            case zs of
+              Just catType -> return (Just (catType, targetType))
+              _ -> return Nothing
+          Nothing -> return Nothing
+      Nothing -> return Nothing
+
+  let ans = map (\x -> (x,1)) (catMaybes ms)
+  return (M.fromListWith (+) ans)
+
 
 -- | Get the number of science observations per day.
 --

@@ -9,8 +9,8 @@ module Views.Search.Types (indexPage, dependencyPage
 
 import qualified Prelude as P
 import Prelude ((.), ($), (==), (+), Int, String
-               , compare, error, fst, length, lookup, mapM_, maybe
-               , snd, sum, uncurry, unzip)
+               , compare, error, fst, lookup, mapM_, maybe
+               , null, snd, sum, uncurry, unzip)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
@@ -237,6 +237,9 @@ toTree sl =
       short = fromSimbadType . fst
       mkLink = B8.unpack . typeDLinkURI . fst
 
+      addChildren xs cs obj =
+        Aeson.object (if null xs then obj else "children" .= cs : obj)
+
       -- the assumption is that the first element in this list is the level-1
       -- value
       toChild1 [] = error "empty list"
@@ -252,9 +255,7 @@ toTree sl =
             l2 = g2 xs
             (ns, cs) = unzip (P.map toChild2 l2)
 
-        in Aeson.object (if length xs == 0
-                         then obj
-                         else "children" .= cs : obj)
+        in addChildren xs cs obj
         
       toChild2 [] = (0, Aeson.object [])
       toChild2 ((st,sc,n):xs) =
@@ -269,9 +270,7 @@ toTree sl =
             l3 = g3 xs
             (ns, cs) = unzip (P.map toChild3 l3)
 
-        in (ntot, Aeson.object (if length xs == 0
-                                then obj
-                                else "children" .= cs : obj))
+        in (ntot, addChildren xs cs obj)
         
       toChild3 [] = (0, Aeson.object [])
       toChild3 ((st,sc,n):xs) =
@@ -285,9 +284,7 @@ toTree sl =
 
             (ns, cs) = unzip (P.map toChild4 xs)
 
-        in (ntot, Aeson.object (if length xs == 0
-                                then obj
-                                else "children" .= cs : obj))
+        in (ntot, addChildren xs cs obj)
         
       toChild4 (st,sc,n) =
         let lvl = _scLevel sc
