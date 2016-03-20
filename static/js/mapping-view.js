@@ -14,6 +14,12 @@ var path = sankey.link();
 
 var svg, link;
 
+function countLabel(n) {
+    var out = n + " observation";
+    if (n > 1) { out += "s"; }
+    return out;
+}
+
 function createMapping(mapInfo) {
 
   sankey
@@ -36,7 +42,7 @@ function createMapping(mapInfo) {
       .sort(function(a, b) { return b.dy - a.dy; });
 
   link.append("title")
-      .text(function(d) { return d.source.name + " → " + d.target.name + "\n" + d.value; });
+        .text(function(d) { return d.source.name + " → " + d.target.name + "\n" + countLabel(d.value); });
 
   var node = svg.append("g").selectAll(".node")
       .data(mapInfo.nodes)
@@ -54,9 +60,21 @@ function createMapping(mapInfo) {
       .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
       .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
     .append("title")
-      .text(function(d) { return d.name + "\n" + d.value; });
+        .text(function(d) { return d.name + "\n" + countLabel(d.value); });
 
-  node.append("text")
+    node
+        .append("a")
+        .attr("xlink:href", function(d) {
+            var out;
+            if (mapInfo.proposals.indexOf(d.name) > -1) {
+                out = "/search/category/" + encodeURIComponent(d.name);
+            } else if (d.name in mapInfo.objects) {
+                out = "/search/type/" + encodeURIComponent(mapInfo.objects[d.name].SimbadType);
+            } else {
+                out = "/error/";
+            }
+            return out; })
+      .append("text")
       .attr("x", -6)
       .attr("y", function(d) { return d.dy / 2; })
       .attr("dy", ".35em")
@@ -67,6 +85,8 @@ function createMapping(mapInfo) {
       .attr("x", 6 + sankey.nodeWidth())
       .attr("text-anchor", "start");
 
+
+    
 }
 
 function dragmove(d) {
