@@ -121,6 +121,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getProposalObjectMapping
                    
                  , getNumObsPerDay
+                 , getExposureBreakdown
                    
                  , dbConnStr
                  )
@@ -551,11 +552,20 @@ webapp cm mgr = do
     --       days, so bump up to 21. This may begin to include LTS
     --       data, but live with that for now.
     --
+    let dayLimit = 21 :: Integer
+    
     get "/search/calendar" $ do
       now <- liftIO getCurrentTime
-      let maxDay = addDays 21 (utctDay now)
+      let maxDay = addDays dayLimit (utctDay now)
       cts <- liftSQL (getNumObsPerDay maxDay)
       fromBlaze (Calendar.indexPage cts)
+
+    -- TODO: need better endpoint
+    get "/search/breakdown" $ do
+      now <- liftIO getCurrentTime
+      let maxDay = addDays dayLimit (utctDay now)
+      (total, perDay) <- liftSQL (getExposureBreakdown maxDay)
+      fromBlaze (Instrument.breakdownPage total perDay)
 
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" $ do

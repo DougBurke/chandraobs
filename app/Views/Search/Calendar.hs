@@ -84,7 +84,11 @@ renderMatches cts =
         , "day. It is " <> em "very" <> " experimental and the results should "
         , "not be taken too seriously as there are a lot of issues regarding "
         , "getting hold of an accurate schedule. There's also the fact that "
-        , "I only currently include a small fraction of the total schedule! "
+        , "I only currently include a small fraction of the total schedule, "
+        , "since Chandra was launched "
+        , (a ! href "http://chandra.harvard.edu/about/deployment.html")
+          "on July 23, 1999"
+        , " (although observations only started about a month after this). "
         , "The shaded regions indicate the number of science observations that "
         , "started on that day; normally there are only a handful, but occasionally "
         , "the count can get quite high, which normally means a set of "

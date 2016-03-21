@@ -610,11 +610,17 @@ data Schedule =
    }
 
 -- | Represent a value in kiloseconds.
+--
+--   It is assumed that the time value is >= 0.
+--
 newtype TimeKS = TimeKS { _toS :: Double } 
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
--- | Convert a more "friendly" exposure time value.
+addTimeKS :: TimeKS -> TimeKS -> TimeKS
+addTimeKS (TimeKS a) (TimeKS b) = TimeKS (a+b)
+
+-- | Convert to a more "friendly" exposure time value.
 --
 --   As the minimum time appears to be 0.1 ks we do not
 --   have to deal with sub minute values, but include

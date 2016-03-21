@@ -47,6 +47,8 @@ module Database ( getCurrentObs
 
                 , getProposalObjectMapping
 
+                , getExposureBreakdown
+                  
                 , getNumObsPerDay
                   
                 , insertScienceObs
@@ -1020,7 +1022,10 @@ findTarget target = do
   return sobs
 
 
--- | Return the number of object types per proposal category
+-- | Return the number of object types per proposal category.
+--
+--   TODO: can this be made more efficient?
+--
 getProposalObjectMapping ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
   => m (M.Map (String, String) Int)
@@ -1048,6 +1053,48 @@ getProposalObjectMapping = do
 
   let ans = map (\x -> (x,1)) (catMaybes ms)
   return (M.fromListWith (+) ans)
+
+-- | Work out a timeline based on instrument configuration; that is,
+--   start times, exposure lengths, and instruments.
+--
+--   This is not perfect, since it allocates the full exposure
+--   length to the day the observation starts, which is obviously
+--   wrong for lengths > a day or if the observations spans
+--   midnight.
+--
+getExposureBreakdown ::
+  PersistBackend m
+  => Day
+  -- ^ The upper limit for when to search; this is so that items
+  --   in the long-term schedule do not "show up" in the output.
+  --   It is assumed that this is before `futureTime`.
+  -> m (M.Map (Instrument, Grating) TimeKS
+       , M.Map Day (M.Map (Instrument, Grating) TimeKS))
+getExposureBreakdown maxDay = do
+  let maxTime = ChandraTime (UTCTime maxDay 0)
+  ans <- project (SoStartTimeField, SoApprovedTimeField
+                 , SoObservedTimeField, SoInstrumentField
+                 , SoGratingField)
+         (((SoStartTimeField <=. maxTime) &&. notDiscarded)
+          `orderBy` [Asc SoStartTimeField])
+
+  let conv (startTime, approvTime, observTime, inst, grat) =
+        let expTime = fromMaybe approvTime observTime
+            key = utctDay (_toUTCTime startTime)
+            val = M.singleton (inst,grat) expTime
+        in (key, val)
+
+      days = map conv ans
+      
+      -- the second element is guaranteed to be a singleton, so
+      -- the following could probably be more efficient, but this
+      -- is easy to write
+      addElem = M.unionWith addTimeKS
+
+      perDay = M.fromAscListWith addElem days
+      total = M.foldl' addElem M.empty perDay
+        
+  return (total, perDay)
 
 
 -- | Get the number of science observations per day.
