@@ -1,0 +1,33 @@
+
+path.timeline {
+  fill: none;
+  /* stroke: #666; */
+  stroke: rgb(0, 131, 179);
+  stroke-width: 1.5px;
+}
+
+.axis {
+  shape-rendering: crispEdges;
+}
+
+/*
+.x.axis line {
+    stroke: #fff;
+}
+
+.x.axis .minor {
+  stroke-opacity: .5;
+}
+
+.x.axis path {
+  display: none;
+}
+*/
+
+.x.axis line,
+.x.axis path,
+.y.axis line,
+.y.axis path {
+  fill: none;
+  stroke: #000;
+}

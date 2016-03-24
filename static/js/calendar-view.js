@@ -86,11 +86,6 @@ function createCalendar(cal) {
             var days = d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1));
             return days.filter(function (d) { return (d >= startDate) && (d <= endDate); });
         })
-
-    /*
-    can we filter this, if so can then add a link;
-    could add a link here anyway as a test
-    */
         .enter()
         .append("a")
         .attr("xlink:href", function(d) { return "/schedule/date/" + format(d) + "/3"; })

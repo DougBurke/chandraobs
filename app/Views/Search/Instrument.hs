@@ -11,14 +11,19 @@ module Views.Search.Instrument (indexPage
        where
 
 import qualified Prelude as P
-import Prelude (($), (*), (/), Ord, Int, compare, fst, snd, mapM_)
+import Prelude (($), (*), (/), (++), Ord, Int, compare, fst, snd, mapM_)
 
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.Aeson ((.=))
 import Data.Function (on)
+import Data.Functor (void)
 import Data.List (sortBy)
 import Data.Monoid ((<>), mconcat)
 import Data.Time (Day)
@@ -27,9 +32,12 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 import Text.Printf
 
-import Types (Schedule(..), TimeKS(..), Instrument, Grating
-             , showExpTime, addTimeKS)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+import Types (Schedule(..), TimeKS(..), Instrument, Grating(..)
+             , showExpTime, addTimeKS
+             , fromInstrument, fromGrating
+             )
+import Utils (defaultMeta, d3Meta, skymapMeta
+             , renderFooter, cssLink, jsScript
              , instLinkAbout, gratLinkAbout -- , igLinkAbout
              , instLinkSearch, gratLinkSearch, igLinkSearch
              , getNumObs)
@@ -236,10 +244,13 @@ breakdownPage total perDay =
   docTypeHtml ! lang "en-US" $
     head (H.title "Chandra observations: a breakdown of exposure times"
           <> defaultMeta
+          <> d3Meta
+          <> jsScript "/js/breakdown-view.js"
+          <> cssLink "/css/breakdown.css"
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
-    body
+    (body ! onload "createBreakdown(seriesinfo);")
      (mainNavBar CPExplore
       <> renderBreakdown total perDay
       <> renderFooter
@@ -273,6 +284,34 @@ renderBreakdown total perDay =
       insts = M.mapKeysWith addTimeKS fst total
       grats = M.mapKeysWith addTimeKS snd total
       igs = total
+
+      toKey (inst,grat) =
+        T.pack (fromInstrument inst ++ "+" ++ fromGrating grat)
+
+      toLabel ig@(inst,grat) =
+        let val = fromInstrument inst ++ case grat of
+              NONE -> "" -- maybe say " with no grating"?
+              _ -> " + " ++ fromGrating grat
+        in toKey ig .= val
+      lbls = P.map toLabel (M.keys igs)
+
+      toTimes (k, m) =
+        let c (key, val) = toKey key .= _toS val
+        in Aeson.object [
+          "date" .= k
+          , "values" .= Aeson.object (P.map c (M.toAscList m))
+          ]
+      series = P.map toTimes (M.toAscList perDay)
+
+      -- The total and perDay data are sparse, in that there
+      -- are days with no data. Do we want to create a dense
+      -- array on output, filling these days in?
+      json = Aeson.object [
+        "labels" .= Aeson.object lbls
+        , "series" .= series
+        ]
+
+      calLink = (a ! href "/search/calendar/")
       
   in div $ do
     p ("A " <> em "very" <> " unofficial breakdown of the time spent "
@@ -281,18 +320,36 @@ renderBreakdown total perDay =
        <> "Chandra X-Ray Center, and the data is neither complete or 100% "
        <> "reliable. This should only be taken as a rough estimate of the "
        <> "observation times, and is only for a "
-       <> (a ! href "/search/calendar/") "small fraction"
+       <> calLink "small fraction"
        <> " of the output of Chandra!"
       )
 
-    p ("I may well change to displaying a "
-       <> preEscapedToHtml ("&ldquo;"::P.String)
-       <> "fancy-schmancy"
-       <> preEscapedToHtml ("&rdquo;"::P.String)
-       <> " d3 visualization of this data, but wanted to get some numbers "
-       <> "out quickly as a check.")
+    p ("The plots show the total number of observing hours "
+       <> em "started" <> " in each day, for each detector on Chandra (so this "
+       <> "combines both "
+       <> (a ! href "/about/instruments.html#grating") "grating"
+       <> " and non-grating observations). It does "
+       <> strong "not" <> " include non-science observations. "
+       <> "Note that if an "
+       <> "observation spans one (or more) days then the time is "
+       <> "assigned to the start date, which is why it looks like "
+       <> "Chandra has managed to squeeze in more than 24 hours "
+       <> "of observations in a day! These plots "
+       <> em "only" <> " cover the year 2015."
+      )
 
+    (div ! id "seriesBlock") ""
+
+    p ("The following tables represent the full data used by this site; "
+       <> "that is, the data shown in the "
+       <> calLink "calendar view"
+       <> ".")
+      
     tbl "Instrument" instLinkSearch insts
     tbl "Grating" gratLinkSearch grats
     tbl "Instrument & Grating" igLinkSearch igs
     
+    script ! type_ "text/javascript" $ do
+      void "var seriesinfo = "
+      toHtml (LB8.unpack (Aeson.encode json))
+      ";"
