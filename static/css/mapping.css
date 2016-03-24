@@ -19,3 +19,9 @@
 .link:hover {
   stroke-opacity: .5;
 }
+
+.waiting img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}

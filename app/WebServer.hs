@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 {-
 TODO: when all tables are removed, get errors like
@@ -29,6 +30,8 @@ module Main where
 import qualified Data.ByteString.Base64.Lazy as B64
 -- import qualified Data.Conduit as C
 -- import qualified Data.Conduit.Combinators as CC
+
+import qualified Data.Map.Strict as M
 
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -63,7 +66,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson((.=), object)
 import Data.Default (def)
 import Data.List (nub)
-import Data.Maybe (isJust)
+import Data.Maybe (fromJust, isJust, mapMaybe)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
@@ -131,7 +134,9 @@ import Types (Record, SimbadInfo, Proposal
              , ObsInfo(..), ObsIdVal(..), Sequence(..)
              , SortedList, StartTimeOrder
              , nullSL, fromSL
-             , handleMigration)
+             , handleMigration
+             , simbadLabels
+             )
 import Utils (fromBlaze, standardResponse, getFact)
 
 readInt :: String -> Maybe Int
@@ -349,6 +354,47 @@ webapp cm mgr = do
           conv (title, pnum) = object [ "title" .= title
                                       , "number" .= _unPropNum pnum ]
       json out
+
+    -- How to best serialize the mapping data? For now go with a
+    -- form that is closely tied to the visualization.
+    --
+    get "/api/mappings" $ do
+      mapping <- liftSQL getProposalObjectMapping
+
+      let names = M.keys mapping
+          propNames = nub (map fst names)
+          simNames = nub (map snd names)
+
+          nprop = length propNames
+          zero = 0 :: Int
+          propMap = M.fromList (zip propNames [zero..])
+          simMap = M.fromList (zip simNames [nprop, nprop+1..])
+      
+          makeName n = object [ "name" .= n ]
+          getVal n m = fromJust (M.lookup n m)
+          makeLink ((prop,stype), c) =
+            object [ "source" .= getVal prop propMap
+                   , "target" .= getVal stype simMap
+                   , "value" .= c ]
+
+          -- For the SIMBAD types, need an object mapping from the label
+          -- to the three-character symbol.
+          --
+          -- There's possibility of version skew between the SIMBAD long-form
+          -- names. For now just drop them and I can worry about it later.
+          --
+          simInfo = M.fromList (map (\(_,b1,c1) -> (T.unpack c1, b1)) simbadLabels)
+          findSym longName = (longName,) <$> M.lookup longName simInfo
+          symbols = mapMaybe findSym simNames
+        
+          jsonCts = object [
+            "nodes" .= map makeName (propNames ++ simNames)
+            , "links" .= map makeLink (M.toList mapping)
+            , "proposals" .= propNames
+            , "objects" .= M.fromList symbols
+            ]
+
+      json jsonCts
     
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")
@@ -568,9 +614,7 @@ webapp cm mgr = do
       fromBlaze (Instrument.breakdownPage total perDay)
 
     -- map between proposal category and SIMBAD object types.
-    get "/search/mappings" $ do
-      mapping <- liftSQL getProposalObjectMapping
-      fromBlaze (Mapping.indexPage mapping)
+    get "/search/mappings" (fromBlaze Mapping.indexPage)
       
     -- TODO: also need a HEAD request version
     {-
