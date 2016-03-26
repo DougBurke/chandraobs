@@ -66,7 +66,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson((.=), object)
 import Data.Default (def)
 import Data.List (nub)
-import Data.Maybe (fromJust, isJust, mapMaybe)
+import Data.Maybe (fromJust, isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
@@ -122,6 +122,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , findTarget
 
                  , getProposalObjectMapping
+                 , keyToPair
                    
                  , getNumObsPerDay
                  , getExposureBreakdown
@@ -133,9 +134,10 @@ import Types (Record, SimbadInfo, Proposal
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..), Sequence(..)
              , SortedList, StartTimeOrder
+             , TimeKS(..)
+             , fromSimbadType
              , nullSL, fromSL
              , handleMigration
-             , simbadLabels
              )
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -363,8 +365,17 @@ webapp cm mgr = do
 
       let names = M.keys mapping
           propNames = nub (map fst names)
-          simNames = nub (map snd names)
+          simKeys = nub (map (keyToPair . snd) names)
+          simNames = map fst simKeys
 
+          -- remove the object that would be created by the
+          -- ToJSON instance of SimbadType
+          toPair (k, v) = T.pack k .= fromSimbadType v
+          symbols = map toPair simKeys
+          
+          -- Need to provide unique numeric identifiers than
+          -- can be used to index into the 'nodes' array.
+          --
           nprop = length propNames
           zero = 0 :: Int
           propMap = M.fromList (zip propNames [zero..])
@@ -372,29 +383,24 @@ webapp cm mgr = do
       
           makeName n = object [ "name" .= n ]
           getVal n m = fromJust (M.lookup n m)
-          makeLink ((prop,stype), c) =
-            object [ "source" .= getVal prop propMap
-                   , "target" .= getVal stype simMap
-                   , "value" .= c ]
+          
+          makeLink ((prop,skey), (texp, nsrc, nobs)) =
+            let stype = fst (keyToPair skey)
+            in object [ "source" .= getVal prop propMap
+                      , "target" .= getVal stype simMap
+                      , "totalExp" .= _toKS texp
+                      , "numSource" .= nsrc
+                      , "numObs" .= nobs ]
 
-          -- For the SIMBAD types, need an object mapping from the label
-          -- to the three-character symbol.
-          --
-          -- There's possibility of version skew between the SIMBAD long-form
-          -- names. For now just drop them and I can worry about it later.
-          --
-          simInfo = M.fromList (map (\(_,b1,c1) -> (T.unpack c1, b1)) simbadLabels)
-          findSym longName = (longName,) <$> M.lookup longName simInfo
-          symbols = mapMaybe findSym simNames
-        
-          jsonCts = object [
+          out = object [
             "nodes" .= map makeName (propNames ++ simNames)
             , "links" .= map makeLink (M.toList mapping)
             , "proposals" .= propNames
-            , "objects" .= M.fromList symbols
+            , "simbadNames" .= simNames
+            , "simbadMap" .= object symbols
             ]
 
-      json jsonCts
+      json out
     
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")

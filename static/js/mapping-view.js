@@ -17,14 +17,45 @@ var path = sankey.link();
 
 var svg, link;
 
-function countLabel(n) {
-    var out = n + " observation";
-    if (n > 1) { out += "s"; }
-    return out;
+// Convert time in hours into a string; could be
+// fancy and bundle up into days/weeks/...
+// but leave that for now.
+//
+function getTimeString(thours) {
+    var str;
+    if (thours < 1.0) {
+        str = "< 1 hour";
+    } else if (thours < 1.5) {
+        str = "1 hour";
+    } else {
+        str = thours.toFixed(0) + " hours";
+    }
+    return str;
 }
+
+function getNumSrcString(nsrc) {
+    var str;
+    if (nsrc == 1) {
+        str = "One source";
+    } else {
+        str = nsrc + " sources";
+    }
+    return str;
+}
+
+var dummy;
 
 function makePlot(mapInfo) {
 
+    dummy = mapInfo;
+    
+  // for now, hard-code the value to be the totalExp field,
+  // but convert from kilo-seconds to hours.
+  //  
+  mapInfo.links.forEach(function(d) {
+      d.value = d.totalExp * 1000.0 / 3600.0;
+  });
+    
   // remove the animation; the transition is rather abrupt!
   $('#mapping').html("");
 
@@ -48,7 +79,11 @@ function makePlot(mapInfo) {
       .sort(function(a, b) { return b.dy - a.dy; });
 
   link.append("title")
-        .text(function(d) { return d.source.name + " → " + d.target.name + "\n" + countLabel(d.value); });
+        .text(function(d) {
+            return d.source.name + " → " + d.target.name + "\n"
+                + getNumSrcString(d.numSource) + " observed for "
+                + getTimeString(d.value);
+        });
 
   var node = svg.append("g").selectAll(".node")
       .data(mapInfo.nodes)
@@ -66,7 +101,10 @@ function makePlot(mapInfo) {
       .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
       .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
     .append("title")
-        .text(function(d) { return d.name + "\n" + countLabel(d.value); });
+        .text(function(d) {
+            return d.name + "\n"
+                + "Observed for " + getTimeString(d.value);
+        });
 
     node
         .append("a")
@@ -74,8 +112,9 @@ function makePlot(mapInfo) {
             var out;
             if (mapInfo.proposals.indexOf(d.name) > -1) {
                 out = "/search/category/" + encodeURIComponent(d.name);
-            } else if (d.name in mapInfo.objects) {
-                out = "/search/type/" + encodeURIComponent(mapInfo.objects[d.name].SimbadType);
+            } else if (mapInfo.simbadNames.indexOf(d.name) > -1) {
+                var stype = mapInfo.simbadMap[d.name];
+                out = "/search/type/" + encodeURIComponent(stype);
             } else {
                 out = "/error/";
             }

@@ -73,6 +73,9 @@ module Database ( getCurrentObs
                 , notDiscarded
                 , notArchived
                 , isScheduled
+
+                , SIMKey
+                , keyToPair
                   
                   -- * Hack
                   --
@@ -1022,38 +1025,130 @@ findTarget target = do
   return sobs
 
 
+type TargName = String
+type PropCat = String
+type SIMCat = String
+type NumSrc = Int
+type NumObs = Int
+
+-- | Only used to provide an Ord instance, which is just the
+--   ordering of the first element (since it is taken that there
+--   is a unique mapping between the two components of the
+--   tuple).
+--
+newtype SIMKey = SK (SIMCat, SimbadType)
+
+instance Eq SIMKey where
+  (SK (a1, _)) == (SK (a2, _)) = a1 == a2
+  
+instance Ord SIMKey where
+  compare (SK (a1, _)) (SK (a2, _)) = compare a1 a2
+
+keyToPair :: SIMKey -> (SIMCat, SimbadType)
+keyToPair (SK a) = a
+
 -- | Return the number of object types per proposal category.
 --
 --   TODO: can this be made more efficient?
+--         can I change the return value to something a bit more
+--         nuanced (e.g. number of observations, number of
+--         objects, total exposure time)?
 --
 getProposalObjectMapping ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => m (M.Map (String, String) Int)
-  -- ^ The proposal category, the SIMBAD type, and the number of
-  --   objects with that type in the category.
-  --   Actually, it's the number of observations, not number of
-  --   objects. Need to think about how to restrict to unique targets.
+  => m (M.Map (PropCat, SIMKey) (TimeKS, NumSrc, NumObs))
+  -- ^ The keys are the proposal category and SIMBAD type.
+  --   The values are the total time, the number of objects,
+  --   and the number of observations of these objects.
 getProposalObjectMapping = do
-  sos <- project (SoTargetField, SoProposalField) CondEmpty
 
-  -- do it individually for now
-  ms <- forM sos $ \(target, propNum) -> do
-    xs <- listToMaybe <$> project SmmInfoField ((SmmTargetField ==. target) `limitTo` 1)
-    case xs of
-      Just skey -> do
-        ys <- listToMaybe <$> project SmiTypeField ((AutoKeyField ==. skey) `limitTo` 1)
-        case ys of
-          Just targetType -> do
-            zs <- listToMaybe <$> project PropCategoryField ((PropNumField ==. propNum) `limitTo` 1)
-            case zs of
-              Just catType -> return (Just (catType, targetType))
-              _ -> return Nothing
-          Nothing -> return Nothing
-      Nothing -> return Nothing
+  -- Ideally a lot of this aggregation could be done by the database
+  -- but for now it is simpler to do it here. It makes sense to
+  -- get "all" the information here, since all the science obs,
+  -- proposals, and simbad types should be used (bar the odd case
+  -- where maybe the only type or proposal is related to a discarded
+  -- observation, but this should be a small fraction of the data).
+  --
+  -- The assumption is that the target field value is "unique",
+  -- in that repeated values refer to the same object. This is
+  -- obviously not true (e.g. two observers can use 'field 1')
+  -- but live with the ambiguity for now, in part because the
+  -- ambiguity is embedded into the database schema.
+  --
+  -- I have added explicit type annotations to make it clearer
+  -- what is going on.
+  --
+  -- The ordering used by the database and Haskell should be the
+  -- same for the proposal number, so I can use fromAscList.
+  --
+  propsDb <- project (PropNumField, PropCategoryField)
+             (CondEmpty `orderBy` [Asc PropNumField])
+  let propMap :: M.Map PropNum PropCat
+      propMap = M.fromAscList propsDb
 
-  let ans = map (\x -> (x,1)) (catMaybes ms)
-  return (M.fromListWith (+) ans)
+  -- The assumption is that the mapping from target field to SIMBAD info
+  -- is unique.
+  --
+  simList <- project (SmmTargetField, SmmInfoField) (distinct CondEmpty)
+  simDb <- forM simList $ \(target, key) -> do
+    ans <- listToMaybe <$> project
+           (SmiTypeField, SmiType3Field)
+           ((AutoKeyField ==. key) `limitTo` 1)
+    return ((target,) . SK <$> ans)
+  let simMap :: M.Map TargName SIMKey
+      simMap = M.fromList (catMaybes simDb)
 
+  -- Process each source, skipping it if it has no proposal category
+  -- (which it should have but there may be a few for which this
+  -- information is missing) and SIMBAD type (which many do not have).
+  --
+  obsDb <- project (SoTargetField, SoProposalField
+                   , SoApprovedTimeField, SoObservedTimeField)
+           (notDiscarded &&. isScheduled)
+  let convert (a, b, aTime, oTime) = do
+        scat <- M.lookup a simMap
+        pcat <- M.lookup b propMap
+        return (a, [((pcat, scat), (fromMaybe aTime oTime, 1))])
+
+      obsMap1 :: M.Map TargName [((PropCat, SIMKey), (TimeKS, NumObs))]
+      obsMap1 = M.fromListWith (++) (mapMaybe convert obsDb)
+
+      -- converting from a list of times to the total time and the number
+      -- of observations (the latter probably isn't interesting, but
+      -- calculate it for now).
+      addElem :: (TimeKS, NumObs) -> (TimeKS, NumObs) -> (TimeKS, NumObs)
+      addElem (t1,c1) (t2,c2) = (addTimeKS t1 t2, c1+c2)
+
+      obsMap2 :: M.Map TargName (M.Map (PropCat, SIMKey) (TimeKS, NumObs))
+      obsMap2 = M.map (M.fromListWith addElem) obsMap1
+
+      -- Have a set of keys for a given target, so can add in
+      -- the number of sources
+      addNSrc ::
+         M.Map k (TimeKS, NumObs)
+         -> M.Map k (TimeKS, NumSrc, NumObs)
+      addNSrc = M.map (\(t, nobs) -> (t, 1, nobs))
+
+      obsMap3 :: M.Map TargName (M.Map (PropCat, SIMKey) (TimeKS, NumSrc, NumObs))
+      obsMap3 = M.map addNSrc obsMap2
+
+      -- could be more polymorphic, but force the types for now
+      combine ::
+         (TimeKS, NumSrc, NumObs)
+         -> (TimeKS, NumSrc, NumObs)
+         -> (TimeKS, NumSrc, NumObs)
+      combine (t1, ns1, no1) (t2, ns2, no2) = (addTimeKS t1 t2, ns1+ns2, no1+no2)
+
+      obsMap :: M.Map (PropCat, SIMKey) (TimeKS, NumSrc, NumObs)
+      obsMap = M.unionsWith combine (M.elems obsMap3)
+
+  -- The output is a map from
+  --    (Proposal category, SIMBAD type)
+  -- where both are human-readable strings, to
+  --    { exposureTime: ..., numberSources: ..., numberObs: ...}
+  --
+  return obsMap
+  
 -- | Work out a timeline based on instrument configuration; that is,
 --   start times, exposure lengths, and instruments.
 --
