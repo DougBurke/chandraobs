@@ -27,6 +27,7 @@ module Database ( getCurrentObs
                 , reportSize
                 , getSimbadInfo
                 , fetchSIMBADType
+                , fetchNoSIMBADType
                 , fetchSIMBADDescendentTypes
                 , fetchObjectTypes
                 , fetchConstellation
@@ -100,6 +101,7 @@ import Control.Applicative ((<$>))
 #endif
 
 import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 
 import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -604,6 +606,8 @@ getSimbadInfo target = do
 -- | Return all observations of the given SIMBAD type (excluding
 --   discarded). This restricts to the type only (i.e. no descendents).
 --
+--   There is NO special-case handling to support listing those objects
+--   with no SIMBAD info (i.e. if stype == noSimbadType).
 fetchSIMBADType :: 
   PersistBackend m
   => SimbadType 
@@ -635,6 +639,22 @@ fetchSIMBADType stype = do
                return (Just ((stype, ltype), ys))
 
     _ -> return Nothing
+
+-- | Identify those observations with no SIMBAD mapping.
+fetchNoSIMBADType :: 
+  PersistBackend m
+  => m (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs)
+fetchNoSIMBADType = do
+
+  sobs <- select (CondEmpty `orderBy` [Asc SoStartTimeField])
+  sinfo <- project SmmTargetField (distinct CondEmpty)
+
+  let inSimbad = S.fromList sinfo
+      noSimbad ScienceObs{..} = soTarget `S.notMember` inSimbad
+
+      out = unsafeToSL (filter noSimbad sobs)
+
+  return ((noSimbadType, noSimbadLabel), out)
 
 
 {-
@@ -1047,12 +1067,14 @@ instance Ord SIMKey where
 keyToPair :: SIMKey -> (SIMCat, SimbadType)
 keyToPair (SK a) = a
 
+unidentifiedKey :: SIMKey
+unidentifiedKey = SK (noSimbadLabel, noSimbadType)
+
 -- | Return the number of object types per proposal category.
 --
 --   TODO: can this be made more efficient?
---         can I change the return value to something a bit more
---         nuanced (e.g. number of observations, number of
---         objects, total exposure time)?
+--         (it appears to be better than it was, but could
+--         probably be improved)
 --
 getProposalObjectMapping ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
@@ -1060,6 +1082,10 @@ getProposalObjectMapping ::
   -- ^ The keys are the proposal category and SIMBAD type.
   --   The values are the total time, the number of objects,
   --   and the number of observations of these objects.
+  --
+  --   There is a special SIMKey value - namely the vakue
+  --   unidentifiedKey - which is used for those sources with
+  --   no SIMBAD information.
 getProposalObjectMapping = do
 
   -- Ideally a lot of this aggregation could be done by the database
@@ -1100,13 +1126,14 @@ getProposalObjectMapping = do
 
   -- Process each source, skipping it if it has no proposal category
   -- (which it should have but there may be a few for which this
-  -- information is missing) and SIMBAD type (which many do not have).
+  -- information is missing) but including a special "unidentified"
+  -- type for those with no SIMBAD type (which many do not have).
   --
   obsDb <- project (SoTargetField, SoProposalField
                    , SoApprovedTimeField, SoObservedTimeField)
            (notDiscarded &&. isScheduled)
   let convert (a, b, aTime, oTime) = do
-        scat <- M.lookup a simMap
+        let scat = fromMaybe unidentifiedKey (M.lookup a simMap)
         pcat <- M.lookup b propMap
         return (a, [((pcat, scat), (fromMaybe aTime oTime, 1))])
 

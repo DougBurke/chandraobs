@@ -20,7 +20,9 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Utils (defaultMeta, d3Meta, renderFooter
-             , jsScript, cssLink)
+             , jsScript, cssLink
+             , categoryLinkSearch
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 
 indexPage :: Html
@@ -52,9 +54,7 @@ renderMatches =
        , (a ! href "/search/category/") "proposal categories"
        , " and the right-hand column the "
        , (a ! href "/search/type/") "SIMBAD types"
-       , " for the objects observed by Chandra "
-       , "(since SIMBAD does not include solar-system objects, the "
-       , "solar system category is not included)."
+       , " for the objects observed by Chandra. "
        , "The connections between the two indicate the amount of time "
        , "spent observing these sources, and if you hover over a band "
        , "then you can find out the number of sources as well as the "
@@ -62,9 +62,15 @@ renderMatches =
        , "Not all objects have a SIMBAD type due to the "
        , "way I match them up (and this is in large part because the target name "
        , "field created by the observers is not designed for machine lookups, but "
-       , "for the observer). "
-       , "The names are links that will show the relevant subsample (namely the "
-       , "objects in the proposal category or SIMBAD type). "
+       , "for the observer), and these have been assigned to the "
+       , preEscapedToHtml ("&ldquo;"::String)
+       , "Unidentified"
+       , preEscapedToHtml ("&rdquo;"::String)
+       , " category; as you can see, there are a lot of them! "
+       , "This group also contains all the "
+       , categoryLinkSearch "SOLAR SYSTEM" "Solar System"
+       , " observations, since SIMBAD does not include solar-system objects in its "
+       , "database. "
        , "The format used for this display is known as a "
        , (a ! href "http://en.wikipedia.org/wiki/Sankey_diagram") "Sankey diagram"
        , "."

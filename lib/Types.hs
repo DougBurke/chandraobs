@@ -1115,6 +1115,13 @@ toSimbadType s@[_,_] = Just (SimbadType s)
 toSimbadType s@[_,_,_] = Just (SimbadType s)
 toSimbadType _ = Nothing
 
+-- | Identifies those sources for which we have no SIMBAD information.
+noSimbadLabel :: String
+noSimbadLabel = "Unidentified"
+
+noSimbadType :: SimbadType
+noSimbadType = SimbadType "000"
+
 instance Parsable SimbadType where
   parseParam t = 
     let tstr = LT.unpack t

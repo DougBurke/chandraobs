@@ -1,7 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Search on SIMBAD object type.
-
+-- | Search on SIMBAD object type, including "no SIMBAD info was identified".
+--
+--   There are two views (for those with a SIMBAD type):
+--      - just that type
+--      - the type and all the children of that type
+--
+--   For the "has no SIMBAD type" there's obviously no children.
+--
 module Views.Search.Types (indexPage, dependencyPage
                           , matchPage
                           , matchDependencyPage
@@ -29,12 +35,15 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), SimbadType(..), SimbadTypeInfo, SimbadCode(..)
-             , simbadLabels, _2)
+             , simbadLabels
+             , noSimbadLabel
+             , _2)
 import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
              , jsScript , cssLink
              , typeLinkSearch
              , typeDLinkSearch
              , typeDLinkURI
+             , categoryLinkSearch
              , getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -58,6 +67,8 @@ indexPage objs =
 
 -- | Show the "full" object hierarcy (at least, as much as we have)
 --   and allow the user to zoom around in it.
+--
+--   TODO: how can I add in the unidentified sources?
 --
 dependencyPage :: 
   [(SimbadTypeInfo, Int)]
@@ -126,7 +137,6 @@ niceType (_, l) = l
 
 -- | TODO: combine table rendering with Views.Schedule
 --
---   TODO: convert the long version of SimbadType to a nice string (may want to send in SimbadType here to match on)
 renderMatches ::
   String           -- ^ SIMBAD type, as a string
   -> Schedule      -- ^ non-empty list of matches
@@ -144,34 +154,56 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
         _ -> "; the following types are included: "
              <> mconcat typeLbls <> "."
       
+      -- TODO: improve English here
+      introText =
+        if lbl == noSimbadLabel
+        then mconcat
+             [ "This page shows the Chandra observations of objects for "
+             , "which no identification could be found in SIMBAD. This "
+             , "includes "
+             , categoryLinkSearch "SOLAR SYSTEM" "Solar System"
+             , " objects, since SIMBAD does not track "
+             , "these objects, but most of the objects could not be identified "
+             , "from the target name supplied by the Observer. The current system "
+             , "used to match to SIMBAD is very simple, and so misses out on "
+             , "a large number of "
+             , preEscapedToHtml ("&ldquo;"::String)
+             , "obvious"
+             , preEscapedToHtml ("&rdquo;"::String)
+             , " matches, but there are also a lot of target fields which are "
+             , "hard to match to SIMBAD."
+             ]
 
+        else mconcat
+             [ "This page shows the observations of "
+             , toHtml lbl
+             , " objects by Chandra"
+             , childTxt
+             , "The object type is based on the target name created by the "
+             , "observer, and is often not sufficient to identify it in "
+             , (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "SIMBAD"
+             , ", which is why not all observations have a type (it is also "
+             , "true that the Chandra field of view is large enough to contain "
+             , "more objects than just the observation target!). "
+               -- assume the schedule is all science observations
+             , toHtml (getNumObs done mdoing todo)
+             , ", and the format used here is the same as that of the "
+             , (a ! href "/schedule") "schedule view"
+             , "."
+             ]
+                  
   in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml lbl)
+    h2 (if lbl == noSimbadLabel then "Unidentified sources" else (toHtml lbl))
 
     svgBlock
-
-    -- TODO: improve English here
-    p $ mconcat
-        [ "This page shows the observations of "
-        , toHtml lbl
-        , " objects by Chandra"
-        , childTxt
-        , "The object type is based on the target name created by the "
-        , "observer, and is often not sufficient to identify it in "
-        , (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "SIMBAD"
-        , ", which is why not all observations have a type (it is also "
-        , "true that the Chandra field of view is large enough to contain "
-        , "more objects than just the observation target!). "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ", and the format used here is the same as that of the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
-
+    p introText
     tblBlock
 
--- | Render the list of object types
+-- | Render the list of object types, and include a link to the "unidentified"
+--   source, but at the moment this is separate, since I do not have a good
+--   count of the number of targets in the latter case, rather than number
+--   of observations.
+--
 renderTypes ::
   [(SimbadTypeInfo, Int)]
   -> Html
@@ -183,13 +215,20 @@ renderTypes objs =
       sobjs = sortBy (compare `on` (snd.fst)) objs
       str :: String -> H.Html
       str = toHtml
+
+      unidLabel = "Unidentified sources"
+      
   in div $ do
     p $ do
       str "The target names set by the proposal writers were used to identify "
       str "the object types using "
       (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
-      str ". Not all objects could be found, so the following list is "
-      str "incomplete (and does not include so-called serendipitous sources, "
+      str ". Not all objects could be found, in which case the object "
+      str "was added to the "
+      preEscapedToHtml ("&ldquo;"::String)
+      unidLabel
+      preEscapedToHtml ("&rdquo;"::String)
+      str " category (this includes so-called serendipitous sources, "
       str "that is, those sources that are near-enough to the target to also "
       str "be observed by Chandra). The table below does not indicate the "
       str "SIMBAD hierarchy; to see how these object types are related visit "
@@ -199,7 +238,10 @@ renderTypes objs =
              thead $ tr $ do
                th "Object Type"
                th "Number of objects"
-             tbody $
+             tbody $ do
+               tr (do
+                      td ((a ! href "/search/type/unidentified") unidLabel)
+                      td "lots")
                mapM_ toRow sobjs
 
 
@@ -296,6 +338,7 @@ renderDependency objs =
 
   in div $ do
     p $ do
+      -- TODO: would like to add in a link to the unidentified sources
       str "The target names set by the proposal writers were used to identify "
       str "the object types using "
       (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"

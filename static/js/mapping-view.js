@@ -114,7 +114,12 @@ function makePlot(mapInfo) {
                 out = "/search/category/" + encodeURIComponent(d.name);
             } else if (mapInfo.simbadNames.indexOf(d.name) > -1) {
                 var stype = mapInfo.simbadMap[d.name];
-                out = "/search/type/" + encodeURIComponent(stype);
+                out = "/search/type/";
+                if (stype == "000") {
+                    out += "unidentified";
+                } else {
+                    out += encodeURIComponent(stype);
+                }
             } else {
                 out = "/error/";
             }

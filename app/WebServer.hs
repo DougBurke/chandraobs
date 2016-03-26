@@ -103,6 +103,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getSimbadInfo
                  -- , findObsId
                  , fetchSIMBADType
+                 , fetchNoSIMBADType
                  , fetchSIMBADDescendentTypes
                  , fetchObjectTypes 
                  , fetchConstellation
@@ -487,13 +488,22 @@ webapp cm mgr = do
     -- TODO: also need a HEAD request version
     -- This returns only those observations that match this
     -- type; contrast with /seatch/dtype/:type
+    --
+    --
+    get "/search/type/unidentified" $ do
+      (typeInfo, ms) <- liftSQL fetchNoSIMBADType
+      sched <- liftSQL (makeSchedule (fmap Right ms))
+      fromBlaze (SearchTypes.matchPage typeInfo sched)
+      
     get "/search/type/:type" $ do
       matches <- snd <$> dbQuery "type" fetchSIMBADType
       case matches of
         Just (typeInfo, ms) -> do
-           sched <- liftSQL (makeSchedule (fmap Right ms))
-           fromBlaze (SearchTypes.matchPage typeInfo sched)
+          sched <- liftSQL (makeSchedule (fmap Right ms))
+          fromBlaze (SearchTypes.matchPage typeInfo sched)
+          
         _ -> next -- status status404
+  
 
     -- TODO: also need a HEAD request version
     get "/search/type/" $ do
