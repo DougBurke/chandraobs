@@ -204,7 +204,7 @@ makeSchedule cTime done mdoing todo simbad =
         -- could also include object type if available
         in mconcat [" { longitude: ", toHtml (180 - _unRA x),
                     ", latitude: ", toHtml (_unDec y),
-                    ", texp: ", toHtml (_toS (recordTime r)),
+                    ", texp: ", toHtml (_toKS (recordTime r)),
                     ", idname: '", toHtml (idLabel r), "'",
                     ", label: ", conv (recordTarget r),
                     sinfo,

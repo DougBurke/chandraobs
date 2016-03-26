@@ -899,7 +899,7 @@ dump ScienceObs{..} = do
 
   print soJointWith
   let joint lbl val =
-        putStrLn ("Joint " ++ lbl ++ " " ++ show (fmap _toS val))
+        putStrLn ("Joint " ++ lbl ++ " " ++ show (fmap _toKS val))
   joint "HST" soJointHST
   joint "NOAO" soJointNOAO
   joint "NRAO" soJointNRAO

@@ -301,7 +301,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
         _ -> keyVal "Exposure (approved):" (H.toHtml soApprovedTime <> " ks")
 
       -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
-      toJ (l,v) = keyVal "Joint with:" (l <> " for " <> H.toHtml (_toS v) <> " ks")
+      toJ (l,v) = keyVal "Joint with:" (l <> " for " <> H.toHtml (_toKS v) <> " ks")
       jvs = getJointObs so
       jointElems = 
         if isJust soJointWith && null jvs
@@ -474,8 +474,8 @@ getTimes ::
   Record
   -> (ChandraTime, ChandraTime) -- start and end times
 getTimes rs =
-  let sTime = _toUTCTime $ recordStartTime rs
-      expTime = fromInteger . ceiling $ 1000 * _toS (recordTime rs)
+  let sTime = _toUTCTime (recordStartTime rs)
+      expTime = fromInteger . ceiling $ 1000 * _toKS (recordTime rs)
       eTime = addUTCTime expTime sTime
   in (ChandraTime sTime, ChandraTime eTime)
 

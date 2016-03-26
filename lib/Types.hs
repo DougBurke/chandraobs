@@ -613,7 +613,7 @@ data Schedule =
 --
 --   It is assumed that the time value is >= 0.
 --
-newtype TimeKS = TimeKS { _toS :: Double } 
+newtype TimeKS = TimeKS { _toKS :: Double } 
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
@@ -674,10 +674,10 @@ showUnits v s u1 u2 =
 
 -- do we want this to be in a nice readable value or in ks?
 instance H.ToMarkup TimeKS where
-  toMarkup = H.toMarkup . _toS
+  toMarkup = H.toMarkup . _toKS
 
 instance H.ToValue TimeKS where
-  toValue = H.toValue . _toS
+  toValue = H.toValue . _toKS
 
 -- | A scheduled observation (may be in the past, present, or future).
 --
@@ -727,7 +727,7 @@ data NonScienceObs = NonScienceObs {
 instance Show NonScienceObs where
   show NonScienceObs{..} = 
     concat [ "CAL: ", show (fromObsId nsObsId)
-           , " for ", show (_toS nsTime)
+           , " for ", show (_toKS nsTime)
            , " ks at ", showCTime nsStartTime
            ]
 
@@ -1043,7 +1043,7 @@ instance Show ScienceObs where
            , " ", soTarget
            , " with "
            , show soInstrument, "+", show soGrating
-           , " approved for ", show (_toS soApprovedTime)
+           , " approved for ", show (_toKS soApprovedTime)
            , " ks at ", showCTime soStartTime
            ]
 
@@ -1908,7 +1908,7 @@ instance PrimitivePersistField Dec where
   fromPrimitivePersistValue _ x = readHelper x ("Expected Dec (double), received: " ++ show x)
 
 instance PrimitivePersistField TimeKS where
-  toPrimitivePersistValue _ = PersistDouble . _toS
+  toPrimitivePersistValue _ = PersistDouble . _toKS
   fromPrimitivePersistValue _ (PersistDouble a) = TimeKS a
   fromPrimitivePersistValue _ (PersistInt64 a) = TimeKS $ fromIntegral a
   fromPrimitivePersistValue _ x = readHelper x ("Expected TimeKS (double), received: " ++ show x)

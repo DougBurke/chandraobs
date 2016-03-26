@@ -266,12 +266,12 @@ renderBreakdown total perDay =
         td (toHtml (showExpTime t))
         td (toHtml (frac t))
 
-      totalTime = P.sum (P.map _toS (M.elems total))
+      totalTime = P.sum (P.map _toKS (M.elems total))
 
       -- | Will want to limit the % to a few dp
       frac :: TimeKS -> P.String
       frac t =
-        let v = 100 * _toS t / totalTime
+        let v = 100 * _toKS t / totalTime
         in printf "%.2f" v
 
       tbl lbl f xs = table $ do
@@ -296,7 +296,7 @@ renderBreakdown total perDay =
       lbls = P.map toLabel (M.keys igs)
 
       toTimes (k, m) =
-        let c (key, val) = toKey key .= _toS val
+        let c (key, val) = toKey key .= _toKS val
         in Aeson.object [
           "date" .= k
           , "values" .= Aeson.object (P.map c (M.toAscList m))

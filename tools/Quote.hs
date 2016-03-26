@@ -38,7 +38,7 @@ instance Lift ObsIdVal where
   lift ObsIdVal{..} = [| ObsIdVal fromObsId |]
 
 instance Lift TimeKS where
-  lift TimeKS{..} = [| TimeKS _toS |]
+  lift TimeKS{..} = [| TimeKS _toKS |]
 
 instance Lift ChandraTime where
   lift ChandraTime{..} = [| ChandraTime _toUTCTime |]
