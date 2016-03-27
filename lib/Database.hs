@@ -790,7 +790,7 @@ fetchCategory cat = do
 --   the given SIMBAD type (which can also be unidentified).
 --
 fetchCategorySubType ::
-  (PersistBackend m, SqlDb (PhantomDb m))
+  (Functor m, PersistBackend m, SqlDb (PhantomDb m)) -- ghc 7.8 needs Functor
   => String  -- ^ proposal category
   -> Maybe SimbadType
   -- ^ If Nothing, use the Unidentified type
