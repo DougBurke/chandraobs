@@ -93,8 +93,9 @@ cleanupName s =
 --     HRC-xxx (this is to catch HRC-1 .. for the
 --     Baade's Window observations)
 --
---   *) removes anything after the string
+--   *) removes anything after the token beginning with
 --         offset
+--         outskirt
 --
 --   *) removes a last token of "-" (this can be
 --      left behind from filtering "G296.5+10.0 - SW"
@@ -114,12 +115,13 @@ cleanTargetName tgt =
     toks -> let (ltok:rtoks) = reverse toks
 
                 lltok = lc ltok
-                toks2 = if (lltok `elem` compassDirs) || ("hrc-" `isPrefixOf` lltok)
+                toks2 = if (lltok `elem` compassDirs) ||
+                           ("hrc-" `isPrefixOf` lltok)
                         then reverse rtoks
                         else toks
 
-                isOffset = ("offset" `isPrefixOf`) . lc
-                toks3 = takeWhile (not . isOffset) toks2
+                isSkip x = any (`isPrefixOf` lc x) ["offset", "outskirt"]
+                toks3 = takeWhile (not . isSkip) toks2
 
                 (ltok3:rtoks3) = reverse toks3
                 toks4 = if ltok3 == "-" then reverse rtoks3 else toks3
