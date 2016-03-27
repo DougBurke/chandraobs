@@ -109,6 +109,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchConstellation
                  , fetchConstellationTypes
                  , fetchCategory
+                 , fetchCategorySubType
                  , fetchCategoryTypes
                  , fetchProposal
                  , fetchInstrument
@@ -137,6 +138,7 @@ import Types (Record, SimbadInfo, Proposal
              , SortedList, StartTimeOrder
              , TimeKS(..)
              , fromSimbadType
+             , toSimbadType
              , nullSL, fromSL
              , handleMigration
              )
@@ -504,7 +506,6 @@ webapp cm mgr = do
           
         _ -> next -- status status404
   
-
     -- TODO: also need a HEAD request version
     get "/search/type/" $ do
       matches <- liftSQL fetchObjectTypes
@@ -543,6 +544,28 @@ webapp cm mgr = do
       fromBlaze (Constellation.indexPage matches)
 
     -- TODO: also need a HEAD request version
+    get "/search/category/:category/:type" $ do
+      -- TODO: perhaps should do a check on category, as can assume a
+      --       relatively static set of options
+      cat <- param "category"
+      stypeUser <- param "type"
+      -- oh, this is ugly
+      let mtype = if stypeUser == "unidentified"
+                  then Just Nothing
+                  else case toSimbadType stypeUser of
+                    Just s -> Just (Just s)
+                    _ -> Nothing
+
+      case mtype of
+        Just stype -> do
+          matches <- liftSQL (fetchCategorySubType cat stype)
+          if nullSL matches
+            then next
+            else do
+              sched <- liftSQL (makeSchedule (fmap Right matches))
+              fromBlaze (Category.categoryAndTypePage cat stype sched)
+        Nothing -> next
+        
     get "/search/category/:category" $ do
       (cat, matches) <- dbQuery "category" fetchCategory
       if nullSL matches

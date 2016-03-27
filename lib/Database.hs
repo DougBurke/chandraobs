@@ -33,6 +33,7 @@ module Database ( getCurrentObs
                 , fetchConstellation
                 , fetchConstellationTypes
                 , fetchCategory
+                , fetchCategorySubType
                 , fetchCategoryTypes
                 , fetchProposal
                 , fetchInstrument
@@ -103,7 +104,7 @@ import Control.Applicative ((<$>))
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
-import Control.Monad (forM, forM_, unless, when)
+import Control.Monad (filterM, forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
@@ -779,10 +780,46 @@ fetchCategory ::
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
+  -- TODO: could use in_?
   sos <- forM propNums $ \pn ->
     select (SoProposalField ==. pn &&. notDiscarded) --  &&. isScheduled)
   let xs = concat sos
   return (toSL soStartTime xs)
+
+-- | Return observations which match this category and have
+--   the given SIMBAD type (which can also be unidentified).
+--
+fetchCategorySubType ::
+  (PersistBackend m, SqlDb (PhantomDb m))
+  => String  -- ^ proposal category
+  -> Maybe SimbadType
+  -- ^ If Nothing, use the Unidentified type
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchCategorySubType cat mtype = do
+
+  propNums <- project PropNumField (PropCategoryField ==. cat)
+  sobs <- select (((SoProposalField `in_` propNums)
+                   &&. notDiscarded)
+                  `orderBy` [Asc SoStartTimeField])
+
+  -- How much of this logic is in fetchSIMBADType and
+  -- fetchNoSIMBADType?
+  --
+  let matchSIMBAD ScienceObs{..} = do
+        mkey <- listToMaybe <$> project SmmInfoField (SmmTargetField ==. soTarget)
+        case mkey of
+          Just key -> case mtype of
+            Nothing -> return False
+            Just _ -> do
+              otype <- listToMaybe
+                       <$> project SmiType3Field (AutoKeyField ==. key)
+              return (otype == mtype)
+                        
+          Nothing -> return (mtype == Nothing)
+
+  out <- filterM matchSIMBAD sobs
+  return (unsafeToSL out)
+
 
 -- | Return information on the category types.
 --

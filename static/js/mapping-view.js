@@ -43,11 +43,11 @@ function getNumSrcString(nsrc) {
     return str;
 }
 
-var dummy;
+// var dummy;
 
 function makePlot(mapInfo) {
 
-    dummy = mapInfo;
+   // dummy = mapInfo;
     
   // for now, hard-code the value to be the totalExp field,
   // but convert from kilo-seconds to hours.
@@ -69,12 +69,30 @@ function makePlot(mapInfo) {
     .attr("height", totHeight)
   .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    
+
   link = svg.append("g").selectAll(".link")
       .data(mapInfo.links)
     .enter().append("path")
       .attr("class", "link")
-      .attr("d", path)
+        .attr("d", path)
+        .on("click", function(d) {
+            // Would prefer to make this an actual link, so the UI is more
+            // familiar, but this works.
+            var cat = d.source.name;
+            var stype = mapInfo.simbadMap[d.target.name] || "unidentified";
+            if (stype == "000") { stype = "unidentified"; }
+            var url = "/search/category/" +
+                encodeURIComponent(cat) +
+                "/" +
+                encodeURIComponent(stype);
+            window.location = url;
+        })
+
+    /* TODO: investigate fading-out all the other nodes
+        .on("mouseover", function(d) { console.log("enter"); })
+        .on("mouseout", function(d) { console.log("exit"); })
+    */
+    
       .style("stroke-width", function(d) { return Math.max(1, d.dy); })
       .sort(function(a, b) { return b.dy - a.dy; });
 

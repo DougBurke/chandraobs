@@ -35,6 +35,7 @@ module Utils (
      , typeDLinkURI
      , typeLinkSearch
      , typeDLinkSearch
+     , basicTypeLinkSearch
      , categoryLinkSearch
      , nameLinkSearch
      , cleanJointName
@@ -90,9 +91,12 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , Instrument(..)
              , ChipStatus(..)
              , Proposal(..)
-              )
-import Types (Record, recordObsId, recordTarget, recordStartTime, recordTime, futureTime)
-import Types (getJointObs, getConstellationName)
+             , Record
+             , recordObsId, recordTarget, recordStartTime
+             , recordTime, futureTime
+             , getJointObs, getConstellationName
+             , simbadTypeToDesc
+             )
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.`<
@@ -577,7 +581,7 @@ igLinkAbout = (H.a H.! A.href "/about/instruments.html") "Chandra instruments"
 constellationLinkSearch :: ConShort -> String -> H.Html
 constellationLinkSearch con lbl = 
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
-  in H.a H.! A.href iLink $ H.toHtml lbl
+  in (H.a H.! A.href iLink) (H.toHtml lbl)
 
 typeLinkURI :: SimbadType -> B.ByteString
 typeLinkURI st =
@@ -603,6 +607,13 @@ typeDLinkSearch :: SimbadType -> String -> H.Html
 typeDLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
   in (H.a H.! A.href iLink) (H.toHtml lbl)
+
+basicTypeLinkSearch :: Maybe SimbadType -> H.Html
+basicTypeLinkSearch Nothing =
+  (H.a H.! A.href "/search/type/unidentified") "Unidentified"
+basicTypeLinkSearch (Just s) =
+  let txt = fromMaybe "unknown SIMBAD type" (simbadTypeToDesc s)
+  in typeLinkSearch s txt
 
 -- | Add in a link to the obervation category search page.
 categoryLinkSearch :: String -> String -> H.Html
