@@ -47,7 +47,7 @@ indexPage =
 renderMatches :: Html
 renderMatches = 
   div ! A.id "mappingBlock" $ do
-    h2 (toHtml ("What kind of objects are looked at by Chandra?"::String))
+    h2 (toHtml ("Breaking down the time spent in each Chandra category"::String))
 
     p (mconcat
        [ "The left-hand column shows the "
@@ -56,9 +56,13 @@ renderMatches =
        , (a ! href "/search/type/") "SIMBAD types"
        , " for the objects observed by Chandra. "
        , "The connections between the two indicate the amount of time "
-       , "spent observing these sources, and if you hover over a band "
+       , "spent observing these sources; they can be selected to view "
+       , "the observations, and if you hover over a band "
        , "then you can find out the number of sources as well as the "
-       , "observing time. "
+       , "observing time. Similarly, hovering over the bands on the "
+       , "left and right-hand sides will display the total time for "
+       , "that category (left) or SIMBAD type (right), and the names "
+       , "are links to view the respective sub-samples. "
        , "Not all objects have a SIMBAD type due to the "
        , "way I match them up (and this is in large part because the target name "
        , "field created by the observers is not designed for machine lookups, but "
@@ -71,12 +75,19 @@ renderMatches =
        , categoryLinkSearch "SOLAR SYSTEM" "Solar System"
        , " observations, since SIMBAD does not include solar-system objects in its "
        , "database. "
-       , "The format used for this display is known as a "
-       , (a ! href "http://en.wikipedia.org/wiki/Sankey_diagram") "Sankey diagram"
-       , "."
        ])
 
-    -- SVG goes here
+    p (mconcat
+       [ "The format used for this display is known as a "
+       , (a ! href "http://en.wikipedia.org/wiki/Sankey_diagram") "Sankey diagram"
+       , ". The bands at the left and right can be dragged vertically "
+       , "to aid visibility in case the layout algorithm does not "
+       , "do a good job. As a reminder, this only covers a "
+       , (a ! href "/search/calendar/") (em "small" <> " fraction")
+       , " of the Chandra archive, and the results are not guaranteed to be "
+       , "correct!"
+       ])
+
     -- TODO: add some sort of 'page needs javascript' text element
     (div ! id "mapping") ""
 
