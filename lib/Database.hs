@@ -647,6 +647,9 @@ fetchNoSIMBADType ::
   => m (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs)
 fetchNoSIMBADType = do
 
+  -- TODO: perhaps should just query SmnTargetField and then
+  --       do a reverse lookup to get the sources?
+  --
   sobs <- select (CondEmpty `orderBy` [Asc SoStartTimeField])
   sinfo <- project SmmTargetField (distinct CondEmpty)
 

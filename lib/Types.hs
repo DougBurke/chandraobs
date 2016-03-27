@@ -822,8 +822,10 @@ data ScienceObs = ScienceObs {
   , soACISS4 :: ChipStatus  
   , soACISS5 :: ChipStatus  
 
-  -- , soJointWith :: [(String, TimeKS)] -- could use an enumeration
-  -- UGH: hard coding the joint missions
+    -- , soJointWith :: [(String, TimeKS)] -- could use an enumeration
+    -- UGH: hard coding the joint missions
+    --
+    -- TODO: need to review to see if any new elements have been added
   , soJointWith :: Maybe String
   , soJointHST :: Maybe TimeKS
   , soJointNOAO :: Maybe TimeKS

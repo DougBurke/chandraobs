@@ -23,7 +23,9 @@
 --
 --      it looks like this is being taken as a "no data" match,
 --      rather than ignoring it and not adding anything to the
---      database.
+--      database. I think that this is an issue with the CfA
+--      mirror/proxy, so I have switched to using the CDS
+--      version by default.
 --
 
 
@@ -76,16 +78,61 @@ cleanupName s =
   else s
 
 -- | Convert the target field into the value to search
---   for in SIMBAD
+--   for in SIMBAD. The checks are case insensitive.
+--
+--   The rules are built from looking at the names that
+--   have been used and coming up with simple rules to
+--   normalize the names.
+--
+--   *) Special case conversion from 'ArLac' to 'ar lac'
+--      as this is an often-observed calibration target.
+--
+--   *) remove trailing word of the form
+--     NORTH SOUTH EAST WEST NE SE SW NW
+--     NORTHEAST SOUTHEAST SOUTHWEST NORTHWEST
+--     HRC-xxx (this is to catch HRC-1 .. for the
+--     Baade's Window observations)
+--
+--   *) removes anything after the string
+--         offset
+--
+--   *) removes a last token of "-" (this can be
+--      left behind from filtering "G296.5+10.0 - SW"
+--      (although for this example it doesn't matter
+--       since there doesn't appear to be a match)
+--
+--   It could be that a multi-pass system is really needed
+--   to deal with names that include nebula or filament
+--   that potentially could be a valid identifier.
 --
 cleanTargetName :: String -> String
-cleanTargetName tgt = 
+cleanTargetName tgt =
   let lc = map toLower
-      toks = words tgt
-  in unwords $ takeWhile (not . ("offset" `isPrefixOf`) . lc) toks
+  in case words tgt of
+    [] -> ""
+    [n] | lc n == "arlac" -> "Ar Lac"
+    toks -> let (ltok:rtoks) = reverse toks
 
--- use ADS mirror first.
---
+                lltok = lc ltok
+                toks2 = if (lltok `elem` compassDirs) || ("hrc-" `isPrefixOf` lltok)
+                        then reverse rtoks
+                        else toks
+
+                isOffset = ("offset" `isPrefixOf`) . lc
+                toks3 = takeWhile (not . isOffset) toks2
+
+                (ltok3:rtoks3) = reverse toks3
+                toks4 = if ltok3 == "-" then reverse rtoks3 else toks3
+                
+            in unwords toks4
+
+-- | Compass directions to remove (in lower case).
+compassDirs :: [String]
+compassDirs = ["ne", "se", "sw", "nw"
+              , "north", "east", "south", "west"
+              , "northeast", "southeast", "northwest", "southwest"]
+
+
 -- Note that I choose to use a text-based format for returning the data,
 -- rather than a VoTable, since it's easier to create a parser for the
 -- former.
