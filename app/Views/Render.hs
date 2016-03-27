@@ -35,6 +35,7 @@ import Utils (obsURIString
              , linkToRecord
              , instLinkSearch
              , typeDLinkSearch
+             , basicTypeLinkSearch
              , constellationLinkSearch
              , cleanJointName
              )
@@ -66,11 +67,15 @@ makeSchedule cTime done mdoing todo simbad =
         return $ instLinkSearch inst <> if grat == NONE then mempty else " with " <> toHtml grat
 
       -- TODO: add in a sortvalue for this column so that "n/a" and "" can be
-      --       moved before or after the other types
+      --       moved before or after the other types. As I have now decided
+      --       to treat "unidentified" sources as an actual group, this
+      --       needs a link, which removes the need to handle "n/a",
+      --       but "" is still there. Perhaps that can be changed to
+      --       "n/a" now.
       linkToSimbad (Left _) = ""
       linkToSimbad (Right so) = case M.lookup (soTarget so) simbad of
         Just si -> typeDLinkSearch (smiType3 si) (smiType si)
-        Nothing -> "n/a"
+        Nothing -> basicTypeLinkSearch Nothing
 
       -- convert UTCTime to an integer; this does not have to
       -- special case unscheduled records where the time is set

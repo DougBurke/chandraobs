@@ -608,6 +608,8 @@ typeDLinkSearch st lbl =
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
   in (H.a H.! A.href iLink) (H.toHtml lbl)
 
+-- | Should this be a wrapper around typeLinkSearch or
+--   typeDLinkSearch?
 basicTypeLinkSearch :: Maybe SimbadType -> H.Html
 basicTypeLinkSearch Nothing =
   (H.a H.! A.href "/search/type/unidentified") "Unidentified"
