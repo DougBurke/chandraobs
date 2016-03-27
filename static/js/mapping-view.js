@@ -17,19 +17,51 @@ var path = sankey.link();
 
 var svg, link;
 
-// Convert time in hours into a string; could be
-// fancy and bundle up into days/weeks/...
-// but leave that for now.
+// This replicates logic in lib/Types.h::showExpTime but
+// it's not quite the same, in that they are optimised
+// for different time ranges, and so the units are
+// different: seconds, minutes, hours, days
+// compared to hours, days, and weeks.
+//
+// I have decided to just hard-code limits rather than
+// doing it sensibly (i.e. with an algorithm) as 
+// I can not be bothered to investigate the
+// portability of modulo-arithmetic across JavaScript
+// engines, and the repition below isn't terrible.
 //
 function getTimeString(thours) {
-    var str;
-    if (thours < 1.0) {
+    // Do these outside the checks below, even if not needed
+    // in all cases
+    var nhours = Math.round(thours);
+    var ndays = Math.floor(nhours / 24.0);
+    var nweeks = Math.floor(ndays / 7);
+    if (nhours < 1) {
         str = "< 1 hour";
-    } else if (thours < 1.5) {
+    } else if (nhours < 2) {
         str = "1 hour";
+    } else if (nhours < 24) {
+        str = nhours + " hours";
+    } else if (ndays < 7) {
+        str = ndays + " day";
+        if (ndays > 1) {
+            str += "s";
+        }
+        var tleft = nhours - ndays * 24;
+        if (tleft > 0) {
+            str += " and " + tleft + " hour";
+            if (tleft > 1) { str += "s"; }
+        }
     } else {
-        str = thours.toFixed(0) + " hours";
+        str = nweeks + " week";
+        if (nweeks > 1) { str += "s"; }
+
+        var tleft = ndays - nweeks * 7;
+        if (tleft > 0) {
+            str += " and " + tleft + " day";
+            if (tleft > 1) { str += "s"; }
+        }
     }
+    
     return str;
 }
 
