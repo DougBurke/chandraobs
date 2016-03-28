@@ -3,39 +3,50 @@
 Note that I am manually creating "views" of the data that
 could be selectable instead via a faceted browsing interfacte.
 
- - the database contains scheduled observations that were
-   cancelled - e.g. 16062 and 16118. If you go to 
+ - improve display of the joint-with fields now that there
+   is /search/joint/:mission
 
-     http://chandraobs-devel.herokuapp.com/obsid/16065
+   Include a sankey-like view linking facilities with the
+   proposal category and/or SIMBAD data types.
 
-   which is the observation prior to 16062, then the page
-   is displayed, but the "next observation" link is missing.
-   There are no pages for 16062 or 16118 (at least at this
-   time), because they have not been re-sheduled, so the ObsCat
-   information has no date field, which means that the obscat
-   executable skips them. What to do here? 
+ - I thought about extending /search/mappings/ to take
+   advantage of the SIMABD hierarchy, but further reflection
+   suggests it isn't easy: can have a link from a categoty
+   to a top-level SIMBAD element, but then how to go from
+   there to the children whilst stil identifying the separate
+   proposal categories?
 
+   The /search/dtype/ view could be switched to a Sankey
+   diagram.
+   
  - do we want any note of PI_NAME == Calibration ?
 
+ - break down into cycles?
+ 
  - the links between target name and SIMBAD can be improved;
    eg drop " offset ..." when searching. This requires
    "improving" the simbad data type/database storage.
+
+   There has been a small improvement in the rules I use,
+   but more could be done.
 
  - a view of the object types II: give some statisics on the
    object types that have been observed (broken down by time
    or AO; the latter is harder and I don't think as interesting
    to the public)
 
- - some form of a calendar widget to jump through the schedule;
-   how about a day view (a simple condensed view of what it's
-   doing), perhaps also week and/or month.
-
+   Done?: have /search/dtype/ and /search/mappings/
+          do we need more?
+   
  - Can we display on sources from the CSC in WWT? The HTML5 WWT
    API has some mention of a display VoTable routine.
 
  - Can the WWT view display more controls/fade over between bands/
    labels/the cross hair menu thingy
 
+ - Add in a view of the sky using the Aladin Lite widget
+   http://aladin.u-strasbg.fr/AladinLite/
+ 
  - ADS view of papers about this object/class of object/...
    by this PI
 
@@ -54,9 +65,6 @@ could be selectable instead via a faceted browsing interfacte.
  - can we have a simple view showing Earth/Moon(?)/orbit and
    path during osbservation; for ongoing obs perhaps even the
    position of Chandra within the orbit and its direction?
-
- - a simple search box - name, prob not a cone search?
-   also: view all HRC-I obs/... page?
 
  - in the schedule view, show the region of the sky that is
    inaccessible (roll angle + .. constraints), or even what
@@ -78,6 +86,8 @@ Doing
    AJAX display, at /index2.html. The aim is to try moving
    to an "all in one" Haskell approach a la haste/ghcjs/...
 
+   This is currently on the back burner.
+   
 Done
 
  - link to a "view by instrument" page
@@ -119,5 +129,34 @@ Done
  - a 'tour this page' option a la the ADS 
    http://adslabs.org/adsabs/search/
      -> http://bootstraptour.com/
+
+ - the database contains scheduled observations that were
+   cancelled - e.g. 16062 and 16118. If you go to 
+
+     http://chandraobs-devel.herokuapp.com/obsid/16065
+
+   which is the observation prior to 16062, then the page
+   is displayed, but the "next observation" link is missing.
+   There are no pages for 16062 or 16118 (at least at this
+   time), because they have not been re-sheduled, so the ObsCat
+   information has no date field, which means that the obscat
+   executable skips them. What to do here? 
+
+   I believe this has been addressed.
+
+ - some form of a calendar widget to jump through the schedule;
+   how about a day view (a simple condensed view of what it's
+   doing), perhaps also week and/or month.
+
+   Done: /search/calendar/
+
+ - a simple search box - name, prob not a cone search?
+   also: view all HRC-I obs/... page?
+
+   Done: /search/index.html has a name search
+         /search/instrument/ breaks down the different
+             detector plus instrument views
+
+
 
   
