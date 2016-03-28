@@ -15,7 +15,8 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Bits (shiftL)
 import Data.Functor (void)
-import Data.List (foldl', intercalate)
+import Data.List (foldl', intercalate, intersperse)
+import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -29,7 +30,7 @@ import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , SimbadInfo(..), Record)
 import Types (recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
-             , showExp)
+             , showExp, toMission)
 import Utils (obsURIString
              , showTimeDeltaFwd, showTimeDeltaBwd
              , linkToRecord
@@ -37,6 +38,7 @@ import Utils (obsURIString
              , typeDLinkSearch
              , basicTypeLinkSearch
              , constellationLinkSearch
+             , jointLinkSearch
              , cleanJointName
              )
 
@@ -44,6 +46,22 @@ import Utils (obsURIString
 --   used in the HTML to identify riw/object.
 idLabel :: Record -> String
 idLabel = ("i" <>) . show . fromObsId . recordObsId
+
+-- | Take the joint-with field and create an entry for
+--   it.
+--
+--   There should be no un-supported missions, but just
+--   in case these are reported directly, with no link.
+--
+--   TODO: do I need to add in a sortvalue for the column?
+--
+makeJointLinks :: String -> Html
+makeJointLinks jw =
+  let toks = splitOn "+" (cleanJointName jw)
+      conv m = maybe (toHtml m) jointLinkSearch
+               (toMission m)
+      ms = map conv toks
+  in mconcat (intersperse "," ms)
 
 -- | Create a graph and table representing the
 --   available observations.
@@ -91,7 +109,8 @@ makeSchedule cTime done mdoing todo simbad =
                       ! onmouseout  ("deselectObs('" <> lbl <> "');")
       
       showJoint (Left _) = "n/a"
-      showJoint (Right so) = maybe "n/a" (toHtml . cleanJointName) (soJointWith so)
+      showJoint (Right so) = maybe "n/a" makeJointLinks (soJointWith so)
+                             
 
       -- TODO: Are there any soConstrained fields with a Preferred constraint?
       --       If so, the output of this could be improved

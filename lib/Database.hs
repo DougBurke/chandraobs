@@ -29,6 +29,7 @@ module Database ( getCurrentObs
                 , fetchSIMBADType
                 , fetchNoSIMBADType
                 , fetchSIMBADDescendentTypes
+                , fetchJointMission
                 , fetchObjectTypes
                 , fetchConstellation
                 , fetchConstellationTypes
@@ -718,6 +719,45 @@ fetchSIMBADDescendentTypes parent = do
             xs -> ptype : xs
       
       return (out, unsafeToSL obs)
+
+
+-- | Return all observations that are joint with the given mission.
+fetchJointMission :: 
+  PersistBackend m
+  => JointMission
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchJointMission jm = do
+
+  {- It would be nice if we could use this, but there are
+     joint proposals, e.g. CXO-HST, for which the
+     joint observatory time is 0.
+
+  let emptyField = Nothing :: Maybe TimeKS
+  sobs <- select (((missionSelectorField jm /=. emptyField)
+                  &&. notDiscarded)
+                  `orderBy` [Asc SoStartTimeField])
+
+  return (unsafeToSL sobs)
+  -}
+
+  {-
+  I'd like to say
+
+  sobs <- select (SoJointWith `like` "%HST%")
+
+  but I don't know how to "lift" into the Maybe String type,
+  so do this manually instead.
+  -}
+
+  sobs <- select (((Not (isFieldNothing SoJointWithField))
+                   &&. notDiscarded)
+                  `orderBy` [Asc SoStartTimeField])
+
+  let hasMission ScienceObs{..} = case soJointWith of
+        Just ms -> includesMission jm ms
+        Nothing -> False
+
+  return (unsafeToSL (filter hasMission sobs))
   
 -- | Return information on the object types we have stored.
 --

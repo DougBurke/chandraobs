@@ -38,6 +38,7 @@ module Utils (
      , basicTypeLinkSearch
      , categoryLinkSearch
      , nameLinkSearch
+     , jointLinkSearch
      , cleanJointName
      , schedToList
      , getNumObs
@@ -92,10 +93,12 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , ChipStatus(..)
              , Proposal(..)
              , Record
+             , JointMission
              , recordObsId, recordTarget, recordStartTime
              , recordTime, futureTime
              , getJointObs, getConstellationName
              , simbadTypeToDesc
+             , fromMission
              )
 
 -- | Convert a record into the URI fragment that represents the
@@ -252,10 +255,20 @@ seqLink ObsIdVal{..} =
 detailsLink, abstractLink :: ObsIdVal -> H.AttributeValue
 detailsLink = obsIdLink
 abstractLink ObsIdVal{..} = 
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show fromObsId
+  H.toValue ("http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show fromObsId)
+
+jointLink :: JointMission -> H.AttributeValue
+jointLink jm = H.toValue ("/search/joint/" ++ fromMission jm)
+
+-- | Create a link to the mission.
+jointLinkSearch :: JointMission -> H.Html
+jointLinkSearch jm =
+  (H.a H.! A.href (jointLink jm)) (H.toHtml (fromMission jm))
+
 
 -- | Remove the CXO- prefix from the "joint with" field,
---   since I have seen two cases of "CXO-HST".
+--   since I have seen two cases of "CXO-HST". Presumably this
+--   is for time awarded by the other facility (e.g. HST).
 --
 cleanJointName :: String -> String
 cleanJointName j = if "CXO-" `isPrefixOf` j then drop 4 j else j 

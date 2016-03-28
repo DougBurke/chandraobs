@@ -57,7 +57,7 @@ import Data.Monoid ((<>), mconcat)
 import Data.Monoid ((<>))
 #endif
 
-import Data.List (sortBy)
+import Data.List (isInfixOf, sortBy)
 import Data.String (IsString(..))
 
 -- I am not convinced I'm adding the PersistField values sensibly
@@ -848,6 +848,85 @@ data ScienceObs = ScienceObs {
   -- deriving (Eq, Show)
   deriving Eq
     -- deriving instance Show ScienceObs
+
+-- | What are the possible joint missions? This enumeration is for
+--   end-user code and is not to be used in the database, as there's
+--   no guarantee it won't change and I can not be bothered with
+--   updating the schema.
+--
+
+data JointMission =
+  HST | NOAO | NRAO | RXTE | Spitzer | Suzaku | XMM | Swift | NuSTAR
+  deriving Eq
+
+-- Valid mappings for the mission names
+missionMap :: [(String, JointMission)]
+missionMap =
+  [ ("HST", HST)
+  , ("NOAO", NOAO)
+  , ("NRAO", NRAO)
+  , ("RXTE", RXTE)
+  , ("Spitzer", Spitzer)
+  , ("SPITZER", Spitzer)
+  , ("Suzaku", Suzaku)
+  , ("SUZAKU", Suzaku)
+  , ("XMM", XMM)
+  , ("Swift", Swift)
+  , ("SWIFT", Swift)
+  , ("NuSTAR", NuSTAR)
+  , ("NUSTAR", NuSTAR)
+  ]
+
+toMission :: String -> Maybe JointMission
+toMission m = lookup m missionMap
+
+fromMission :: JointMission -> String
+fromMission HST = "HST"
+fromMission NOAO = "NOAO"
+fromMission NRAO = "NRAO"
+fromMission RXTE = "RXTE"
+fromMission Spitzer = "Spitzer"
+fromMission Suzaku = "Suzaku"
+fromMission XMM = "XMM"
+fromMission Swift = "Swift"
+fromMission NuSTAR = "NuSTAR"
+
+instance Parsable JointMission where
+  parseParam t = 
+    let tstr = LT.unpack t
+        emsg = "Invalid mission name: " <> t
+    in maybe (Left emsg) Right (toMission tstr)
+
+
+-- | Does the list of Joint-with observatories include
+--   the mission.
+--
+includesMission :: JointMission -> String -> Bool
+includesMission HST = isInfixOf "HST"
+includesMission NOAO = isInfixOf "NOAO"
+includesMission NRAO = isInfixOf "NRAO"
+includesMission RXTE = isInfixOf "RXTE"
+includesMission Spitzer = isInfixOf "Spitzer"
+includesMission Suzaku = isInfixOf "Suzaku"
+includesMission XMM = isInfixOf "XMM"
+includesMission Swift = isInfixOf "Swift"
+includesMission NuSTAR = isInfixOf "NuSTAR"
+
+{-
+-- The "field" variant is at the end of the module since it needs
+-- the TH code to have been evaluated.
+--
+missionSelector :: JointMission -> ScienceObs -> Maybe TimeKS
+missionSelector HST = soJointHST
+missionSelector NOAO = soJointNOAO
+missionSelector NRAO = soJointNRAO
+missionSelector RXTE = soJointRXTE
+missionSelector Spitzer = soJointSPITZER
+missionSelector Suzaku = soJointSUZAKU
+missionSelector XMM = soJointXMM
+missionSelector Swift = soJointSWIFT
+missionSelector NuSTAR = soJointNUSTAR
+-}
 
 -- | What observations \"overlap\" this one, and are
 --   publically available.
@@ -2229,6 +2308,24 @@ mkPersist defaultCodegenConfig [groundhog|
           fields: [smnTarget]
 |]
 
+
+{-
+Turns out I can not use these for Database::fetchJointMission
+so comment out for now.
+
+missionSelectorField ::
+  JointMission
+  -> Field ScienceObs ScienceObsConstructor (Maybe TimeKS)
+missionSelectorField HST = SoJointHSTField
+missionSelectorField NOAO = SoJointNOAOField
+missionSelectorField NRAO = SoJointNRAOField
+missionSelectorField RXTE = SoJointRXTEField
+missionSelectorField Spitzer = SoJointSPITZERField
+missionSelectorField Suzaku = SoJointSUZAKUField
+missionSelectorField XMM = SoJointXMMField
+missionSelectorField Swift = SoJointSWIFTField
+missionSelectorField NuSTAR = SoJointNUSTARField
+-}
 
 handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
 handleMigration =

@@ -2,6 +2,139 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
+{-
+
+TODO:
+
+*Database> jws
+[Just "CXO-XMM",Just "NRAO+NOAO",Just "HST+XMM",Just "NRAO",Just "NuSTAR+NRAO",Just "Suzaku",Just "HST+NRAO",Just "Swift",Just "XMM+NRAO",Just "CXO-HST",Just "NOAO",Just "HST",Just "XMM",Just "CXO-Spitzer",Just "NuSTAR"]
+
+For at least one CXO-HST case, the jointWith HST field is Nothing,
+which seems wrong: ObsId 15642 (which has no jointWith fields)
+
+I guess the CXO- prefix is messing things up. Nope, it's that -
+as shown below - there is no information on the amount of
+HST time. Which means that the soJointXXXX fields are not sufficient
+to identify a joint mission.
+
+I wonder what the following mean:
+
+("MULTITEL","Y")
+("MULTITEL_INT","0.0")
+("MULTITEL_OBS","HST")
+
+
+*Main> ocat <- makeObsCatQuery True (ObsIdVal 15642)
+##### Map 1 START #####
+("ACIS","Y")
+("ALT_TRIG","0")
+("APP_EXP","20.00")
+("BEP_PACK","VF")
+("CATEGORY","STARS AND WD")
+("CHARGE_CYCLE","14")
+("CONSTR","Y")
+("CONSTR_RMK","Y")
+("COUNT_RATE","2.6685633559375335")
+("DATAMODE","VFAINT")
+("DROPPED_CHIP_CNT","0")
+("D_CYC","N")
+("Dec","+26 42 19.90")
+("EFFICIENT","Y")
+("EPOCH","54864.58321")
+("EST_CNT_RATE","0.0023")
+("EVENT_COUNT","50079")
+("EVFIL","N")
+("EVFIL_LO","0.0")
+("EVFIL_RA","0.0")
+("EXP_TIME","18.77")
+("F_TIME","0.0")
+("GRAT","NONE")
+("HRC","N")
+("HST","0.0")
+("I0","N")
+("I1","N")
+("I2","N")
+("I3","N")
+("INSTR","ACIS-S")
+("JOINT","CXO-HST")
+("MODE","TE")
+("MONITOR","N")
+("MULTITEL","Y")
+("MULTITEL_INT","0.0")
+("MULTITEL_OBS","HST")
+("NOAO","0.0")
+("NRAO","0.0")
+("NUSTAR","0.0")
+("OBJ","NONE")
+("OBJ_TYPE","NO")
+("OBSERVER","Wheatley")
+("OBSID","15642")
+("OBS_CYCLE","14")
+("OC_COL","1")
+("OC_ROW","1")
+("OC_SUM","N")
+("PEND","0.99")
+("PERIOD","2.643898")
+("PE_MARG","0.03")
+("PHOTO","Y")
+("PI_NAME","Ehrenreich")
+("PROP_CYCLE","14")
+("PROP_TITLE","Properties and dynamics of the upper atmosphere of the hot-Neptune GJ 436b")
+("PR_NUM","14200978")
+("PR_TIME","0.0")
+("PSTART","0.9")
+("PS_MARG","0.03")
+("PUBLIC_AVAIL","2015-06-25 08:15:17")
+("RA","11 42 11.40")
+("RASTER","N")
+("READOUT_DETECTOR","ACIS-7")
+("ROLL","N")
+("ROW_CNT","0")
+("RXTE","0.0")
+("S0","N")
+("S1","N")
+("S2","N")
+("S3","Y")
+("S4","N")
+("S5","N")
+("SEC_CNT","0")
+("SEC_TIME","0.0")
+("SEG_MAX_NUM","0")
+("SEQ_NUM","200912")
+("SIMODE","TE_00914")
+("SOE_ROLL","251.2841")
+("SPECTRA_MAX_COUNT","0.0")
+("SPITZER","0.0")
+("SPWIN","N")
+("START_DATE","2014-06-23 10:42:32")
+("STATUS","archived")
+("STRT_ROW","0")
+("SUBARY","NONE")
+("SUZAKU","0.0")
+("SWIFT","0.0")
+("TARGET_NAME","GJ 436")
+("TIME_CRIT","Y")
+("TOO_START","0.0")
+("TOO_STOP","0.0")
+("TYPE","GO")
+("UNINT","N")
+("VMAG","10.6")
+("WINDOW","N")
+("XMM","0.0")
+("Y_AMP","0.0")
+("Y_FREQ","0.0")
+("Y_OFF","0.15")
+("Y_PHASE","0.0")
+("Z_AMP","0.0")
+("Z_FREQ","0.0")
+("Z_OFF","-0.25")
+("Z_PHASE","0.0")
+##### Map 1 END #####
+
+
+
+-}
+
 -- | Access data from the Chandra observational catalog and add it
 --   to the database.
 --

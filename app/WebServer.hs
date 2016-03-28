@@ -50,6 +50,7 @@ import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Mapping as Mapping
+import qualified Views.Search.Mission as Mission
 import qualified Views.Search.Target as Target
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
@@ -111,6 +112,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchCategory
                  , fetchCategorySubType
                  , fetchCategoryTypes
+                 , fetchJointMission
                  , fetchProposal
                  , fetchInstrument
                  , fetchGrating
@@ -654,7 +656,15 @@ webapp cm mgr = do
 
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" (fromBlaze Mapping.indexPage)
-      
+
+    get "/search/joint/:mission" $ do
+      (mission, matches) <- dbQuery "mission" fetchJointMission
+      if nullSL matches
+        then next
+        else do
+          sched <- liftSQL (makeSchedule (fmap Right matches))
+          fromBlaze (Mission.matchPage mission sched)
+
     -- TODO: also need a HEAD request version
     {-
     get "/search/" $ do
