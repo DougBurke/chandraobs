@@ -65,7 +65,7 @@ renderMatches ms (Schedule cTime _ done mdoing todo simbad) =
         , "joint observations with the "
         , mission
         , " facility. These observations may be simultaneous, but often "
-        , "they are not."
+        , "they are not. "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
         , ". The format is the same as used in the "
