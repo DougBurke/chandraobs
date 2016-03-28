@@ -35,6 +35,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
 import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Arrow (first)
 import Control.Monad.Logger (NoLoggingT)
@@ -860,8 +861,10 @@ data JointMission =
   deriving Eq
 
 -- Valid mappings for the mission names
-missionMap :: [(String, JointMission)]
-missionMap =
+-- TODO: could use missionMap with logic like "check for
+-- all upper case" instead of this
+vmissionMap :: [(String, JointMission)]
+vmissionMap =
   [ ("HST", HST)
   , ("NOAO", NOAO)
   , ("NRAO", NRAO)
@@ -878,18 +881,7 @@ missionMap =
   ]
 
 toMission :: String -> Maybe JointMission
-toMission m = lookup m missionMap
-
-fromMission :: JointMission -> String
-fromMission HST = "HST"
-fromMission NOAO = "NOAO"
-fromMission NRAO = "NRAO"
-fromMission RXTE = "RXTE"
-fromMission Spitzer = "Spitzer"
-fromMission Suzaku = "Suzaku"
-fromMission XMM = "XMM"
-fromMission Swift = "Swift"
-fromMission NuSTAR = "NuSTAR"
+toMission m = lookup m vmissionMap
 
 instance Parsable JointMission where
   parseParam t = 
@@ -897,20 +889,52 @@ instance Parsable JointMission where
         emsg = "Invalid mission name: " <> t
     in maybe (Left emsg) Right (toMission tstr)
 
+-- Hmmm, lose the ability for the compiler to catch a missing
+-- value like this.
+missionMap :: [(JointMission, (String, String, H.AttributeValue))]
+missionMap =
+  [ (HST, ("HST", "Hubble Space Telescope (HST)"
+          , "https://www.nasa.gov/mission_pages/hubble/main/index.html"))
+  , (NOAO, ("NOAO", "National Optical Astronomy Observatory (NOAO)"
+           , "http://www.noao.edu/"))
+  , (NRAO, ("NRAO", "National Radio Astronomy Observatory (NRAO)"
+           , "http://www.nrao.edu/"))
+  , (RXTE, ("RXTE", "Rossi X-ray Timeing Explorer (RXTE)"
+           , "https://heasarc.gsfc.nasa.gov/docs/xte/rxte.html"))
+  , (Spitzer, ("Spitzer", "Spitzer Space Telescope"
+              , "http://www.nasa.gov/mission_pages/spitzer/main/index.html"))
+  , (Suzaku, ("Suzaku", "Suzaku X-ray satellite"
+             , "https://www.nasa.gov/suzaku/"))
+  , (XMM, ("XMM", "X-ray Multi Mirror Mission (XMM-Newton)"
+          , "http://sci.esa.int/xmm-newton/"))
+  , (Swift, ("Swift", "Swift Gamma-Ray Burst Mission"
+            , "http://swift.gsfc.nasa.gov/"))
+  , (NuSTAR, ("NuSTAR", "Nuclear Spectroscopic Telescope Array (NuSTAR)"
+             , "http://www.nustar.caltech.edu/"))
+  ]
+
+fromMission :: JointMission -> String
+fromMission m = case lookup m missionMap of
+  Just x -> _1 x
+  Nothing -> error "Internal error: missing mission fromMission"
+
+fromMissionLong :: JointMission -> String
+fromMissionLong m = case lookup m missionMap of
+  Just x -> _2 x
+  Nothing -> error "Internal error: missing mission fromMissionLong"
+
+fromMissionLongLink :: JointMission -> H.Html
+fromMissionLongLink m = case lookup m missionMap of
+  Just x -> (H.a H.! A.href (_3 x)) (H.toHtml (_2 x))
+  Nothing -> error "Internal error: missing mission fromMissionLongLink"
 
 -- | Does the list of Joint-with observatories include
 --   the mission.
 --
 includesMission :: JointMission -> String -> Bool
-includesMission HST = isInfixOf "HST"
-includesMission NOAO = isInfixOf "NOAO"
-includesMission NRAO = isInfixOf "NRAO"
-includesMission RXTE = isInfixOf "RXTE"
-includesMission Spitzer = isInfixOf "Spitzer"
-includesMission Suzaku = isInfixOf "Suzaku"
-includesMission XMM = isInfixOf "XMM"
-includesMission Swift = isInfixOf "Swift"
-includesMission NuSTAR = isInfixOf "NuSTAR"
+includesMission m = case lookup m missionMap of
+  Just x -> isInfixOf (_1 x)
+  Nothing -> error "Internal error: missing mission includesMission"
 
 {-
 -- The "field" variant is at the end of the module since it needs

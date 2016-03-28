@@ -16,7 +16,8 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), JointMission, fromMission)
+import Types (Schedule(..), JointMission
+             , fromMission, fromMissionLong, fromMissionLongLink)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -52,10 +53,10 @@ renderMatches ::
 renderMatches ms (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
-      mission = toHtml (fromMission ms)
+      mission = toHtml (fromMissionLong ms)
       
   in div ! A.id "scheduleBlock" $ do
-    h2 ("Joint observations with " <> mission)
+    h2 ("Joint observations with the " <> mission)
 
     svgBlock
 
@@ -63,8 +64,8 @@ renderMatches ms (Schedule cTime _ done mdoing todo simbad) =
     p $ mconcat
         [ "This page shows Chandra observations of objects which had "
         , "joint observations with the "
-        , mission
-        , " facility. These observations may be simultaneous, but often "
+        , fromMissionLongLink ms
+        , ". These observations may be simultaneous, but often "
         , "they are not. "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
