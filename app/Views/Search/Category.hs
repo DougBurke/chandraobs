@@ -8,7 +8,7 @@ module Views.Search.Category (indexPage
                              ) where
 
 -- import qualified Prelude as P
-import Prelude (($), (++), Maybe(..), Int, String
+import Prelude (($), Maybe(..), Int, String
                , compare, fst, length, mapM_, show)
 
 import qualified Text.Blaze.Html5 as H
@@ -26,7 +26,8 @@ import Types (Schedule(..), SimbadType
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , basicTypeLinkSearch
              , categoryLinkSearch
-             , getNumObs)
+             , getNumObs
+             , getScienceTime)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -83,7 +84,7 @@ renderTypes cats =
 
       scats = sortBy (compare `on` fst) cats
   in div $ do
-    p (toHtml ("There are " ++ show (length cats) ++ " categories."))
+    p ("There are " <> toHtml (show (length cats)) <> " categories.")
     table $ do
              thead $ tr $ do
                th "Category"
@@ -133,7 +134,8 @@ renderMatches ::
   -> Html
 renderMatches cat (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      
+      scienceTime = getScienceTime done mdoing todo
+
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml cat
 
@@ -144,6 +146,7 @@ renderMatches cat (Schedule cTime _ done mdoing todo simbad) =
         [ "This page shows Chandra observations of objects from proposals "
         , "in the category "
         , toHtml cat
+        , scienceTime
         , ". "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
@@ -162,6 +165,7 @@ renderComboMatches ::
   -> Html
 renderComboMatches cat mtype (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+      scienceTime = getScienceTime done mdoing todo
 
   in div ! A.id "scheduleBlock" $ do
     h2 (getComboTitle cat mtype)
@@ -173,8 +177,9 @@ renderComboMatches cat mtype (Schedule cTime _ done mdoing todo simbad) =
         [ "This page shows Chandra observations of objects from proposals "
         , "in the category "
         , categoryLinkSearch cat cat
-        , " that also have the SIMBAD type of "
+        , " that observe targets with the SIMBAD type of "
         , basicTypeLinkSearch mtype
+        , scienceTime
         , ". "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)

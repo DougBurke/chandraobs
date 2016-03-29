@@ -44,7 +44,8 @@ import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
              , typeDLinkSearch
              , typeDLinkURI
              , categoryLinkSearch
-             , getNumObs)
+             , getNumObs
+             , getScienceTime)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -144,22 +145,25 @@ renderMatches ::
   -> Html
 renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-
+      scienceTime = getScienceTime done mdoing todo
+      
       -- TODO: rewrite, re-position, and make links
       toLink = P.uncurry typeDLinkSearch 
       typeLbls = intersperse ", " (P.map toLink children)
       childTxt = case typeLbls of
-        [] -> "."
-        [c] -> "; this includes the " <> c <> " type."
+        [] -> ""
+        [c] -> "; this includes the " <> c <> " type"
         _ -> "; the following types are included: "
-             <> mconcat typeLbls <> "."
+             <> mconcat typeLbls
       
       -- TODO: improve English here
       introText =
         if lbl == noSimbadLabel
         then mconcat
              [ "This page shows the Chandra observations of objects for "
-             , "which no identification could be found in SIMBAD. This "
+             , "which no identification could be found in SIMBAD"
+             , scienceTime
+             , ". This "
              , "includes "
              , categoryLinkSearch "SOLAR SYSTEM" "Solar System"
              , " objects, since SIMBAD does not track "
@@ -178,8 +182,11 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
              [ "This page shows the observations of "
              , toHtml lbl
              , " objects by Chandra"
+               -- TODO: improve the English here; need to rework childTxt
+               --       now added the total observation time.
+             , scienceTime
              , childTxt
-             , "The object type is based on the target name created by the "
+             , ". The object type is based on the target name created by the "
              , "observer, and is often not sufficient to identify it in "
              , (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "SIMBAD"
              , ", which is why not all observations have a type (it is also "

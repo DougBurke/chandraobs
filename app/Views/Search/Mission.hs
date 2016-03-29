@@ -24,7 +24,8 @@ import Types (Schedule(..), JointMission
              , fromMission, fromMissionLong
              , fromMissionLongLink, fromMissionAboutLink)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
-             , getNumObs)
+             , getNumObs
+             , getScienceTime)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -108,6 +109,7 @@ renderMatches ::
   -> Html
 renderMatches ms (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+      scienceTime = getScienceTime done mdoing todo
 
       mission = toHtml (fromMissionLong ms)
       
@@ -121,6 +123,7 @@ renderMatches ms (Schedule cTime _ done mdoing todo simbad) =
         [ "This page shows Chandra observations of objects which had "
         , "joint observations with the "
         , fromMissionAboutLink ms
+        , scienceTime
         , ". These observations may be simultaneous, but often "
         , "they are not. "
           -- assume the schedule is all science observations

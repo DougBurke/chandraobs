@@ -619,6 +619,15 @@ newtype TimeKS = TimeKS { _toKS :: Double }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
+zeroKS :: TimeKS
+zeroKS = TimeKS 0
+
+-- | The library does not export a smart constructor,
+--   so treat anything zero or negative as zero.
+--
+isZeroKS :: TimeKS -> Bool
+isZeroKS (TimeKS a) = a <= 0
+
 addTimeKS :: TimeKS -> TimeKS -> TimeKS
 addTimeKS (TimeKS a) (TimeKS b) = TimeKS (a+b)
 
@@ -632,6 +641,8 @@ addTimeKS (TimeKS a) (TimeKS b) = TimeKS (a+b)
 --   The rounding may be a bit surprising, since
 --   1 day + 1 minute will get reported as
 --   "1 day 1 hour".
+--
+--   TODO: update to include weeks.
 --
 showExpTime :: TimeKS -> String
 showExpTime (TimeKS tks) = 

@@ -24,7 +24,8 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..))
-import Utils (defaultMeta, skymapMeta, cssLink, renderFooter)
+import Utils (defaultMeta, skymapMeta, cssLink, renderFooter
+             , getScienceTime)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -81,9 +82,10 @@ renderSchedule (Schedule _ _ _ Nothing _ _) =
 
 renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      title = show ndays <> "-day Schedule"
-
+      scienceTime = getScienceTime done mdoing todo
+                         
       -- the assumption is that ndays > 0
+      title = show ndays <> "-day Schedule"
       hdays = if ndays == 1
               then "one day"
               else toHtml (show ndays) <> " days"
@@ -95,8 +97,9 @@ renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
 
     p $ mconcat 
         [ "This page shows ", hdays
-        , " of the Chandra schedule, centered on today. "
-        , "The size of the circles indicate the exposure time, and "
+        , " of the Chandra schedule, either side of today"
+        , scienceTime
+        , ". The size of the circles indicate the exposure time, and "
         , "the color shows whether the observation has been done, "
         , "is running now, or is in the future; the same colors "
         , "are used in the table below. For repeated observations "
@@ -116,15 +119,18 @@ renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
 
     tblBlock
 
+  
+
 renderDateSchedule :: 
   Day
   -> Schedule
   -> Html
 renderDateSchedule date (Schedule cTime ndays done mdoing todo simbad) =
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      title = show ndays <> "-day Schedule for " <> showGregorian date
+      scienceTime = getScienceTime done mdoing todo
 
       -- the assumption is that ndays > 0
+      title = show ndays <> "-day Schedule for " <> showGregorian date
       hdays = if ndays == 1
               then "one day"
               else toHtml (show ndays) <> " days"
@@ -138,8 +144,9 @@ renderDateSchedule date (Schedule cTime ndays done mdoing todo simbad) =
 
     p $ mconcat 
         [ "This page shows ", hdays
-        , " of the Chandra schedule, centered on "
+        , " of the Chandra schedule either side of "
         , toHtml dateStr
+        , scienceTime
         , ". The format is the same as used in the "
         , (a ! href "/schedule") "schedule view"
         , "."

@@ -40,7 +40,8 @@ import Utils (defaultMeta, d3Meta, skymapMeta
              , renderFooter, cssLink, jsScript
              , instLinkAbout, gratLinkAbout -- , igLinkAbout
              , instLinkSearch, gratLinkSearch, igLinkSearch
-             , getNumObs)
+             , getNumObs
+             , getScienceTime)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -126,6 +127,9 @@ matchIGPage ig@(inst, grat) sched =
       <> renderFooter
      )
 
+
+
+
 -- | TODO: combine table rendering with Views.Schedule
 --
 renderInstMatches ::
@@ -134,6 +138,7 @@ renderInstMatches ::
   -> Html
 renderInstMatches inst (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+      scienceTime = getScienceTime done mdoing todo
 
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml inst)
@@ -144,7 +149,9 @@ renderInstMatches inst (Schedule cTime _ done mdoing todo simbad) =
         [ "This page shows observations of objects that use "
         , "the "
         , instLinkAbout inst
-        , " instrument on Chandra."
+        , " instrument on Chandra"
+        , scienceTime
+        , ". "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
         , ". The format is the same as used in the "
@@ -160,6 +167,7 @@ renderGratMatches ::
   -> Html
 renderGratMatches grat (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+      scienceTime = getScienceTime done mdoing todo
 
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml grat)
@@ -169,7 +177,9 @@ renderGratMatches grat (Schedule cTime _ done mdoing todo simbad) =
     p $ mconcat
         [ "This page shows observations of objects that use "
         , gratLinkAbout grat
-        , " on Chandra."
+        , " on Chandra"
+        , scienceTime
+        , ". "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
         , ". The format is the same as used in the "
@@ -185,6 +195,7 @@ renderIGMatches ::
   -> Html
 renderIGMatches (inst, grat) (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+      scienceTime = getScienceTime done mdoing todo
 
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml inst <> " and " <> toHtml grat)
@@ -196,7 +207,9 @@ renderIGMatches (inst, grat) (Schedule cTime _ done mdoing todo simbad) =
         , instLinkAbout inst
         , " with "
         , gratLinkAbout grat
-        , " on Chandra."
+        , " on Chandra"
+        , scienceTime
+        , ". "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
         , ". The format is the same as used in the "

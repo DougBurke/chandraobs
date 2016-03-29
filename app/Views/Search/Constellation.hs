@@ -18,8 +18,10 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), ConShort(..), getConstellationNameStr)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink,
-              constellationLinkSearch, getNumObs)
+import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+             , constellationLinkSearch
+             , getNumObs
+             , getScienceTime)
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -79,6 +81,7 @@ renderMatches ::
   -> Html
 renderMatches lbl (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
+      scienceTime = getScienceTime done mdoing todo
 
       conLink cname =
         let clean c | c == ' '  = '_'
@@ -100,10 +103,11 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) =
     p $ mconcat
         [ "This page shows Chandra observations of objects in the constellation "
         , (a ! href (conLink lbl)) (toHtml lbl)
-        , ", and the constellation outline is also shown (these outlines "
+        , scienceTime
+        , ". The constellation outline is also shown; the outlines "
         , "were taken from the "
         , (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
-        , " project by Olaf Frohn). "
+        , " project by Olaf Frohn. "
           -- assume the schedule is all science observations
         , toHtml (getNumObs done mdoing todo)
         , ". The format is the same as used in the "

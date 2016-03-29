@@ -42,6 +42,8 @@ module Utils (
      , cleanJointName
      , schedToList
      , getNumObs
+     , getScienceExposure
+     , getScienceTime
      ) where
 
 import qualified Data.ByteString as B
@@ -58,7 +60,8 @@ import Control.Applicative ((<$>))
 #endif
 
 import Data.Char (intToDigit)
-import Data.List (isPrefixOf)
+import Data.Either (rights)
+import Data.List (foldl', isPrefixOf)
 import Data.Maybe (fromJust, fromMaybe, isJust)
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -99,6 +102,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , getJointObs, getConstellationName
              , simbadTypeToDesc
              , fromMission
+             , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
 
 -- | Convert a record into the URI fragment that represents the
@@ -664,3 +668,30 @@ getNumObs done mdoing todo =
         1 -> "is one observation"
         _ -> "are " ++ show nobs ++ " observations"
   in "There " ++ obslen ++ ", but this is a small fraction of the Chandra mission"
+
+
+-- | Return the total obervation time for the science observations in the
+--   schedule.
+getScienceExposure ::
+  [Record]
+  -> Maybe Record
+  -> [Record]
+  -> TimeKS
+getScienceExposure done mdoing todo =
+  let sobs = rights (schedToList done mdoing todo)
+      getTime so = fromMaybe (soApprovedTime so) (soObservedTime so)
+  in foldl' addTimeKS zeroKS (map getTime sobs)
+
+
+getScienceTime ::
+  [Record]
+  -> Maybe Record
+  -> [Record]
+  -> H.Html
+getScienceTime done mdoing todo =
+  let etime = getScienceExposure done mdoing todo
+  in if isZeroKS etime
+     then mempty
+     else ", and the total science exposure time for these observations is "
+          <> H.toHtml (showExpTime etime)
+     
