@@ -636,54 +636,47 @@ addTimeKS (TimeKS a) (TimeKS b) = TimeKS (a+b)
 --   As the minimum time appears to be 0.1 ks we do not
 --   have to deal with sub minute values, but include
 --   just in case. Assume that max is ~ 100ks, which is
---   ~ 28 hours, so need to deal with days.
+--   ~ 28 hours, so need to deal with days. However, this
+--   is now being used for aggregating many observations,
+--   so need to go to weeks. Ideally would use larger
+--   units, but it's a bit murky what is meant there, so
+--   let's see how well weeks and days work.
 --
---   The rounding may be a bit surprising, since
---   1 day + 1 minute will get reported as
---   "1 day 1 hour".
---
---   TODO: update to include weeks.
+--   The current approach converts 24 hours and 50 minutes
+--   to "1 day", and does not round up to "1 day and 1 hour".
+--   This should probably be addressed. Similarly,
+--   instead of rounding to "1 week and 1 day", it returns
+--   "1 week" for 7.9 days
 --
 showExpTime :: TimeKS -> String
 showExpTime (TimeKS tks) = 
-  let s = tks * 1000
-      m = s / 60
-      h = m / 60
+  let ns = round (tks * 1000) :: Int
+      (nm, rs) = divMod ns 60
+      (nh, rm) = divMod nm 60
+      (nd, rh) = divMod nh 24
+      (nw, rd) = divMod nd 7
 
-  in if s < 3600
-     then showUnits s 60 "minute" "second"
-     else if h < 24
-          then showUnits m 60 "hour" "minute"
-          else showUnits h 24 "day" "hour"
+      units v1 v2 u1 u2 =
+        let us 0 _ = ""
+            us 1 u = "1 " <> u
+            us x u = show x <> " " <> u <> "s"
 
+            str1 = us v1 u1
+            str2 = us v2 u2
+            sep = if null str1 || null str2 then "" else " and "
+            
+        in str1 <> sep <> str2
+
+  in if ns < 3600
+     then units nm rs "minute" "second"
+     else if nh < 24
+          then units nh rm "hour" "minute"
+          else if nd < 7
+               then units nd rh "day" "hour"
+               else units nw rd "week" "day"
+                    
 showExp :: Record -> H.Html
 showExp = H.toHtml . showExpTime . recordTime
-
--- | Make a nice readable value; ie
---   "x unit1 y unit2"
---
---   This returns "" if the value is 0. At the moment this
---   is a feature, but it may change.
-showUnits :: 
-  Double      -- value in units of unit2
-  -> Int      -- scale value
-  -> String   -- unit1: singular unit (scale * unit2)
-  -> String   -- unit2: unit 
-  -> String
-showUnits v s u1 u2 = 
-  let v1 = ceiling v :: Int -- round up
-      (a, b) = v1 `divMod` s
-
-      units 0 _ = ""
-      units 1 u = "1 " ++ u
-      units x u = show x ++ " " ++ u ++ "s"
-
-      astr = units a u1
-      bstr = units b u2
-
-      sep = if null astr || null bstr then "" else " and "
-
-  in astr ++ sep ++ bstr
 
 -- do we want this to be in a nice readable value or in ks?
 instance H.ToMarkup TimeKS where
