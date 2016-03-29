@@ -767,7 +767,7 @@ fetchJointMission jm = do
 --   Would be nice perhaps to have number of targets.
 --
 fetchMissionInfo ::
-  PersistBackend m
+  (Functor m, PersistBackend m) -- Functor needed before ghc 7.10
   => m [(JointMission, Int)]
   -- ^ Number of observations for each mission
 fetchMissionInfo = do

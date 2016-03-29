@@ -86,9 +86,9 @@ renderMissions jms =
        <> "joint facilities, and lets you see what objects were - or will be - "
        <> "observed. Some observations will be simultaneous, in that the object "
        <> "is observed with all the facilities at the same time, but many are "
-       <> "not. Note that as this is only a small fraction of the full "
-       <> "Chandra schedule, and so not all observations or facilities are "
-       <> "included in the table. The set of missions for which joint proposals "
+       <> "not. Note that not all observations or facilities are included in "
+       <> "this table as this website only covers a small fraction of the full "
+       <> "Chandra schedule. The set of missions for which joint proposals "
        <> "are available changes over time, as new facilities become available "
        <> "and others are decomissioned."
       )
