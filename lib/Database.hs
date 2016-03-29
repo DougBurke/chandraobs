@@ -30,6 +30,7 @@ module Database ( getCurrentObs
                 , fetchNoSIMBADType
                 , fetchSIMBADDescendentTypes
                 , fetchJointMission
+                , fetchMissionInfo
                 , fetchObjectTypes
                 , fetchConstellation
                 , fetchConstellationTypes
@@ -113,7 +114,7 @@ import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (group, groupBy, nub, sortBy)
-import Data.Maybe (catMaybes, fromMaybe, isNothing, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromJust, fromMaybe, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
@@ -759,6 +760,25 @@ fetchJointMission jm = do
 
   return (unsafeToSL (filter hasMission sobs))
   
+-- | Return basic information on the joint-with observations.
+--
+--   Note that the time fields are a bit confusing, so don't have
+--   them for all observations, so just report number of observations.
+--   Would be nice perhaps to have number of targets.
+--
+fetchMissionInfo ::
+  PersistBackend m
+  => m [(JointMission, Int)]
+  -- ^ Number of observations for each mission
+fetchMissionInfo = do
+  jws <- map fromJust <$>
+         project SoJointWithField
+         (((Not (isFieldNothing SoJointWithField))
+           &&. notDiscarded))
+
+  let toks = map (,1) (concatMap splitToMission jws)
+  return (M.toList (M.fromListWith (+) toks))
+
 -- | Return information on the object types we have stored.
 --
 --   The return value includes the number of objects that 

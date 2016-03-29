@@ -50,6 +50,8 @@ import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
 import Data.Either (rights)
 import Data.Function (on)
+import Data.List (isInfixOf, isPrefixOf, sortBy)
+import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -58,7 +60,6 @@ import Data.Monoid ((<>), mconcat)
 import Data.Monoid ((<>))
 #endif
 
-import Data.List (isInfixOf, sortBy)
 import Data.String (IsString(..))
 
 -- I am not convinced I'm adding the PersistField values sensibly
@@ -855,10 +856,13 @@ data ScienceObs = ScienceObs {
 --   no guarantee it won't change and I can not be bothered with
 --   updating the schema.
 --
-
+--   The Ord instance is added so that the type can be used in
+--   various contexts - in particular the key to a map - but
+--   it has no semantic meaning.
+--
 data JointMission =
   HST | NOAO | NRAO | RXTE | Spitzer | Suzaku | XMM | Swift | NuSTAR
-  deriving Eq
+  deriving (Eq, Ord)
 
 -- Valid mappings for the mission names
 -- TODO: could use missionMap with logic like "check for
@@ -923,10 +927,18 @@ fromMissionLong m = case lookup m missionMap of
   Just x -> _2 x
   Nothing -> error "Internal error: missing mission fromMissionLong"
 
+-- | Link to the search page.
 fromMissionLongLink :: JointMission -> H.Html
 fromMissionLongLink m = case lookup m missionMap of
-  Just x -> (H.a H.! A.href (_3 x)) (H.toHtml (_2 x))
+  Just x -> let url = H.toValue ("/search/joint/" ++ _1 x)
+            in (H.a H.! A.href url) (H.toHtml (_2 x))
   Nothing -> error "Internal error: missing mission fromMissionLongLink"
+
+-- | Link to a page about the mission.
+fromMissionAboutLink :: JointMission -> H.Html
+fromMissionAboutLink m = case lookup m missionMap of
+  Just x -> (H.a H.! A.href (_3 x)) (H.toHtml (_2 x))
+  Nothing -> error "Internal error: missing mission fromMissionAboutLink"
 
 -- | Does the list of Joint-with observatories include
 --   the mission.
@@ -935,6 +947,17 @@ includesMission :: JointMission -> String -> Bool
 includesMission m = case lookup m missionMap of
   Just x -> isInfixOf (_1 x)
   Nothing -> error "Internal error: missing mission includesMission"
+
+-- | Convert the joint-with field into a list of missions.
+--
+splitToMission ::
+  String
+  -> [JointMission]
+splitToMission term =
+  let cterm = if "CXO-" `isPrefixOf` term then drop 4 term else term
+      toks = splitOn "-" cterm
+  in mapMaybe toMission toks
+
 
 {-
 -- The "field" variant is at the end of the module since it needs

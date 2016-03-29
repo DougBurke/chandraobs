@@ -60,6 +60,7 @@ library
      , http-types >= 0.8 && < 1.0
      , monad-logger == 0.3.*
      , scotty >= 0.7 && < 0.12
+     , split == 0.2.*
      , text >= 1.0 && < 1.3
      , transformers >= 0.3 && < 0.6
 
@@ -120,7 +121,7 @@ executable webserver
      , random >= 1.0 && < 1.2
      , resource-pool == 0.2.*
      , scotty
-     , split == 0.2.*
+     , split
      , text
      , time
      , transformers

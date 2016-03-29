@@ -113,6 +113,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchCategorySubType
                  , fetchCategoryTypes
                  , fetchJointMission
+                 , fetchMissionInfo
                  , fetchProposal
                  , fetchInstrument
                  , fetchGrating
@@ -664,6 +665,10 @@ webapp cm mgr = do
         else do
           sched <- liftSQL (makeSchedule (fmap Right matches))
           fromBlaze (Mission.matchPage mission sched)
+
+    get "/search/joint/" $ do
+      missions <- liftSQL fetchMissionInfo
+      fromBlaze (Mission.indexPage missions)
 
     -- TODO: also need a HEAD request version
     {-
