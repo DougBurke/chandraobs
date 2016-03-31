@@ -981,6 +981,17 @@ updateDB f = withSocketsDo $ do
   addOverlaps f $ concat overlaps
   -}
 
+  (missing1, nsmissing1, unarchived1) <- findMissingObsIds
+  when (missing /= missing1)
+    (putStrLn ("# Number missing: " ++ slen missing ++
+               " -> " ++ slen missing1))
+  when (unarchived /= unarchived1)
+    (putStrLn ("# Number Sci: " ++ slen unarchived ++
+               " -> " ++ slen unarchived1))
+  when (nsmissing /= nsmissing1)
+    (putStrLn ("# Number Non-sci: " ++ slen nsmissing ++
+               " -> " ++ slen nsmissing1))
+  
 viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
   ans <- queryScience True (ObsIdVal oid)
