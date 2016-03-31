@@ -296,3 +296,8 @@ p.fact {
   background-color: rgba(153,153,153,0.2);  /* gray */
 }
 
+/* other stuff */
+
+p.footnote {
+    font-size: smaller;
+}
