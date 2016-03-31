@@ -8,6 +8,9 @@
 --
 --   For the "has no SIMBAD type" there's obviously no children.
 --
+--   TODO: would like the option to view connections as time, rather than
+--         number of sources or observations.
+--
 module Views.Search.Types (indexPage, dependencyPage
                           , matchPage
                           , matchDependencyPage
@@ -22,6 +25,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
+
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -38,6 +42,7 @@ import Types (Schedule(..), SimbadType(..), SimbadTypeInfo, SimbadCode(..)
              , simbadLabels
              , noSimbadLabel
              , _2)
+       
 import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
              , jsScript , cssLink
              , typeLinkSearch
@@ -79,12 +84,13 @@ dependencyPage objs =
     head (H.title "Chandra observations (dendogram view of SIMBAD objects)"
           <> defaultMeta
           <> d3Meta
+          <> jsScript "/js/d3.sankey.js"
           <> jsScript "/js/simbad-tree.js"
           <> cssLink "/css/simbad-tree.css"
           <> (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
-    (body ! onload "createTree(typeinfo);")
+    (body ! onload "createTree(typeinfo); makeSankeyPlot(typeinfo);")
      (mainNavBar CPExplore
       <> renderDependency objs
       <> renderFooter
@@ -321,9 +327,14 @@ toTree sl =
       toChild4 (st,sc,n) =
         let obj = makeObj st sc n
         in (n, Aeson.object obj)
-        
-  in Aeson.object [ "name" .= ("all" :: String),
-                    "children" .= P.map toChild1 c1 ]
+
+      dendo = Aeson.object [ "name" .= ("all" :: String),
+                             "children" .= P.map toChild1 c1 ]
+
+      -- for now, no "sankey" child in the output
+      
+  in Aeson.object [ "dendogram" .= dendo ]
+
 
 -- | Create the SIMBAD dependency graph and render it.
 --

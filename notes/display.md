@@ -17,7 +17,8 @@ could be selectable instead via a faceted browsing interfacte.
    proposal categories?
 
    The /search/dtype/ view could be switched to a Sankey
-   diagram.
+   diagram. I have tried this in this branch, and it does
+   not work.
    
  - do we want any note of PI_NAME == Calibration ?
 

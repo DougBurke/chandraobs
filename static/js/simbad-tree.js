@@ -3,6 +3,12 @@
  * http://cds.u-strasbg.fr/cgi-bin/Otype?X
  * based on the d3 example at
  * https://bl.ocks.org/mbostock/4339083
+ *
+ * The attempted Sankey visualization doesn't look too good;
+ * perhaps can take the dendogram and change the link width
+ * based on the size of the connection (or a transform
+ * of the size - e.g. sqrt or log, but log is probably too
+ * severe)
  */
 
 /***
@@ -21,6 +27,9 @@ var margin = {top: 20, right: 120, bottom: 20, left: 120},
     width = width0 - margin.right - margin.left,
     height = height0 - margin.top - margin.bottom;
 
+var totWidth = width + margin.right + margin.left;
+var totHeight = height + margin.top + margin.bottom;
+
 var tree;
 var svg;
 var diagonal;
@@ -36,6 +45,11 @@ function nodeClick(d) {
     }
     update(d);
 }
+
+/*
+ * TODO: there is a problem with the setting of opacity on nodes, particularly
+ *       once some are hidden then re-shown.
+ */
 
 // Based on http://bl.ocks.org/mbostock/4062006
 function changeOtherNodes(opacity) {
@@ -159,10 +173,13 @@ function update(source) {
     });
 }
 
+var delme;
+
 function createTree(json) {
 
-    if (!json || json.length == 0) { console.log("No tree data!"); return; }
-
+    delme = json;
+    json = json.dendogram;
+    
     // filter out all nodes with a size of zero; assume that the
     // top-level element is not empty.
     function removeEmpty(d) {
@@ -175,8 +192,9 @@ function createTree(json) {
     json.children = json.children.filter(removeEmpty);
 
     svg = d3.select("div#tree").append("svg")
-        .attr("width", width + margin.right + margin.left)
-        .attr("height", height + margin.top + margin.bottom)
+        .attr("class", "dendogram")
+        .attr("width", totWidth)
+        .attr("height", totHeight)
         .append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
@@ -208,5 +226,238 @@ function createTree(json) {
     // TODO: what is this
     // d3.select(self.frameElement).style("height", "800px");
     d3.select("#tree").style("height", height0 + "px");
+}
+
+
+
+// Sankey visualization
+//
+// namespace issues!
+
+var color = d3.scale.category20();
+
+var swidth = width;
+var sheight = height * 3;
+
+var smargin = margin;
+
+var totSWidth = swidth + smargin.right + smargin.left;
+var totSHeight = sheight + smargin.top + smargin.bottom;
+
+
+// It is possible that d3.sankey isn't loaded by the time this is processed.
+// Should probably be in the routine called from onload.
+//
+var sankey = d3.sankey()
+    .nodeWidth(15)
+    .nodePadding(10)
+    .size([swidth, sheight]);
+
+var path_sankey = sankey.link();
+
+var svg_sankey, link_sankey;
+
+function getNumSrcString(nsrc) {
+    var str;
+    if (nsrc == 1) {
+        str = "One source";
+    } else {
+        str = nsrc + " sources";
+    }
+    return str;
+}
+
+var dummy;
+
+// Add the node to output and then process the children.
+//
+// Depth- or breadth-first travesal?
+//
+// I tried depth-first, but the screen output isn't ideal
+// (presumably because it starts off based on the
+// ordering), so try depth-first. I do this by adding
+// in the depth field, and then sorting on that
+// in the final output array.
+//
+function findNodes(onode, output) {
+    // drop the "all" node
+    if (onode.depth > 0) {
+        var out = {name: onode.name, depth: onode.depth};
+        if (onode.searchLink) {
+            out['searchLink'] = onode.searchLink;
+            out['shortName'] = onode.shortName;
+        }
+        output.push(out);
+    }
+    if (onode.children) {
+        onode.children.forEach(function(d) { findNodes(d, output); })
+    }
+}
+
+// Given a node, add it to the output and then
+// process the children.
+//
+// pnum is the parent number (i.e. the index, in
+// nodes, for the parent of this node).
+//
+function findLinks(onode, pnum, nodes, output) {
+    // Have flip-flopped over the ordering of this;
+    // am now back to not wanting to display the "all -> ?"
+    // links, which makes the following messy,
+    // as I don't want to spend time re-working things
+    // that I am about to throw away anyway
+    //
+    if (onode.children) {
+        onode.children.forEach(function(child) {
+
+            var n = nodes.findIndex(function(d) { return d.name === child.name; });
+            if (n == -1) {
+                console.log("Internal error: no node found for");
+                console.log(onode);
+                return;
+            }
+
+            // This hides the "all" node (since it doesn't have
+            // an entry in the nodes array); however, this isn't
+            // ideal since there are a few level=1 catagories
+            // that have no descenents; with this approach they
+            // just get added at the right but have no links
+            // to them.
+            //
+            // If the "all" node is included then there's a lot of
+            // visual clutter.
+            //
+            if (pnum >= 0) {
+                var out = {source: pnum,
+                           target: n,
+                           value: child.size};
+                output.push(out);
+            }
+
+            findLinks(child, n, nodes, output);
+        });
+    }
+}
+
+// For now, convert the format used for the dendogram
+// into the necessary form for the Sankey plot.
+//
+function makeSankeyPlot(json) {
+
+    var origInfo = json.dendogram;
+
+    var mapInfo = { nodes: [], links: [] };
+
+    findNodes(origInfo, mapInfo.nodes);
+    mapInfo.nodes.sort(function(n1,n2) { return n1.depth > n2.depth; });
+    findLinks(origInfo, -1, mapInfo.nodes, mapInfo.links);
+
+    dummy = mapInfo;
+    
+  sankey
+      .nodes(mapInfo.nodes)
+      .links(mapInfo.links)
+      // .layout(32);
+      .layout(256);
+
+  svg_sankey = d3.select("div#tree").append("svg")
+        .attr("class", "sankey")  
+    .attr("width", totSWidth)
+    .attr("height", totSHeight)
+  .append("g")
+    .attr("transform", "translate(" + smargin.left + "," + smargin.top + ")");
+
+  link_sankey = svg_sankey.append("g").selectAll(".slink")
+      .data(mapInfo.links)
+    .enter().append("path")
+      .attr("class", "slink")
+        .attr("d", path_sankey)
+    /***
+        .on("click", function(d) {
+            // Would prefer to make this an actual link, so the UI is more
+            // familiar, but this works.
+            var cat = d.source.name;
+            var stype = mapInfo.simbadMap[d.target.name] || "unidentified";
+            if (stype == "000") { stype = "unidentified"; }
+            var url = "/search/category/" +
+                encodeURIComponent(cat) +
+                "/" +
+                encodeURIComponent(stype);
+            window.location = url;
+        })
+    ***/
+    
+    /* TODO: investigate fading-out all the other nodes
+        .on("mouseover", function(d) { console.log("enter"); })
+        .on("mouseout", function(d) { console.log("exit"); })
+    */
+    
+      .style("stroke-width", function(d) { return Math.max(1, d.dy); })
+      .sort(function(a, b) { return b.dy - a.dy; });
+
+  link_sankey.append("title")
+        .text(function(d) {
+            return d.source.name + " → " + d.target.name + "\n"
+                + getNumSrcString(d.value);
+        });
+
+  var node = svg_sankey.append("g").selectAll(".node")
+      .data(mapInfo.nodes)
+    .enter().append("g")
+      .attr("class", "snode")
+      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+    .call(d3.behavior.drag()
+      .origin(function(d) { return d; })
+      .on("dragstart", function() { this.parentNode.appendChild(this); })
+      .on("drag", dragmove));
+
+  node.append("rect")
+      .attr("height", function(d) { return d.dy; })
+      .attr("width", sankey.nodeWidth())
+      .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
+      .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
+    .append("title")
+        .text(function(d) {
+            return d.name + "\n"
+                + getNumSrcString(d.value);
+        });
+
+    node
+    /***
+        .append("a")
+        .attr("xlink:href", function(d) {
+            var out;
+            if (mapInfo.proposals.indexOf(d.name) > -1) {
+                out = "/search/category/" + encodeURIComponent(d.name);
+            } else if (mapInfo.simbadNames.indexOf(d.name) > -1) {
+                var stype = mapInfo.simbadMap[d.name];
+                out = "/search/type/";
+                if (stype == "000") {
+                    out += "unidentified";
+                } else {
+                    out += encodeURIComponent(stype);
+                }
+            } else {
+                out = "/error/";
+            }
+            return out; })
+    ***/
+      .append("text")
+      .attr("x", -6)
+      .attr("y", function(d) { return d.dy / 2; })
+      .attr("dy", ".35em")
+      .attr("text-anchor", "end")
+      .attr("transform", null)
+      .text(function(d) { return d.name; })
+    .filter(function(d) { return d.x < width / 2; })
+      .attr("x", 6 + sankey.nodeWidth())
+      .attr("text-anchor", "start");
+
+}
+
+function dragmove(d) {
+    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(sheight - d.dy, d3.event.y))) + ")");
+    sankey.relayout();
+    link_sankey.attr("d", path_sankey);
 }
 

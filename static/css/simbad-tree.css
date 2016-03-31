@@ -25,3 +25,29 @@
   stroke-width: 1.5px;
 }
 
+// Sankey diagram version
+
+.snode rect {
+  cursor: move;
+  fill-opacity: .9;
+  shape-rendering: crispEdges;
+}
+
+/* at present there is no link on the text node, so this is
+   not needd, but leave in for now */
+.snode text {
+  /* pointer-events: none; */
+  pointer-events: all; /* not sure where best place for this is */
+}
+
+.slink {
+  fill: none;
+  stroke: rgb(0, 131, 179);
+  stroke-opacity: .2;
+  cursor: pointer;
+}
+
+.slink:hover {
+  stroke-opacity: .5;
+}
+
