@@ -6,6 +6,10 @@ For a general-public view, I think this is a sensible choice
 (provide nice top-level views), but is there a place for
 some form of faceted browser?
 
+ - now that I list exposure time for each constellation at
+   /search/constellation/, I wonder if it would make sense
+   to create a sky map color-coded by exposure time.
+   
  - map Chandra proposal abstracts to the Unified Astronomy
    Thesaurus, so that can use this as a selector, as is
    currently done with SIMBAD types and proposal categories.

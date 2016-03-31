@@ -4,20 +4,26 @@
 
 module Views.Search.Constellation (indexPage, matchPage) where
 
--- import qualified Prelude as P
-import Prelude (($), (==), (++), Int, String, compare, fst, length, map, mapM_, show, otherwise)
+import qualified Prelude as P
+import Prelude (($), (==), String,
+                compare, fst, length, lookup, map, mapM_,
+                show, otherwise)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Function (on)
-import Data.List (sortBy)
+import Data.List (intercalate, sortBy)
+import Data.Maybe (isNothing)
 import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), ConShort(..), getConstellationNameStr)
+import Types (Schedule(..), ConShort(..), ConLong(..), TimeKS
+              , getConstellationNameStr
+              , constellationMap
+              , showExpTime)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , constellationLinkSearch
              , getNumObs
@@ -26,7 +32,7 @@ import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
 indexPage :: 
-  [(ConShort, Int)]
+  [(ConShort, TimeKS)]
   -> Html
 indexPage cons =
   docTypeHtml ! lang "en-US" $
@@ -119,26 +125,47 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) =
 
 -- | Render the list of constellations
 renderTypes ::
-  [(ConShort, Int)]
+  [(ConShort, TimeKS)]
   -> Html
 renderTypes cons = 
-  let toRow (con,n) = tr $ do
-                    td (constellationLinkSearch con (conLabel con))
-                    td (toHtml n)
+  let toRow (con,t) =
+        tr $ do
+          td (constellationLinkSearch con (conLabel con))
+          td (toHtml (showExpTime t))
 
       conLabel = getConstellationNameStr
 
       scons = sortBy (compare `on` fst) cons
 
-      lbl = "There are " ++ show (length cons) ++ " constellations containing "
-            ++ "Chandra observations in the data base (which is a small fraction "
-            ++ "of the full Chandra schedule."
-            
+      -- the assumption is that there's enough data that few,
+      -- if any, constellations are missing.
+      --
+      notIn t = isNothing (lookup t cons)
+      missing = [fromConLong clong |
+                 (cshort, clong) <- constellationMap, notIn cshort]
+                 
+      missTxt = case length missing of
+        0 -> "and has a target in each constellation"
+        1 -> "and is missing one constellation, namely "
+             <> toHtml (P.head missing)
+        nm -> "and is missing " <> toHtml (show nm)
+              <> " constellations: "
+              <> toHtml (intercalate "," missing)
+
   in div $ do
-    p (toHtml lbl)
+
+    p ("As can be seen, the length of time spent observing targets "
+       <> "in a constellation varies strongly with "
+       <> "the constellation. This data base only contains a "
+       <> (a ! href "/search/calendar/") "small fraction"
+       <> " of the output of Chandra, "
+       <> missTxt
+       <> "."
+      )
+
     table $ do
              thead $ tr $ do
                th "Constellation"
-               th "Number of observations"
+               th "Observing time"
              tbody (mapM_ toRow scons)
              

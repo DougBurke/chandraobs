@@ -106,6 +106,7 @@ import Control.Applicative ((<$>))
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
+import Control.Arrow (second)
 import Control.Monad (filterM, forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
@@ -827,12 +828,20 @@ countUp xs =
 -- | Return count of the constellations.
 --   Discarded observations are excluded.
 --
-fetchConstellationTypes :: PersistBackend m => m [(ConShort, Int)]
+fetchConstellationTypes ::
+  PersistBackend m
+  => m [(ConShort, TimeKS)]
+  -- ^ returns the total exposure time spent on targets
+  --   in the constellation.
 fetchConstellationTypes = do
-  res <- project SoConstellationField
+  res <- project (SoConstellationField
+                 , (SoApprovedTimeField, SoObservedTimeField))
          (notDiscarded -- &&. isScheduled
           `orderBy` [Asc SoConstellationField])
-  return (countUp res)
+
+  let ms = map (second (uncurry fromMaybe)) res
+      ts = M.fromListWith addTimeKS ms
+  return (M.toAscList ts)
     
 -- | Return observations which match this category,
 --   excluding discarded observations.
