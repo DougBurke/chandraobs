@@ -1,13 +1,56 @@
 # Thoughts on web display
 
 Note that I am manually creating "views" of the data that
-could be selectable instead via a faceted browsing interfacte.
+could be selectable instead via a faceted browsing interface.
+For a general-public view, I think this is a sensible choice
+(provide nice top-level views), but is there a place for
+some form of faceted browser?
 
+ - map Chandra proposal abstracts to the Unified Astronomy
+   Thesaurus, so that can use this as a selector, as is
+   currently done with SIMBAD types and proposal categories.
+   This likely requires paying for space on heroku, since
+   the database will get significantly larger.
+
+ - links to views of the actual data, or papers that reference
+   the data. As well as database-size concerns for the test
+   server I'm running, it's not obviously clear how to
+   best visualize this. This is spelt out a bit more in the
+   next two points.
+
+ - ADS view of papers about this object/class of object/...
+   by this PI
+
+   note that the page on SIMBAD that we link to (when
+   available) includes papers about the source
+
+ - archive link to existing Chandra data
+
+   there are links we can use like 
+
+   http://cdaftp.harvard.edu/cgi-bin/chaser_ftp_retrieve_file.cgi?filename=byobsid/2/642/primary/acisf00642N005_full_img2.jpg
+
+   *but* this requires that we know the processing version
+   (in this case N005) for each observation.  
+
+ - is it worth providing some sort of view of the exposure
+   time values - e.g. provide a histogram alongside the
+   schedule view? This may be more interesting for catalog
+   views like "all Galaxy obervations", where there's a lot
+   of sources.
+
+   It might be nice to do a canned view of this as a function
+   of time (e.g. AO or year), since the historical trends
+   could be interesting (longer observations, but split up
+   more)?
+   
  - improve display of the joint-with fields now that there
    is /search/joint/:mission
 
    Include a sankey-like view linking facilities with the
-   proposal category and/or SIMBAD data types.
+   proposal category and/or SIMBAD data types. There probably
+   isn't enough data to make this worthwhile (except perhaps
+   for HST and NRAO).
 
  - I thought about extending /search/mappings/ to take
    advantage of the SIMABD hierarchy, but further reflection
@@ -16,14 +59,18 @@ could be selectable instead via a faceted browsing interfacte.
    there to the children whilst stil identifying the separate
    proposal categories?
 
-   The /search/dtype/ view could be switched to a Sankey
-   diagram. I have tried this on the branch
-   experiment-sankey-plot-for-simbad-dendogram
-   and it didn't work out well.
-   
  - do we want any note of PI_NAME == Calibration ?
 
- - break down into cycles?
+ - some view of TOO/constrained observations might be nice.
+
+   Perhaps highlight those days in the calendar view that
+   have constraints. Or in the timeline view. Do we need to
+   break down the various types of constraint? Do I have enough
+   information to do this reliably?
+
+ - break down into cycles? e.g. some view of what was observed
+   in Cycle 16. The simple way would be essentially a facet,
+   to filer on this in other views.
  
  - the links between target name and SIMBAD can be improved;
    eg drop " offset ..." when searching. This requires
@@ -49,21 +96,6 @@ could be selectable instead via a faceted browsing interfacte.
  - Add in a view of the sky using the Aladin Lite widget
    http://aladin.u-strasbg.fr/AladinLite/
  
- - ADS view of papers about this object/class of object/...
-   by this PI
-
-   note that the page on SIMBAD that we link to (when
-   available) includes papers about the source
-
- - archive link to existing Chandra data
-
-   there are links we can use like 
-
-   http://cdaftp.harvard.edu/cgi-bin/chaser_ftp_retrieve_file.cgi?filename=byobsid/2/642/primary/acisf00642N005_full_img2.jpg
-
-   *but* this requires that we know the processing version
-   (in this case N005) for each observation.  
-
  - can we have a simple view showing Earth/Moon(?)/orbit and
    path during osbservation; for ongoing obs perhaps even the
    position of Chandra within the orbit and its direction?
@@ -81,7 +113,7 @@ could be selectable instead via a faceted browsing interfacte.
    each observation. We may want to mention this in the obsid
    view, and explicitly mention it in the proposal view.
 
-Doing
+## Doing
 
  - working on the "api" branch that provides more information
    via JSON (although heavily Haskell flavored) and simple
@@ -90,7 +122,7 @@ Doing
 
    This is currently on the back burner.
    
-Done
+## Done
 
  - link to a "view by instrument" page
 
@@ -159,6 +191,10 @@ Done
          /search/instrument/ breaks down the different
              detector plus instrument views
 
+## Rejected
 
-
-  
+ - The /search/dtype/ view could be switched to a Sankey
+   diagram. I have tried this on the branch
+   experiment-sankey-plot-for-simbad-dendogram
+   and it didn't work out well.
+   
