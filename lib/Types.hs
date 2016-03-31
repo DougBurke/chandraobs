@@ -1582,6 +1582,9 @@ data SimbadCode =
                _scLevel :: Int }
   deriving (Eq, Ord)
 
+-- Should the Ord instance be derived manually, so that _scLevel
+-- can be removed from the check, or does it not matter?
+
 instance Show SimbadCode where
   show SimbadCode {..} =
     printf "%02d.%02d.%02d.%d" _sc1 _sc2 _sc3 _sc4
@@ -1858,7 +1861,23 @@ simbadTypeToCode stype =
     ((sc, _, _):_) -> Just sc
     [] -> Nothing
 
+-- | The reverse of simbadTypeToCode.
+--
+simbadCodeToType :: SimbadCode -> Maybe SimbadType
+simbadCodeToType sc =
+  case dropWhile ((/= sc) . _1) simbadLabels of
+    ((_, stype, _):_) -> Just stype
+    [] -> Nothing
 
+-- | Note that this returns Text rather than String,
+--   which is different to simbadTypeToDesc.
+--
+simbadCodeToDesc :: SimbadCode -> Maybe T.Text
+simbadCodeToDesc sc =
+  case dropWhile ((/= sc) . _1) simbadLabels of
+    ((_, _, lbl):_) -> Just lbl
+    [] -> Nothing
+  
 -- | Return the long description for the type.
 --
 --   As there's no compile-time check that there's a match between
@@ -1888,6 +1907,22 @@ isChildType parent child =
 
   in (_scLevel parent < _scLevel child) && (p == c)
 
+-- | Return the parent code.
+getSimbadParent ::
+  SimbadCode
+  -> Maybe SimbadCode
+  -- ^ Returns Nothing if the input is at the top level.
+getSimbadParent SimbadCode{..} =
+  let plvl = _scLevel - 1
+      pcodes = take plvl [_sc1, _sc2, _sc3, _sc4]
+      [pc1, pc2, pc3, pc4] = pcodes ++ replicate (4-plvl) 0
+      parent = SimbadCode pc1 pc2 pc3 pc4 plvl
+      
+  in if plvl < 1
+     then Nothing
+     else case filter ((==parent) . _1) simbadLabels of
+       [_] -> Just parent
+       _ -> Nothing
   
 -- | validate input arguments
 
