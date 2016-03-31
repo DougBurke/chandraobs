@@ -17,7 +17,9 @@ could be selectable instead via a faceted browsing interfacte.
    proposal categories?
 
    The /search/dtype/ view could be switched to a Sankey
-   diagram.
+   diagram. I have tried this on the branch
+   experiment-sankey-plot-for-simbad-dendogram
+   and it didn't work out well.
    
  - do we want any note of PI_NAME == Calibration ?
 
