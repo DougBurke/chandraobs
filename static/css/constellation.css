@@ -1,35 +1,8 @@
 /*
- * The constellation table, with over 80 rows, is not
- * a great visual display, so try kicking it up a notch.
- * Of course, this loses many of the features why I'd
- * select a table in the first place, so is it really a
- * good idea?
- */
-
-.floatable thead {
-    display: none;
-}
-
-.floatable tbody tr {
-    float: left;
-}
-
-/*
  * sizes obtained by trial and error: will presumably break
  * if a different font is used, or when more data is added
  * and the time values change.
  */
-
-.floatable tr {
-    /* border: solid 2px rgb(0, 131, 179); */
-    margin: 0.2em;
-    padding: 0.4em;
-    background: rgba(0, 131, 179, 0.1);
-}
-
-.floatable tr:hover {
-    background: rgba(0, 131, 179, 0.2);
-}
 
 .floatable tr td:first-child {
     width: 11em;

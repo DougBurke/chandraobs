@@ -53,8 +53,8 @@ indexPage cons =
     -- (body ! onload "showConstellations(coninfo);")
     body
      (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderList cons)
+      -- TODO: need to clean up CSS and document structure
+      <> (div ! id "explorebox") (renderList cons)
       <> renderFooter
      )
 

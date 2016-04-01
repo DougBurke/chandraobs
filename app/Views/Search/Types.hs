@@ -58,11 +58,13 @@ indexPage objs =
     head (H.title "Chandra observations by object type"
           <> defaultMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
+          <> cssLink "/css/simbad.css"
           )
     <>
     body
      (mainNavBar CPExplore
-      <> renderTypes objs
+      -- TODO: need to clean up CSS and document structure
+      <> (div ! id "explorebox") (renderTypes objs)
       <> renderFooter
      )
 
@@ -199,8 +201,10 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
              , "."
              ]
                   
-  in div ! A.id "scheduleBlock" $ do
-    h2 (if lbl == noSimbadLabel then "Unidentified sources" else (toHtml lbl))
+  in (div ! A.id "scheduleBlock") $ do
+    h2 (if lbl == noSimbadLabel
+        then "Unidentified sources"
+        else toHtml lbl)
 
     svgBlock
     p introText
@@ -241,7 +245,7 @@ renderTypes objs =
       str "SIMBAD hierarchy; to see how these object types are related visit "
       (a ! href "/search/dtype/") "the SIMBAD dendogram view"
       str "."
-    table $ do
+    (table ! class_ "floatable") $ do
              thead $ tr $ do
                th "Object Type"
                th "Number of objects"
@@ -262,7 +266,8 @@ addCode ::
 addCode user =
   let user2 = P.map (\((st, _), n) -> (st, n)) user
       out st txt sc n = ((st, txt), sc, n)
-      conv (sc, st, txt) = maybe (out st txt sc 0) (out st txt sc) (lookup st user2)
+      conv (sc, st, txt) =
+        maybe (out st txt sc 0) (out st txt sc) (lookup st user2)
   in P.map conv simbadLabels
 
 toTree ::
@@ -375,4 +380,3 @@ renderDependencyJSON ::
   [(SimbadTypeInfo, Int)]
   -> Aeson.Value
 renderDependencyJSON = toTree . addCode
-  

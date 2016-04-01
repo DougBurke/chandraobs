@@ -6,14 +6,22 @@ body {
   margin: 0;
 }
 
-/* Use a twitter-like scheme for links, not in the nav bars */
+/*
+ * Use a twitter-like scheme for links, not in the nav bars.
+ * TODO: review current document structure, as it's getting a little
+ *       hard to follow.
+ */
 
-p#banner a , div#mainBar a , div#schedule a , div.explanation a , p.wwt a {
+p#banner a , div#mainBar a , div#schedule a ,
+div.explanation a , div#explorebox a ,
+p.wwt a {
   text-decoration: none;
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
 }
 
-p#banner a:hover , div#mainBar a:hover , div#schedule a:hover , div.explanation a:hover , p.wwt a:hover {
+p#banner a:hover , div#mainBar a:hover , div#schedule a:hover ,
+div.explanation a:hover , div#explorebox a:hover ,
+p.wwt a:hover {
   text-decoration: underline;
 }
 
@@ -300,4 +308,42 @@ p.fact {
 
 p.footnote {
     font-size: smaller;
+}
+
+/*
+ * Display a table as a bunch of floating boxes, so that there
+ * can be multiple boxes on the same row. This is intended for
+ * long tables where there's only a few elements per row.
+ *
+ * Of course, this loses many of the features why I'd
+ * select a table in the first place, so is it really a
+ * good idea?
+ *
+ * It is expected that the page displaying such a table
+ * sets up widths for the td elements.
+ */
+
+.floatable thead {
+    display: none;
+}
+
+.floatable tbody tr {
+    float: left;
+}
+
+/*
+ * sizes obtained by trial and error: will presumably break
+ * if a different font is used, or when more data is added
+ * and the time values change.
+ */
+
+.floatable tr {
+    /* border: solid 2px rgb(0, 131, 179); */
+    margin: 0.2em;
+    padding: 0.4em;
+    background: rgba(0, 131, 179, 0.1);
+}
+
+.floatable tr:hover {
+    background: rgba(0, 131, 179, 0.2);
 }
