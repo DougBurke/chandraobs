@@ -1,0 +1,17 @@
+/*
+ * sizes obtained by trial and error: will presumably break
+ * if a different font is used, or if I change from number of
+ * observations to exposure time.
+ */
+
+.floatable tr td:first-child {
+    width: 28em;
+}
+
+.floatable tr td:last-child {
+    width: 3em;
+    /*
+    border-left: solid 0.2em rgb(0, 131, 179);
+    padding-left: 0.2em;
+    */
+}

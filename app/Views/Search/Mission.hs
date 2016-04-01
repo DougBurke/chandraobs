@@ -37,6 +37,7 @@ indexPage jms =
     head (H.title "Chandra observations with other facilities"
           <> defaultMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
+          <> cssLink "/css/mission.css"
           )
     <>
     body
@@ -94,7 +95,7 @@ renderMissions jms =
        <> "and others are decomissioned."
       )
       
-    table $ do
+    (table ! class_ "floatable") $ do
              thead $ tr $ do
                th "Facility"
                th "Number of observations"

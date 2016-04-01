@@ -40,6 +40,7 @@ indexPage cats =
     head (H.title "Chandra observations by category" <>
           defaultMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
+          <> cssLink "/css/category.css"
           )
     <>
     body
@@ -136,7 +137,7 @@ renderTypes cats =
 
     -- hr
 
-    table $ do
+    (table ! class_ "floatable") $ do
              thead $ tr $ do
                th "Category"
                th "Number of proposals"
