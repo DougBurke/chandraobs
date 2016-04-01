@@ -260,3 +260,160 @@ function deselectObs(lbl) {
         .duration(transitionTime)
         .attr("opacity", baseOpacity);
 }
+
+
+/*
+ * Can I show filled constellations, using a fill color
+ * that is mapped to the observing time for the constellation?
+ *
+ * For now there is going to be a lot of repeated code
+ * with createMap().
+ */
+
+/***
+function showConstellations(con) {
+
+  var width = 960;
+  var height = 500;
+
+  // Used in the calendar
+  var bluecols = [
+      d3.rgb(247,251,255),
+      d3.rgb(222,235,247),
+      d3.rgb(198,219,239),
+      d3.rgb(158,202,225),
+      d3.rgb(107,174,214),
+      d3.rgb(66,146,198),
+      d3.rgb(33,113,181),
+      d3.rgb(8,81,156),
+      d3.rgb(8,48,107)
+  ];
+
+  // is this the best way to map to a color?
+  var tmax = d3.max(d3.values(con), function(d) { return d.tks; });
+  var tscale = d3.scale.quantize()
+      .domain([0, tmax])
+      .range(bluecols);
+
+  // QUESTION: do we want to include the Milky Way?
+  var svg = d3.select('div#constellationMap').append('svg')
+      .attr("width", width)
+      .attr("height", height)
+      .attr("opacity", 0);  // opacity is re-set once MW is loaded
+
+  var projection = d3.geo.aitoff()
+      .scale(150)
+      .translate([width / 2, height / 2])
+      .precision(.1);
+
+  var path = d3.geo.path()
+      .projection(projection);
+
+  var graticule = d3.geo.graticule();
+
+  // Longitude every 2 hours, latitude every 15 degrees,
+  // and change the latitude mionor extent so that the
+  // -75/75 values are terminated by a longitude graticule
+  graticule.minorStep([30, 15]);
+  graticule.minorExtent([[-180, -75.01], [180, 75.01]]);
+
+  svg.append("defs").append("path")
+    .datum({type: "Sphere"})
+    .attr("id", "sphere")
+    .attr("d", path);
+
+  svg.append("use")
+    .attr("class", "stroke")
+    .attr("xlink:href", "#sphere");
+
+  svg.append("use")
+    .attr("class", "fill")
+    .attr("xlink:href", "#sphere");
+
+  // add in the Milky Way outline before anything else, so it's at
+  // the back; since the data is loaded via a callback, use 
+  // SVG groups: one for the "labelling" (Milky Way, graticules, ...)
+  // and one for the data. Note that I could add in a special
+  // group just for the MW, so that it is first, and therefore behind
+  // all the other labels, but I don't think that it's worth it.
+  //
+  // Drawing the constellations can lead to an outline around the whole
+  // sky, and I haven't taken the time to identify how to remove it.
+  //  
+  svg.append("g").attr("id", "baseplane");
+  svg.append("g").attr("id", "dataplane");
+
+  addMilkyWay(svg, path);
+
+  svg.select("#baseplane").append("path")
+    .datum(graticule)
+    .attr("class", "graticule")
+    .attr("d", path);
+
+  // label graticules; could make it adaptive but hard code
+  var longvals = d3.range(1, 6).map(function (d) { 
+      var pos = projection([180 - d * 60, 0]);
+      var lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
+      return { x: pos[0], y: pos[1], lbl: lbl };
+    });
+  svg.select("#baseplane").selectAll(".long")
+      .data(longvals)
+    .enter().append("text")
+      .attr("class", "label long")
+      .attr("x", function(d) { return d.x; })
+      .attr("y", function(d) { return d.y; })
+      .attr("text-anchor", "middle")
+      .attr("dy", "1.4em")
+      .text(function(d) { return d.lbl; });
+
+  var latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
+      var pos = projection([0, d]);
+      var lbl = d + "\u00B0"; // degree symbol
+      return { x: pos[0], y: pos[1], lbl: lbl };
+    });
+  svg.select("#baseplane").selectAll(".lat")
+      .data(latvals)
+    .enter().append("text")
+      .attr("class", "label lat")
+      .attr("x", function(d) { return d.x; })
+      .attr("y", function(d) { return d.y; })
+      .attr("text-anchor", "end")
+      .attr("dx", "-0.4em")
+      .attr("dy", "0.35em")
+      .text(function(d) { return d.lbl; });
+
+  // The following is based on addConstellation
+  //
+  // addConstellation(svg, path, conInfo);
+
+  var fname = "constellations.bounds-hack.json";
+  d3.json("/data/" + fname, function(error, condata) {
+      if (error) {
+          return console.warn("Unable to load " + fname);
+      }
+
+      // all constellations
+      // Use a different class name to get different CSS rules
+      var allcon = svg.select("#dataplane").selectAll(".timeconstellations")
+          .data(condata.features);
+
+      // As expected, the problem is that we have issues over what is
+      // the inside or outside of the constellation....
+      
+      allcon.enter()
+          .append("path")
+          .attr("class", "timeconstellations")
+          .attr("fill", function(d) {
+              if (con[d.id]) { return tscale(con[d.id].tks); }
+              else { return "white"; }
+          })
+          .attr("fill-opacity", function(d) {
+              if (con[d.id]) { return 0.8; }
+              else { return 0; }
+          })
+          .attr("d", path);
+
+  });
+    
+}
+***/

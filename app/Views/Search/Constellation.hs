@@ -9,10 +9,16 @@ import Prelude (($), (==), String,
                 compare, fst, length, lookup, map, mapM_,
                 show, otherwise)
 
+-- import qualified Data.Aeson as Aeson
+-- import qualified Data.ByteString.Lazy.Char8 as LB8
+-- import qualified Data.Text as T
+
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+-- import Data.Aeson ((.=))
 import Data.Function (on)
+-- import Data.Functor (void)
 import Data.List (intercalate, sortBy)
 import Data.Maybe (isNothing)
 import Data.Monoid ((<>), mconcat)
@@ -20,9 +26,10 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), ConShort(..), ConLong(..), TimeKS
+import Types (Schedule(..), ConShort(..), ConLong(..), TimeKS(..)
               , getConstellationNameStr
               , constellationMap
+              , getConstellationNameStr
               , showExpTime)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , constellationLinkSearch
@@ -36,15 +43,18 @@ indexPage ::
   -> Html
 indexPage cons =
   docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations" <>
-          defaultMeta
+    head (H.title "Chandra observations"
+          <> defaultMeta
+          -- <> skymapMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
+          <> cssLink "/css/constellation.css"
           )
     <>
+    -- (body ! onload "showConstellations(coninfo);")
     body
      (mainNavBar CPExplore
       <> (div ! id "schedule") 
-          (renderTypes cons)
+          (renderList cons)
       <> renderFooter
      )
 
@@ -124,10 +134,10 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) =
     tblBlock
 
 -- | Render the list of constellations
-renderTypes ::
+renderList ::
   [(ConShort, TimeKS)]
   -> Html
-renderTypes cons = 
+renderList cons = 
   let toRow (con,t) =
         tr $ do
           td (constellationLinkSearch con (conLabel con))
@@ -152,6 +162,16 @@ renderTypes cons =
               <> " constellations: "
               <> toHtml (intercalate "," missing)
 
+      {-
+      dataRow (cs, texp) =
+        T.pack (fromConShort cs) .= 
+          Aeson.object [ "id" .= fromConShort cs
+                       , "label" .= getConstellationNameStr cs
+                       , "tks" .= _toKS texp ]
+
+      conMap = Aeson.object (P.map dataRow scons)
+      -}
+      
   in div $ do
 
     p ("As can be seen, the length of time spent observing targets "
@@ -163,9 +183,19 @@ renderTypes cons =
        <> "."
       )
 
-    table $ do
+    -- (div ! id "constellationMap") ""
+    
+    (table ! class_ "floatable") $ do
              thead $ tr $ do
                th "Constellation"
                th "Observing time"
              tbody (mapM_ toRow scons)
-             
+
+    {-
+    To do this, need to work out how to get filled constellation
+    outlines.
+    script ! type_ "text/javascript" $ do
+      void "var coninfo = "
+      toHtml (LB8.unpack (Aeson.encode conMap))
+      ";"
+    -}

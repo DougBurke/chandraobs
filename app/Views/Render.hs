@@ -238,7 +238,7 @@ makeSchedule cTime done mdoing todo simbad =
                    ]
   
       svgBlock = do
-        div ! id "map" $ ""
+        (div ! id "map") ""
         script ! type_ "text/javascript" $ do
                    void "var obsinfo = ["
                    mapM_ (dataRow "done") done
