@@ -9,7 +9,7 @@
 module Views.Search.Mapping (indexPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), String)
+import Prelude (($), Maybe(Nothing), String)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -21,6 +21,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Utils (defaultMeta, d3Meta, renderFooter
              , jsScript, cssLink
+             , basicTypeLinkSearch
              , categoryLinkSearch
              )
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -40,7 +41,7 @@ indexPage =
     <>
     (body ! onload jsLoad)
      (mainNavBar CPExplore
-      <> renderMatches
+      <> (div ! id "explorebox") renderMatches
       <> renderFooter
      )
 
@@ -68,7 +69,7 @@ renderMatches =
        , "field created by the observers is not designed for machine lookups, but "
        , "for the observer), and these have been assigned to the "
        , preEscapedToHtml ("&ldquo;"::String)
-       , "Unidentified"
+       , basicTypeLinkSearch Nothing
        , preEscapedToHtml ("&rdquo;"::String)
        , " category; as you can see, there are a lot of them! "
        , "This group also contains all the "

@@ -59,8 +59,7 @@ indexPage insts grats igs =
     <>
     body
      (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderTypes insts grats igs)
+      <> (div ! id "explorebox") (renderTypes insts grats igs)
       <> renderFooter
      )
 
@@ -265,7 +264,7 @@ breakdownPage total perDay =
     <>
     (body ! onload "createBreakdown(seriesinfo);")
      (mainNavBar CPExplore
-      <> renderBreakdown total perDay
+      <> (div ! id "explorebox") (renderBreakdown total perDay)
       <> renderFooter
      )
 

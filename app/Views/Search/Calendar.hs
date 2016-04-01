@@ -45,7 +45,7 @@ indexPage cts =
     <>
     (body ! onload jsLoad)
      (mainNavBar CPExplore
-      <> renderMatches cts
+      <> (div ! id "explorebox") (renderMatches cts)
       <> renderFooter
      )
 
