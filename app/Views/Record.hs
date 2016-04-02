@@ -388,11 +388,12 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                         <> maybe (". " <> subArrayTxt) simbadTxt msimbad
                         <> otherMatches
 
-      addList [] = []
-      addList [x] = [x]
-      addList [x1, x2] = [x1, " and ", x2]
-      addList xs = let (ls, [r1, r2]) = splitAt (length xs - 2) xs
-                   in intersperse ", " ls ++ [r1, ", and", r2]
+      addList [] = ""
+      addList [x] = x
+      addList [x1, x2] = x1 <> " and " <> x2
+      addList xs = let (ls, [lelem]) = splitAt (length xs - 1) xs
+                   in mconcat (intersperse ", " ls)
+                      <> ", and " <> lelem  -- Oxford comma FTW
  
       -- Too many options (can all three fields contain all three
       -- constraint values? to easily create a nice piece of prose, so
@@ -401,16 +402,18 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       --
       cToL v Preferred = v <> " (preferred)"
       cToL v _         = v
-      clbls = ["time critical", "monitoring", "constrained"]
+      clbls = ["time-critical", "monitoring", "constrained"]
       cvals = [soTimeCritical, soMonitor, soConstrained]
-      copts = map (uncurry cToL) $ filter ((/= NoConstraint) . snd) $ zip clbls cvals
+      czs = zip clbls cvals
+      getConstrained = (/= NoConstraint) . snd
+      copts = map (uncurry cToL) (filter getConstrained czs)
       constrainedObs = 
         if null copts
         then mempty
         else let vrb = if obsStatus == Done then "was" else "is"
              in mconcat
                [ "This ", vrb, " a "
-               , mconcat $ addList copts
+               , addList copts
                , " observation." ]
 
       -- TODO: integrate with the rest of the text
@@ -428,7 +431,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
           let jobs = getJointObs so
               jvals = if null jobs
                       then toHtml (cleanJointName jName)
-                      else mconcat (addList (map toJ jobs))
+                      else addList (map toJ jobs)
           in mconcat
                [ "This ", verb, " a joint observation with "
                , jvals
