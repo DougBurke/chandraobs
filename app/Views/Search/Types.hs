@@ -221,7 +221,9 @@ renderTypes ::
 renderTypes objs = 
   let toRow (sti,n) = tr $ do
                         td (uncurry typeLinkSearch sti)
-                        td (toHtml n)
+                        (td ! A.title (toValue lbl)) (toHtml n)
+
+      lbl = "Number of objects" :: String
 
       sobjs = sortBy (compare `on` (snd.fst)) objs
       str :: String -> H.Html
@@ -248,11 +250,11 @@ renderTypes objs =
     (table ! class_ "floatable") $ do
              thead $ tr $ do
                th "Object Type"
-               th "Number of objects"
+               th (toHtml lbl)
              tbody $ do
                tr (do
                       td ((a ! href "/search/type/unidentified") unidLabel)
-                      td "lots")
+                      (td ! A.title (toValue lbl)) "lots")
                mapM_ toRow sobjs
 
 

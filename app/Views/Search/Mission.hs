@@ -6,7 +6,7 @@ module Views.Search.Mission (indexPage, matchPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (Int, ($), compare, fst)
+import Prelude (Int, String, ($), compare, fst)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -75,8 +75,9 @@ renderMissions ::
 renderMissions jms = 
   let toRow (jm,n) = tr $ do
                     td (fromMissionLongLink jm)
-                    td (toHtml n)
+                    (td ! A.title (toValue lbl)) (toHtml n)
 
+      lbl = "Number of observations" :: String
       sjms = sortBy (compare `on` fst) jms
 
   in do
@@ -98,7 +99,7 @@ renderMissions jms =
     (table ! class_ "floatable") $ do
              thead $ tr $ do
                th "Facility"
-               th "Number of observations"
+               th (toHtml lbl)
              tbody (mapM_ toRow sjms)
 
 

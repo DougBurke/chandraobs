@@ -82,7 +82,9 @@ renderTypes ::
 renderTypes cats = 
   let toRow (cat, n) = tr $ do
         td (categoryLinkSearch cat cat)
-        td (toHtml n)
+        (td ! A.title (toValue lbl)) (toHtml n)
+
+      lbl = "Number of proposals" :: String
 
       scats = sortBy (compare `on` fst) cats
   in div $ do
@@ -124,6 +126,16 @@ renderTypes cats =
        <> "."
       )
 
+    -- hr
+
+    (table ! class_ "floatable") $ do
+             thead $ tr $ do
+               th "Category"
+               th (toHtml lbl)
+             tbody (mapM_ toRow scats)
+
+    -- TODO: there should be a link back/forth between the subscipt
+    --       text and the caller, but that's for later
     (p ! class_ "footnote")
       (sup "1" <> " Since Chandra data eventually becomes public - "
        <> "normally a year after the data was taken, but sometimes much "
@@ -135,14 +147,6 @@ renderTypes cats =
        <> "proposal process."
        )
 
-    -- hr
-
-    (table ! class_ "floatable") $ do
-             thead $ tr $ do
-               th "Category"
-               th "Number of proposals"
-             tbody (mapM_ toRow scats)
-             
 
 getSimbadHtml :: Maybe SimbadType -> Html
 getSimbadHtml Nothing = "Unidentified"
