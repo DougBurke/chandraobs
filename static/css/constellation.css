@@ -4,16 +4,20 @@
  * and the time values change.
  */
 
-.floatable tr td:first-child {
+.floatable td:first-child {
     width: 11em;
 }
 
-.floatable tr td:last-child {
+.floatable td:last-child {
     width: 14em;
-    /*
-    border-left: solid 0.2em rgb(0, 131, 179);
-    padding-left: 0.2em;
-    */
+}
+
+.floatable th:first-child {
+    width: 11em;
+}
+
+.floatable th:last-child {
+    width: 14em;
 }
 
 /*

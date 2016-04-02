@@ -324,7 +324,23 @@ p.footnote {
  */
 
 .floatable thead {
-    display: none;
+    /* display: none; */
+    /*
+    left: auto;
+    right: auto;
+   */
+    background: rgba(0, 131, 179, 0.2);
+    margin: 0.3em;
+    padding: 0.4em;
+    float: left;
+}
+
+.floatable th:first-child {
+    text-align: left;
+}
+
+.floatable th:last-child {
+    text-align: right;
 }
 
 .floatable tbody tr {
@@ -337,14 +353,14 @@ p.footnote {
  * and the time values change.
  */
 
-.floatable tr {
+.floatable tbody tr {
     /* border: solid 2px rgb(0, 131, 179); */
     margin: 0.3em;
     padding: 0.4em;
     background: rgba(0, 131, 179, 0.1);
 }
 
-.floatable tr:hover {
+.floatable tbody tr:hover {
     background: rgba(0, 131, 179, 0.2);
 
     /* a more materials-like pressed "out" look */
@@ -374,4 +390,3 @@ p.footnote {
     text-decoration: none; /* want to stop underline but no success;
             unfortunately there's a more-specific selector */
 }
-
