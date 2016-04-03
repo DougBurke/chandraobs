@@ -631,6 +631,9 @@ isZeroKS (TimeKS a) = a <= 0
 addTimeKS :: TimeKS -> TimeKS -> TimeKS
 addTimeKS (TimeKS a) (TimeKS b) = TimeKS (a+b)
 
+normTimeKS :: Integral n => TimeKS -> n -> TimeKS
+normTimeKS (TimeKS a) n = TimeKS (a / fromIntegral n)
+
 -- | Convert to a more "friendly" exposure time value.
 --
 --   As the minimum time appears to be 0.1 ks we do not

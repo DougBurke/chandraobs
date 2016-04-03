@@ -24,6 +24,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), PropType(..), TimeKS
              , toPropTypeLabel
+             , normTimeKS
              , showExpTime)
 import Utils (defaultMeta, skymapMeta, renderFooter
              , cssLink
@@ -138,16 +139,21 @@ identifyType TOO =
     )
 
 
+-- | TODO: at the moment the number of targets is actually
+--         the number of observations; need to tweak
+--         the generating code.
+--
 renderTypes ::
   M.Map PropType (Int, Int, TimeKS)
   -> Html
 renderTypes pmap = 
-  let toRow (t, (n1, n2, tot)) = tr $ do
+  let toRow (t, (nprop, _, tot)) = tr $ do
                 td (propTypeLink t Nothing)
-                td (toHtml n1)
-                td (toHtml n2)
-                td (toHtml (showExpTime tot))
+                td (toHtml nprop)
+                -- td (toHtml n2)
+                td (toHtml (showExpTime (normTimeKS tot nprop)))
 
+                    
       smap = sortBy (compare `on` fst) (M.toList pmap)
 
   in do
@@ -163,14 +169,17 @@ renderTypes pmap =
       thead $ tr $ do
         th "Proposal type"
         th "Number of proposals"
-        th "Number of targets"
-        th "Exposure time"
+        -- th "Number of targets"
+        th "Average proposal exposure time"
       tbody (mapM_ toRow smap)
 
 
     (p ! class_ "footnote")
       (sup "1"
-       <> " Our own Sun, which is X-ray variable, is so bright in X-rays "
+       <> " Our Sun, "
+       <> (a ! href "https://xrt.cfa.harvard.edu/xpow/")
+       "which is X-ray variable"
+       <> ", is so bright in X-rays "
        <> "that it can not be observed with Chandra because it would "
        <> "destroy the instruments on board the satellite. The scheduling "
        <> "team take a lot of care to ensure that Chandra does not point "
