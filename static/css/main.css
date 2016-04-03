@@ -390,3 +390,17 @@ p.footnote {
     text-decoration: none; /* want to stop underline but no success;
             unfortunately there's a more-specific selector */
 }
+
+/*
+ * Support a dl-style list of explanations which begin with a label.
+ * This is currently only used in /search/proptype/ but the CSS is
+ * placed here in case it is useful elsewhere.
+ */
+.explanation {
+    margin-left: 1em;
+}
+
+/* It is assumed that the label element is the first iten in the block */
+.explanation .label {
+    margin-left: -0.5em;
+}

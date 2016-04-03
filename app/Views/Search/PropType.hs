@@ -6,7 +6,7 @@ module Views.Search.PropType (indexPage, matchPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (Int, Maybe(Nothing), String, ($), compare, fst)
+import Prelude (Int, Maybe(Nothing), String, (.), ($), compare, fst)
 
 import qualified Data.Map.Strict as M
 
@@ -76,10 +76,13 @@ matchPage pType sched =
      )
 
 
+tstrong :: Html -> Html
+tstrong = (strong ! class_ "label")
+
 -- | Text describing the proposal type.
 identifyType :: PropType -> Html
 identifyType CAL =
-  p (strong "Calibration observations"
+  p (tstrong "Calibration observations"
      <> " are used by the Chandra calibration team "
      <> "at the Chandra X-ray Center to characterise and monitor the "
      <> "behavior of Chandra and its instruments. The observations are "
@@ -89,7 +92,7 @@ identifyType CAL =
      <> "studies as well.")
   
 identifyType DDT =
-  p (strong "Director's Discretionary Time"
+  p (tstrong "Director's Discretionary Time"
      <> " is used for observing events which "
      <> "could not have been predicted (which means that a Target Of "
      <> "Opportunity proposal could not have been written), or are of "
@@ -99,7 +102,7 @@ identifyType DDT =
      )
 
 identifyType GO =
-  p (strong "Guest Observer"
+  p (tstrong "Guest Observer"
      <> " proposals form the bulk of the observations performed "
      <> "by Chandra, and are the observations requested by Astronomers "
      <> "from all over the world. These observations are passed through "
@@ -109,7 +112,7 @@ identifyType GO =
     )
 
 identifyType GTO =
-  p (strong "Guaranteed-Time Observations"
+  p (tstrong "Guaranteed-Time Observations"
      <> " refer to proposals submitted by the "
      <> "instrument teams; that is, the teams that built the various "
      <> "detector and grating systems on Chandra. As part of the process "
@@ -119,7 +122,7 @@ identifyType GTO =
      <> "mission.")
 
 identifyType TOO =
-  p (strong "Target of Opportunity Observations"
+  p (tstrong "Target of Opportunity Observations"
      <> " are for Scientific proposals of "
      <> "time-varying phenomena, such as "
      <> (a ! href "https://en.wikipedia.org/wiki/Gamma-ray_burst")
@@ -163,7 +166,8 @@ renderTypes pmap =
       <> "the origin of the proposal. There are five types:"
       )
 
-    mapM_ identifyType [CAL, DDT, GO, GTO, TOO]
+    let wrapper = (div ! class_ "explanation") . identifyType 
+    mapM_ wrapper [CAL, DDT, GO, GTO, TOO]
 
     table $ do
       thead $ tr $ do
