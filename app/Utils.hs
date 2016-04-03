@@ -37,6 +37,7 @@ module Utils (
      , typeDLinkSearch
      , basicTypeLinkSearch
      , categoryLinkSearch
+     , propTypeLink
      , nameLinkSearch
      , jointLinkSearch
      , cleanJointName
@@ -95,6 +96,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , Instrument(..)
              , ChipStatus(..)
              , Proposal(..)
+             , PropType
              , Record
              , JointMission
              , recordObsId, recordTarget, recordStartTime
@@ -103,6 +105,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , simbadTypeToDesc
              , fromMission
              , addTimeKS, zeroKS, isZeroKS, showExpTime
+             , fromPropType, toPropType, toPropTypeLabel
              )
 
 -- | Convert a record into the URI fragment that represents the
@@ -371,8 +374,12 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
 
       -- bundle several items into a single line
       propInfo Proposal {..} =
-        keyVal "Proposal:" $ mconcat [
-          "Cycle ", H.toHtml propCycle, ", ", H.toHtml propType, ", "
+        let p0 = H.toHtml propType
+            plink n = propTypeLink n Nothing
+            ptype = maybe p0 plink (toPropType propType)
+        in 
+          keyVal "Proposal:" $ mconcat [
+          "Cycle ", H.toHtml propCycle, ", ", ptype, ", "
           , categoryLinkSearch propCategory propCategory
           ]
 
@@ -639,6 +646,13 @@ categoryLinkSearch :: String -> String -> H.Html
 categoryLinkSearch cat lbl = 
   let iLink = "/search/category/" <> H.toValue cat
   in (H.a H.! A.href iLink) (H.toHtml lbl)
+
+-- | Link to a proposal type.
+propTypeLink :: PropType -> Maybe String -> H.Html
+propTypeLink propType mlbl =
+  let lbl = fromMaybe (toPropTypeLabel propType) mlbl
+      pLink = "/search/proptype/" <> H.toValue (fromPropType propType)
+  in (H.a H.! A.href pLink) (H.toHtml lbl)
 
 -- | Add a link to the name-search for an object.
 nameLinkSearch :: String -> H.Html

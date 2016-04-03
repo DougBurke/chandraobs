@@ -51,6 +51,7 @@ import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Mapping as Mapping
 import qualified Views.Search.Mission as Mission
+import qualified Views.Search.PropType as PropType
 import qualified Views.Search.Target as Target
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
@@ -131,13 +132,17 @@ import Database (getCurrentObs, getRecord, getObsInfo
                    
                  , getNumObsPerDay
                  , getExposureBreakdown
+                 , getProposalTypeBreakdown
+                 , getProposalType
                    
                  , dbConnStr
                  )
 import Types (Record, SimbadInfo, Proposal
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
-             , ObsInfo(..), ObsIdVal(..), Sequence(..)
+             , ObsInfo(..), ObsIdVal(..)
+             -- , PropType(..)
+             , Sequence(..)
              , SortedList, StartTimeOrder
              , TimeKS(..)
              , fromSimbadType
@@ -648,12 +653,24 @@ webapp cm mgr = do
       cts <- liftSQL (getNumObsPerDay maxDay)
       fromBlaze (Calendar.indexPage cts)
 
-    -- TODO: need better endpoint
+    -- TODO: need better endpoint name
     get "/search/breakdown" $ do
       now <- liftIO getCurrentTime
       let maxDay = addDays dayLimit (utctDay now)
       (total, perDay) <- liftSQL (getExposureBreakdown maxDay)
       fromBlaze (Instrument.breakdownPage total perDay)
+
+    get "/search/proptype" $ do
+      propInfo <- liftSQL getProposalTypeBreakdown
+      fromBlaze (PropType.indexPage propInfo)
+
+    get "/search/proptype/:proptype" $ do
+      (propType, matches) <- dbQuery "proptype" getProposalType
+      if nullSL matches
+        then next
+        else do
+          sched <- liftSQL (makeSchedule (fmap Right matches))
+          fromBlaze (PropType.matchPage propType sched)
 
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" (fromBlaze Mapping.indexPage)

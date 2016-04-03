@@ -52,8 +52,11 @@ module Database ( getCurrentObs
                 , getProposalObjectMapping
 
                 , getExposureBreakdown
-                  
                 , getNumObsPerDay
+
+                -- , getProposalCategoryBreakdown
+                , getProposalTypeBreakdown
+                , getProposalType
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -114,7 +117,7 @@ import Control.Monad.Logger (NoLoggingT)
 import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
-import Data.List (group, groupBy, nub, sortBy)
+import Data.List (foldl', group, groupBy, nub, sortBy)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
@@ -1352,7 +1355,92 @@ getNumObsPerDay maxDay = do
   let days = map (\t -> ((utctDay . _toUTCTime) t, 1)) times
   return (M.fromAscListWith (+) days)
 
+{-
+-- | Return some hopefully-interesting statistics about the
+--   proposals.
+--
+--   Examples include:
+--    - could break down by category, type (GO vs CAL vs DDT ...),
+--      cycle
+--      - number of targets per proposal
+--      - total proposal exposure time
 
+getProposalCategoryBreakdown ::
+  PersistBackend m
+  => m ?
+getProposalCategoryBreakdown = do
+  props <- project PropNumField CondEmpty
+
+-}
+
+
+getProposalTypeBreakdown ::
+  PersistBackend m
+  => m (M.Map PropType (Int, Int, TimeKS))
+  -- ^ Return the number of proposals, number of targets
+  --   in this proposal (if the same target is observed in
+  --   different proposals then it counts multiple times; it
+  --   is the "safest" thing to do since the target mapping
+  --   is not perfect; similarly, different target names
+  --   for the same object are not merged: that is, this
+  --   gives an idea of how many targets per proposal,
+  --   not unique targets per proposal), and total exposure time.
+getProposalTypeBreakdown = do
+  propInfo <- project (PropTypeField, PropNumField) CondEmpty
+
+  -- Is it best to read in all the target info and process it
+  -- here, or do repeated calls to the database (slower, but
+  -- likely less memory)
+  obsInfo <- project (SoProposalField,
+                      (SoApprovedTimeField, SoObservedTimeField))
+             (notDiscarded `orderBy` [Asc SoProposalField])
+
+  let getTexp = uncurry fromMaybe
+
+      -- Number of targets per proposal, and the exposure time
+      -- for these objects. The assumption is that the
+      -- ordering returned by the database for the PropNum
+      -- type matches the Haskell ordering.
+      --
+      getObs (pnum, texp) = (pnum, (1, getTexp texp))
+      addObs (a1, b1) (a2, b2) = (a1 + a2, addTimeKS b1 b2)
+      obsMap = M.fromAscListWith addObs (map getObs obsInfo)
+
+      -- There should be no failures here
+      convType (t, xs) = case toPropType t of
+        Just tt -> Just (tt, xs)
+        Nothing -> Nothing
+      propInfo2 = mapMaybe convType propInfo
+      propTmp = map (second (:[])) propInfo2
+      propMap = M.fromListWith (++) propTmp
+
+      propAdd =
+        let addProp orig@(np,nt,te) pn = case M.lookup pn obsMap of
+              Just (ntarg, texp) -> (np+1, nt + ntarg, addTimeKS te texp)
+              Nothing -> orig -- this should not happen
+            e0 = (0, 0, zeroKS)
+        in foldl' addProp e0
+           
+  -- The output is a count of the number of proposals,
+  -- the number of targets in the proposals, and the
+  -- exposure time of the proposals for each proposal
+  -- type.
+  --
+  return (M.map propAdd propMap)
+
+-- | This does not include discarded observatons.  
+getProposalType ::
+  (PersistBackend m, SqlDb (PhantomDb m))
+  => PropType
+  -> m (SortedList StartTimeOrder ScienceObs)
+getProposalType ptype = do
+  let ptypeStr = fromPropType ptype
+  pnums <- project PropNumField (PropTypeField ==. ptypeStr)
+  sobs <- select (((SoProposalField `in_` pnums)
+                   &&. notDiscarded)
+                  `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL sobs)
+  
 putIO :: MonadIO m => String -> m ()
 putIO = liftIO . putStrLn
 

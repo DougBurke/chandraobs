@@ -1211,6 +1211,46 @@ instance Show Proposal where
            , " PI ", propPI
            ]
 
+-- | Enumeration for the different proposal categories.
+--   This is not currently used in the database - e.g. for
+--   the Proposal type - but should be.
+--
+--   The Ord instance is for convenience.
+data PropType =
+  CAL | DDT | GO | GTO | TOO
+  deriving (Eq, Ord)
+
+-- | For now the conversion is case sensitive, and
+--   only supports the short-form.
+toPropType :: String -> Maybe PropType
+toPropType "CAL" = Just CAL
+toPropType "DDT" = Just DDT
+toPropType "GO" = Just GO
+toPropType "GTO" = Just GTO
+toPropType "TOO" = Just TOO
+toPropType _ = Nothing
+
+fromPropType :: PropType -> String
+fromPropType CAL = "CAL"
+fromPropType DDT = "DDT"
+fromPropType GO = "GO"
+fromPropType GTO = "GTO"
+fromPropType TOO = "TOO"
+
+instance Parsable PropType where
+  parseParam t =
+    let tstr = LT.unpack t
+        emsg = "Invalid Proposal type: " <> t
+    in maybe (Left emsg) Right (toPropType tstr)
+
+toPropTypeLabel :: PropType -> String
+toPropTypeLabel CAL = "Calibration Observation"
+toPropTypeLabel DDT = "Director's Discretionary Time"
+toPropTypeLabel GO = "Guest Observation"
+toPropTypeLabel GTO = "Guaranteed-Time Observation"
+toPropTypeLabel TOO = "Target of Opportunity"
+
+
 {-
 -- | An observation at another facility that overlaps in time with
 --   a Chandra observation.
