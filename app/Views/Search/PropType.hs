@@ -166,7 +166,7 @@ renderTypes pmap =
       <> "the origin of the proposal. There are five types:"
       )
 
-    let wrapper = (div ! class_ "explanation") . identifyType 
+    let wrapper = (div ! class_ "term") . identifyType 
     mapM_ wrapper [CAL, DDT, GO, GTO, TOO]
 
     table $ do

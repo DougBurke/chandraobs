@@ -396,11 +396,20 @@ p.footnote {
  * This is currently only used in /search/proptype/ but the CSS is
  * placed here in case it is useful elsewhere.
  */
-.explanation {
-    margin-left: 1em;
+.term {
+    padding-left: 1em;
+    padding-top: 0.1em;
+    padding-bottom: 0.1em;
+    padding-right: 0.5em;
+    
+    margin-top: 0.2em;
+    margin-bottom: 0.5em;
+    border-left: 0.4em solid rgba(0, 131, 179, 0.4);
+    
+    background: rgba(0, 131, 179, 0.1);
 }
 
 /* It is assumed that the label element is the first iten in the block */
-.explanation .label {
+.term .label {
     margin-left: -0.5em;
 }
