@@ -35,6 +35,7 @@ import Utils (obsURIString
              , showTimeDeltaFwd, showTimeDeltaBwd
              , linkToRecord
              , instLinkSearch
+             , gratLinkSearch
              , typeDLinkSearch
              , basicTypeLinkSearch
              , constellationLinkSearch
@@ -82,7 +83,10 @@ makeSchedule cTime done mdoing todo simbad =
   let instVal r = fromMaybe "n/a" $ do
         inst <- recordInstrument r
         grat <- recordGrating r
-        return $ instLinkSearch inst <> if grat == NONE then mempty else " with " <> toHtml grat
+        return (instLinkSearch inst
+                <> if grat == NONE
+                   then mempty
+                   else " with " <> gratLinkSearch grat)
 
       -- TODO: add in a sortvalue for this column so that "n/a" and "" can be
       --       moved before or after the other types. As I have now decided

@@ -6,9 +6,28 @@ For a general-public view, I think this is a sensible choice
 (provide nice top-level views), but is there a place for
 some form of faceted browser?
 
+ - when viewing a proposal, can use the jointwith field to
+   determine whether this is an "outside" proposal - e.g.
+   /proposal/15700897 is a HST proposal which asked for joint
+   Chandra time.
+   
+ - Can I use the matched name for an observation as the search
+   label in the scheduel view, so that it will group the same
+   object together? It would likely require adding in extra
+   DB queries in makeSchedule.
+
+ - is it worth adding views of cycle and the various constrained
+   observations, as well as the TOO field?
+
+   Would these be standard schedule views, or something different
+   (e.g. a "facet" for the calendar view for cycle)?
+
  - now that I list exposure time for each constellation at
    /search/constellation/, I wonder if it would make sense
    to create a sky map color-coded by exposure time.
+
+   There are issues with the current display over what is
+   the correct inside for a polygon on a sphere.
    
  - map Chandra proposal abstracts to the Unified Astronomy
    Thesaurus, so that can use this as a selector, as is

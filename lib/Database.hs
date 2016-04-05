@@ -1385,6 +1385,10 @@ getProposalTypeBreakdown ::
   --   for the same object are not merged: that is, this
   --   gives an idea of how many targets per proposal,
   --   not unique targets per proposal), and total exposure time.
+  --
+  --   *NOTE*: the number of targets is WRONG; it is currently
+  --           the number of observations, not targets.
+  --
 getProposalTypeBreakdown = do
   propInfo <- project (PropTypeField, PropNumField) CondEmpty
 

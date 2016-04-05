@@ -52,6 +52,7 @@ import Utils (
              , getTimes
              , renderFooter
              , instLinkSearch
+             , gratLinkSearch
              , typeLinkSearch
              , nameLinkSearch
              , constellationLinkSearch
@@ -304,8 +305,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       reason = case mproposal of
         Just Proposal{..} ->
-          let proplink = (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
-                         <> endSentence propName
+          let proplink =
+                (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
+                <> endSentence propName
           in (if obsStatus == Unscheduled
               then "It is part of the proposal "
               else ", and is part of the proposal ") <> proplink
@@ -318,7 +320,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                   "by ", instLinkSearch soInstrument,
                    if soGrating == NONE
                    then mempty
-                   else " and the " <> toHtml soGrating
+                   else " and the "
+                        <> gratLinkSearch soGrating
                    ]
 
       -- For now ignore the "turnaround" time value, since it's
