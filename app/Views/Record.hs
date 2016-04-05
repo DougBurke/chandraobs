@@ -12,7 +12,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
+import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, drop, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -22,7 +22,7 @@ import Control.Arrow ((&&&))
 
 import Data.Char (toLower)
 import Data.Function (on)
-import Data.List (groupBy, intersperse)
+import Data.List (groupBy, intersperse, isPrefixOf)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -38,11 +38,14 @@ import Types (ScienceObs(..), NonScienceObs(..),
               ChandraTime(..), Constraint(..),
               ConLong(..),
               SimbadLoc(SimbadCfA),
-              SortedList, StartTimeOrder,
-              fromSL, lengthSL,
-              getObsStatus, getJointObs, toSIMBADLink,
-              getConstellationName
-              , similarName)
+              SortedList, StartTimeOrder
+              , fromSL, lengthSL
+              , getObsStatus, toSIMBADLink
+              , getJointObs
+              , getConstellationName
+              , similarName
+              , toMission, fromMissionLongLink
+              )
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta, jsScript, cssLink
@@ -56,7 +59,6 @@ import Utils (
              , typeLinkSearch
              , nameLinkSearch
              , constellationLinkSearch
-             , cleanJointName
              )
 
 -- The specific page for this observation. At present I have not
@@ -226,7 +228,8 @@ vowels = "aeiou"
 targetInfo :: 
   UTCTime    -- current time
   -> ScienceObs
-  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
+  -- other observations in the proposal
   -> Html
 targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let (sTime, eTime) = getTimes (Right so)
@@ -242,10 +245,10 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       otherName = case msimbad of
         Just sm -> if similarName sm soTarget
                    then mempty 
-                   else (" - also called "
-                         <> toHtml (smiName sm)
-                         -- <> nameLinkSearch (smiName sm)
-                         <> " -")
+                   else " - also called "
+                        <> toHtml (smiName sm)
+                        -- <> nameLinkSearch (smiName sm)
+                        <> " -"
         _ -> mempty
 
 
@@ -426,22 +429,44 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         Doing -> ("is", "will be")
         Done  -> ("was", "were")
 
-      toJ (l, tks) = l <> " (for " <> toHtml (showExpTime tks) <> ")"
+      -- Support missions with no links, but that should not
+      -- happen (only needed because I did not encode the mission
+      -- invariant in the database, but this gives flexibility in
+      -- case new missions are added).
+      --
+      missToLink mission = maybe (toHtml mission)
+                           fromMissionLongLink (toMission mission)
 
+      toJ (l, tks) = missToLink l
+                     <> " (for " <> toHtml (showExpTime tks)
+                     <> ")"
+
+      -- Differentiate between this being a Chandra proposal or
+      -- a proposal from another mission.
+      --
       jointObs = case soJointWith of
-        Just jName -> 
-          -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
-          let jobs = getJointObs so
-              jvals = if null jobs
-                      then toHtml (cleanJointName jName)
-                      else addList (map toJ jobs)
-          in mconcat
-               [ "This ", verb, " a joint observation with "
-               , jvals
-               , ". However, it does not necessarily mean that the "
-               , "observations ", verb2, " done at the same time! "
-               ]
+        Just jName ->
+          if "CXO-" `isPrefixOf` jName
+          then otherMission (drop 4 jName) <> " "
+          else jointMission <> " "
         Nothing -> mempty
+
+      otherMission mission =
+        let missInfo = missToLink mission
+        in "This " <> verb <> " a " <> missInfo <> " proposal "
+           <> "that was also awarded Chandra time. It does not "
+           <> "mean that observations " <> verb2
+           <> " done at the same time!"
+
+      jointMission = 
+        let ms = getJointObs so
+            jvals = addList (map toJ ms)
+        in "This " <> verb <> " a joint observation with "
+           <> jvals <> ". However, it does not necessarily mean "
+           <> "that the observations " <> verb2
+           <> " done at the same time!"
+           
+
 
       -- if there are constriants and a joint observation then the
       -- paragraph does not read well.

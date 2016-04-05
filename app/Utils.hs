@@ -103,7 +103,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , recordTime, futureTime
              , getJointObs, getConstellationName
              , simbadTypeToDesc
-             , fromMission
+             , fromMission, toMission, fromMissionLongLink
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              , fromPropType, toPropType, toPropTypeLabel
              )
@@ -324,13 +324,22 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
         Just t -> keyVal "Exposure (observed):" (H.toHtml t <> " ks")
         _ -> keyVal "Exposure (approved):" (H.toHtml soApprovedTime <> " ks")
 
-      -- ObsId 15642, 15662 has soJointWIth but no soJointXXX field
-      toJ (l,v) = keyVal "Joint with:" (l <> " for " <> H.toHtml (_toKS v) <> " ks")
+      -- NOTE: can this be cleared up now that I have a better
+      -- understanding of the jointwith and exposure-time fields?
+      --
+      missToLink mission = maybe (H.toHtml mission)
+                           fromMissionLongLink (toMission mission)
+                           
+      toJ (l,v) = keyVal "Joint with:"
+                  (missToLink l <> " for " <> H.toHtml (_toKS v) <> " ks")
+                  
       jvs = getJointObs so
+
       jointElems = 
         if isJust soJointWith && null jvs
-        then keyVal "Joint with:" $ H.toHtml $ cleanJointName $ fromJust soJointWith
-        else mconcat $ map toJ jvs
+        then keyVal "Awarded Chandra time by:"
+             (missToLink (cleanJointName (fromJust soJointWith)))
+        else mconcat (map toJ jvs)
 
       cToL NoConstraint = "None" -- not used
       cToL Preferred    = "Preferred"

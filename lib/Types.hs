@@ -935,6 +935,9 @@ fromMissionLong m = case lookup m missionMap of
   Nothing -> error "Internal error: missing mission fromMissionLong"
 
 -- | Link to the search page.
+--
+--   This should really be in Utils.
+--
 fromMissionLongLink :: JointMission -> H.Html
 fromMissionLongLink m = case lookup m missionMap of
   Just x -> let url = H.toValue ("/search/joint/" ++ _1 x)
@@ -956,6 +959,9 @@ includesMission m = case lookup m missionMap of
   Nothing -> error "Internal error: missing mission includesMission"
 
 -- | Convert the joint-with field into a list of missions.
+--
+--   The assumption is that a CXO-??? value only has a single mission,
+--   i.e. there's no values like "CXO-HST,NRAO".
 --
 splitToMission ::
   String
@@ -1148,6 +1154,8 @@ constellationMap =
 --   
 --   It turns out that you can have the soJointWIth field set but
 --   no corresponding soJoint field. See ObsId 15662.
+--
+--   Should this return JointMission rather than a IsString?
 getJointObs :: (IsString s) => ScienceObs -> [(s, TimeKS)]
 getJointObs ScienceObs{..} = 
   let toJ (l,r) = (l,) `fmap` r

@@ -890,7 +890,7 @@ fetchCategorySubType cat mtype = do
                        <$> project SmiType3Field (AutoKeyField ==. key)
               return (otype == mtype)
                         
-          Nothing -> return (mtype == Nothing)
+          Nothing -> return (isNothing mtype)
 
   out <- filterM matchSIMBAD sobs
   return (unsafeToSL out)
