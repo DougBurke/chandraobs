@@ -57,6 +57,9 @@ module Database ( getCurrentObs
                 -- , getProposalCategoryBreakdown
                 , getProposalTypeBreakdown
                 , getProposalType
+
+                  -- Rather experimental
+                , getExposureValues
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -1444,6 +1447,52 @@ getProposalType ptype = do
                    &&. notDiscarded)
                   `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL sobs)
+
+-- | Information on the exposure times.
+--
+--   Unclear at present what information to return; a
+--   histogram would probably be better but much-more
+--   work to create.
+--
+getExposureValues ::
+  PersistBackend m
+  => m [(String, SortedList ExposureTimeOrder TimeKS)]
+  -- ^ Return the lists for each cycle, with cycle=="all"
+  --   for all data.
+getExposureValues = do
+
+  props <- project (PropNumField, PropCycleField) CondEmpty
+
+  -- could `orderBy` [Asc SoApprovedTime] to get approximate
+  -- ordering, but is it worth it?
+  sobs <- project (SoProposalField,
+                   (SoApprovedTimeField, SoObservedTimeField))
+          notDiscarded
+
+  -- Is it best to insert into an ordered list (so changing the
+  -- list structure each iteration) or sort at the end?
+  -- If iterate over a sorted (descending) list then the output should be
+  -- okay.
+  --
+  let stimes = sortBy (compare `on` (Down . snd))
+               (map (second (uncurry fromMaybe)) sobs)
+
+      propMap = M.fromList props
+  
+      addElem orig@(omap, oall) (pnum, time) =
+        case M.lookup pnum propMap of
+          Just cyc ->
+            let nmap = M.insertWith (++) cyc [time] omap
+            in (nmap, time : oall)
+          Nothing -> orig -- SHOULD NOT HAPPEN
+          
+      (map2, all2) = foldl' addElem (M.empty, []) stimes
+
+      out = ("all", unsafeToSL all2) :
+            map (second unsafeToSL) (M.toList map2)
+
+  return out
+
   
 putIO :: MonadIO m => String -> m ()
 putIO = liftIO . putStrLn

@@ -186,8 +186,11 @@ mergeSL p (SL xs) (SL ys) = SL (go xs ys)
                            | otherwise = x : go x1 y0
 
 
--- | Indicate that a list is sorted by start time
+-- | Indicate that a list is sorted by start time (earliest first)
 data StartTimeOrder
+
+-- | Indicate that a list is sorted by exposure time (shortest first)
+data ExposureTimeOrder
 
 {-
 This is based on 'Read Color' instance of RWH, page 142, chapter 6

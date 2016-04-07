@@ -6,13 +6,8 @@ For a general-public view, I think this is a sensible choice
 (provide nice top-level views), but is there a place for
 some form of faceted browser?
 
- - when viewing a proposal, can use the jointwith field to
-   determine whether this is an "outside" proposal - e.g.
-   /proposal/15700897 is a HST proposal which asked for joint
-   Chandra time.
-   
  - Can I use the matched name for an observation as the search
-   label in the scheduel view, so that it will group the same
+   label in the schedule view, so that it will group the same
    object together? It would likely require adding in extra
    DB queries in makeSchedule.
 
@@ -214,6 +209,15 @@ some form of faceted browser?
          /search/instrument/ breaks down the different
              detector plus instrument views
 
+ - when viewing a proposal, can use the jointwith field to
+   determine whether this is an "outside" proposal - e.g.
+   /proposal/15700897 is a HST proposal which asked for joint
+   Chandra time.
+   
+   Done: the text on the obsid view is now slightly different
+   if Chandra was not the primary source of the observation,
+   and there's improve links to the mission views.
+   
 ## Rejected
 
  - The /search/dtype/ view could be switched to a Sankey

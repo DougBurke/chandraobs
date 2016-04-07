@@ -134,6 +134,8 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getExposureBreakdown
                  , getProposalTypeBreakdown
                  , getProposalType
+
+                 , getExposureValues
                    
                  , dbConnStr
                  )
@@ -147,7 +149,7 @@ import Types (Record, SimbadInfo, Proposal
              , TimeKS(..)
              , fromSimbadType
              , toSimbadType
-             , nullSL, fromSL
+             , nullSL, fromSL, lengthSL
              , handleMigration
              )
 import Utils (fromBlaze, standardResponse, getFact)
@@ -412,6 +414,21 @@ webapp cm mgr = do
             ]
 
       json out
+
+    -- highly experimental
+    get "/api/exposures" $ do
+      pairs <- liftSQL getExposureValues
+      let toPair (cyc, cts) =
+            (T.pack cyc) .= object
+            [ "cycle" .= cyc
+            , "units" .= ("ks" :: T.Text)
+            , "length" .= lengthSL (cts)
+            , "times" .= map _toKS (fromSL cts)
+            ]
+
+          out = object (map toPair pairs)
+      json out
+
     
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")
@@ -659,6 +676,10 @@ webapp cm mgr = do
       let maxDay = addDays dayLimit (utctDay now)
       (total, perDay) <- liftSQL (getExposureBreakdown maxDay)
       fromBlaze (Instrument.breakdownPage total perDay)
+
+    -- highly experimental
+    -- for now use a static file
+    get "/search/exposures/" (redirect "/search/exposures/index.html")
 
     get "/search/proptype" $ do
       propInfo <- liftSQL getProposalTypeBreakdown

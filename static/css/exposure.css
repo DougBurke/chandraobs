@@ -1,0 +1,23 @@
+
+.axis path, .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+}
+
+path.cycle {
+    fill: none;
+    stroke: black;
+    stroke-width: 2px;
+    opacity: 0.7;
+}
+
+path.cycleall {
+    stroke-dasharray: 5, 5;
+}
+
+path.cycle:hover {
+    stroke-width: 4px;
+    opacity: 0.8;
+}
+

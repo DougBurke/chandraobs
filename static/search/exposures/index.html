@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+  <title>What is Chandra doing now? - exposure times</title>
+  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default"
+        media="all">
+
+  <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <!--
+  <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  -->
+
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://d3js.org/d3.geo.projection.v0.min.js"></script>
+
+  <script src="/js/exposure.js"></script>
+  
+  <link href="/css/search.css" type="text/css" rel="stylesheet">
+  <link href="/css/exposure.css" type="text/css" rel="stylesheet">
+ </head>
+ <body onload="createPlot();">
+  <nav role="navigation">
+   <ul>
+    <li><a id='home'  href="/index.html">What is Chandra doing now?</a></li>
+    <li><a id='sched' href="/schedule/index.html">Schedule</a></li>
+    <li><a id='expl'  class='chosen' href="/search/index.html">Explore</a></li>
+    <li><a id='about' href="/about/index.html">About</a></li>
+    <li><a id='insts' href="/about/instruments.html">Instruments</a></li>
+    <li><a id='views' href="/about/views.html">Views</a></li>
+   </ul>
+  </nav>
+
+  <div id="explorebox">
+    <h2>Exposure times: what exposure times?</h2>
+
+    <p>
+      This is an <em>experimental</em> view of the exposure times
+      of the Science observations made by Chandra. That is, how
+      long does Chandra spend observing a target in a single
+      observation, rather than a look at how much time is spent
+      on each target. I may well switch to a histogram view, but
+      the cumulative view means I don't have to think about a
+      sensible binning scheme. I also need to tweak the X axis
+      to display in hours rather than kilo-seconds: 100 kiloseconds
+      is almost 28 hours.
+    </p>
+
+    <p>
+      The data used is for all the data shown in the
+      <a href="/search/calendar">calendar view</a>, and is
+      split by proposal cycle, as well as there being one curve
+      for all the data. I am not going to tell you what the colors
+      mean as I haven't coded that up yet, so don't know myself.
+      I <em>can</em> tell you that the dotted line is for all the
+      data, and that hovering over one line will highlight it.
+    </p>
+
+    <p>
+      I think the two curves which are significantly different to
+      the rest are for cycles for which I do not have a lot of
+      data. A legend would help clear this up!
+    </p>
+  </div>
+
+  <div id="exposureplot">
+  </div>
+  
+  <p id="banner">
+    The 'What is Chandra doing now?' web site is written
+    by <a href="http://twitter.com/doug_burke">@doug_burke</a>,
+    comes with no warranty (in other words, I make no
+    guarantee that the information presented is correct, although
+    I try my best to make sure it is), and is not
+    an official product of the 
+    <a href="http://chandra.si.edu/">Chandra X-ray Center</a>.
+  </p>
+ </body>
+</html>
