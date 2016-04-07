@@ -149,7 +149,8 @@ import Types (Record, SimbadInfo, Proposal
              , TimeKS(..)
              , fromSimbadType
              , toSimbadType
-             , nullSL, fromSL, lengthSL
+             , nullSL, fromSL
+             , showExpTime
              , handleMigration
              )
 import Utils (fromBlaze, standardResponse, getFact)
@@ -418,13 +419,17 @@ webapp cm mgr = do
     -- highly experimental
     get "/api/exposures" $ do
       pairs <- liftSQL getExposureValues
-      let toPair (cyc, cts) =
-            (T.pack cyc) .= object
-            [ "cycle" .= cyc
-            , "units" .= ("ks" :: T.Text)
-            , "length" .= lengthSL (cts)
-            , "times" .= map _toKS (fromSL cts)
-            ]
+      let toPair (cyc, vals) =
+            let ts = map _toKS (fromSL vals)
+                allTime = showExpTime (TimeKS (sum ts))
+            in 
+              T.pack cyc .= object
+              [ "cycle" .= cyc
+              , "units" .= ("ks" :: T.Text)
+              , "length" .= length ts
+              , "totalTime" .= allTime
+              , "times" .= ts
+              ]
 
           out = object (map toPair pairs)
       json out
@@ -647,10 +652,9 @@ webapp cm mgr = do
 
     get "/search/name" $ do
       (target, matches) <- dbQuery "target" findTarget
+      -- TODO: set an error code if no match? Once have sorted out search info
       if nullSL matches
-        then do
-          -- TODO: set an error code? Once have sorted out search info
-          fromBlaze (Target.noMatchPage target)
+        then fromBlaze (Target.noMatchPage target)
         else do
           sched <- liftSQL (makeSchedule (fmap Right matches))
           fromBlaze (Target.targetPage target sched)

@@ -8,7 +8,11 @@ var margin = {top: 10, right: 10, bottom: 60, left: 80 },
 
 var svg;
 
+/*
 var xrange = d3.scale.linear()
+    .range([0, width]);
+*/
+var xrange = d3.scale.log()
     .range([0, width]);
 var yrange = d3.scale.linear()
     .range([height, 0]);
@@ -24,7 +28,7 @@ function makePlot(plotInfo) {
     var tmax = allInfo.times[allInfo.length-1];
 
     /* actually, let's use 0 as the base. */
-    tmin = 0;
+    /* tmin = 0;  not with a log scale */
 
     /*
      * X axis is plotted in ks, but the axis is labelled in 
@@ -34,7 +38,8 @@ function makePlot(plotInfo) {
     xrange.domain([tmin, tmax]);
     yrange.domain([0, 100]);
 
-    var xrangeHours = d3.scale.linear().range(xrange.range())
+    var xrangeHours = d3.scale.log()
+        .range(xrange.range())
         .domain([tmin/3.6, tmax/3.6]);
 
     svg = d3.select("div#exposureplot")
@@ -47,6 +52,7 @@ function makePlot(plotInfo) {
 
     var xAxis = d3.svg.axis()
         .scale(xrangeHours)
+        .tickFormat(xrangeHours.tickFormat(7, ".1f"))
         .orient("bottom");
 
     var yAxis = d3.svg.axis()
@@ -76,7 +82,7 @@ function makePlot(plotInfo) {
         .attr("y", "-3em")
         .attr("text-anchor", "end")
         .attr("transform", "rotate(270 0 0)")
-        .text("Fraction of sources with exposure time < value (%)");
+        .text("Percentage of sources with exposure time < value");
     
     /***
     svg.append("clipPath")
@@ -115,6 +121,7 @@ function makePlot(plotInfo) {
         } else {
             lbl += plotInfo[cycle].length + " observations";
         }
+        lbl += ", " + plotInfo[cycle].totalTime;
         svg.append("path")
             .datum(plotInfo[cycle].times)
             .attr("class", "cycle cycle" + cycle)
