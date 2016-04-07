@@ -20,10 +20,23 @@ function makePlot(plotInfo) {
 
     /* Plotting up a cumulative function */
     var allInfo = plotInfo['all']
-    xrange.domain([allInfo.times[0], allInfo.times[allInfo.length-1]]);
-    /* yrange.domain([0, allInfo.length]); */
+    var tmin = allInfo.times[0];
+    var tmax = allInfo.times[allInfo.length-1];
+
+    /* actually, let's use 0 as the base. */
+    tmin = 0;
+
+    /*
+     * X axis is plotted in ks, but the axis is labelled in 
+     * hours. For this use case, it is not worth switching
+     * to d3.time.scale for xrangeHours.
+    */
+    xrange.domain([tmin, tmax]);
     yrange.domain([0, 100]);
-    
+
+    var xrangeHours = d3.scale.linear().range(xrange.range())
+        .domain([tmin/3.6, tmax/3.6]);
+
     svg = d3.select("div#exposureplot")
         .append("svg")
         .attr("width", totWidth)
@@ -33,7 +46,7 @@ function makePlot(plotInfo) {
               "translate(" + margin.left + "," + margin.top + ")");
 
     var xAxis = d3.svg.axis()
-        .scale(xrange)
+        .scale(xrangeHours)
         .orient("bottom");
 
     var yAxis = d3.svg.axis()
@@ -51,7 +64,7 @@ function makePlot(plotInfo) {
         .attr("y", 0)
         .attr("dy", "2.5em")
         .attr("text-anchor", "end")
-        .text("Time (ks)");
+        .text("Time (hours)");
     
     var yax = svg.append("g")
       .attr("class", "y axis")
@@ -90,6 +103,18 @@ function makePlot(plotInfo) {
         .domain(d3.keys(plotInfo));
     
     for (cycle in plotInfo) {
+        var lbl;
+        if (cycle === "all") {
+            lbl = "All cycles";
+        } else {
+            lbl = "Cycle " + cycle;
+        }
+        lbl += ": ";
+        if (plotInfo[cycle].length == 1) {
+            lbl += "one observation";
+        } else {
+            lbl += plotInfo[cycle].length + " observations";
+        }
         svg.append("path")
             .datum(plotInfo[cycle].times)
             .attr("class", "cycle cycle" + cycle)
@@ -97,6 +122,7 @@ function makePlot(plotInfo) {
             .attr("clip-path", "url(#clip)")
         */
             .style("stroke", colors(cycle))
+            .attr("title", lbl)
             .attr("d", line(plotInfo[cycle].length));
     }
 
