@@ -19,6 +19,23 @@ var yrange = d3.scale.linear()
 
 var dummy;
 
+function makeLabel(plotInfo, cycle) {
+    var lbl;
+    if (cycle === "all") {
+        lbl = "All cycles";
+    } else {
+        lbl = "Cycle " + cycle;
+    }
+    lbl += ": ";
+    if (plotInfo[cycle].length == 1) {
+        lbl += "one observation";
+    } else {
+        lbl += plotInfo[cycle].length + " observations";
+    }
+    lbl += ", " + plotInfo[cycle].totalTime;
+    return lbl;
+}
+
 function makePlot(plotInfo) {
     dummy = plotInfo;
 
@@ -115,13 +132,7 @@ function makePlot(plotInfo) {
         } else {
             lbl = "Cycle " + cycle;
         }
-        lbl += ": ";
-        if (plotInfo[cycle].length == 1) {
-            lbl += "one observation";
-        } else {
-            lbl += plotInfo[cycle].length + " observations";
-        }
-        lbl += ", " + plotInfo[cycle].totalTime;
+                
         svg.append("path")
             .datum(plotInfo[cycle].times)
             .attr("class", "cycle cycle" + cycle)
@@ -133,6 +144,19 @@ function makePlot(plotInfo) {
             .attr("d", line(plotInfo[cycle].length));
     }
 
+    svg.selectAll(".legend")
+        .data(d3.keys(plotInfo))
+        .enter()
+        .append("text")
+        .attr("x", "2em")
+        .attr("y", function(d, i) { return (i*1.5) + "em"; })
+        .attr("dy", "2em")
+        .attr("class", "legend")
+        .style("fill", colors)
+        .text(function(cycle) {
+            return makeLabel(plotInfo, cycle);
+        });
+    
 }
 
 function createPlot() {
