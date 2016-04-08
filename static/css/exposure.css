@@ -1,3 +1,4 @@
+/* cumulative plot */
 
 .axis path, .axis line {
     fill: none;
@@ -21,3 +22,33 @@ path.cycle:hover {
     opacity: 0.8;
 }
 
+/* box plot */
+
+.box {
+  font: 10px sans-serif;
+}
+
+.box line,
+.box rect,
+.box circle {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.box .center {
+  stroke-dasharray: 3,3;
+}
+
+.box .outlier {
+    /*
+  fill: none;
+  stroke: #ccc;
+   */
+  fill: #ccc;
+  stroke: none;
+}
+
+.cycle {
+  font: 16px sans-serif;
+}

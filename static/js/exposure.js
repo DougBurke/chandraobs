@@ -19,6 +19,8 @@ var yrange = d3.scale.linear()
 
 var dummy;
 
+function toHours(ks) { return ks / 3.6; }
+
 function makeLabel(plotInfo, cycle) {
     var lbl;
     if (cycle === "all") {
@@ -50,14 +52,15 @@ function makePlot(plotInfo) {
     /*
      * X axis is plotted in ks, but the axis is labelled in 
      * hours. For this use case, it is not worth switching
-     * to d3.time.scale for xrangeHours.
-    */
+     * to d3.time.scale for xrangeHours, especialy as I use
+     * a log scale.
+     */
     xrange.domain([tmin, tmax]);
     yrange.domain([0, 100]);
 
     var xrangeHours = d3.scale.log()
         .range(xrange.range())
-        .domain([tmin/3.6, tmax/3.6]);
+        .domain([toHours(tmin), toHours(tmax)]);
 
     svg = d3.select("div#exposureplot")
         .append("svg")
@@ -159,9 +162,86 @@ function makePlot(plotInfo) {
     
 }
 
+// See https://bl.ocks.org/mbostock/4061502
+//
+var totBoxWidth = 120;
+var totBoxHeight = 500;
+
+var boxMargin = {top: 10, right: 50, bottom: 40, left: 50 },
+    boxWidth = totBoxWidth - boxMargin.left - boxMargin.right,
+    boxHeight = totBoxHeight - boxMargin.top - boxMargin.bottom;
+
+// Returns a function to compute the interquartile range.
+function iqr(k) {
+  return function(d, i) {
+    var q1 = d.quartiles[0],
+        q3 = d.quartiles[2],
+        iqr = (q3 - q1) * k,
+        i = -1,
+        j = d.length;
+    while (d[++i] < q1 - iqr);
+    while (d[--j] > q3 + iqr);
+    return [i, j];
+  };
+}
+
+var boxChart, boxSvg;
+
+function makeBoxPlot(plotInfo) {
+
+    boxChart = d3.box()
+        .whiskers(iqr(1.5))
+        .width(boxWidth)
+        .height(boxHeight);
+
+    // Note: want to display in hours, not ks
+    
+    var allInfo = plotInfo['all'];
+    // var minTime = d3.min(allInfo.times);
+    var maxTime = d3.max(allInfo.times);
+
+    // At the moment this is in the order we want
+    var data = [];
+    var cycles = d3.keys(plotInfo);
+    for (cycle in plotInfo) {
+        data.push(plotInfo[cycle].times.map(toHours));
+    }
+    
+    // boxChart.domain([toHours(minTime), toHours(maxTime)]);
+    boxChart.domain([0, toHours(maxTime)]);
+
+    boxSvg = d3.select("div#exposureboxplot").selectAll(".box")
+        .data(data)
+        .enter().append("svg")
+        .attr("class", "box")
+        .attr("width", totBoxWidth)
+        .attr("height", totBoxHeight)
+        .append("g")
+        .attr("transform", "translate(" + boxMargin.left + "," +
+              boxMargin.top + ")")
+        .call(boxChart);
+
+    // assume, for now, the ordering is correct
+    boxSvg.append("text")
+        .attr("class", "cycle")
+        .attr("x", boxWidth / 2)
+        .attr("y", boxHeight)
+        .attr("dy", "2em")
+        .attr("text-anchor", "middle")
+        .text(function(d, i) {
+            var lbl = cycles[i];
+            if (lbl === "all") {
+                return "All";
+            } else {
+                return "Cycle " + lbl;
+            }
+        });
+}
+
 function createPlot() {
     $.ajax({
         url: '/api/exposures',
     })
-        .done(makePlot);
+        .done(makePlot)
+        .done(makeBoxPlot);
 }
