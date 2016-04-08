@@ -25,15 +25,25 @@ path.cycle:hover {
 /* box plot */
 
 .box {
-  font: 10px sans-serif;
+  font: 12px sans-serif;
+}
+
+.box text {
+    stroke: rgb(0, 0, 0);
+    stroke-width: 0px;
+}
+
+.box .cycle {
+  font: 16px sans-serif;
 }
 
 .box line,
 .box rect,
 .box circle {
   fill: #fff;
-  stroke: #000;
+  /* stroke: #000; */
   stroke-width: 1.5px;
+  stroke-width: 2px;
 }
 
 .box .center {
@@ -49,6 +59,3 @@ path.cycle:hover {
   stroke: none;
 }
 
-.cycle {
-  font: 16px sans-serif;
-}

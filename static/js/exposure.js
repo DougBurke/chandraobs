@@ -206,7 +206,10 @@ function makeBoxPlot(plotInfo) {
     for (cycle in plotInfo) {
         data.push(plotInfo[cycle].times.map(toHours));
     }
-    
+
+    var colors = d3.scale.category10()
+        .domain(cycles);
+
     // boxChart.domain([toHours(minTime), toHours(maxTime)]);
     boxChart.domain([0, toHours(maxTime)]);
 
@@ -216,6 +219,7 @@ function makeBoxPlot(plotInfo) {
         .attr("class", "box")
         .attr("width", totBoxWidth)
         .attr("height", totBoxHeight)
+        .style("stroke", function(d, i) { return colors(cycles[i]); })
         .append("g")
         .attr("transform", "translate(" + boxMargin.left + "," +
               boxMargin.top + ")")
