@@ -68,7 +68,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson((.=), object)
 import Data.Default (def)
 import Data.List (nub)
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
@@ -812,11 +812,11 @@ proxy2 ::
     -> ObsIdVal 
     -> ActionM ()
 proxy2 mgr pt seqVal obsid = do
-  let seqStr = show $ _unSequence seqVal
-      obsStr = show $ fromObsId obsid
-      url = "http://asc.harvard.edu/targets/" ++
-            seqStr ++ "/" ++ seqStr ++ "." ++
-            obsStr ++ ".soe." ++ show pt ++ ".gif"
+  let seqStr = show (_unSequence seqVal)
+      obsStr = show (fromObsId obsid)
+      url = "http://asc.harvard.edu/targets/" 
+            <> seqStr <> "/" <> seqStr <> "."
+            <> obsStr <> ".soe." <> show pt <> ".gif"
   req <- liftIO $ NHC.parseUrl url
   -- liftIO $ putStrLn $ "--> " ++ url
   rsp <- liftIO $ NHC.httpLbs req mgr
@@ -835,15 +835,12 @@ proxy2 mgr pt seqVal obsid = do
   
       cText =  L.fromStrict . TE.decodeUtf8
 
-  case mLastMod of
-    Just lastMod -> setHeader "Last-Modified" lastMod
-    _ -> return ()
+      runM f x = fromMaybe (return ()) (f <$> x)
 
-  case mETag of
-    Just eTag -> setHeader "ETag" eTag
-    _ -> return ()
+  runM (setHeader "Last-Modified") mLastMod
+  runM (setHeader "ETag") mETag
 
-  raw $ B64.encode $ NHC.responseBody rsp
+  raw (B64.encode (NHC.responseBody rsp))
 
 {-
 
