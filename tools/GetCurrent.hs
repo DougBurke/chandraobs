@@ -15,7 +15,7 @@ import Types
 main :: IO ()
 main = do
   now <- getCurrentTime
-  putStrLn $ "The current time is: " ++ show now
+  putStrLn ("The current time is: " ++ show now)
   res <- runDb (reportSize >> getObsInfo)
 
   case res of
@@ -25,14 +25,15 @@ main = do
 reportOI :: ObsInfo -> IO ()
 reportOI oi = do
   let p m a = putStrLn m >> print a 
+      noData = putStrLn "NO DATA FOUND"
       rep = either (p "# Non-science observation") (p "# Science observation")
-
+      printObs xs = fromMaybe noData (rep <$> xs)
+        
   putStrLn "\n### Current observation:"
-  rep $ oiCurrentObs oi
-  
+  rep (oiCurrentObs oi)
+
   putStrLn "\n### Previous observation:"
-  fromMaybe (putStrLn "NO DATA FOUND") $ rep <$> oiPrevObs oi
+  printObs (oiPrevObs oi)
 
   putStrLn "\n### Next observation:"
-  fromMaybe (putStrLn "NO DATA FOUND") $ rep <$> oiNextObs oi
-    
+  printObs (oiNextObs oi)
