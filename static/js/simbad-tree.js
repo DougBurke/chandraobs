@@ -5,27 +5,25 @@
  * https://bl.ocks.org/mbostock/4339083
  */
 
-/***
-the Json is an object with keys: name -> string, and children -> an array of objects
-   or a size field
-but I would want to start with an array and allow both size and children
-***/
-
 var root;
 var duration = 750;
 
-var width0 = 1200;
-var height0 = 1000;
+var totWidth = 1200;
+var totHeight = 1000;
 
 var margin = {top: 20, right: 120, bottom: 20, left: 120},
-    width = width0 - margin.right - margin.left,
-    height = height0 - margin.top - margin.bottom;
+    width = totWidth - margin.right - margin.left,
+    height = totHeight - margin.top - margin.bottom;
+
+var baseOpacity = 1;
+var unselOpacity = 0.2;
 
 var tree;
 var svg;
 var diagonal;
 
 // Toggle children on click.
+//
 function nodeClick(d) {
     if (d.children) {
         d._children = d.children;
@@ -40,12 +38,17 @@ function nodeClick(d) {
 // Based on http://bl.ocks.org/mbostock/4062006
 function changeOtherNodes(opacity) {
     return function(g, i) {
-        // what shall we fade?
+        // What shall we fade? I don't quite understand what is going
+        // on with the opacity, but changing both opacity and fill-opacity
+        // appears to have fixed, or worked around, the issue
+        // of text not being restored to full opacity after being hidden
+        // and restored.
+        //
         // might it be nice to keep the parent/children?
         svg.selectAll(".node text")
-             // TODO: does not select the right nodes!
             .filter(function(d) { return d.id != g.id; })
             .transition()
+            .style("fill-opacity", opacity)
             .style("opacity", opacity);
     };
 }
@@ -73,8 +76,8 @@ function update(source) {
         .attr("transform", function(d) { return "translate(" + source.y0 + "," + source.x0 + ")"; })
     // QUS: how best to highlight this node + path (parents and/or
     //      descendents? Maybe want the links to be kept too?
-        .on("mouseover", changeOtherNodes(0.2))
-        .on("mouseout", changeOtherNodes(1))
+        .on("mouseover", changeOtherNodes(unselOpacity))
+        .on("mouseout", changeOtherNodes(baseOpacity))
     ;
     
     nodeEnter.append("circle")
@@ -175,8 +178,8 @@ function createTree(json) {
     json.children = json.children.filter(removeEmpty);
 
     svg = d3.select("div#tree").append("svg")
-        .attr("width", width + margin.right + margin.left)
-        .attr("height", height + margin.top + margin.bottom)
+        .attr("width", totWidth)
+        .attr("height", totHeight)
         .append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
@@ -205,8 +208,6 @@ function createTree(json) {
     // root.children.forEach(collapseNode);
     update(root);
 
-    // TODO: what is this
     // d3.select(self.frameElement).style("height", "800px");
     d3.select("#tree").style("height", height0 + "px");
 }
-
