@@ -175,6 +175,8 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import qualified Data.Set as S
+-- import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
@@ -1014,7 +1016,7 @@ dump ScienceObs{..} = do
   if soStartTime == futureTime
     then putStrLn "** Observation has no scheduled observation date"
     else putStrLn (showCTime soStartTime)
-  putStrLn (showExpTime soApprovedTime)
+  T.putStrLn (showExpTime soApprovedTime)
   print (fmap showExpTime soObservedTime)
   putStrLn ("Public availability: " ++ show soPublicRelease)
 

@@ -172,8 +172,9 @@ executable obscat
      , network >= 2.4 && < 2.7
      , monad-logger
      , process >= 1.1 && < 1.5
-     , temporary >= 1.1 && < 1.3
      , split
+     , temporary >= 1.1 && < 1.3
+     , text
      , time
      , transformers
 

@@ -117,7 +117,12 @@ inRange lo hi v = (lo <= v) && (v <= hi)
 --   I think that really the projection function should be
 --   carried along somehow, since this is needed to really
 --   make the Monoid instance useful, but not sure how
---   to do this.
+--   to do this. Perhaps I should look at functional dependencies,
+--   but I haven't really scoped out what information I
+--   want to carry along (to see what I really need).
+--   For the current use case I do not think this is providing
+--   anything useful, but leave as is for now.
+--
 data SortedList f a = SL { _unSL :: [a] }
 
 {- want something like the following, but ideally without
@@ -654,7 +659,7 @@ normTimeKS (TimeKS a) n = TimeKS (a / fromIntegral n)
 --   instead of rounding to "1 week and 1 day", it returns
 --   "1 week" for 7.9 days
 --
-showExpTime :: TimeKS -> String
+showExpTime :: TimeKS -> T.Text
 showExpTime (TimeKS tks) = 
   let ns = round (tks * 1000) :: Int
       (nm, rs) = divMod ns 60
@@ -665,11 +670,15 @@ showExpTime (TimeKS tks) =
       units v1 v2 u1 u2 =
         let us 0 _ = ""
             us 1 u = "1 " <> u
-            us x u = show x <> " " <> u <> "s"
+            -- ideally would use the equivalent to "Data.Text.show",
+            -- but that pulls in too much (e.g. text-format: convert
+            -- integer to LT.Builder, then to Text) so convert
+            -- via a String for now.
+            us x u = T.pack (show x) <> " " <> u <> "s"
 
             str1 = us v1 u1
             str2 = us v2 u2
-            sep = if null str1 || null str2 then "" else " and "
+            sep = if T.null str1 || T.null str2 then "" else " and "
             
         in str1 <> sep <> str2
 
