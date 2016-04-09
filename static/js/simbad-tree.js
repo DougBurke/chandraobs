@@ -16,7 +16,7 @@ var margin = {top: 20, right: 120, bottom: 20, left: 120},
     height = totHeight - margin.top - margin.bottom;
 
 var baseOpacity = 1;
-var unselOpacity = 0.2;
+var unselOpacity = 0.5;
 
 var tree;
 var svg;
