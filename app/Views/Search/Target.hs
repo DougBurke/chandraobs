@@ -5,17 +5,17 @@
 module Views.Search.Target (targetPage, noMatchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($), String)
+import Prelude (($))
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..))
+import Types (Schedule(..), TargetName)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink,
               getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -24,7 +24,7 @@ import Views.Render (makeSchedule)
 -- TODO: combine with Schedule.schedPage
 
 targetPage :: 
-  String
+  TargetName
   -- ^ target name
   -> Schedule
   -- ^ the observations that match this target, organized into a "schedule"
@@ -46,34 +46,33 @@ targetPage targetName sched =
      )
 
 renderMatches ::
-  String           -- ^ target name
+  TargetName           -- ^ target name
   -> Schedule      -- ^ non-empty list of matches
   -> Html
 renderMatches lbl (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
 
   in div ! A.id "scheduleBlock" $ do
-    h2 $ toHtml lbl
+    h2 (toHtml lbl)
 
     svgBlock
 
-    p $ mconcat
-        [ "This page shows Chandra observations of the target "
-        , toHtml lbl
-        , ". "
-          -- TODO: need to mention what is going on here (i.e. what the
-          --       search represents)
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows Chandra observations of the target "
+       <> toHtml lbl
+       <> ". "
+       -- TODO: need to mention what is going on here (i.e. what the
+       --       search represents)
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> "."
+       )
 
     tblBlock
 
 
 noMatchPage :: 
-  String
+  TargetName
   -- ^ target name
   -> Html
 noMatchPage targetName =

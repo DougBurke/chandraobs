@@ -11,12 +11,11 @@ module Views.Search.Instrument (indexPage
        where
 
 import qualified Prelude as P
-import Prelude (($), (*), (/), (++), Ord, Int, compare, fst, snd, mapM_)
+import Prelude (($), (*), (/), Ord, Int, compare, fst, snd, mapM_)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
-import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -298,12 +297,12 @@ renderBreakdown total perDay =
       igs = total
 
       toKey (inst,grat) =
-        T.pack (fromInstrument inst ++ "+" ++ fromGrating grat)
+        fromInstrument inst <> "+" <> fromGrating grat
 
       toLabel ig@(inst,grat) =
-        let val = fromInstrument inst ++ case grat of
+        let val = fromInstrument inst <> case grat of
               NONE -> "" -- maybe say " with no grating"?
-              _ -> " + " ++ fromGrating grat
+              _ -> " + " <> fromGrating grat
         in toKey ig .= val
       lbls = P.map toLabel (M.keys igs)
 

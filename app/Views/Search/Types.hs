@@ -34,7 +34,9 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), SimbadType(..), SimbadTypeInfo, SimbadCode(..)
+import Types (Schedule(..), SimbadType(..)
+             , SimbadTypeInfo, SimbadCode(..)
+             , SIMCategory
              , simbadLabels
              , noSimbadLabel
              , _2)
@@ -45,7 +47,9 @@ import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
              , typeDLinkURI
              , categoryLinkSearch
              , getNumObs
-             , getScienceTime)
+             , getScienceTime
+             , dquote
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -134,15 +138,15 @@ matchDependencyPage typeInfos sched =
       <> renderFooter
      )
 
-niceType :: (SimbadType, String) -> String
+niceType :: (SimbadType, SIMCategory) -> SIMCategory
 niceType (SimbadType "reg", _) = "Area of the sky"
 niceType (_, l) = l
 
 -- | TODO: combine table rendering with Views.Schedule
 --
 renderMatches ::
-  String           -- ^ SIMBAD type, as a string
-  -> Schedule      -- ^ non-empty list of matches
+  SIMCategory          -- ^ SIMBAD type, as a string
+  -> Schedule          -- ^ non-empty list of matches
   -> [SimbadTypeInfo]  -- ^ children of this type included in the page (if any)
   -> Html
 renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children = 
@@ -167,15 +171,13 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
              , scienceTime
              , ". This "
              , "includes "
-             , categoryLinkSearch "SOLAR SYSTEM" "Solar System"
+             , categoryLinkSearch "SOLAR SYSTEM" ("Solar System" :: T.Text)
              , " objects, since SIMBAD does not track "
              , "these objects, but most of the objects could not be identified "
              , "from the target name supplied by the Observer. The current system "
              , "used to match to SIMBAD is very simple, and so misses out on "
              , "a large number of "
-             , preEscapedToHtml ("&ldquo;"::String)
-             , "obvious"
-             , preEscapedToHtml ("&rdquo;"::String)
+             , dquote "obvious"
              , " matches, but there are also a lot of target fields which are "
              , "hard to match to SIMBAD."
              ]
@@ -238,9 +240,7 @@ renderTypes objs =
       (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
       str ". Not all objects could be found, in which case the object "
       str "was added to the "
-      preEscapedToHtml ("&ldquo;"::String)
-      unidLabel
-      preEscapedToHtml ("&rdquo;"::String)
+      dquote unidLabel
       str " category (this includes so-called serendipitous sources, "
       str "that is, those sources that are near-enough to the target to also "
       str "be observed by Chandra). The table below does not indicate the "

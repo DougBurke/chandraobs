@@ -75,7 +75,7 @@ module Database ( getCurrentObs
                 , insertOrReplace
                 , addScheduleItem
 
-                , putIO
+                , putIO, putTIO
                 , runDb
                 , dbConnStr
                 , discarded
@@ -111,6 +111,8 @@ import Control.Applicative ((<$>))
 
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Control.Arrow (second)
 import Control.Monad (filterM, forM, forM_, unless, when)
@@ -122,6 +124,7 @@ import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (foldl', group, groupBy, nub, sortBy)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isNothing, listToMaybe, mapMaybe)
+import Data.Monoid ((<>))
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
@@ -134,13 +137,13 @@ import Types
 
 type DbIO m = (MonadIO m, PersistBackend m)
 
-archived :: String
+archived :: T.Text
 archived = "archived"
 
-discarded :: String
+discarded :: T.Text
 discarded = "discarded"
 
-nsInObsCatName :: String
+nsInObsCatName :: T.Text
 nsInObsCatName = "unknown"
 
 notArchived ::
@@ -583,7 +586,7 @@ makeSchedule rs = do
 getSimbadList ::
   PersistBackend m
   => [Record]  -- ^ records; assumed to be filtered
-  -> m (M.Map String SimbadInfo)
+  -> m (M.Map T.Text SimbadInfo)
 getSimbadList rs = do
   let getName = either (const Nothing) (Just . soTarget)
       tnames = nub (mapMaybe getName rs)
@@ -605,7 +608,7 @@ getSimbadList rs = do
 --
 getSimbadInfo :: 
   PersistBackend m
-  => String   -- ^ target name (not the actual SIMBAD search term)
+  => T.Text   -- ^ target name (not the actual SIMBAD search term)
   -> m (Maybe SimbadInfo)
 getSimbadInfo target = do
   keys <- project SmmInfoField ((SmmTargetField ==. target) `limitTo` 1)
@@ -854,7 +857,7 @@ fetchConstellationTypes = do
 --
 fetchCategory ::
   PersistBackend m
-  => String
+  => PropCategory
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
@@ -869,7 +872,7 @@ fetchCategory cat = do
 --
 fetchCategorySubType ::
   (Functor m, PersistBackend m, SqlDb (PhantomDb m)) -- ghc 7.8 needs Functor
-  => String  -- ^ proposal category
+  => PropCategory  -- ^ proposal category
   -> Maybe SimbadType
   -- ^ If Nothing, use the Unidentified type
   -> m (SortedList StartTimeOrder ScienceObs)
@@ -903,7 +906,7 @@ fetchCategorySubType cat mtype = do
 --
 fetchCategoryTypes ::
   PersistBackend m
-  => m [(String, Int)]
+  => m [(PropCategory, Int)]
   -- ^ proposal category and the number of proposals that match
 fetchCategoryTypes = do
   res <- project PropCategoryField
@@ -1079,7 +1082,7 @@ getProposalInfo (Right so) = do
 --
 --   This INCLUDES discarded and unscheduled observations.
 --
-findObsStatusTypes :: PersistBackend m => m [(String, Int)]
+findObsStatusTypes :: PersistBackend m => m [(T.Text, Int)]
 findObsStatusTypes = do
   statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
   return (countUp statuses)
@@ -1100,7 +1103,7 @@ findNameMatch ::
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
-  -> m ([String], [String])
+  -> m ([T.Text], [T.Text])
   -- ^ object names - first the target names, then the "also known as" from SIMBAD
   --   - names in the database.
 findNameMatch instr = do
@@ -1115,7 +1118,7 @@ findProposalNameMatch ::
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
-  -> m [(String, PropNum)]
+  -> m [(T.Text, PropNum)]
   -- ^ Matching proposal titles and numbers. The ordering is not set (in that I
   --   haven't decided if it's worth enforcing an ordering).
 findProposalNameMatch instr = 
@@ -1137,7 +1140,7 @@ findProposalNameMatch instr =
 --
 findTarget ::
   (PersistBackend m, SqlDb (PhantomDb m))
-  => String
+  => T.Text
   -> m (SortedList StartTimeOrder ScienceObs)
 findTarget target = do
   -- have to do a direct search on SoTargetField, and an
@@ -1145,7 +1148,7 @@ findTarget target = do
   --
   -- TODO: need a better story with spaces - would like to ignore
   --       them completely
-  let searchTerm = map toUpper target
+  let searchTerm = T.toUpper target
   direct <- select ((upper SoTargetField ==. searchTerm)
                     `orderBy` [Asc SoStartTimeField])
 
@@ -1159,10 +1162,6 @@ findTarget target = do
   let sobs = mergeSL soStartTime (unsafeToSL direct) (unsafeToSL indirect)
   return sobs
 
-
-type TargName = String
-type PropCat = String
-type SIMCat = String
 type NumSrc = Int
 type NumObs = Int
 
@@ -1171,7 +1170,7 @@ type NumObs = Int
 --   is a unique mapping between the two components of the
 --   tuple).
 --
-newtype SIMKey = SK (SIMCat, SimbadType)
+newtype SIMKey = SK (SIMCategory, SimbadType)
 
 instance Eq SIMKey where
   (SK (a1, _)) == (SK (a2, _)) = a1 == a2
@@ -1179,7 +1178,7 @@ instance Eq SIMKey where
 instance Ord SIMKey where
   compare (SK (a1, _)) (SK (a2, _)) = compare a1 a2
 
-keyToPair :: SIMKey -> (SIMCat, SimbadType)
+keyToPair :: SIMKey -> (SIMCategory, SimbadType)
 keyToPair (SK a) = a
 
 unidentifiedKey :: SIMKey
@@ -1193,7 +1192,7 @@ unidentifiedKey = SK (noSimbadLabel, noSimbadType)
 --
 getProposalObjectMapping ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => m (M.Map (PropCat, SIMKey) (TimeKS, NumSrc, NumObs))
+  => m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs))
   -- ^ The keys are the proposal category and SIMBAD type.
   --   The values are the total time, the number of objects,
   --   and the number of observations of these objects.
@@ -1224,7 +1223,7 @@ getProposalObjectMapping = do
   --
   propsDb <- project (PropNumField, PropCategoryField)
              (CondEmpty `orderBy` [Asc PropNumField])
-  let propMap :: M.Map PropNum PropCat
+  let propMap :: M.Map PropNum PropCategory
       propMap = M.fromAscList propsDb
 
   -- The assumption is that the mapping from target field to SIMBAD info
@@ -1236,7 +1235,8 @@ getProposalObjectMapping = do
            (SmiTypeField, SmiType3Field)
            ((AutoKeyField ==. key) `limitTo` 1)
     return ((target,) . SK <$> ans)
-  let simMap :: M.Map TargName SIMKey
+    
+  let simMap :: M.Map TargetName SIMKey
       simMap = M.fromList (catMaybes simDb)
 
   -- Process each source, skipping it if it has no proposal category
@@ -1252,7 +1252,7 @@ getProposalObjectMapping = do
         pcat <- M.lookup b propMap
         return (a, [((pcat, scat), (fromMaybe aTime oTime, 1))])
 
-      obsMap1 :: M.Map TargName [((PropCat, SIMKey), (TimeKS, NumObs))]
+      obsMap1 :: M.Map TargetName [((PropCategory, SIMKey), (TimeKS, NumObs))]
       obsMap1 = M.fromListWith (++) (mapMaybe convert obsDb)
 
       -- converting from a list of times to the total time and the number
@@ -1261,7 +1261,7 @@ getProposalObjectMapping = do
       addElem :: (TimeKS, NumObs) -> (TimeKS, NumObs) -> (TimeKS, NumObs)
       addElem (t1,c1) (t2,c2) = (addTimeKS t1 t2, c1+c2)
 
-      obsMap2 :: M.Map TargName (M.Map (PropCat, SIMKey) (TimeKS, NumObs))
+      obsMap2 :: M.Map TargetName (M.Map (PropCategory, SIMKey) (TimeKS, NumObs))
       obsMap2 = M.map (M.fromListWith addElem) obsMap1
 
       -- Have a set of keys for a given target, so can add in
@@ -1271,7 +1271,7 @@ getProposalObjectMapping = do
          -> M.Map k (TimeKS, NumSrc, NumObs)
       addNSrc = M.map (\(t, nobs) -> (t, 1, nobs))
 
-      obsMap3 :: M.Map TargName (M.Map (PropCat, SIMKey) (TimeKS, NumSrc, NumObs))
+      obsMap3 :: M.Map TargetName (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs))
       obsMap3 = M.map addNSrc obsMap2
 
       -- could be more polymorphic, but force the types for now
@@ -1281,7 +1281,7 @@ getProposalObjectMapping = do
          -> (TimeKS, NumSrc, NumObs)
       combine (t1, ns1, no1) (t2, ns2, no2) = (addTimeKS t1 t2, ns1+ns2, no1+no2)
 
-      obsMap :: M.Map (PropCat, SIMKey) (TimeKS, NumSrc, NumObs)
+      obsMap :: M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)
       obsMap = M.unionsWith combine (M.elems obsMap3)
 
   -- The output is a map from
@@ -1456,7 +1456,7 @@ getProposalType ptype = do
 --
 getExposureValues ::
   PersistBackend m
-  => m [(String, SortedList ExposureTimeOrder TimeKS)]
+  => m [(T.Text, SortedList ExposureTimeOrder TimeKS)]
   -- ^ Return the lists for each cycle, with cycle=="all"
   --   for all data.
 getExposureValues = do
@@ -1497,6 +1497,9 @@ getExposureValues = do
 putIO :: MonadIO m => String -> m ()
 putIO = liftIO . putStrLn
 
+putTIO :: MonadIO m => T.Text -> m ()
+putTIO = liftIO . T.putStrLn
+
 showSize ::
   (DbIO m, PersistEntity v)
   => String
@@ -1523,8 +1526,8 @@ reportSize = do
   putIO ""
   ns <- findObsStatusTypes
   forM_ ns (\(status, n) ->
-             putIO ("  status=" ++ status ++ "  : " ++ show n))
-  putIO (" -> total = " ++ show (sum (map snd ns)))
+             putTIO ("  status=" <> status <> "  : " <> T.pack (show n)))
+  putIO (" -> total = " <> show (sum (map snd ns)))
   putIO ""
 
   -- unscheduled observations

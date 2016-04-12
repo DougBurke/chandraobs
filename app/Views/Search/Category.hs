@@ -16,12 +16,13 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.List (sortBy)
 import Data.Function (on)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..), ObsIdVal(..), SimbadType
+             , PropCategory
              , simbadTypeToDesc)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , abstractLink
@@ -33,7 +34,7 @@ import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
 indexPage :: 
-  [(String, Int)]
+  [(PropCategory, Int)]
   -> Html
 indexPage cats =
   docTypeHtml ! lang "en-US" $
@@ -53,7 +54,7 @@ indexPage cats =
 -- TODO: combine with Schedule.schedPage
 
 matchPage :: 
-  String
+  PropCategory
   -> Schedule  -- the observations that match this category, organized into a "schedule"
   -> Html
 matchPage cat sched =
@@ -77,7 +78,7 @@ matchPage cat sched =
 --   this in the types.
 --
 renderTypes ::
-  [(String, Int)]
+  [(PropCategory, Int)]
   -> Html
 renderTypes cats = 
   let toRow (cat, n) = tr $ do
@@ -155,13 +156,13 @@ getSimbadHtml (Just s) =
     Just l -> H.toHtml l
     _ -> "Unknown"
 
-getComboTitle :: String -> Maybe SimbadType -> Html
+getComboTitle :: PropCategory -> Maybe SimbadType -> Html
 getComboTitle cat mtype = 
   H.toHtml cat <> " → " <> getSimbadHtml mtype
 
 -- TODO: 
 categoryAndTypePage :: 
-  String  -- ^ propoal category
+  PropCategory  -- ^ propoal category
   -> Maybe SimbadType
   -- ^ If Nothing, the it is the Unidentified category.
   -> Schedule
@@ -185,7 +186,7 @@ categoryAndTypePage cat mtype sched =
 -- | TODO: combine table rendering with Views.Schedule
 --
 renderMatches ::
-  String           -- ^ Category name
+  PropCategory     -- ^ Category name
   -> Schedule      -- ^ non-empty list of matches
   -> Html
 renderMatches cat (Schedule cTime _ done mdoing todo simbad) = 
@@ -193,28 +194,27 @@ renderMatches cat (Schedule cTime _ done mdoing todo simbad) =
       scienceTime = getScienceTime done mdoing todo
 
   in div ! A.id "scheduleBlock" $ do
-    h2 $ toHtml cat
+    h2 (toHtml cat)
 
     svgBlock
 
     -- TODO: improve English here
-    p $ mconcat
-        [ "This page shows Chandra observations of objects from proposals "
-        , "in the category "
-        , toHtml cat
-        , scienceTime
-        , ". "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows Chandra observations of objects from proposals "
+       <> "in the category "
+       <> toHtml cat
+       <> scienceTime
+       <> ". "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> "."
+      )
 
     tblBlock
 
 renderComboMatches ::
-  String           -- ^ Category name
+  PropCategory           -- ^ Category name
   -> Maybe SimbadType
   -- ^ If Nothing then the unidentified matches.
   -> Schedule      -- ^ non-empty list of matches
@@ -229,20 +229,19 @@ renderComboMatches cat mtype (Schedule cTime _ done mdoing todo simbad) =
     svgBlock
 
     -- TODO: improve English here
-    p $ mconcat
-        [ "This page shows Chandra observations of objects from proposals "
-        , "in the category "
-        , categoryLinkSearch cat cat
-        , " that observe targets with the SIMBAD type of "
-        , basicTypeLinkSearch mtype
-        , scienceTime
-        , ". "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows Chandra observations of objects from proposals "
+       <> "in the category "
+       <> categoryLinkSearch cat cat
+       <> " that observe targets with the SIMBAD type of "
+       <> basicTypeLinkSearch mtype
+       <> scienceTime
+       <> ". "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> "."
+      )
 
     tblBlock
 

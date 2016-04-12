@@ -12,6 +12,7 @@
 
 module Quote (stsParse, stsParseFile) where
 
+import qualified Data.Text as T
 import qualified Language.Haskell.TH as TH
 
 import Data.Time
@@ -71,6 +72,9 @@ instance Lift DiffTime where
   lift = dataToExpQ (const Nothing)
 -}
 
+instance Lift T.Text where
+  lift t = [| T.pack $(lift (T.unpack t)) |]
+  
 -- Looks like there is a problem with the Lift instances, since it seems to cause
 -- an infinte loop.
 --

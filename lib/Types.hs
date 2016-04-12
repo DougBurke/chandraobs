@@ -48,10 +48,8 @@ import Data.Bits (Bits(..))
 
 import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
-import Data.Either (rights)
 import Data.Function (on)
-import Data.List (isInfixOf, isPrefixOf, sortBy)
-import Data.List.Split (splitOn)
+import Data.List (sortBy)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -61,6 +59,7 @@ import Data.Monoid ((<>))
 #endif
 
 import Data.String (IsString(..))
+import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 
 -- I am not convinced I'm adding the PersistField values sensibly
 import Database.Groundhog.Core
@@ -91,15 +90,18 @@ readTime = parseTimeOrError True
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
 
--- | Convert a string into a value
-maybeFromString :: 
+-- | Convert text into a value, where the value is restricted
+--   by a user-specifiable predicate.
+--
+--   TODO: can this be done without going via String?
+maybeFromText :: 
     Read a
     => (a -> b)
     -> (a -> Bool)  -- ^ is value valid for conversion to b?
-    -> String
+    -> T.Text
     -> Maybe b
-maybeFromString conv p s = do
-  a <- maybeRead s
+maybeFromText conv p s = do
+  a <- maybeRead (T.unpack s)
   if p a then return (conv a) else Nothing
 
 -- | Inclusive range.
@@ -211,7 +213,8 @@ tryParse ((result, attempts):xs) value =
     then res
     else tryParse xs value
         where
-          res = [(result, drop (length attempt) value) | attempt <- attempts, take (length attempt) value == attempt]
+          res = [(result, drop (length attempt) value) |
+                 attempt <- attempts, take (length attempt) value == attempt]
 
 -- | The instrument being used.
 --
@@ -228,13 +231,13 @@ instance Read Instrument where
              , (HRCS, ["HRC-S", "HRCS"])
              ]
 
-fromInstrument :: Instrument -> String
+fromInstrument :: Instrument -> T.Text
 fromInstrument ACISI = "ACIS-I"
 fromInstrument ACISS = "ACIS-S"
 fromInstrument HRCI  = "HRC-I"
 fromInstrument HRCS  = "HRC-S"
 
-toInstrument :: String -> Maybe Instrument
+toInstrument :: T.Text -> Maybe Instrument
 toInstrument "ACIS-I" = Just ACISI
 toInstrument "ACIS-S" = Just ACISS
 toInstrument "HRC-I"  = Just HRCI
@@ -247,11 +250,15 @@ toInstrument "HRCS"  = Just HRCS
 
 toInstrument _ = Nothing
 
+helpParse :: LT.Text -> (T.Text -> Maybe a) -> LT.Text -> Either LT.Text a
+helpParse lbl conv lt =
+  let emsg = "Invalid " <> lbl <> ": " <> lt
+      t = LT.toStrict lt
+  in maybe (Left emsg) Right (conv t)
+  
+
 instance Parsable Instrument where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid instrument name: " <> t
-    in maybe (Left emsg) Right (toInstrument tstr)
+  parseParam = helpParse "instrument name" toInstrument
 
 instance H.ToMarkup Instrument where
   toMarkup ACISI = "ACIS-I"
@@ -273,12 +280,12 @@ instance H.ToValue Instrument where
 data Grating = LETG | HETG | NONE 
   deriving (Eq, Ord, Show, Read)
 
-fromGrating :: Grating -> String
+fromGrating :: Grating -> T.Text
 fromGrating LETG = "LETG"
 fromGrating HETG = "HETG"
 fromGrating NONE = "NONE"
 
-toGrating :: String -> Maybe Grating
+toGrating :: T.Text -> Maybe Grating
 toGrating "LETG" = Just LETG
 toGrating "HETG" = Just HETG
 toGrating "NONE"  = Just NONE
@@ -286,10 +293,7 @@ toGrating "NONE"  = Just NONE
 toGrating _ = Nothing
 
 instance Parsable Grating where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid grating name: " <> t
-    in maybe (Left emsg) Right (toGrating tstr)
+  parseParam = helpParse "grating name" toGrating
 
 instance H.ToMarkup Grating where
   toMarkup LETG = "Low Energy Transmission Grating (LETG)"
@@ -320,14 +324,11 @@ newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
   deriving (Eq, Ord)
 
 -- | Limited validation of the input.
-toObsIdValStr :: String -> Maybe ObsIdVal
-toObsIdValStr = maybeFromString ObsIdVal (inRange 0 65535)
+toObsIdValStr :: T.Text -> Maybe ObsIdVal
+toObsIdValStr = maybeFromText ObsIdVal (inRange 0 65535)
 
 instance Parsable ObsIdVal where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid ObsId: " <> t
-    in maybe (Left emsg) Right (toObsIdValStr tstr)
+  parseParam = helpParse "ObsId" toObsIdValStr
 
 instance H.ToMarkup ObsIdVal where
   toMarkup = H.toMarkup . fromObsId
@@ -341,6 +342,8 @@ instance H.ToValue ObsIdVal where
 --
 type Record = Either NonScienceObs ScienceObs
 
+type TargetName = T.Text
+
 -- hacks for quickly converting old code
 
 recordSequence :: Record -> Maybe Sequence
@@ -349,7 +352,7 @@ recordSequence = either (const Nothing) (Just . soSequence)
 recordObsId :: Record -> ObsIdVal
 recordObsId = either nsObsId soObsId
 
-recordTarget :: Record -> String
+recordTarget :: Record -> TargetName
 recordTarget = either nsTarget soTarget
 
 recordStartTime :: Record -> ChandraTime
@@ -444,10 +447,10 @@ toCTime = ChandraTime . readTime defaultTimeLocale "%Y:%j:%T%Q"
 --   the month.
 --
 --   This does not correct for time zones.
-showCTime :: ChandraTime -> String
+showCTime :: ChandraTime -> T.Text
 showCTime ct = 
   let utc = _toUTCTime ct
-  in formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc
+  in T.pack (formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc)
 
 endCTime :: ChandraTime -> TimeKS -> ChandraTime
 endCTime (ChandraTime start) (TimeKS elen) =
@@ -493,14 +496,11 @@ newtype Sequence = Sequence { _unSequence :: Int }
    deriving (Eq, Ord)
 
 -- | Limited validation of the input.
-toSequenceStr :: String -> Maybe Sequence
-toSequenceStr = maybeFromString Sequence (> 0)
+toSequenceStr :: T.Text -> Maybe Sequence
+toSequenceStr = maybeFromText Sequence (> 0)
 
 instance Parsable Sequence where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid Sequence: " <> t
-    in maybe (Left emsg) Right (toSequenceStr tstr)
+  parseParam = helpParse "Sequence" toSequenceStr
 
 instance H.ToMarkup Sequence where
   toMarkup = H.toMarkup . _unSequence
@@ -515,14 +515,11 @@ newtype PropNum = PropNum { _unPropNum :: Int }
 
 -- | Limited validation of the input (currently only
 --   enforces a positive value).
-toPropNumStr :: String -> Maybe PropNum
-toPropNumStr = maybeFromString PropNum (> 0)
+toPropNumStr :: T.Text -> Maybe PropNum
+toPropNumStr = maybeFromText PropNum (> 0)
 
 instance Parsable PropNum where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid proposal number: " <> t
-    in maybe (Left emsg) Right (toPropNumStr tstr)
+  parseParam = helpParse "proposal number" toPropNumStr
 
 instance H.ToMarkup PropNum where
   toMarkup = H.toMarkup . _unPropNum
@@ -551,10 +548,12 @@ splitRA (RA ra) =
 
 -- I do use this in ObsCat.hs for informational purposes, so keep
 -- around for now.
-showRA :: RA -> String
+--
+-- TODO: use Data.Text.Format
+showRA :: RA -> T.Text
 showRA ra = 
   let (h, m, s) = splitRA ra
-  in printf "%dh %dm %.1fs" h m s
+  in T.pack (printf "%dh %dm %.1fs" h m s)
 
 htmlRA :: RA -> H.Html
 htmlRA ra = 
@@ -569,17 +568,14 @@ htmlRA ra =
       mstr = printf " %02d" m
       sstr = printf " %04.1f" s
 
-  in mconcat [ H.toMarkup hstr
-             , hsym
-             , H.toMarkup mstr
-             , msym
-             , H.toMarkup sstr
-             , ssym
-             ]
+  in H.toMarkup hstr <> hsym <> H.toMarkup mstr
+     <> msym <> H.toMarkup sstr <> ssym
 
 -- this is intended for HTML/UTF-8 output, so instead of
 -- "d" it uses "\176", aka \u00b0, the degree symbol.
-showDec :: Dec -> String
+--
+-- TODO: use Data.Text.Format
+showDec :: Dec -> T.Text
 showDec (Dec dec) = 
   let dabs = abs dec
       d, m :: Int
@@ -590,7 +586,7 @@ showDec (Dec dec) =
       s = r2 * 60
       c = if dec < 0 then '-' else '+'
   -- in printf "%c%d\176 %d' %.1f\"" c d m s
-  in printf "%c%02d\176 %02d' %04.1f\"" c d m s
+  in T.pack (printf "%c%02d\176 %02d' %04.1f\"" c d m s)
 
 instance H.ToMarkup RA where
   -- toMarkup = H.toMarkup . showRA
@@ -614,7 +610,7 @@ data Schedule =
    , scDone  :: [Record]     -- ^ those that were done (ascending time order)
    , scDoing :: Maybe Record -- ^ current observation
    , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
-   , scSimbad :: M.Map String SimbadInfo
+   , scSimbad :: M.Map T.Text SimbadInfo
      -- ^ mapping from target to SIMBAD info for the observations in this
      --   schedule (it may be empty)
    }
@@ -732,9 +728,9 @@ data ScheduleItem = ScheduleItem {
 --   but that the OCAT isn't updated.
 --
 data NonScienceObs = NonScienceObs {
-  nsName :: String             -- the STS has a string identifier; where does this come from?
+  nsName :: T.Text             -- the STS has a string identifier; where does this come from?
   , nsObsId :: ObsIdVal
-  , nsTarget :: String
+  , nsTarget :: TargetName
   , nsStartTime :: ChandraTime
   , nsTime :: TimeKS
   , nsRa :: RA
@@ -747,10 +743,9 @@ data NonScienceObs = NonScienceObs {
 -- | This is for debug purposes.
 instance Show NonScienceObs where
   show NonScienceObs{..} = 
-    concat [ "CAL: ", show (fromObsId nsObsId)
-           , " for ", show (_toKS nsTime)
-           , " ks at ", showCTime nsStartTime
-           ]
+    "CAL: " <> show (fromObsId nsObsId)
+    <> " for " <> show (_toKS nsTime)
+    <> " ks at " <> T.unpack (showCTime nsStartTime)
 
 -- | Is a chip on, off, or optional.
 --
@@ -761,7 +756,7 @@ instance Show NonScienceObs where
 data ChipStatus = ChipOn | ChipOff | ChipOpt1 | ChipOpt2 | ChipOpt3 | ChipOpt4 | ChipOpt5 | ChipD
   deriving Eq
 
-toChipStatus :: String -> Maybe ChipStatus
+toChipStatus :: T.Text -> Maybe ChipStatus
 toChipStatus s | s == "Y"  = Just ChipOn
                | s == "N"  = Just ChipOff
                | s == "D"  = Just ChipD
@@ -772,7 +767,7 @@ toChipStatus s | s == "Y"  = Just ChipOn
                | s == "O5" = Just ChipOpt5
                | otherwise = Nothing
 
-fromChipStatus :: ChipStatus -> String
+fromChipStatus :: ChipStatus -> T.Text
 fromChipStatus ChipOn   = "Y"
 fromChipStatus ChipOff  = "N"
 fromChipStatus ChipD    = "D"
@@ -814,9 +809,9 @@ fromConstraint Required     = 'Y'
 data ScienceObs = ScienceObs {
   soSequence :: Sequence -- TODO: DefaultKey Proposal ?
   , soProposal :: PropNum -- the proposal number
-  , soStatus :: String    -- use an enumeration
+  , soStatus :: T.Text    -- use an enumeration
   , soObsId :: ObsIdVal
-  , soTarget :: String
+  , soTarget :: TargetName
   , soStartTime :: ChandraTime
   , soApprovedTime :: TimeKS
   , soObservedTime :: Maybe TimeKS
@@ -828,8 +823,8 @@ data ScienceObs = ScienceObs {
 
   , soInstrument :: Instrument
   , soGrating :: Grating
-  , soDetector :: Maybe String   -- this is only available for archived obs
-  , soDataMode :: Maybe String -- use an enumeration; not available for HRC
+  , soDetector :: Maybe T.Text   -- this is only available for archived obs
+  , soDataMode :: Maybe T.Text -- use an enumeration; not available for HRC
 
   -- these are meaningless for HRC observations; in this case ChipStatus is set to ?
   , soACISI0 :: ChipStatus  
@@ -843,11 +838,8 @@ data ScienceObs = ScienceObs {
   , soACISS4 :: ChipStatus  
   , soACISS5 :: ChipStatus  
 
-    -- , soJointWith :: [(String, TimeKS)] -- could use an enumeration
-    -- UGH: hard coding the joint missions
-    --
     -- TODO: need to review to see if any new elements have been added
-  , soJointWith :: Maybe String
+  , soJointWith :: Maybe T.Text
   , soJointHST :: Maybe TimeKS
   , soJointNOAO :: Maybe TimeKS
   , soJointNRAO :: Maybe TimeKS
@@ -858,7 +850,7 @@ data ScienceObs = ScienceObs {
   , soJointSWIFT :: Maybe TimeKS
   , soJointNUSTAR :: Maybe TimeKS
 
-  , soTOO :: Maybe String -- contains values like "0-4" "4-15"; presumably #days for turn around
+  , soTOO :: Maybe T.Text -- contains values like "0-4" "4-15"; presumably #days for turn around
   , soRA :: RA
   , soDec :: Dec
   , soConstellation :: ConShort -- name of the constellation the observation is in  
@@ -886,7 +878,7 @@ data JointMission =
 -- Valid mappings for the mission names
 -- TODO: could use missionMap with logic like "check for
 -- all upper case" instead of this
-vmissionMap :: [(String, JointMission)]
+vmissionMap :: [(T.Text, JointMission)]
 vmissionMap =
   [ ("HST", HST)
   , ("NOAO", NOAO)
@@ -903,18 +895,15 @@ vmissionMap =
   , ("NUSTAR", NuSTAR)
   ]
 
-toMission :: String -> Maybe JointMission
+toMission :: T.Text -> Maybe JointMission
 toMission m = lookup m vmissionMap
 
 instance Parsable JointMission where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid mission name: " <> t
-    in maybe (Left emsg) Right (toMission tstr)
+  parseParam = helpParse "mission name" toMission
 
 -- Hmmm, lose the ability for the compiler to catch a missing
 -- value like this.
-missionMap :: [(JointMission, (String, String, H.AttributeValue))]
+missionMap :: [(JointMission, (T.Text, T.Text, H.AttributeValue))]
 missionMap =
   [ (HST, ("HST", "Hubble Space Telescope (HST)"
           , "https://www.nasa.gov/mission_pages/hubble/main/index.html"))
@@ -936,12 +925,12 @@ missionMap =
              , "http://www.nustar.caltech.edu/"))
   ]
 
-fromMission :: JointMission -> String
+fromMission :: JointMission -> T.Text
 fromMission m = case lookup m missionMap of
   Just x -> _1 x
   Nothing -> error "Internal error: missing mission fromMission"
 
-fromMissionLong :: JointMission -> String
+fromMissionLong :: JointMission -> T.Text
 fromMissionLong m = case lookup m missionMap of
   Just x -> _2 x
   Nothing -> error "Internal error: missing mission fromMissionLong"
@@ -952,7 +941,7 @@ fromMissionLong m = case lookup m missionMap of
 --
 fromMissionLongLink :: JointMission -> H.Html
 fromMissionLongLink m = case lookup m missionMap of
-  Just x -> let url = H.toValue ("/search/joint/" ++ _1 x)
+  Just x -> let url = H.toValue ("/search/joint/" <> _1 x)
             in (H.a H.! A.href url) (H.toHtml (_2 x))
   Nothing -> error "Internal error: missing mission fromMissionLongLink"
 
@@ -965,9 +954,9 @@ fromMissionAboutLink m = case lookup m missionMap of
 -- | Does the list of Joint-with observatories include
 --   the mission.
 --
-includesMission :: JointMission -> String -> Bool
+includesMission :: JointMission -> T.Text -> Bool
 includesMission m = case lookup m missionMap of
-  Just x -> isInfixOf (_1 x)
+  Just x -> T.isInfixOf (_1 x)
   Nothing -> error "Internal error: missing mission includesMission"
 
 -- | Convert the joint-with field into a list of missions.
@@ -976,11 +965,11 @@ includesMission m = case lookup m missionMap of
 --   i.e. there's no values like "CXO-HST,NRAO".
 --
 splitToMission ::
-  String
+  T.Text
   -> [JointMission]
 splitToMission term =
-  let cterm = if "CXO-" `isPrefixOf` term then drop 4 term else term
-      toks = splitOn "-" cterm
+  let cterm = if "CXO-" `T.isPrefixOf` term then T.drop 4 term else term
+      toks = T.splitOn "-" cterm
   in mapMaybe toMission toks
 
 
@@ -1016,34 +1005,31 @@ data OverlapObs =
 -- | Short form for constellation names (e.g. UMa for Ursa Major).
 --
 --   See <http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html>.
-newtype ConShort = ConShort { fromConShort :: String }
+newtype ConShort = ConShort { fromConShort :: T.Text }
   deriving (Eq, Ord)
 
 -- | Warning: there is no validation done on the input.
 instance IsString ConShort where
-  fromString = ConShort
+  fromString = ConShort . T.pack
 
-toConShort :: String -> Maybe ConShort
+toConShort :: T.Text -> Maybe ConShort
 toConShort k =
   let out = ConShort k
   in const out `fmap` lookup out constellationMap
 
 instance Parsable ConShort where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid Constellation name: " <> t
-    in maybe (Left emsg) Right (toConShort tstr)
+  parseParam = helpParse "Constellation name" toConShort
 
 -- | Long form for constellation names (e.g. Ursa Major),
 --   although there's no validation that the string is valid.
 --
 --   See <http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html>.
-newtype ConLong = ConLong { fromConLong :: String }
+newtype ConLong = ConLong { fromConLong :: T.Text }
   deriving Eq
 
 -- | There is no validation done on the input.
 instance IsString ConLong where
-  fromString = ConLong
+  fromString = ConLong . T.pack
 
 -- | This can fail if either the input is invalid or the mapping table
 --   is missing something.
@@ -1061,7 +1047,7 @@ getConstellationNameUnsafe con = fromMaybe (ConLong (fromConShort con)) (getCons
 --   abbreviations are left unchanged (so it's not really unsafe in the
 --   normal usage of Haskell).
 --
-getConstellationNameStr :: ConShort -> String
+getConstellationNameStr :: ConShort -> T.Text
 getConstellationNameStr = fromConLong . getConstellationNameUnsafe
 
 -- map from short to long form
@@ -1194,13 +1180,14 @@ getJointObs ScienceObs{..} =
 -- | This is for debug purposes.
 instance Show ScienceObs where
   show ScienceObs{..} = 
-    concat [ "Science: ", show (fromObsId soObsId)
-           , " ", soTarget
-           , " with "
-           , show soInstrument, "+", show soGrating
-           , " approved for ", show (_toKS soApprovedTime)
-           , " ks at ", showCTime soStartTime
-           ]
+    "Science: " <> show (fromObsId soObsId)
+    <> " " <> T.unpack soTarget
+    <> " with "
+    <> show soInstrument
+    <> "+"
+    <> show soGrating
+    <> " approved for " <> show (_toKS soApprovedTime)
+    <> " ks at " <> T.unpack (showCTime soStartTime)
 
 -- | Has the observation been archived? If so, we assume that the observational
 --   parameters we care about are not going to change. This may turn out to be
@@ -1209,15 +1196,24 @@ instance Show ScienceObs where
 isArchived :: ScienceObs -> Bool
 isArchived ScienceObs{..} = soStatus == "archived"
 
+-- | This could be an enumeration, but there's always the possibility
+--   that the set of values could change, so leave as is for now.
+--
+type PropCategory = T.Text
+
 -- | Store information on a proposal, obtained from the OCAT.
 data Proposal = Proposal {
   propNum :: PropNum
   -- , propSeqNum :: Sequence
-  , propName :: String
-  , propPI :: String
-  , propCategory :: String
-  , propType :: String -- could use an enumeration
-  , propCycle :: String -- ditto, this is the proposal cycle, not the observing cycle
+  , propName :: T.Text
+  , propPI :: T.Text
+  , propCategory :: PropCategory
+  , propType :: T.Text
+    -- TODO: change to use the PropType enumeration, but
+    -- that has implications on the database
+  , propCycle :: T.Text
+    -- Should this be an enumeration? It is "open ended",
+    -- in that there's no fixed end value.
   }
   -- deriving (Eq, Show)
   deriving Eq
@@ -1230,8 +1226,8 @@ instance Ord Proposal where
 instance Show Proposal where
   show Proposal{..} = 
     concat [ "Proposal: ", show (_unPropNum propNum)
-           , " ", propName
-           , " PI ", propPI
+           , " ", (T.unpack propName)
+           , " PI ", (T.unpack propPI)
            ]
 
 -- | Enumeration for the different proposal categories.
@@ -1245,7 +1241,7 @@ data PropType =
 
 -- | For now the conversion is case sensitive, and
 --   only supports the short-form.
-toPropType :: String -> Maybe PropType
+toPropType :: T.Text -> Maybe PropType
 toPropType "CAL" = Just CAL
 toPropType "DDT" = Just DDT
 toPropType "GO" = Just GO
@@ -1253,7 +1249,7 @@ toPropType "GTO" = Just GTO
 toPropType "TOO" = Just TOO
 toPropType _ = Nothing
 
-fromPropType :: PropType -> String
+fromPropType :: PropType -> T.Text
 fromPropType CAL = "CAL"
 fromPropType DDT = "DDT"
 fromPropType GO = "GO"
@@ -1261,12 +1257,9 @@ fromPropType GTO = "GTO"
 fromPropType TOO = "TOO"
 
 instance Parsable PropType where
-  parseParam t =
-    let tstr = LT.unpack t
-        emsg = "Invalid Proposal type: " <> t
-    in maybe (Left emsg) Right (toPropType tstr)
+  parseParam = helpParse "Proposal type" toPropType
 
-toPropTypeLabel :: PropType -> String
+toPropTypeLabel :: PropType -> T.Text
 toPropTypeLabel CAL = "Calibration Observation"
 toPropTypeLabel DDT = "Director's Discretionary Time"
 toPropTypeLabel GO = "Guest Observation"
@@ -1296,7 +1289,7 @@ data ConstrainedObs = ConstrainedObs {
 --   "Pec" is still unique, so internally things should
 --   be okay (unless there's parsing issues as well).
 --
-newtype SimbadType = SimbadType { fromSimbadType :: String }
+newtype SimbadType = SimbadType { fromSimbadType :: T.Text }
   deriving Eq
 
 -- TODO: need a converter to a URL fragment - e.g. '?' needs protecting!
@@ -1304,24 +1297,24 @@ newtype SimbadType = SimbadType { fromSimbadType :: String }
 
 -- | This constructor ensures that the type is three letters
 --   or less.
-toSimbadType :: String -> Maybe SimbadType
-toSimbadType s@[_] = Just (SimbadType s)
-toSimbadType s@[_,_] = Just (SimbadType s)
-toSimbadType s@[_,_,_] = Just (SimbadType s)
-toSimbadType _ = Nothing
-
--- | Identifies those sources for which we have no SIMBAD information.
-noSimbadLabel :: String
-noSimbadLabel = "Unidentified"
+toSimbadType :: T.Text -> Maybe SimbadType
+toSimbadType s | T.length s > 0 && T.length s < 4 = Just (SimbadType s)
+               | otherwise = Nothing
 
 noSimbadType :: SimbadType
 noSimbadType = SimbadType "000"
 
 instance Parsable SimbadType where
-  parseParam t = 
-    let tstr = LT.unpack t
-        emsg = "Invalid Simbad type: " <> t
-    in maybe (Left emsg) Right (toSimbadType tstr)
+  parseParam = helpParse "Simbad type" toSimbadType
+
+-- | TODO: Should this be an enumeration?
+--
+--   This is the "long form" of a SIMBAD type.
+type SIMCategory = T.Text
+
+-- | Identifies those sources for which we have no SIMBAD information.
+noSimbadLabel :: SIMCategory
+noSimbadLabel = "Unidentified"
 
 -- | Information on an object identifier, retrieved from SIMBAD.
 --
@@ -1340,9 +1333,9 @@ instance Parsable SimbadType where
 --   `SimbadMatch`.
 --
 data SimbadInfo = SimbadInfo {
-   smiName :: String        -- ^ the primary identifier for the object
-   , smiType3 :: SimbadType -- ^ short form identifier for siType
-   , smiType :: String      -- ^ the primary type of the object (long form)
+   smiName :: T.Text         -- ^ the primary identifier for the object
+   , smiType3 :: SimbadType  -- ^ short form identifier for siType
+   , smiType :: SIMCategory  -- ^ the primary type of the object (long form)
   }
   deriving Eq
 
@@ -1350,8 +1343,8 @@ data SimbadInfo = SimbadInfo {
 --   target name.
 --
 data SimbadMatch = SimbadMatch {
-    smmTarget :: String   -- ^ target name
-    , smmSearchTerm :: String   -- ^ value used for the simbad search
+    smmTarget :: TargetName   -- ^ target name
+    , smmSearchTerm :: T.Text   -- ^ value used for the simbad search
     , smmInfo :: DefaultKey SimbadInfo
     , smmLastChecked :: UTCTime
   }
@@ -1364,8 +1357,8 @@ deriving instance Eq SimbadMatch
 --   as a type?
 --
 data SimbadNoMatch = SimbadNoMatch {
-    smnTarget :: String   -- ^ target name
-    , smnSearchTerm :: String   -- ^ value used for the simbad search
+    smnTarget :: TargetName   -- ^ target name
+    , smnSearchTerm :: T.Text   -- ^ value used for the simbad search
     , smnLastChecked :: UTCTime
   }
   deriving Eq
@@ -1379,13 +1372,13 @@ type SimbadSearch = Either SimbadNoMatch SimbadMatch
 --   We do not use a simple edit distance comparison here
 --   since we do not want to equate 3C292 and 3C232.
 --
-similarName :: SimbadInfo -> String -> Bool
+similarName :: SimbadInfo -> T.Text -> Bool
 similarName SimbadInfo{..} target =
-  let conv = map toLower . filter (not . isSpace)
+  let conv = T.filter (not . isSpace) . T.toLower
   in ((==) `on` conv) target smiName
 
 -- | The short and long forms of the type information from SIMBAD.
-type SimbadTypeInfo = (SimbadType, String)
+type SimbadTypeInfo = (SimbadType, SIMCategory)
 
 {-
 -- | The Simbad name is used for ordering.
@@ -1658,15 +1651,16 @@ instance Show SimbadCode where
 simbadLabels :: [(SimbadCode, SimbadType, T.Text)]
 simbadLabels =
   let rowConv ((i1, i2, i3, i4), _, l2, l3) = do
-        sc <- toSC4 i1 i2 i3 i4
-        st <- maybe (Left ("Invalid SIMBAD type: " ++ l2)) Right (toSimbadType l2)
+        sc <- either (const Nothing) Just (toSC4 i1 i2 i3 i4)
+        -- st <- maybe (Left ("Invalid SIMBAD type: " <> l2)) Right (toSimbadType l2)
+        st <- toSimbadType l2
         return (sc, st, l3)
 
       check xs = if length xs == length stbl
                  then xs
                  else error "*internal error* converting SIMBAD table"
 
-      stbl :: [((Int, Int, Int, Int), String, String, T.Text)]
+      stbl :: [((Int, Int, Int, Int), T.Text, T.Text, T.Text)]
       stbl = 
         [
           ((00, 00, 00, 0), "Unknown", "?", "Object of unknown nature")
@@ -1910,7 +1904,7 @@ simbadLabels =
         , ((15, 15, 04, 0), "QSO", "QSO", "Quasar")
         ]
 
-  in check (rights (map rowConv stbl))
+  in check (mapMaybe rowConv stbl)
 
 
 -- | Return the matching code for the type.
@@ -1946,10 +1940,10 @@ simbadCodeToDesc sc =
 --   As there's no compile-time check that there's a match between
 --   the two, return a Maybe.
 --
-simbadTypeToDesc :: SimbadType -> Maybe String
+simbadTypeToDesc :: SimbadType -> Maybe T.Text
 simbadTypeToDesc stype =
   case dropWhile ((/= stype) . _2) simbadLabels of
-    ((_, _, txt):_) -> Just (T.unpack txt)
+    ((_, _, txt):_) -> Just txt
     [] -> Nothing
 
 
@@ -1989,21 +1983,25 @@ getSimbadParent SimbadCode{..} =
   
 -- | validate input arguments
 
-toSC4 :: Int -> Int -> Int -> Int -> Either String SimbadCode
+toSC4 :: Int -> Int -> Int -> Int -> Either T.Text SimbadCode
 toSC4 sc1 sc2 sc3 sc4 = do
   i1 <- ivalidate sc1 0 15 "1"
   i2 <- ivalidate sc2 0 15 "2"
   i3 <- ivalidate sc3 0 30 "3"
   i4 <- ivalidate sc4 0 11 "4"
-  let lvl = 4 - length (takeWhile (==True) (map (==0) [i4, i3, i2]))
+  let lvl = 4 - length (takeWhile (==0) [i4, i3, i2])
   return (SimbadCode i1 i2 i3 i4 lvl)
   
-ivalidate :: Int -> Int -> Int -> String -> Either String Int
+ivalidate :: Int -> Int -> Int -> T.Text -> Either T.Text Int
 ivalidate v minv maxv lbl =
   if v >= minv && v <= maxv
   then Right v
-  else Left ("Component " ++ lbl ++ " range " ++ show minv ++
-     " to " ++ show maxv ++ " sent " ++ show v)
+  else Left ("Component " <> lbl <> " range "
+             <> T.pack (show minv)
+             <> " to "
+             <> T.pack (show maxv)
+             <> " sent "
+             <> T.pack (show v))
 
 -- | Given a Simbad type, identify all the children
 --   of that type. The parent is not included in the
@@ -2043,9 +2041,9 @@ simbadBase SimbadCfA = "http://simbad.harvard.edu/simbad/"
 -- | Return a link to the SIMBAD site (Strasbourg) for this object.
 --
 -- TODO: need to protect the link
-toSIMBADLink :: SimbadLoc -> String -> String
+toSIMBADLink :: SimbadLoc -> TargetName -> T.Text
 toSIMBADLink sloc name =
-  let qry = [ ("Ident", B8.pack name)
+  let qry = [ ("Ident", encodeUtf8 name)
             -- , ("NbIdent", "1")
             -- , ("Radius", "2")
             -- , ("Radius.unit", "arcmin")
@@ -2054,7 +2052,7 @@ toSIMBADLink sloc name =
 
       qryB = renderSimpleQuery True qry
 
-  in B8.unpack (simbadBase sloc <> "sim-id" <> qryB)
+  in decodeUtf8 (simbadBase sloc <> "sim-id" <> qryB)
       
 -- * Groundhog instances
 --
@@ -2065,11 +2063,11 @@ readHelper :: Read a => PersistValue -> String -> a
 readHelper s errMessage = case s of
   PersistString str -> readHelper' str
   PersistByteString str -> readHelper' (B8.unpack str)
-  _ -> error $ "readHelper: " ++ errMessage
+  _ -> error ("readHelper: " <> errMessage)
   where
     readHelper' str = case reads str of
       (a, _):_ -> a
-      _        -> error $ "readHelper: " ++ errMessage
+      _        -> error ("readHelper: " <> errMessage)
 
 instance NeverNull ChandraTime
 instance NeverNull RA
@@ -2101,7 +2099,7 @@ instance PersistField ChandraTime where
   persistName _ = "ChandraTime"
   toPersistValues = primToPersistValue
   fromPersistValues = primFromPersistValue
-  dbType = _pType $ DbTypePrimitive DbDayTime False Nothing Nothing  
+  dbType = _pType (DbTypePrimitive DbDayTime False Nothing Nothing)
 
 instance PrimitivePersistField ChandraTime where
   toPrimitivePersistValue _ = PersistUTCTime . _toUTCTime
@@ -2135,19 +2133,19 @@ instance PersistField TimeKS where
 instance PrimitivePersistField RA where
   toPrimitivePersistValue _ = PersistDouble . _unRA
   fromPrimitivePersistValue _ (PersistDouble a) = RA a
-  fromPrimitivePersistValue _ (PersistInt64 a) = RA $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistInt64 a) = RA (fromIntegral a)
   fromPrimitivePersistValue _ x = readHelper x ("Expected RA (double), received: " ++ show x)
 
 instance PrimitivePersistField Dec where
   toPrimitivePersistValue _ = PersistDouble . _unDec
   fromPrimitivePersistValue _ (PersistDouble a) = Dec a
-  fromPrimitivePersistValue _ (PersistInt64 a) = Dec $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistInt64 a) = Dec (fromIntegral a)
   fromPrimitivePersistValue _ x = readHelper x ("Expected Dec (double), received: " ++ show x)
 
 instance PrimitivePersistField TimeKS where
   toPrimitivePersistValue _ = PersistDouble . _toKS
   fromPrimitivePersistValue _ (PersistDouble a) = TimeKS a
-  fromPrimitivePersistValue _ (PersistInt64 a) = TimeKS $ fromIntegral a
+  fromPrimitivePersistValue _ (PersistInt64 a) = TimeKS (fromIntegral a)
   fromPrimitivePersistValue _ x = readHelper x ("Expected TimeKS (double), received: " ++ show x)
 
 -- integer values
@@ -2200,20 +2198,20 @@ instance PersistField Sequence where
 
 instance PrimitivePersistField PropNum where
   toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unPropNum
-  fromPrimitivePersistValue _ (PersistInt64 a) = PropNum $ fromIntegral a
-  fromPrimitivePersistValue _ (PersistDouble a) = PropNum $ truncate a
+  fromPrimitivePersistValue _ (PersistInt64 a) = PropNum (fromIntegral a)
+  fromPrimitivePersistValue _ (PersistDouble a) = PropNum (truncate a)
   fromPrimitivePersistValue _ x = readHelper x ("Expected PropNum (Integer), received: " ++ show x)
 
 instance PrimitivePersistField Sequence where
   toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unSequence
-  fromPrimitivePersistValue _ (PersistInt64 a) = Sequence $ fromIntegral a
-  fromPrimitivePersistValue _ (PersistDouble a) = Sequence $ truncate a
+  fromPrimitivePersistValue _ (PersistInt64 a) = Sequence (fromIntegral a)
+  fromPrimitivePersistValue _ (PersistDouble a) = Sequence (truncate a)
   fromPrimitivePersistValue _ x = readHelper x ("Expected Sequence (Integer), received: " ++ show x)
 
 instance PrimitivePersistField ObsIdVal where
   toPrimitivePersistValue _ = PersistInt64 . fromIntegral . fromObsId
-  fromPrimitivePersistValue _ (PersistInt64 a) = ObsIdVal $ fromIntegral a
-  fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal $ truncate a
+  fromPrimitivePersistValue _ (PersistInt64 a) = ObsIdVal (fromIntegral a)
+  fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal (truncate a)
   fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
 
 -- enumeration/string-like types
@@ -2275,7 +2273,7 @@ instance PrimitivePersistField Instrument where
   toPrimitivePersistValue _ = PersistString . show
   fromPrimitivePersistValue _ (PersistString s) = read s
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " ++ show x)
+  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " <> show x)
 
 instance PrimitivePersistField Grating where
   {-
@@ -2285,27 +2283,29 @@ instance PrimitivePersistField Grating where
   toPrimitivePersistValue _ = PersistString . show
   fromPrimitivePersistValue _ (PersistString s) = read s
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " ++ show x)
+  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " <> show x)
 
 instance PrimitivePersistField ChipStatus where
   {-
   toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
   fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
   -}
-  toPrimitivePersistValue _ = PersistString . fromChipStatus
-  fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected chip status: " ++ s)) $ toChipStatus s
+  toPrimitivePersistValue _ = PersistString . T.unpack . fromChipStatus
+  fromPrimitivePersistValue _ (PersistString s) =
+    fromMaybe (error ("Unexpected chip status: " <> s)) (toChipStatus (T.pack s))
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error $ "Expected ChipStatus (String), received: " ++ show x
+  fromPrimitivePersistValue _ x = error ("Expected ChipStatus (String), received: " <> show x)
 
 instance PrimitivePersistField SimbadType where
   {-
   toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
   fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
   -}
-  toPrimitivePersistValue _ = PersistString . fromSimbadType
-  fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected Simbad Type: " ++ s)) $ toSimbadType s
+  toPrimitivePersistValue _ = PersistString . T.unpack . fromSimbadType
+  fromPrimitivePersistValue _ (PersistString s) =
+    fromMaybe (error ("Unexpected Simbad Type: " <> s)) (toSimbadType (T.pack s))
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error $ "Expected SimbadType (String), received: " ++ show x
+  fromPrimitivePersistValue _ x = error ("Expected SimbadType (String), received: " <> show x)
 
 instance PrimitivePersistField Constraint where
   {-
@@ -2315,21 +2315,22 @@ instance PrimitivePersistField Constraint where
   toPrimitivePersistValue _ a = PersistString [fromConstraint a]
 
   fromPrimitivePersistValue _ (PersistString s) = case s of
-    [c] -> fromMaybe (error ("Unexpected constraint value: " ++ s)) $ toConstraint c
-    _ -> error ("Unexpected constraint value: " ++ s)
+    [c] -> fromMaybe (error ("Unexpected constraint value: " <> s)) (toConstraint c)
+    _ -> error ("Unexpected constraint value: " <> s)
 
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error $ "Expected Constraint (1 character String), received: " ++ show x
+  fromPrimitivePersistValue _ x = error ("Expected Constraint (1 character String), received: " <> show x)
 
 instance PrimitivePersistField ConShort where
   {-
   toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
   fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
   -}
-  toPrimitivePersistValue _ = PersistString . fromConShort
-  fromPrimitivePersistValue _ (PersistString s) = fromMaybe (error ("Unexpected Constellation type: " ++ s)) $ toConShort s
+  toPrimitivePersistValue _ = PersistString . T.unpack . fromConShort
+  fromPrimitivePersistValue _ (PersistString s) =
+    fromMaybe (error ("Unexpected Constellation type: " <> s)) (toConShort (T.pack s))
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error $ "Expected ConShort (String), received: " ++ show x
+  fromPrimitivePersistValue _ x = error ("Expected ConShort (String), received: " <> show x)
 
 -- needed for persistent integer types
 

@@ -5,21 +5,21 @@
 module Views.Search.Constellation (indexPage, matchPage) where
 
 import qualified Prelude as P
-import Prelude (($), (==), String,
-                compare, fst, length, lookup, map, mapM_,
+import Prelude (($), (==),
+                compare, fst, length, lookup, mapM_,
                 show, otherwise)
 
--- import qualified Data.Aeson as Aeson
--- import qualified Data.ByteString.Lazy.Char8 as LB8
--- import qualified Data.Text as T
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy.Char8 as LB8
+import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
--- import Data.Aeson ((.=))
+import Data.Aeson ((.=))
 import Data.Function (on)
 -- import Data.Functor (void)
-import Data.List (intercalate, sortBy)
+import Data.List (sortBy)
 import Data.Maybe (isNothing)
 import Data.Monoid ((<>), mconcat)
 
@@ -68,12 +68,16 @@ matchPage ::
 matchPage con sched =
   let lbl = getConstellationNameStr con
       -- unlike other pages, need to send in additional information
-      jsLoad = "conInfo = {'shortName': '"
-               <> stringValue (fromConShort con)
-               <> "', 'longName': '"
-               <> stringValue (getConstellationNameStr con)
-               <> "'}; "
-               <> "createMap(obsinfo, conInfo);"
+
+      conInfo = Aeson.object
+                [ "shortName" .= fromConShort con
+                , "longName" .= getConstellationNameStr con
+                ]
+
+      jsTxt = "conInfo = " <> Aeson.encode conInfo
+              <> "; createMap(obsinfo, conInfo);"
+      jsLoad = toValue (LB8.unpack jsTxt)
+      
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observations in " <> H.toHtml lbl) <>
           defaultMeta
@@ -84,7 +88,7 @@ matchPage con sched =
     (body ! onload jsLoad)
      (mainNavBar CPExplore
       <> (div ! id "schedule") 
-          (renderMatches lbl sched)
+      (renderMatches lbl sched)
       <> renderFooter
      )
 
@@ -92,23 +96,21 @@ matchPage con sched =
 --
 --   TODO: convert the long version of SimbadType to a nice string (may want to send in SimbadType here to match on)
 renderMatches ::
-  String           -- ^ Constellation name
+  T.Text           -- ^ Constellation name
   -> Schedule      -- ^ non-empty list of matches
   -> Html
 renderMatches lbl (Schedule cTime _ done mdoing todo simbad) = 
   let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
       scienceTime = getScienceTime done mdoing todo
 
-      conLink cname =
+      conLink =
         let clean c | c == ' '  = '_'
                     | c == '\246'  = 'o' -- o umlaut
                     | otherwise = c
-            l = map clean cname
-        in mconcat
-           [ "http://www.astro.wisc.edu/~dolan/constellations/constellations/"
-           , toValue l
-           , ".html"
-           ]
+            l = T.map clean lbl
+        in "http://www.astro.wisc.edu/~dolan/constellations/constellations/"
+           <> toValue l
+           <> ".html"
 
   in div ! A.id "scheduleBlock" $ do
     h2 $ toHtml lbl
@@ -118,7 +120,7 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) =
     -- TODO: improve English here
     p $ mconcat
         [ "This page shows Chandra observations of objects in the constellation "
-        , (a ! href (conLink lbl)) (toHtml lbl)
+        , (a ! href conLink) (toHtml lbl)
         , scienceTime
         , ". The constellation outline is also shown; the outlines "
         , "were taken from the "
@@ -160,7 +162,7 @@ renderList cons =
              <> toHtml (P.head missing)
         nm -> "and is missing " <> toHtml (show nm)
               <> " constellations: "
-              <> toHtml (intercalate "," missing)
+              <> toHtml (T.intercalate "," missing)
 
       {-
       dataRow (cs, texp) =

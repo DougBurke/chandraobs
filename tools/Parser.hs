@@ -39,9 +39,12 @@ example
 
 module Parser (parseSTS, testParser) where
 
+import qualified Data.Text as T
+
 import Data.Char (digitToInt, isSpace)
 import Data.Functor (void)
 import Data.List (intercalate)
+import Data.Monoid ((<>))
 
 import Text.Parsec
 
@@ -188,7 +191,7 @@ calLine :: Parser STS
 calLine = do
   sep4
   name <- lexeme (count 5 anyChar)
-  void $ string "CAL-ER ("
+  void (string "CAL-ER (")
   obsid <- parseInt
   lexeme (void (string ")"))  -- err, why not void (lexeme (string))
   start <- parseTime
@@ -214,9 +217,9 @@ calLine = do
         }
 
       ns = NonScienceObs {
-        nsName = name
+        nsName = T.pack name
         , nsObsId = ObsIdVal obsid
-        , nsTarget = "CAL-ER (" ++ show obsid ++ ")"
+        , nsTarget = T.pack ("CAL-ER (" <> show obsid <> ")")
         , nsStartTime = t1
         , nsTime = tks
         , nsRa = RA ra

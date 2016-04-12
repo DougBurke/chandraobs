@@ -10,13 +10,14 @@ module Views.Render ( makeSchedule
 import Prelude ((.), ($), (==), (-), (+), Int, Integer, Either(..), Maybe(..), Show, String, map, mapM_, maybe, return, show, truncate)
 
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
+
 -- import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Bits (shiftL)
 import Data.Functor (void)
 import Data.List (foldl', intercalate, intersperse)
-import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -27,7 +28,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
-             , SimbadInfo(..), Record)
+             , SimbadInfo(..), Record, TargetName)
 import Types (recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
              , showExp, toMission)
@@ -56,9 +57,9 @@ idLabel = ("i" <>) . show . fromObsId . recordObsId
 --
 --   TODO: do I need to add in a sortvalue for the column?
 --
-makeJointLinks :: String -> Html
+makeJointLinks :: T.Text -> Html
 makeJointLinks jw =
-  let toks = splitOn "+" (cleanJointName jw)
+  let toks = T.splitOn "+" (cleanJointName jw)
       conv m = maybe (toHtml m) jointLinkSearch
                (toMission m)
       ms = map conv toks
@@ -76,7 +77,7 @@ makeSchedule ::
   -> [Record]      -- observations in the past
   -> Maybe Record  -- the current observation (if there is one)
   -> [Record]      -- observations in the future
-  -> M.Map String SimbadInfo
+  -> M.Map TargetName SimbadInfo
   -- Target information (may be empty)
   -> (Html, Html)  -- ("graph", table)
 makeSchedule cTime done mdoing todo simbad =

@@ -147,6 +147,7 @@ executable initdb
      , groundhog-postgresql
      , parsec == 3.1.*
      , template-haskell >= 2.8 && < 3.0
+     , text
      , time
      , transformers
 
@@ -202,6 +203,7 @@ executable querysimbad
      , network
      , monad-logger
      , split
+     , text
      , time
      , transformers
 

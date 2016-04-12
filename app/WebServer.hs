@@ -384,7 +384,7 @@ webapp cm mgr = do
 
           -- remove the object that would be created by the
           -- ToJSON instance of SimbadType
-          toPair (k, v) = T.pack k .= fromSimbadType v
+          toPair (k, v) = k .= fromSimbadType v
           symbols = map toPair simKeys
           
           -- Need to provide unique numeric identifiers than
@@ -423,7 +423,7 @@ webapp cm mgr = do
             let ts = map _toKS (fromSL vals)
                 allTime = showExpTime (TimeKS (sum ts))
             in 
-              T.pack cyc .= object
+              cyc .= object
               [ "cycle" .= cyc
               , "units" .= ("ks" :: T.Text)
               , "length" .= length ts

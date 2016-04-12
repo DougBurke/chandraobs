@@ -45,10 +45,10 @@ module Utils (
      , getNumObs
      , getScienceExposure
      , getScienceTime
+     , dquote
      ) where
 
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
@@ -62,7 +62,7 @@ import Control.Applicative ((<$>))
 
 import Data.Char (intToDigit)
 import Data.Either (rights)
-import Data.List (foldl', isPrefixOf)
+import Data.List (foldl')
 import Data.Maybe (fromJust, fromMaybe, isJust)
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -70,6 +70,8 @@ import Data.Monoid ((<>), mconcat, mempty)
 #else
 import Data.Monoid ((<>))
 #endif
+
+import Data.Text.Encoding (encodeUtf8)
 
 import Network.HTTP.Types.URI (encodePath
                               , encodePathSegments
@@ -96,9 +98,10 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , Instrument(..)
              , ChipStatus(..)
              , Proposal(..)
-             , PropType
+             , PropType, PropCategory
              , Record
              , JointMission
+             , TargetName
              , recordObsId, recordTarget, recordStartTime
              , recordTime, futureTime
              , getJointObs, getConstellationName
@@ -257,15 +260,15 @@ obsIdLink ObsIdVal{..} =
 
 seqLink :: ObsIdVal -> H.AttributeValue
 seqLink ObsIdVal{..} =
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" ++ show fromObsId
+  H.toValue ("http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" <> show fromObsId)
 
 detailsLink, abstractLink :: ObsIdVal -> H.AttributeValue
 detailsLink = obsIdLink
 abstractLink ObsIdVal{..} = 
-  H.toValue ("http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" ++ show fromObsId)
+  H.toValue ("http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" <> show fromObsId)
 
 jointLink :: JointMission -> H.AttributeValue
-jointLink jm = H.toValue ("/search/joint/" ++ fromMission jm)
+jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
 
 -- | Create a link to the mission.
 jointLinkSearch :: JointMission -> H.Html
@@ -277,8 +280,8 @@ jointLinkSearch jm =
 --   since I have seen two cases of "CXO-HST". Presumably this
 --   is for time awarded by the other facility (e.g. HST).
 --
-cleanJointName :: String -> String
-cleanJointName j = if "CXO-" `isPrefixOf` j then drop 4 j else j 
+cleanJointName :: T.Text -> T.Text
+cleanJointName j = if "CXO-" `T.isPrefixOf` j then T.drop 4 j else j 
 
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.
@@ -348,12 +351,12 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       cvals = [soTimeCritical, soMonitor, soConstrained]
       constraintElems =
         let f (k,v) = keyVal k (cToL v)
-        in mconcat $ map f $ filter ((/= NoConstraint) . snd) $ zip clbls cvals
+        in mconcat (map f (filter ((/= NoConstraint) . snd) (zip clbls cvals)))
 
       conLink con = 
-        let uri = H.toValue $ "/search/constellation/" ++ fromConShort con
+        let uri = H.toValue ("/search/constellation/" <> fromConShort con)
         in case getConstellationName con of
-          Just ln -> return $ (H.a H.! A.href uri) $ H.toHtml $ fromConLong ln
+          Just ln -> Just ((H.a H.! A.href uri) (H.toHtml (fromConLong ln)))
           _ -> Nothing
         
       too = maybe mempty (keyVal "TOO:" . H.toHtml) soTOO
@@ -387,10 +390,11 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
             plink n = propTypeLink n Nothing
             ptype = maybe p0 plink (toPropType propType)
         in 
-          keyVal "Proposal:" $ mconcat [
-          "Cycle ", H.toHtml propCycle, ", ", ptype, ", "
-          , categoryLinkSearch propCategory propCategory
-          ]
+          keyVal "Proposal:"
+          ("Cycle " <> H.toHtml propCycle <> ", "
+           <> ptype <> ", "
+           <> categoryLinkSearch propCategory propCategory
+          )
 
       simbadInfo SimbadInfo {..} =
         keyVal "SIMBAD Type:" (typeDLinkSearch smiType3 smiType)
@@ -541,10 +545,14 @@ facts = [
 linkToRecord :: Record -> H.Html
 linkToRecord = linkToRecordA recordTarget
 
-linkToRecordA :: (Record -> String) -> Record -> H.Html
+linkToRecordA ::
+  H.ToMarkup a
+  => (Record -> a)
+  -> Record
+  -> H.Html
 linkToRecordA f r = 
-  let uri = obsURI $ recordObsId r
-  in H.a H.! A.href uri $ H.toHtml $ f r
+  let uri = obsURI (recordObsId r)
+  in (H.a H.! A.href uri) (H.toHtml (f r))
 
 -- | The standard footer; needs to match up with the html files in static/.
 renderFooter :: H.Html
@@ -553,7 +561,7 @@ renderFooter =
     mconcat [
       "The 'What is Chandra doing now?' web site is written "
       , "by "
-      , H.a H.! A.href "http://twitter.com/doug_burke" $ "@doug_burke"
+      , (H.a H.! A.href "http://twitter.com/doug_burke") "@doug_burke"
       , ", comes with no warranty (in other words, I make no "
       , "guarantee that the information presented is correct, although "
       , "I try my best to make sure it is), and is not "
@@ -611,19 +619,24 @@ igLinkAbout = (H.a H.! A.href "/about/instruments.html") "Chandra instruments"
 -}
 
 -- | Add in a link to the constellation search page.
-constellationLinkSearch :: ConShort -> String -> H.Html
+constellationLinkSearch ::
+  H.ToMarkup a
+  => ConShort
+  -> a
+  -- ^ The link text
+  -> H.Html
 constellationLinkSearch con lbl = 
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
   in (H.a H.! A.href iLink) (H.toHtml lbl)
 
 typeLinkURI :: SimbadType -> B.ByteString
 typeLinkURI st =
-  let uri = ["search", "type", T.pack (fromSimbadType st)]
+  let uri = ["search", "type", fromSimbadType st]
   in toByteString (encodePathSegments uri)
 
 typeDLinkURI :: SimbadType -> B.ByteString
 typeDLinkURI st =
-  let uri = ["search", "dtype", T.pack (fromSimbadType st)]
+  let uri = ["search", "dtype", fromSimbadType st]
   in toByteString (encodePathSegments uri)
   
 -- | Add in a link to the object-type search page.
@@ -631,12 +644,20 @@ typeDLinkURI st =
 --  Note that we take care to encode the path because of special
 --  characters in the Simbad type (in particular, '?').
 --
-typeLinkSearch :: SimbadType -> String -> H.Html
+typeLinkSearch ::
+  H.ToMarkup a
+  => SimbadType
+  -> a
+  -> H.Html
 typeLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeLinkURI st)
   in (H.a H.! A.href iLink) (H.toHtml lbl)
 
-typeDLinkSearch :: SimbadType -> String -> H.Html
+typeDLinkSearch ::
+  H.ToMarkup a
+  => SimbadType
+  -> a
+  -> H.Html
 typeDLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
   in (H.a H.! A.href iLink) (H.toHtml lbl)
@@ -651,25 +672,29 @@ basicTypeLinkSearch (Just s) =
   in typeLinkSearch s txt
 
 -- | Add in a link to the obervation category search page.
-categoryLinkSearch :: String -> String -> H.Html
+categoryLinkSearch ::
+  H.ToMarkup a
+  => PropCategory
+  -> a
+  -> H.Html
 categoryLinkSearch cat lbl = 
   let iLink = "/search/category/" <> H.toValue cat
   in (H.a H.! A.href iLink) (H.toHtml lbl)
 
 -- | Link to a proposal type.
-propTypeLink :: PropType -> Maybe String -> H.Html
+propTypeLink :: PropType -> Maybe T.Text -> H.Html
 propTypeLink propType mlbl =
   let lbl = fromMaybe (toPropTypeLabel propType) mlbl
       pLink = "/search/proptype/" <> H.toValue (fromPropType propType)
   in (H.a H.! A.href pLink) (H.toHtml lbl)
 
 -- | Add a link to the name-search for an object.
-nameLinkSearch :: String -> H.Html
+nameLinkSearch :: TargetName -> H.Html
 nameLinkSearch name =
   let uriBS = toByteString (encodePath ["search", "name"] qry)
       uri = H.unsafeByteStringValue uriBS
       -- be explicit that query has a value
-      qry = simpleQueryToQuery [("target", B8.pack name)]
+      qry = simpleQueryToQuery [("target", encodeUtf8 name)]
   in (H.a H.! A.href uri) (H.toHtml name)
     
 maybeToList :: Maybe a -> [a]
@@ -717,4 +742,10 @@ getScienceTime done mdoing todo =
      then mempty
      else ", and the total science exposure time for these observations is "
           <> H.toHtml (showExpTime etime)
-     
+
+ldquo, rdquo :: H.Html
+ldquo = H.preEscapedToHtml ("&ldquo;" :: T.Text)
+rdquo = H.preEscapedToHtml ("&rdquo;" :: T.Text)
+
+dquote :: H.Html -> H.Html
+dquote txt = ldquo <> txt <> rdquo

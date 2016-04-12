@@ -6,7 +6,7 @@ module Views.Search.PropType (indexPage, matchPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (Int, Maybe(Nothing), String, (.), ($), compare, fst)
+import Prelude (Int, Maybe(Nothing), (.), ($), compare, fst)
 
 import qualified Data.Map.Strict as M
 
@@ -30,7 +30,9 @@ import Utils (defaultMeta, skymapMeta, renderFooter
              , cssLink
              , propTypeLink
              , getScienceTime
-             , getNumObs)
+             , getNumObs
+             , dquote
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -133,9 +135,7 @@ identifyType TOO =
      <> sup "1"
      <> " that can be predicted (in that, a proposal can be written to "
      <> "say that targets will be observed, and the "
-     <> preEscapedToHtml ("&ldquo;"::String)
-     <> "trigger conditions"
-     <> preEscapedToHtml ("&rdquo;"::String)
+     <> dquote "trigger conditions"
      <> " that say when the observations can be taken are defined) "
      <> "even if the targets themselves are unknown at the time the "
      <> "proposal is written."

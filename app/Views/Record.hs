@@ -12,8 +12,9 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, drop, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
+import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
 
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -22,7 +23,7 @@ import Control.Arrow ((&&&))
 
 import Data.Char (toLower)
 import Data.Function (on)
-import Data.List (groupBy, intersperse, isPrefixOf)
+import Data.List (groupBy, intersperse)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -30,22 +31,24 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), NonScienceObs(..), 
-              SimbadInfo(..),
-              Proposal(..),
-              Grating(..), TimeKS(..),
-              ObsInfo(..), ObsStatus(..),
-              ChandraTime(..), Constraint(..),
-              ConLong(..),
-              SimbadLoc(SimbadCfA),
-              SortedList, StartTimeOrder
-              , fromSL, lengthSL
-              , getObsStatus, toSIMBADLink
-              , getJointObs
-              , getConstellationName
-              , similarName
-              , toMission, fromMissionLongLink
-              )
+import Types (ScienceObs(..), NonScienceObs(..)
+             , SimbadInfo(..)
+             , Proposal(..)
+             , Grating(..), TimeKS(..)
+             , ObsInfo(..), ObsStatus(..)
+             , ChandraTime(..), Constraint(..)
+             , ConLong(..)
+             , SimbadLoc(SimbadCfA)
+             , SortedList, StartTimeOrder
+             , TargetName, SIMCategory
+             , fromSL, lengthSL
+             , getObsStatus
+             , toSIMBADLink
+             , getJointObs
+             , getConstellationName
+             , similarName
+             , toMission, fromMissionLongLink
+             )
 import Types (Record, recordObsId, showExpTime)
 import Utils ( 
              abstractLink, defaultMeta, jsScript, cssLink
@@ -190,7 +193,7 @@ obsNavBar mObs ObsInfo{..} =
 --   There is a special case if they all have the same name as the supplied
 --   target name.
 groupProposal ::
-  String
+  TargetName
   -> SortedList StartTimeOrder ScienceObs
   -> Html
 groupProposal tName matches =
@@ -213,11 +216,13 @@ groupProposal tName matches =
 --   changes the "Region defined in the sky" type.
 --
 --   It also includes 'a ...' or 'an ...'.
-cleanupSIMBADType :: String -> String
-cleanupSIMBADType [] = []
-cleanupSIMBADType "Region defined in the sky" = "an area of the sky" 
-cleanupSIMBADType s@(c:_) | toLower c `elem` vowels = "an " ++ s
-                          | otherwise               = "a " ++ s
+cleanupSIMBADType :: SIMCategory -> SIMCategory
+cleanupSIMBADType s | s == "Region defined in the sky" = "an area of the sky"
+                    | otherwise =
+                      case T.uncons s of
+                        Nothing -> s
+                        Just (c, _) | toLower c `elem` vowels -> "an " <> s
+                        _ -> "a " <> s
 
 -- Giving an explicit type is needed in GHC 7.10     
 vowels :: String
@@ -271,8 +276,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
               term _ = "a custom sub array "
           in if frac == 1
              then mempty -- this should not happen
-             else mconcat [ "The source is so bright in X-rays that ", term frac,
-                            verb, " used for the observation. " ]
+             else "The source is so bright in X-rays that " <> term frac
+                  <> verb <> " used for the observation. "
         _ -> mempty
 
       hasSimbad = isJust msimbad
@@ -282,15 +287,13 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         let slink = H.toValue (toSIMBADLink sloc smiName)
             sloc = SimbadCfA  -- TODO: allow configurable, either by the app, or
                               --       by the user
-        in mconcat [
-              " is "
-              , typeLinkSearch smiType3 (cleanupSIMBADType smiType)
-              , ". "
-              , subArrayTxt
-              , "More information on the target can be found at "
-              , a ! href slink $ "SIMBAD"
-              , ". "
-              ]
+        in " is "
+           <> typeLinkSearch smiType3 (cleanupSIMBADType smiType)
+           <> ". "
+           <> subArrayTxt
+           <> "More information on the target can be found at "
+           <> (a ! href slink) "SIMBAD"
+           <> ". "
 
       abstxt = case obsStatus of
                  Unscheduled -> "is planned to be observed"
@@ -298,9 +301,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                  Doing -> "is being observed"
                  Done -> "was observed"
 
-      endSentence [] = "." -- should not happen
-      endSentence s = let lchar = P.last s
-                      in if lchar `elem` endChars then mempty else "."
+      endSentence s | T.null s = "." -- should not happen
+                    | otherwise = let lchar = T.last s
+                                  in if lchar `elem` endChars then mempty else "."
 
       -- Need to specify a type in GHC 7.10
       endChars :: String
@@ -334,13 +337,13 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       --
       -- TOOO: link to a description of what a TOO is.
       --
-      tooTxt :: ObsStatus -> String -> Html
+      tooTxt :: ObsStatus -> a -> Html
       tooTxt Done _ = 
         p "This was a TOO (target of opportunity) observation."
       tooTxt _ _ = 
         p "This is a TOO (target of opportunity) observation."
 
-      tooPara = fromMaybe mempty $ tooTxt obsStatus <$> soTOO
+      tooPara = fromMaybe mempty (tooTxt obsStatus <$> soTOO)
 
       cts Unscheduled =
         mconcat [ "The target - "
@@ -446,8 +449,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       --
       jointObs = case soJointWith of
         Just jName ->
-          if "CXO-" `isPrefixOf` jName
-          then otherMission (drop 4 jName) <> " "
+          if "CXO-" `T.isPrefixOf` jName
+          then otherMission (T.drop 4 jName) <> " "
           else jointMission <> " "
         Nothing -> mempty
 

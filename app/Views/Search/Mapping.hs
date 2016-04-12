@@ -11,6 +11,7 @@ module Views.Search.Mapping (indexPage) where
 -- import qualified Prelude as P
 import Prelude (($), Maybe(Nothing), String)
 
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -23,6 +24,7 @@ import Utils (defaultMeta, d3Meta, renderFooter
              , jsScript, cssLink
              , basicTypeLinkSearch
              , categoryLinkSearch
+             , dquote
              )
 import Views.Record (CurrentPage(..), mainNavBar)
 
@@ -68,12 +70,10 @@ renderMatches =
        , "way I match them up (and this is in large part because the target name "
        , "field created by the observers is not designed for machine lookups, but "
        , "for the observer), and these have been assigned to the "
-       , preEscapedToHtml ("&ldquo;"::String)
-       , basicTypeLinkSearch Nothing
-       , preEscapedToHtml ("&rdquo;"::String)
+       , dquote (basicTypeLinkSearch Nothing)
        , " category; as you can see, there are a lot of them! "
        , "This group also contains all the "
-       , categoryLinkSearch "SOLAR SYSTEM" "Solar System"
+       , categoryLinkSearch "SOLAR SYSTEM" ("Solar System" :: T.Text)
        , " observations, since SIMBAD does not include solar-system objects in its "
        , "database. "
        ])

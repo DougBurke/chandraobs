@@ -29,18 +29,16 @@
 --
 
 
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as L8
 -- import qualified Data.Map as M
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Data.Set as S
 
 import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (MonadIO)
 
-import Data.Char (toLower)
 import Data.Functor (void)
-import Data.List (isPrefixOf)
-import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -49,6 +47,7 @@ import Data.Monoid ((<>), mconcat)
 import Data.Monoid ((<>))
 #endif
 
+import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql
@@ -63,7 +62,7 @@ import System.IO (hPutStrLn, stderr)
 import Database (insertSimbadInfo
                 , insertSimbadMatch
                 , insertSimbadNoMatch
-                , putIO
+                , putTIO
                 , runDb)
 import Types
 
@@ -71,10 +70,10 @@ import Types
 --
 --   NAME xxx -> xxx (seen with NAME Chandra Deep Field South)
 --
-cleanupName :: String -> String
+cleanupName :: T.Text -> T.Text
 cleanupName s =
-  if "NAME " `isPrefixOf` s
-  then drop 5 s
+  if "NAME " `T.isPrefixOf` s
+  then T.drop 5 s
   else s
 
 -- | Convert the target field into the value to search
@@ -106,30 +105,31 @@ cleanupName s =
 --   to deal with names that include nebula or filament
 --   that potentially could be a valid identifier.
 --
-cleanTargetName :: String -> String
+cleanTargetName :: TargetName -> TargetName
 cleanTargetName tgt =
-  let lc = map toLower
-  in case words tgt of
+  let lc = T.toLower
+  in case T.words tgt of
     [] -> ""
-    [n] | lc n == "arlac" -> "Ar Lac"
+    [n] | lc n == "arlac" -> "Ar Lac" -- Special case a name used by CAL
     toks -> let (ltok:rtoks) = reverse toks
 
+                -- Remove last token, if necessary
                 lltok = lc ltok
                 toks2 = if (lltok `elem` compassDirs) ||
-                           ("hrc-" `isPrefixOf` lltok)
+                           ("hrc-" `T.isPrefixOf` lltok)
                         then reverse rtoks
                         else toks
 
-                isSkip x = any (`isPrefixOf` lc x) ["offset", "outskirt"]
+                isSkip x = any (`T.isPrefixOf` lc x) ["offset", "outskirt"]
                 toks3 = takeWhile (not . isSkip) toks2
 
                 (ltok3:rtoks3) = reverse toks3
                 toks4 = if ltok3 == "-" then reverse rtoks3 else toks3
                 
-            in unwords toks4
+            in T.unwords toks4
 
 -- | Compass directions to remove (in lower case).
-compassDirs :: [String]
+compassDirs :: [T.Text]
 compassDirs = ["ne", "se", "sw", "nw"
               , "north", "east", "south", "west"
               , "northeast", "southeast", "northwest", "southwest"]
@@ -150,19 +150,20 @@ compassDirs = ["ne", "se", "sw", "nw"
 -- object name, search term, and time of search; used to 
 -- create the SimbadMatch/NoMatch fields, since SimbadMatch
 -- requires the database key to create
-type SearchResults = (String, String, UTCTime)
+type SearchResults = (TargetName, T.Text, UTCTime)
 
 querySIMBAD ::
   SimbadLoc
-  -> Bool    -- ^ @True@ for debug output
-  -> String  -- ^ object name
+  -> Bool        -- ^ @True@ for debug output
+  -> TargetName  -- ^ object name
   -> IO (SearchResults, Maybe SimbadInfo)
 querySIMBAD sloc f objname = do
-  putStrLn ("Querying SIMBAD for " ++ objname)
+  T.putStrLn ("Querying SIMBAD for " <> objname)
   let -- we POST the script to SIMBAD
-      script = mconcat [
-                 "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
-                 , "query id ", BS8.pack searchTerm, "\n" ]
+      script = "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
+               <> "query id "
+               <> encodeUtf8 searchTerm
+               <> "\n"
 
       uri = simbadBase sloc <> "sim-script"
 
@@ -179,16 +180,17 @@ querySIMBAD sloc f objname = do
 
   mgr <- newManager tlsManagerSettings
   rsp <- httpLbs req' mgr
-  let body = L8.unpack (responseBody rsp)
+  let body = decodeUtf8 (L8.toStrict (responseBody rsp))
+  
       -- TODO: need to handle data that does not match expectations
       --       eg if there's an error field, display it and return nothing ...
       dropUntilNext c = drop 1 . dropWhile (not . c)
-      ls = dropWhile null $ dropUntilNext ("::data::" `isPrefixOf`) (lines body)
+      ls = dropWhile T.null $ dropUntilNext (("::data::" :: T.Text) `T.isPrefixOf`) (T.lines body)
 
-  when f (putStrLn ">> Response:" >> putStrLn body >> putStrLn ">> object info:" >> print ls)
+  when f (putStrLn ">> Response:" >> T.putStrLn body >> putStrLn ">> object info:" >> print ls)
   let rval = listToMaybe ls >>= parseObject 
   -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) (putStrLn " -- no match found" >> putStrLn " -- response:" >> putStrLn body)
+  when (isNothing rval) (putStrLn " -- no match found" >> putStrLn " -- response:" >> T.putStrLn body)
 
   let searchRes = (objname, searchTerm, cTime)
 
@@ -205,14 +207,15 @@ querySIMBAD sloc f objname = do
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
-parseObject :: String -> Maybe (String, SimbadType, String)
+parseObject :: T.Text -> Maybe (TargetName, SimbadType, SIMCategory)
 parseObject txt = 
-  let toks = splitOn "\t" txt
+  let toks = T.splitOn "\t" txt
       toT s = fromMaybe
-              (error ("Simbad Type > 3 characters! <" ++ s ++ ">"))
+              (error ("Simbad Type > 3 characters! <" <> T.unpack s <> ">"))
               (toSimbadType s)
   in case toks of
-    [name, otype3, otype, _] -> Just (cleanupName name, toT otype3, otype)
+    [name, otype3, otype, _] ->
+      Just (cleanupName name, toT otype3, otype)
     _ -> Nothing
 
 slen :: [a] -> String
@@ -250,8 +253,8 @@ groupSorted ((a,b):xs) = go a [b] [] xs
 
 -}
 
-blag :: (MonadIO m) => Bool -> String -> m ()
-blag f = when f . putIO
+blagT :: (MonadIO m) => Bool -> T.Text -> m ()
+blagT f = when f . putTIO
 
 -- | The flag is @True@ to get debug output from the @querySIMBAD@ calls.
 --
@@ -326,9 +329,9 @@ updateDB sloc f = withSocketsDo $ do
       let tname = _2 searchRes
       runDb $ case minfo of
                Just si -> do
-                          blag f (">> inserting SimbadInfo for " ++ smiName si)
+                          blagT f (">> inserting SimbadInfo for " <> smiName si)
                           (key, cleanFlag) <- insertSimbadInfo si
-                          blag f (">> and SimbadMatch with target=" ++ tname)
+                          blagT f (">> and SimbadMatch with target=" <> tname)
                           void (insertSimbadMatch (toM searchRes key))
 
                           -- TODO: is this correct?
@@ -336,7 +339,7 @@ updateDB sloc f = withSocketsDo $ do
                             (delete (SmnTargetField ==. smiName si))
       
                _ -> do
-                 blag f (">> Inserting SimbadNoMatch for target=" ++ tname)
+                 blagT f (">> Inserting SimbadNoMatch for target=" <> tname)
                  void (insertSimbadNoMatch (toNM searchRes))
                  return ()
 

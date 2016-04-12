@@ -175,7 +175,7 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import qualified Data.Set as S
--- import qualified Data.Text as T
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -189,7 +189,9 @@ import Control.Monad.Logger (NoLoggingT)
 import Data.Char (ord)
 import Data.Either (isLeft, rights)
 import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Monoid ((<>))
 import Data.Word (Word8)
+import Data.Text.Encoding (decodeUtf8')
 
 import Database.Groundhog.Postgresql
 
@@ -198,7 +200,7 @@ import Network.HTTP.Conduit
 
 import System.Environment (getArgs, getEnv, getProgName)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
-import System.IO (hFlush, hGetLine, hPutStrLn, stderr)
+import System.IO (hFlush, hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempFile)
 -- import System.Process (readProcessWithExitCode, system)
 import System.Process (system)
@@ -231,11 +233,12 @@ import Types
 -- | Assume that TYPE=ER in the OCAT means that this is a
 --   non-science observation, otherwise it is a science one.
 --
-nonScienceType :: String
+nonScienceType :: T.Text
 nonScienceType = "ER"
 
 isScienceObsE :: OCAT -> Either String Bool
-isScienceObsE m = toStringE m "TYPE" >>= \ans -> return (ans /= nonScienceType)
+isScienceObsE m =
+  toTextE m "TYPE" >>= \ans -> return (ans /= nonScienceType)
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 -- make it easy to compile on different systems for now
@@ -247,8 +250,8 @@ readsTime = readSTime True
 getObsCatQuery :: ObsIdVal -> String
 getObsCatQuery oid = 
   let oi = show (fromObsId oid)
-  in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid=" ++
-     oi ++ "&format=text"
+  in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid="
+     <> oi <> "&format=text"
 
 -- | Return the constellation name for this position. The code exits if
 --   there is a problem running prop_precess.
@@ -266,27 +269,30 @@ getConstellation ra dec = do
     withSystemTempFile "out.constellation" $ \outName outHdl -> do
       let long = _unRA ra
           lat = _unDec dec
-          coords = show long ++ " " ++ show lat
-          cstr = "prop_precess from j/deg to con p0: " ++ inName ++
-                 ": " ++ outName
+          coords = T.pack (show long) <> " " <> T.pack (show lat)
+          cstr = "prop_precess from j/deg to con p0: "
+                 <> inName <> ": " <> outName
 
-          full = ". " ++ path ++ "/bin/ciao.bash > /dev/null; " ++
-                 cstr ++ " > /dev/null"
+          full = ". " <> path <> "/bin/ciao.bash > /dev/null; "
+                 <> cstr <> " > /dev/null"
       
-      hPutStrLn inHdl coords
+      T.hPutStrLn inHdl coords
       hFlush inHdl
       
       rval <- system full
       when (rval /= ExitSuccess) $ do
-        let estr = "ERROR: unable to run prop_precess on " ++
-                   coords ++ "\n  " ++ cstr ++ "\n"
-        hPutStrLn stderr estr
+        let estr = "ERROR: unable to run prop_precess on "
+                   <> coords <> "\n  " <> T.pack cstr <> "\n"
+        T.hPutStrLn stderr estr
         exitFailure
     
-      cName <- hGetLine outHdl
-      let mcon = toConShort cName
-          merr = "Unexpected constellation short form: '" ++ cName ++ "'"
-      return (fromMaybe (error merr) mcon)
+      cName <- T.hGetLine outHdl
+      case toConShort cName of
+        Just con -> return con
+        Nothing -> do
+          let merr = "Unexpected constellation short form: '" <> cName <> "'"
+          T.hPutStrLn stderr merr
+          exitFailure
 
 {-
 
@@ -333,7 +339,7 @@ type OCAT = M.Map L.ByteString L.ByteString
 lookupE :: L.ByteString -> OCAT -> Either String L.ByteString
 lookupE k m = case M.lookup k m of
   Just ans -> return ans
-  Nothing -> Left ("Missing key: " ++ show k)
+  Nothing -> Left ("Missing key: " <> show k)
 
 maybeReadLBS :: Read a => L.ByteString -> Maybe a
 maybeReadLBS = maybeRead . L8.unpack
@@ -342,7 +348,7 @@ maybeReadLBS = maybeRead . L8.unpack
 eitherReadLBS :: Read a => L.ByteString -> Either String a
 eitherReadLBS lbs =
   let val = L8.unpack lbs
-      emsg = "Unable to read value from: " ++ val
+      emsg = "Unable to read value from: " <> val
   in maybe (Left emsg) Right (maybeRead val)
 
 toWrapper :: Read a => (a -> b) -> L.ByteString -> OCAT -> Maybe b
@@ -353,7 +359,7 @@ toWrapperE f k m = do
   kval <- lookupE k m
   case eitherReadLBS kval of
     Right val -> Right (f val)
-    Left emsg -> Left ("Unable to read key: " ++ show k ++ " -> " ++ emsg)
+    Left emsg -> Left ("Unable to read key: " <> show k <> " -> " <> emsg)
 
 toSequenceE :: OCAT -> Either String Sequence
 toSequenceE = toWrapperE Sequence "SEQ_NUM"
@@ -374,14 +380,17 @@ toTimeKSE m k = toWrapperE TimeKS k m
 toJointTime :: OCAT -> L.ByteString -> Maybe TimeKS
 toJointTime m k = toTimeKS m k >>= \t -> if t <= TimeKS 0.0 then Nothing else Just t
 
-toString :: OCAT -> L.ByteString -> Maybe String
-toString m lbl = L8.unpack <$> M.lookup lbl m
+toText :: OCAT -> L.ByteString -> Maybe T.Text
+toText m lbl = either (const Nothing) Just (toTextE m lbl)
 
-toStringE :: OCAT -> L.ByteString -> Either String String
-toStringE m lbl = 
-  case L8.unpack <$> M.lookup lbl m of
-    Just ans -> return ans
-    Nothing -> Left ("Missing key " ++ show lbl)
+toTextE :: OCAT -> L.ByteString -> Either String T.Text
+toTextE m lbl =
+  let nokey = "Missing key: " <> show lbl
+  in case M.lookup lbl m of
+    Just bs -> case decodeUtf8' (L.toStrict bs) of
+      Right ans -> Right ans
+      Left eval -> Left (show eval)
+    Nothing -> Left nokey
 
 toRead :: Read a => OCAT -> L.ByteString -> Maybe a
 toRead m lbl = toWrapper id lbl m
@@ -406,7 +415,7 @@ lbsToUTCE :: L.ByteString -> Either String UTCTime
 lbsToUTCE lbs =
   let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
       val = L8.unpack lbs
-      emsg = "Unable to convert to UTCTime: " ++ val
+      emsg = "Unable to convert to UTCTime: " <> val
   in maybe (Left emsg) Right (c val)
   
 toUTC :: OCAT -> L.ByteString -> Maybe UTCTime
@@ -444,44 +453,43 @@ toDecE mm = do
 
 toInstE :: OCAT -> Either String Instrument
 toInstE m = do
-  val <- toStringE m "INSTR"
-  maybe (Left ("Unknown instrument: " ++ val)) Right (toInstrument val)
+  val <- toTextE m "INSTR"
+  maybe (Left ("Unknown instrument: " <> T.unpack val)) Right (toInstrument val)
 
 -- TODO: check these are the serializations used by OCAT
 toGratingE :: OCAT -> Either String Grating
-toGratingE m = 
-  let toG :: String -> Either String Grating
-      toG "NONE" = Right NONE
-      toG "HETG" = Right HETG
-      toG "LETG" = Right LETG
-      toG g = Left ("Unknown grating: " ++ g)
-  in toStringE m "GRAT" >>= toG
+toGratingE m = do
+  grat <- toTextE m "GRAT"
+  case toGrating grat of
+    Just g -> Right g
+    Nothing -> Left ("Unknown grating: " <> (T.unpack grat))
 
 toCSE :: OCAT -> L.ByteString -> Either String ChipStatus
 toCSE m k = do
-  cs <- toStringE m k
-  maybe (Left ("Invalid ChipStatus: " ++ cs)) Right (toChipStatus cs)
+  cs <- toTextE m k
+  maybe (Left ("Invalid ChipStatus: " <> T.unpack cs)) Right (toChipStatus cs)
 
 toCE :: OCAT -> L.ByteString -> Either String Constraint
 toCE m k = do
   val <- lookupE k m
   case L8.uncons val of
     Just (c, rest) -> if L8.null rest
-                      then maybe (Left ("unknown constraint: " ++ [c])) Right (toConstraint c)
-                      else Left ("Constraint value " ++ L8.unpack k ++ "=" ++ L8.unpack val)
-    _ -> Left ("empty string (?) key=" ++ show k ++ " val=" ++ show val)
+                      then maybe (Left ("unknown constraint: " <> [c])) Right (toConstraint c)
+                      else Left ("Constraint value " <> L8.unpack k <> "=" <> L8.unpack val)
+    _ -> Left ("empty string (?) key=" <> show k <> " val=" <> show val)
 
 toProposalE :: OCAT -> Either String Proposal
 toProposalE m = do
   pNum <- toPropNumE m
-  piName <- toStringE m "PI_NAME"
-  cat <- toStringE m "CATEGORY"
-  pType <- toStringE m "TYPE"
-  pCycle <- toStringE m "PROP_CYCLE"
+  piName <- toTextE m "PI_NAME"
+  cat <- toTextE m "CATEGORY"
+  pType <- toTextE m "TYPE"
+  pCycle <- toTextE m "PROP_CYCLE"
+  
   -- have seen one proposal (cycle 00, calibration obs) without a title
-  -- pName <- toString m "PROP_TITLE"
   let defAns = if pType == "CAL" then "Calibration Observation" else "Unknown"
-      pName = fromMaybe defAns (toString m "PROP_TITLE")
+      pName = fromMaybe defAns (toText m "PROP_TITLE")
+      
   return Proposal {
         propNum = pNum
         , propName = pName
@@ -517,9 +525,9 @@ toSOE m = do
   seqNum <- toSequenceE m
   pNum <- toPropNumE m
 
-  status <- toStringE m "STATUS"
+  status <- toTextE m "STATUS"
   obsid <- toObsIdE m
-  target <- toStringE m "TARGET_NAME"
+  target <- toTextE m "TARGET_NAME"
 
   -- Turns out this may not exist. If it does not, then
   -- replace with a time far in the future (IFF status is
@@ -546,10 +554,10 @@ toSOE m = do
 
   inst <- toInstE m
   grat <- toGratingE m
-  let det = L8.unpack <$> M.lookup "READOUT_DETECTOR" m
-      datamode = toString m "DATAMODE"
+  let det = toText m "READOUT_DETECTOR"
+      datamode = toText m "DATAMODE"
 
-  haveACIS <- toStringE m "ACIS"
+  haveACIS <- toTextE m "ACIS"
   -- haveHRC <- toStringE m "HRC"
 
   -- are these included in HRC obs? No
@@ -568,7 +576,10 @@ toSOE m = do
   aciss4 <- convCS "S4"
   aciss5 <- convCS "S5"
 
-  let jnames = M.lookup "JOINT" m >>= \ns -> if ns == "None" then Nothing else Just (L8.unpack ns)
+  let jnames = do
+        bs <- M.lookup "JOINT" m
+        ns <- either (const Nothing) Just (decodeUtf8' (L.toStrict bs))
+        if ns == "None" then Nothing else Just ns
 
       hst = toJointTime m "HST"
       noao = toJointTime m "NOAO"
@@ -580,7 +591,7 @@ toSOE m = do
       swift = toJointTime m "SWIFT"
       nustar = toJointTime m "NUSTAR"
 
-      too = toString m "TOO_TYPE"
+      too = toText m "TOO_TYPE"
       
   ra <- toRAE m
   dec <- toDecE m
@@ -620,7 +631,6 @@ toSOE m = do
     , soACISS4 = aciss4
     , soACISS5 = aciss5
 
-    -- , soJointWith = []  -- TODO  [(String, TimeKS)] -- could use an enumeration
     , soJointWith = jnames
     , soJointHST = hst
     , soJointNOAO = noao
@@ -635,7 +645,11 @@ toSOE m = do
     , soTOO = too
     , soRA = ra
     , soDec = dec
-    , soConstellation = error $ "The constellation field for ObsId " ++ show (fromObsId obsid) ++ " has not been filled in!"              
+    , soConstellation =
+        -- this is ugly
+        error ("The constellation field for ObsId "
+               <> show (fromObsId obsid)
+               <> " has not been filled in!")
     , soRoll = roll
     , soSubArrayStart = subStart
     , soSubArraySize = subSize
@@ -671,7 +685,8 @@ toNSE m = do
   dec <- toDecE m
   roll <- toReadE m "SOE_ROLL"
 
-  let target = "CAL-ER (" ++ show (fromObsId obsid) ++ ")"
+  -- TODO: creating the name should be a utility function
+  let target = T.pack ("CAL-ER (" <> show (fromObsId obsid) <> ")")
       rTime = appExp
 
       (name, sTime) = case msTime of
@@ -721,8 +736,7 @@ makeObsCatQuery ::
   -> ObsIdVal
   -> IO (Maybe OCAT)
 makeObsCatQuery flag oid = do
-  let qry = getObsCatQuery oid
-  rsp <- simpleHttp qry
+  rsp <- simpleHttp (getObsCatQuery oid)
   let isHash x = case L.uncons x of 
                    Just (y, _) -> y == w8 '#'
                    _ -> False
@@ -736,16 +750,17 @@ makeObsCatQuery flag oid = do
       out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
 
   when flag $ forM_ (zip [(1::Int)..] out) $ \(i,m) -> do
-    putStrLn ("##### Map " ++ show i ++ " START #####")
+    putStrLn ("##### Map " <> show i <> " START #####")
     forM_ (M.toList m) print     
-    putStrLn ("##### Map " ++ show i ++ " END #####")
+    putStrLn ("##### Map " <> show i <> " END #####")
 
   case out of
     [x] -> return (Just x)
     [] -> return Nothing
     (x:_) -> do
-      putStrLn ("WARNING: multiple responses for ObsId " ++
-                show (fromObsId oid) ++ " - using first match")
+      putStrLn ("WARNING: multiple responses for ObsId "
+                <> show (fromObsId oid)
+                <> " - using first match")
       return (Just x)
 
 -- | Query the OCat about this science observation.
@@ -775,8 +790,9 @@ queryScience flag oid = do
 
     Left emsg -> do
       -- for now skip those with issues
-      putStrLn ("SKIP: unable to parse science ObsId " ++ show (fromObsId oid)
-                ++ ": " ++ emsg)
+      putStrLn ("SKIP: unable to parse science ObsId "
+                <> show (fromObsId oid)
+                <> ": " <> emsg)
       return (Left emsg)
 
 
@@ -799,7 +815,7 @@ queryNonScience flag oid = do
       ostr = show (fromObsId oid)
 
   when (isLeft mans) 
-    (putStrLn ("SKIP: unable to parse non-science ObsId " ++ ostr))
+    (putStrLn ("SKIP: unable to parse non-science ObsId " <> ostr))
   return mans
 
 
@@ -839,7 +855,7 @@ findMissingObsIds = do
     -- yet in the public domain.
     --
     unarchived <- project SoObsIdField (notArchived &&. notDiscarded)
-    notpublic <- project SoObsIdField ((SoStatusField ==. ("observed"::String))
+    notpublic <- project SoObsIdField ((SoStatusField ==. ("observed"::T.Text))
                                        &&. (SoPublicReleaseField >=. Just now))
   
     let tosearch = S.fromList unarchived `S.difference` S.fromList notpublic
@@ -943,8 +959,9 @@ check ::
 check ms os = do
   let missing = map snd (filter (isLeft . fst) (zip ms os))
   unless (null missing) $ do
-    putStrLn ("### There are " ++ slen missing ++
-              " ObsIds with no OCAT data:")
+    putStrLn ("### There are "
+              <> slen missing
+              <> " ObsIds with no OCAT data:")
     forM_ missing (print . fromObsId)
   return (rights ms)
 
@@ -1000,27 +1017,27 @@ viewObsId oid = withSocketsDo $ do
   case ans of
     Left emsg -> putStrLn ("Nothing found for ObsId " ++ show oid ++ ": " ++ emsg)
     Right (prop, so) -> do
-      putStrLn ("## ObsId " ++ show oid)
+      putStrLn ("## ObsId " <> show oid)
       print prop
       print so
       dump so
 
 dump :: ScienceObs -> IO ()
 dump ScienceObs{..} = do
-  putStrLn "------ dump"
+  T.putStrLn "------ dump"
   print (_unSequence soSequence)
-  putStrLn soStatus
+  T.putStrLn soStatus
   print (fromObsId soObsId)
-  putStrLn soTarget
+  T.putStrLn soTarget
   -- discardedTime is only used for non-science obs
-  if soStartTime == futureTime
-    then putStrLn "** Observation has no scheduled observation date"
-    else putStrLn (showCTime soStartTime)
+  T.putStrLn (if soStartTime == futureTime
+              then "** Observation has no scheduled observation date"
+              else showCTime soStartTime)
   T.putStrLn (showExpTime soApprovedTime)
   print (fmap showExpTime soObservedTime)
-  putStrLn ("Public availability: " ++ show soPublicRelease)
+  putStrLn ("Public availability: " <> show soPublicRelease)
 
-  let fC lbl c = lbl ++ ": " ++ [fromConstraint c]
+  let fC lbl c = lbl <> ": " <> [fromConstraint c]
   putStrLn (fC "time critical" soTimeCritical)
   putStrLn (fC "      monitor" soMonitor)
   putStrLn (fC "  constrained" soConstrained)
@@ -1031,7 +1048,7 @@ dump ScienceObs{..} = do
   print soDataMode
 
   let achip lbl val =
-        putStrLn ("ACIS" ++ lbl ++ " " ++ fromChipStatus val)
+        T.putStrLn ("ACIS" <> lbl <> " " <> fromChipStatus val)
   achip "I0" soACISI0
   achip "I1" soACISI1
   achip "I2" soACISI2
@@ -1045,7 +1062,7 @@ dump ScienceObs{..} = do
 
   print soJointWith
   let joint lbl val =
-        putStrLn ("Joint " ++ lbl ++ " " ++ show (fmap _toKS val))
+        putStrLn ("Joint " <> lbl <> " " <> show (fmap _toKS val))
   joint "HST" soJointHST
   joint "NOAO" soJointNOAO
   joint "NRAO" soJointNRAO
@@ -1057,9 +1074,9 @@ dump ScienceObs{..} = do
   joint "NUSTAR" soJointNUSTAR
 
   print soTOO
-  putStrLn (showRA soRA)
-  putStrLn (showDec soDec)
-  putStrLn ("which is in constellation: " ++ fromConShort soConstellation)
+  T.putStrLn (showRA soRA)
+  T.putStrLn (showDec soDec)
+  T.putStrLn ("which is in constellation: " <> fromConShort soConstellation)
   print soRoll
   print soSubArrayStart
   print soSubArraySize
@@ -1067,9 +1084,9 @@ dump ScienceObs{..} = do
 usage :: IO ()
 usage = do
   pName <- getProgName
-  hPutStrLn stderr ("Usage: " ++ pName)
-  hPutStrLn stderr ("       " ++ pName ++ " debug")
-  hPutStrLn stderr ("       " ++ pName ++ " <obsid>")
+  hPutStrLn stderr ("Usage: " <> pName)
+  hPutStrLn stderr ("       " <> pName <> " debug")
+  hPutStrLn stderr ("       " <> pName <> " <obsid>")
   exitFailure
 
 main :: IO ()
@@ -1078,7 +1095,7 @@ main = do
   case args of
     [] -> updateDB False
     [x] | x == "debug" -> updateDB True
-        | otherwise -> case fmap fst . listToMaybe $ reads x of
+        | otherwise -> case (fmap fst . listToMaybe) (reads x) of
              Just oid -> viewObsId oid
              _ -> usage
 
