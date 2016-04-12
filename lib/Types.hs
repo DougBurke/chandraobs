@@ -51,13 +51,7 @@ import Data.Char (isSpace, toLower)
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
-
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Data.Monoid ((<>), mconcat)
-#else
 import Data.Monoid ((<>))
-#endif
-
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 

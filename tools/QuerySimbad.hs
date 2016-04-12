@@ -40,13 +40,7 @@ import Control.Monad.IO.Class (MonadIO)
 
 import Data.Functor (void)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
-
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Data.Monoid ((<>), mconcat)
-#else
 import Data.Monoid ((<>))
-#endif
-
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, getCurrentTime)
 
