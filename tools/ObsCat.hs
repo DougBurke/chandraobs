@@ -200,7 +200,7 @@ import Network.HTTP.Conduit
 
 import System.Environment (getArgs, getEnv, getProgName)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
-import System.IO (hFlush, hPutStrLn, stderr)
+import System.IO (hFlush, stderr)
 import System.IO.Temp (withSystemTempFile)
 -- import System.Process (readProcessWithExitCode, system)
 import System.Process (system)
@@ -236,7 +236,7 @@ import Types
 nonScienceType :: T.Text
 nonScienceType = "ER"
 
-isScienceObsE :: OCAT -> Either String Bool
+isScienceObsE :: OCAT -> Either T.Text Bool
 isScienceObsE m =
   toTextE m "TYPE" >>= \ans -> return (ans /= nonScienceType)
 
@@ -336,44 +336,55 @@ type OCAT = M.Map L.ByteString L.ByteString
 -- Could rewrite the Maybe forms as simplifications of the
 -- Either forms, but leave that for a later revamp.
 
-lookupE :: L.ByteString -> OCAT -> Either String L.ByteString
+lookupE :: L.ByteString -> OCAT -> Either T.Text L.ByteString
 lookupE k m = case M.lookup k m of
   Just ans -> return ans
-  Nothing -> Left ("Missing key: " <> show k)
+  Nothing -> Left ("Missing key: " <> T.pack (show k))
 
 maybeReadLBS :: Read a => L.ByteString -> Maybe a
 maybeReadLBS = maybeRead . L8.unpack
 
+lbsToText :: L.ByteString -> Either T.Text T.Text
+lbsToText lbs =
+  either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
+  
+
 -- Would be nice to indicate the conversion type in the error message
-eitherReadLBS :: Read a => L.ByteString -> Either String a
+--
+-- TODO: improve the hybrid Sting/Text behavior here
+eitherReadLBS :: Read a => L.ByteString -> Either T.Text a
 eitherReadLBS lbs =
   let val = L8.unpack lbs
-      emsg = "Unable to read value from: " <> val
+      emsg = case lbsToText lbs of
+        Right txt -> "Unable to read value from: " <> txt
+        Left eval -> "Unable to decode bytestring to Text before maybeRead: "
+                     <> eval
   in maybe (Left emsg) Right (maybeRead val)
 
 toWrapper :: Read a => (a -> b) -> L.ByteString -> OCAT -> Maybe b
 toWrapper f k m = M.lookup k m >>= fmap f . maybeReadLBS
 
-toWrapperE :: Read a => (a -> b) -> L.ByteString -> OCAT -> Either String b
+toWrapperE :: Read a => (a -> b) -> L.ByteString -> OCAT -> Either T.Text b
 toWrapperE f k m = do
   kval <- lookupE k m
   case eitherReadLBS kval of
     Right val -> Right (f val)
-    Left emsg -> Left ("Unable to read key: " <> show k <> " -> " <> emsg)
+    Left emsg -> Left ("Unable to read key: " <> T.pack (show k)
+                       <> " -> " <> emsg)
 
-toSequenceE :: OCAT -> Either String Sequence
+toSequenceE :: OCAT -> Either T.Text Sequence
 toSequenceE = toWrapperE Sequence "SEQ_NUM"
 
-toPropNumE :: OCAT -> Either String PropNum
+toPropNumE :: OCAT -> Either T.Text PropNum
 toPropNumE = toWrapperE PropNum "PR_NUM"
 
-toObsIdE :: OCAT -> Either String ObsIdVal
+toObsIdE :: OCAT -> Either T.Text ObsIdVal
 toObsIdE = toWrapperE ObsIdVal "OBSID"
 
 toTimeKS :: OCAT -> L.ByteString -> Maybe TimeKS
 toTimeKS m k = toWrapper TimeKS k m
 
-toTimeKSE :: OCAT -> L.ByteString -> Either String TimeKS
+toTimeKSE :: OCAT -> L.ByteString -> Either T.Text TimeKS
 toTimeKSE m k = toWrapperE TimeKS k m
 
 -- A value of 0.0 is converted to @Nothing@.
@@ -383,26 +394,24 @@ toJointTime m k = toTimeKS m k >>= \t -> if t <= TimeKS 0.0 then Nothing else Ju
 toText :: OCAT -> L.ByteString -> Maybe T.Text
 toText m lbl = either (const Nothing) Just (toTextE m lbl)
 
-toTextE :: OCAT -> L.ByteString -> Either String T.Text
+toTextE :: OCAT -> L.ByteString -> Either T.Text T.Text
 toTextE m lbl =
-  let nokey = "Missing key: " <> show lbl
+  let nokey = "Missing key: " <> T.pack (show lbl)
   in case M.lookup lbl m of
-    Just bs -> case decodeUtf8' (L.toStrict bs) of
-      Right ans -> Right ans
-      Left eval -> Left (show eval)
+    Just bs -> lbsToText bs
     Nothing -> Left nokey
 
 toRead :: Read a => OCAT -> L.ByteString -> Maybe a
 toRead m lbl = toWrapper id lbl m
 
-toReadE :: Read a => OCAT -> L.ByteString -> Either String a
+toReadE :: Read a => OCAT -> L.ByteString -> Either T.Text a
 toReadE m lbl = toWrapperE id lbl m
 
 toCT :: OCAT -> L.ByteString -> Maybe ChandraTime
 toCT m lbl = ChandraTime <$> toUTC m lbl
 
 {-
-toCTE :: OCAT -> L.ByteString -> Either String ChandraTime
+toCTE :: OCAT -> L.ByteString -> Either T.Text ChandraTime
 toCTE m lbl = ChandraTime <$> toUTCE m lbl
 -}
 
@@ -411,33 +420,36 @@ lbsToUTC =
   let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
   in c . L8.unpack
   
-lbsToUTCE :: L.ByteString -> Either String UTCTime
+lbsToUTCE :: L.ByteString -> Either T.Text UTCTime
 lbsToUTCE lbs =
   let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
       val = L8.unpack lbs
-      emsg = "Unable to convert to UTCTime: " <> val
+      emsg = case lbsToText lbs of
+        Right txt -> "Unable to convert to UTCTime: " <> txt
+        Left cerr -> "Conversion to UTCTime, sent: " <> cerr
+        
   in maybe (Left emsg) Right (c val)
   
 toUTC :: OCAT -> L.ByteString -> Maybe UTCTime
 toUTC m lbl = M.lookup lbl m >>= lbsToUTC
 
 {-
-toUTCE :: OCAT -> L.ByteString -> Either String UTCTime
+toUTCE :: OCAT -> L.ByteString -> Either T.Text UTCTime
 toUTCE m lbl = lookupE lbl m >>= lbsToUTCE
 -}
 
 -- TODO: catch parse errors
-toRAE :: OCAT -> Either String RA
+toRAE :: OCAT -> Either T.Text RA
 toRAE mm = do
   let tR lbs = 
-        let (h:m:s:_) = map (read . L8.unpack) $ L.split (w8 ' ') lbs
+        let (h:m:s:_) = map (read . L8.unpack) (L.split (w8 ' ') lbs)
         in RA (15.0 * (h + (m + s/60.0) / 60.0))
 
   raVal <- lookupE "RA" mm
   return (tR raVal)
 
 -- TODO: catch parse errors
-toDecE :: OCAT -> Either String Dec
+toDecE :: OCAT -> Either T.Text Dec
 toDecE mm = do
   let tD lbs = 
         let (d:m:s:_) = map (read . L8.unpack) (L.split (w8 ' ') rest)
@@ -451,34 +463,42 @@ toDecE mm = do
   decVal <- lookupE "Dec" mm
   return (tD decVal)
 
-toInstE :: OCAT -> Either String Instrument
+conv :: T.Text -> (T.Text -> Maybe a) -> T.Text -> Either T.Text a
+conv lbl f a = maybe (Left ("Unknown " <> lbl <> ": " <> a)) Right (f a)
+
+toInstE :: OCAT -> Either T.Text Instrument
 toInstE m = do
   val <- toTextE m "INSTR"
-  maybe (Left ("Unknown instrument: " <> T.unpack val)) Right (toInstrument val)
+  conv "instrument" toInstrument val
 
 -- TODO: check these are the serializations used by OCAT
-toGratingE :: OCAT -> Either String Grating
+toGratingE :: OCAT -> Either T.Text Grating
 toGratingE m = do
   grat <- toTextE m "GRAT"
   case toGrating grat of
     Just g -> Right g
-    Nothing -> Left ("Unknown grating: " <> (T.unpack grat))
+    Nothing -> Left ("Unknown grating: " <> grat)
 
-toCSE :: OCAT -> L.ByteString -> Either String ChipStatus
+toCSE :: OCAT -> L.ByteString -> Either T.Text ChipStatus
 toCSE m k = do
   cs <- toTextE m k
-  maybe (Left ("Invalid ChipStatus: " <> T.unpack cs)) Right (toChipStatus cs)
+  conv "ChipStatus" toChipStatus cs
 
-toCE :: OCAT -> L.ByteString -> Either String Constraint
+toCE :: OCAT -> L.ByteString -> Either T.Text Constraint
 toCE m k = do
   val <- lookupE k m
+  let ktxt = either id id (lbsToText k)
+      vtxt = either id id (lbsToText val)
   case L8.uncons val of
     Just (c, rest) -> if L8.null rest
-                      then maybe (Left ("unknown constraint: " <> [c])) Right (toConstraint c)
-                      else Left ("Constraint value " <> L8.unpack k <> "=" <> L8.unpack val)
-    _ -> Left ("empty string (?) key=" <> show k <> " val=" <> show val)
+                      then maybe
+                           (Left ("unknown constraint: " <> T.singleton c))
+                           Right (toConstraint c)
+                      else Left ("Constraint value " <> ktxt <> "=" <> vtxt)
+                           
+    _ -> Left ("empty string (?) key=" <> ktxt <> " val=" <> vtxt)
 
-toProposalE :: OCAT -> Either String Proposal
+toProposalE :: OCAT -> Either T.Text Proposal
 toProposalE m = do
   pNum <- toPropNumE m
   piName <- toTextE m "PI_NAME"
@@ -499,6 +519,14 @@ toProposalE m = do
         , propCycle = pCycle
      }
 
+toPos :: OCAT -> Either T.Text (RA, Dec, Double)
+toPos m = do
+  ra <- toRAE m
+  dec <- toDecE m
+  roll <- toReadE m "SOE_ROLL"
+  return (ra, dec, roll)
+
+
 -- | Note, this is an *INCOMPLETE* ScienceObs since the
 --   @soConstellation@ field is filled with an error statement;
 --   this is because we need IO to fill in this field so it's
@@ -516,7 +544,7 @@ toProposalE m = do
 --   to go from scheduled to having no start date, which means we
 --   need to either remove the obsid or update it.
 --
-toSOE :: OCAT -> Either String ScienceObs
+toSOE :: OCAT -> Either T.Text ScienceObs
 toSOE m = do
 
   isScience <- isScienceObsE m
@@ -578,7 +606,7 @@ toSOE m = do
 
   let jnames = do
         bs <- M.lookup "JOINT" m
-        ns <- either (const Nothing) Just (decodeUtf8' (L.toStrict bs))
+        ns <- either (const Nothing) Just (lbsToText bs)
         if ns == "None" then Nothing else Just ns
 
       hst = toJointTime m "HST"
@@ -592,10 +620,8 @@ toSOE m = do
       nustar = toJointTime m "NUSTAR"
 
       too = toText m "TOO_TYPE"
-      
-  ra <- toRAE m
-  dec <- toDecE m
-  roll <- toReadE m "SOE_ROLL"
+
+  (ra, dec, roll) <- toPos m
   
   let subStart = toRead m "STRT_ROW" >>= \s -> if s > 0 then Just s else Nothing
       subSize = toRead m "ROW_CNT" >>= \s -> if s > 0 then Just s else Nothing
@@ -666,7 +692,7 @@ toSOE m = do
 --   This would be easier if I bothered to migrate the database so that
 --   new fields could be added to NonScienceObs.
 --
-toNSE :: OCAT -> Either String NonScienceObs
+toNSE :: OCAT -> Either T.Text NonScienceObs
 toNSE m = do
 
   isScience <- isScienceObsE m
@@ -681,9 +707,7 @@ toNSE m = do
   appExp <- toTimeKSE m "APP_EXP"
   -- let obsExp = toTimeKS m "EXP_TIME" not sure what this is
 
-  ra <- toRAE m
-  dec <- toDecE m
-  roll <- toReadE m "SOE_ROLL"
+  (ra, dec, roll) <- toPos m
 
   -- TODO: creating the name should be a utility function
   let target = T.pack ("CAL-ER (" <> show (fromObsId obsid) <> ")")
@@ -737,11 +761,12 @@ makeObsCatQuery ::
   -> IO (Maybe OCAT)
 makeObsCatQuery flag oid = do
   rsp <- simpleHttp (getObsCatQuery oid)
+  -- TODO: why not just convert to Text straight away?
   let isHash x = case L.uncons x of 
                    Just (y, _) -> y == w8 '#'
                    _ -> False
 
-      ls = dropWhile isHash $ L.split (w8 '\n') rsp
+      ls = dropWhile isHash (L.split (w8 '\n') rsp)
       tokenize = L.split (w8 '\t')
       hdr = tokenize (head ls)
       -- could use positional information, but use a map instead
@@ -750,17 +775,18 @@ makeObsCatQuery flag oid = do
       out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
 
   when flag $ forM_ (zip [(1::Int)..] out) $ \(i,m) -> do
-    putStrLn ("##### Map " <> show i <> " START #####")
+    let itxt = T.pack (show i)
+    T.putStrLn ("##### Map " <> itxt <> " START #####")
     forM_ (M.toList m) print     
-    putStrLn ("##### Map " <> show i <> " END #####")
+    T.putStrLn ("##### Map " <> itxt <> " END #####")
 
   case out of
     [x] -> return (Just x)
     [] -> return Nothing
     (x:_) -> do
-      putStrLn ("WARNING: multiple responses for ObsId "
-                <> show (fromObsId oid)
-                <> " - using first match")
+      T.putStrLn ("WARNING: multiple responses for ObsId "
+                  <> T.pack (show (fromObsId oid))
+                  <> " - using first match")
       return (Just x)
 
 -- | Query the OCat about this science observation.
@@ -772,7 +798,7 @@ makeObsCatQuery flag oid = do
 queryScience :: 
   Bool         -- set @True@ for debug output 
   -> ObsIdVal 
-  -> IO (Either String (Proposal, ScienceObs))
+  -> IO (Either T.Text (Proposal, ScienceObs))
 queryScience flag oid = do
   mout <- makeObsCatQuery flag oid
   let mans = case mout of
@@ -790,9 +816,9 @@ queryScience flag oid = do
 
     Left emsg -> do
       -- for now skip those with issues
-      putStrLn ("SKIP: unable to parse science ObsId "
-                <> show (fromObsId oid)
-                <> ": " <> emsg)
+      T.putStrLn ("SKIP: unable to parse science ObsId "
+                  <> T.pack (show (fromObsId oid))
+                  <> ": " <> emsg)
       return (Left emsg)
 
 
@@ -805,17 +831,17 @@ queryScience flag oid = do
 queryNonScience :: 
   Bool         -- set @True@ for debug output 
   -> ObsIdVal 
-  -> IO (Either String NonScienceObs)
+  -> IO (Either T.Text NonScienceObs)
 queryNonScience flag oid = do
   mout <- makeObsCatQuery flag oid
   let mans = case mout of
         Just out -> toNSE out
         _ -> Left "No output from obscat call"
   
-      ostr = show (fromObsId oid)
+      otxt = T.pack (show (fromObsId oid))
 
   when (isLeft mans) 
-    (putStrLn ("SKIP: unable to parse non-science ObsId " <> ostr))
+    (T.putStrLn ("SKIP: unable to parse non-science ObsId " <> otxt))
   return mans
 
 
@@ -861,8 +887,8 @@ findMissingObsIds = do
     let tosearch = S.fromList unarchived `S.difference` S.fromList notpublic
     return (swants, nswants, S.toList tosearch)
 
-slen :: [a] -> String
-slen = show . length
+slen :: [a] -> T.Text
+slen = T.pack . show . length
 
 -- | Add the "missing" results to the database and replace the
 --   "unarchived" results (they may or may not have changed but
@@ -873,11 +899,11 @@ addResults ::
   -> [(Proposal, ScienceObs)]
   -> [NonScienceObs]  -- ^ no longer "missing" but "not from obscat"
   -> IO ()
-addResults [] [] [] = putStrLn "# No data needs to be added to the database."
+addResults [] [] [] = T.putStrLn "# No data needs to be added to the database."
 addResults missing unarchived nsmissing = do
-  putStrLn ("# Adding " ++ slen missing ++ " missing results")
-  putStrLn ("# Adding " ++ slen unarchived ++ " unarchived results")
-  putStrLn ("# Adding " ++ slen nsmissing ++ " missing non-science")
+  T.putStrLn ("# Adding " <> slen missing <> " missing results")
+  T.putStrLn ("# Adding " <> slen unarchived <> " unarchived results")
+  T.putStrLn ("# Adding " <> slen nsmissing <> " missing non-science")
   
   let props = S.toList (S.fromList (map fst missing ++ map fst unarchived))
 
@@ -953,15 +979,15 @@ addOverlaps f os = do
 --
 --   This does NOT include the overlap obs (i.e. they are ignored here)
 check ::
-  [Either String a]  -- ^ result
+  [Either b a]  -- ^ result
   -> [ObsIdVal]      -- ^ the obsid goes with the result
   -> IO [a]          -- ^ results that are not missing
 check ms os = do
   let missing = map snd (filter (isLeft . fst) (zip ms os))
   unless (null missing) $ do
-    putStrLn ("### There are "
-              <> slen missing
-              <> " ObsIds with no OCAT data:")
+    T.putStrLn ("### There are "
+                <> slen missing
+                <> " ObsIds with no OCAT data:")
     forM_ missing (print . fromObsId)
   return (rights ms)
 
@@ -972,21 +998,21 @@ check ms os = do
 --
 updateDB :: Bool -> IO ()
 updateDB f = withSocketsDo $ do
-  putStrLn "# Querying the database"
+  T.putStrLn "# Querying the database"
   (missing, nsmissing, unarchived) <- findMissingObsIds
-  putStrLn ("# Found " ++ slen missing ++ " missing and " ++
-            slen unarchived ++ " science ObsIds needing to be queried")
-  putStrLn ("# Found " ++ slen nsmissing ++ " missing non-science ObsIds")
+  T.putStrLn ("# Found " <> slen missing <> " missing and " <>
+              slen unarchived <> " science ObsIds needing to be queried")
+  T.putStrLn ("# Found " <> slen nsmissing <> " missing non-science ObsIds")
 
-  unless (null missing) (putStrLn "# Processing missing science")
+  unless (null missing) (T.putStrLn "# Processing missing science")
   res1 <- mapM (queryScience f) missing
   mres <- check res1 missing
 
-  unless (null unarchived) (putStrLn "# Processing 'missing' science obs")
+  unless (null unarchived) (T.putStrLn "# Processing 'missing' science obs")
   res2 <- mapM (queryScience f) unarchived
   ures <- check res2 unarchived
 
-  unless (null nsmissing) (putStrLn "# Processing missing non-science")
+  unless (null nsmissing) (T.putStrLn "# Processing missing non-science")
   res3 <- mapM (queryNonScience f) nsmissing
   nsres <- check res3 nsmissing
 
@@ -1002,22 +1028,24 @@ updateDB f = withSocketsDo $ do
 
   (missing1, nsmissing1, unarchived1) <- findMissingObsIds
   when (missing /= missing1)
-    (putStrLn ("# Number missing: " ++ slen missing ++
-               " -> " ++ slen missing1))
+    (T.putStrLn ("# Number missing: " <> slen missing <>
+                 " -> " <> slen missing1))
   when (unarchived /= unarchived1)
-    (putStrLn ("# Number Sci: " ++ slen unarchived ++
-               " -> " ++ slen unarchived1))
+    (T.putStrLn ("# Number Sci: " <> slen unarchived <>
+                 " -> " <> slen unarchived1))
   when (nsmissing /= nsmissing1)
-    (putStrLn ("# Number Non-sci: " ++ slen nsmissing ++
-               " -> " ++ slen nsmissing1))
+    (T.putStrLn ("# Number Non-sci: " <> slen nsmissing <>
+                 " -> " <> slen nsmissing1))
   
 viewObsId :: Int -> IO ()
 viewObsId oid = withSocketsDo $ do
+  let otxt = T.pack (show oid)
   ans <- queryScience True (ObsIdVal oid)
   case ans of
-    Left emsg -> putStrLn ("Nothing found for ObsId " ++ show oid ++ ": " ++ emsg)
+    Left emsg -> T.putStrLn ("Nothing found for ObsId "
+                             <> otxt <> ": " <> emsg)
     Right (prop, so) -> do
-      putStrLn ("## ObsId " <> show oid)
+      T.putStrLn ("## ObsId " <> otxt)
       print prop
       print so
       dump so
@@ -1035,12 +1063,12 @@ dump ScienceObs{..} = do
               else showCTime soStartTime)
   T.putStrLn (showExpTime soApprovedTime)
   print (fmap showExpTime soObservedTime)
-  putStrLn ("Public availability: " <> show soPublicRelease)
+  T.putStrLn ("Public availability: " <> T.pack (show soPublicRelease))
 
-  let fC lbl c = lbl <> ": " <> [fromConstraint c]
-  putStrLn (fC "time critical" soTimeCritical)
-  putStrLn (fC "      monitor" soMonitor)
-  putStrLn (fC "  constrained" soConstrained)
+  let fC lbl c = lbl <> ": " <> T.singleton (fromConstraint c)
+  T.putStrLn (fC "time critical" soTimeCritical)
+  T.putStrLn (fC "      monitor" soMonitor)
+  T.putStrLn (fC "  constrained" soConstrained)
 
   print soInstrument
   print soGrating
@@ -1062,7 +1090,8 @@ dump ScienceObs{..} = do
 
   print soJointWith
   let joint lbl val =
-        putStrLn ("Joint " <> lbl <> " " <> show (fmap _toKS val))
+        let tval = T.pack (show (fmap _toKS val))
+        in T.putStrLn ("Joint " <> lbl <> " " <> tval)
   joint "HST" soJointHST
   joint "NOAO" soJointNOAO
   joint "NRAO" soJointNRAO
@@ -1083,10 +1112,10 @@ dump ScienceObs{..} = do
 
 usage :: IO ()
 usage = do
-  pName <- getProgName
-  hPutStrLn stderr ("Usage: " <> pName)
-  hPutStrLn stderr ("       " <> pName <> " debug")
-  hPutStrLn stderr ("       " <> pName <> " <obsid>")
+  pName <- T.pack <$> getProgName
+  T.hPutStrLn stderr ("Usage: " <> pName)
+  T.hPutStrLn stderr ("       " <> pName <> " debug")
+  T.hPutStrLn stderr ("       " <> pName <> " <obsid>")
   exitFailure
 
 main :: IO ()
