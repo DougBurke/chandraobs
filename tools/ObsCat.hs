@@ -171,7 +171,6 @@ I wonder what the following mean:
 --    number, and so I am not sure if it is correct or sensible.
 --
 
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -186,11 +185,9 @@ import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
-import Data.Char (ord)
 import Data.Either (isLeft, rights)
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Monoid ((<>))
-import Data.Word (Word8)
 import Data.Text.Encoding (decodeUtf8')
 
 import Database.Groundhog.Postgresql
@@ -328,48 +325,42 @@ getOverlaps oid ra dec = do
 
 -}
 
-w8 :: Char -> Word8
-w8 = fromIntegral . ord
-
-type OCAT = M.Map L.ByteString L.ByteString
+type OCAT = M.Map T.Text T.Text
 
 -- Could rewrite the Maybe forms as simplifications of the
 -- Either forms, but leave that for a later revamp.
 
-lookupE :: L.ByteString -> OCAT -> Either T.Text L.ByteString
+lookupE :: T.Text -> OCAT -> Either T.Text T.Text
 lookupE k m = case M.lookup k m of
   Just ans -> return ans
-  Nothing -> Left ("Missing key: " <> T.pack (show k))
-
-maybeReadLBS :: Read a => L.ByteString -> Maybe a
-maybeReadLBS = maybeRead . L8.unpack
+  Nothing -> Left ("Missing key: " <> k)
 
 lbsToText :: L.ByteString -> Either T.Text T.Text
 lbsToText lbs =
   either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
   
+maybeReadText :: Read a => T.Text -> Maybe a
+maybeReadText = maybeRead . T.unpack
+
 
 -- Would be nice to indicate the conversion type in the error message
 --
 -- TODO: improve the hybrid Sting/Text behavior here
-eitherReadLBS :: Read a => L.ByteString -> Either T.Text a
-eitherReadLBS lbs =
-  let val = L8.unpack lbs
-      emsg = case lbsToText lbs of
-        Right txt -> "Unable to read value from: " <> txt
-        Left eval -> "Unable to decode bytestring to Text before maybeRead: "
-                     <> eval
-  in maybe (Left emsg) Right (maybeRead val)
+--
+eitherReadText :: Read a => T.Text -> Either T.Text a
+eitherReadText txt =
+  let emsg = "Unable to read value from: " <> txt
+  in maybe (Left emsg) Right (maybeReadText txt)
 
-toWrapper :: Read a => (a -> b) -> L.ByteString -> OCAT -> Maybe b
-toWrapper f k m = M.lookup k m >>= fmap f . maybeReadLBS
+toWrapper :: Read a => (a -> b) -> T.Text -> OCAT -> Maybe b
+toWrapper f k m = M.lookup k m >>= fmap f . maybeReadText
 
-toWrapperE :: Read a => (a -> b) -> L.ByteString -> OCAT -> Either T.Text b
+toWrapperE :: Read a => (a -> b) -> T.Text -> OCAT -> Either T.Text b
 toWrapperE f k m = do
   kval <- lookupE k m
-  case eitherReadLBS kval of
+  case eitherReadText kval of
     Right val -> Right (f val)
-    Left emsg -> Left ("Unable to read key: " <> T.pack (show k)
+    Left emsg -> Left ("Unable to read key: " <> k
                        <> " -> " <> emsg)
 
 toSequenceE :: OCAT -> Either T.Text Sequence
@@ -381,33 +372,33 @@ toPropNumE = toWrapperE PropNum "PR_NUM"
 toObsIdE :: OCAT -> Either T.Text ObsIdVal
 toObsIdE = toWrapperE ObsIdVal "OBSID"
 
-toTimeKS :: OCAT -> L.ByteString -> Maybe TimeKS
+toTimeKS :: OCAT -> T.Text -> Maybe TimeKS
 toTimeKS m k = toWrapper TimeKS k m
 
-toTimeKSE :: OCAT -> L.ByteString -> Either T.Text TimeKS
+toTimeKSE :: OCAT -> T.Text -> Either T.Text TimeKS
 toTimeKSE m k = toWrapperE TimeKS k m
 
 -- A value of 0.0 is converted to @Nothing@.
-toJointTime :: OCAT -> L.ByteString -> Maybe TimeKS
+toJointTime :: OCAT -> T.Text -> Maybe TimeKS
 toJointTime m k = toTimeKS m k >>= \t -> if t <= TimeKS 0.0 then Nothing else Just t
 
-toText :: OCAT -> L.ByteString -> Maybe T.Text
+toText :: OCAT -> T.Text -> Maybe T.Text
 toText m lbl = either (const Nothing) Just (toTextE m lbl)
 
-toTextE :: OCAT -> L.ByteString -> Either T.Text T.Text
+toTextE :: OCAT -> T.Text -> Either T.Text T.Text
 toTextE m lbl =
-  let nokey = "Missing key: " <> T.pack (show lbl)
+  let nokey = "Missing key: " <> lbl
   in case M.lookup lbl m of
-    Just bs -> lbsToText bs
+    Just bs -> Right bs
     Nothing -> Left nokey
 
-toRead :: Read a => OCAT -> L.ByteString -> Maybe a
+toRead :: Read a => OCAT -> T.Text -> Maybe a
 toRead m lbl = toWrapper id lbl m
 
-toReadE :: Read a => OCAT -> L.ByteString -> Either T.Text a
+toReadE :: Read a => OCAT -> T.Text -> Either T.Text a
 toReadE m lbl = toWrapperE id lbl m
 
-toCT :: OCAT -> L.ByteString -> Maybe ChandraTime
+toCT :: OCAT -> T.Text -> Maybe ChandraTime
 toCT m lbl = ChandraTime <$> toUTC m lbl
 
 {-
@@ -415,23 +406,20 @@ toCTE :: OCAT -> L.ByteString -> Either T.Text ChandraTime
 toCTE m lbl = ChandraTime <$> toUTCE m lbl
 -}
 
-lbsToUTC :: L.ByteString -> Maybe UTCTime
-lbsToUTC =
+textToUTC :: T.Text -> Maybe UTCTime
+textToUTC =
   let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
-  in c . L8.unpack
+  in c . T.unpack
   
-lbsToUTCE :: L.ByteString -> Either T.Text UTCTime
-lbsToUTCE lbs =
+textToUTCE :: T.Text -> Either T.Text UTCTime
+textToUTCE txt =
   let c = fmap fst . listToMaybe . readsTime defaultTimeLocale "%F %T"
-      val = L8.unpack lbs
-      emsg = case lbsToText lbs of
-        Right txt -> "Unable to convert to UTCTime: " <> txt
-        Left cerr -> "Conversion to UTCTime, sent: " <> cerr
-        
+      val = T.unpack txt
+      emsg = "Unable to convert to UTCTime: " <> txt
   in maybe (Left emsg) Right (c val)
   
-toUTC :: OCAT -> L.ByteString -> Maybe UTCTime
-toUTC m lbl = M.lookup lbl m >>= lbsToUTC
+toUTC :: OCAT -> T.Text -> Maybe UTCTime
+toUTC m lbl = M.lookup lbl m >>= textToUTC
 
 {-
 toUTCE :: OCAT -> L.ByteString -> Either T.Text UTCTime
@@ -441,8 +429,8 @@ toUTCE m lbl = lookupE lbl m >>= lbsToUTCE
 -- TODO: catch parse errors
 toRAE :: OCAT -> Either T.Text RA
 toRAE mm = do
-  let tR lbs = 
-        let (h:m:s:_) = map (read . L8.unpack) (L.split (w8 ' ') lbs)
+  let tR txt = 
+        let (h:m:s:_) = map (read . T.unpack) (T.splitOn " " txt)
         in RA (15.0 * (h + (m + s/60.0) / 60.0))
 
   raVal <- lookupE "RA" mm
@@ -452,11 +440,11 @@ toRAE mm = do
 toDecE :: OCAT -> Either T.Text Dec
 toDecE mm = do
   let tD lbs = 
-        let (d:m:s:_) = map (read . L8.unpack) (L.split (w8 ' ') rest)
-            (sval, rest) = case L.uncons lbs of
-                     Just (c, cs) | c == w8 '-' -> (-1, cs)
-                                  | c == w8 '+' -> (1, cs)
-                                  | otherwise   -> (1, lbs) -- should not happen but just in case
+        let (d:m:s:_) = map (read . T.unpack) (T.splitOn " " rest)
+            (sval, rest) = case T.uncons lbs of
+                     Just (c, cs) | c == '-'  -> (-1, cs)
+                                  | c == '+'  -> (1, cs)
+                                  | otherwise -> (1, lbs) -- should not happen but just in case
                      _ -> (0, "0 0 0") -- if it's empty we have a problem
         in Dec (sval * (abs d + (m + s/60.0) / 60.0))
 
@@ -479,24 +467,22 @@ toGratingE m = do
     Just g -> Right g
     Nothing -> Left ("Unknown grating: " <> grat)
 
-toCSE :: OCAT -> L.ByteString -> Either T.Text ChipStatus
+toCSE :: OCAT -> T.Text -> Either T.Text ChipStatus
 toCSE m k = do
   cs <- toTextE m k
   conv "ChipStatus" toChipStatus cs
 
-toCE :: OCAT -> L.ByteString -> Either T.Text Constraint
+toCE :: OCAT -> T.Text -> Either T.Text Constraint
 toCE m k = do
   val <- lookupE k m
-  let ktxt = either id id (lbsToText k)
-      vtxt = either id id (lbsToText val)
-  case L8.uncons val of
-    Just (c, rest) -> if L8.null rest
+  case T.uncons val of
+    Just (c, rest) -> if T.null rest
                       then maybe
                            (Left ("unknown constraint: " <> T.singleton c))
                            Right (toConstraint c)
-                      else Left ("Constraint value " <> ktxt <> "=" <> vtxt)
+                      else Left ("Constraint value " <> k <> "=" <> val)
                            
-    _ -> Left ("empty string (?) key=" <> ktxt <> " val=" <> vtxt)
+    _ -> Left ("empty string (?) key=" <> k <> " val=" <> val)
 
 toProposalE :: OCAT -> Either T.Text Proposal
 toProposalE m = do
@@ -568,7 +554,7 @@ toSOE m = do
   sTime <- if status == discarded
            then Right discardedTime  -- is this possible?
            else case M.lookup "START_DATE" m of
-             Just sd -> ChandraTime <$> lbsToUTCE sd
+             Just sd -> ChandraTime <$> textToUTCE sd
              Nothing -> Right futureTime 
   
   appExp <- toTimeKSE m "APP_EXP"
@@ -605,8 +591,7 @@ toSOE m = do
   aciss5 <- convCS "S5"
 
   let jnames = do
-        bs <- M.lookup "JOINT" m
-        ns <- either (const Nothing) Just (lbsToText bs)
+        ns <- M.lookup "JOINT" m
         if ns == "None" then Nothing else Just ns
 
       hst = toJointTime m "HST"
@@ -760,18 +745,32 @@ makeObsCatQuery ::
   -> ObsIdVal
   -> IO (Maybe OCAT)
 makeObsCatQuery flag oid = do
-  rsp <- simpleHttp (getObsCatQuery oid)
-  -- TODO: why not just convert to Text straight away?
-  let isHash x = case L.uncons x of 
-                   Just (y, _) -> y == w8 '#'
+  rsplbs <- simpleHttp (getObsCatQuery oid)
+  case lbsToText rsplbs of
+    Right rsp -> processResponse flag oid rsp
+    Left emsg -> do
+      let otxt = T.pack (show (fromObsId oid))
+      T.hPutStrLn stderr
+        ("Error converting response for ObsId: " <> otxt)
+      T.hPutStrLn stderr emsg
+      return Nothing
+
+
+processResponse :: Bool -> ObsIdVal -> T.Text -> IO (Maybe OCAT)
+processResponse flag oid rsp = do
+  let isHash x = case T.uncons x of 
+                   Just (y, _) -> y == '#'
                    _ -> False
 
-      ls = dropWhile isHash (L.split (w8 '\n') rsp)
-      tokenize = L.split (w8 '\t')
+      ls = dropWhile isHash (T.splitOn "\n" rsp)
+      tokenize = T.splitOn "\t"
       hdr = tokenize (head ls)
+
+      notNull = not . T.null
+      
       -- could use positional information, but use a map instead
-      dl = filter (not . L.null) (drop 2 ls)
-      dropNulls = filter (not . L.null . snd)
+      dl = filter notNull (drop 2 ls)
+      dropNulls = filter (notNull . snd)
       out = map (M.fromList . dropNulls . zip hdr . tokenize) dl
 
   when flag $ forM_ (zip [(1::Int)..] out) $ \(i,m) -> do
