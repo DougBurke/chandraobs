@@ -8,20 +8,24 @@ module Views.Render ( makeSchedule
 
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+)
-               , Int, Integer, Either(..), Maybe(..), Show
+               , Int, Integer, Either(..), Maybe(..)
                , map, mapM_, maybe, return, show, truncate)
 
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
 -- import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Data.Aeson ((.=))
 import Data.Bits (shiftL)
 import Data.Functor (void)
 import Data.List (foldl', intersperse)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
+import Data.Text.Encoding (decodeUtf8')
 import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 
@@ -190,9 +194,6 @@ makeSchedule cTime done mdoing todo simbad =
 
       getLongLat r = (recordRa r, recordDec r)
 
-      conv :: Show a => a -> Html
-      conv = toHtml . show
-
       -- TODO: change order
       tblBlock = table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
                     thead $ tr $ do
@@ -217,40 +218,43 @@ makeSchedule cTime done mdoing todo simbad =
                       maybe mempty cRow mdoing
                       mapM_ nRow todo
 
-      -- gah - manual conversion to JSON
-      -- TODO: create a JSON object and then let Aeson serialize it
-      --       it
-      dataRow :: T.Text -> Record -> Html
+      dataRow :: T.Text -> Record -> Aeson.Value
       dataRow s r =
         let (x, y) = getLongLat r
             -- repeats the linkToSimbad logic; but this time assumes that
             -- it is safe to include non-science obs as they won't match
             sinfo = case M.lookup (recordTarget r) simbad of
-              Just si -> ", simbadType: " <> conv (smiType si)
-              Nothing -> ""
+              Just si -> [ "simbadType" .= smiType si ]
+              Nothing -> []
               
         -- we want to store the raw values, so extract numeric values from
         -- RA/Dec/time/... where appropriate
         -- could also include object type if available
-        in mconcat [" { longitude: ", toHtml (180 - _unRA x),
-                    ", latitude: ", toHtml (_unDec y),
-                    ", texp: ", toHtml (_toKS (recordTime r)),
-                    ", idname: '", toHtml (idLabel r), "'",
-                    ", label: ", conv (recordTarget r),
-                    sinfo,
-                    ", urifrag: ", conv (obsURIString (recordObsId r)),
-                    ", status: ", conv s
-                   , " }, "
-                   ]
-  
+        in Aeson.object
+           ([ "longitude" .= (180 - _unRA x)
+            , "latitude" .= _unDec y
+            , "texp" .= _toKS (recordTime r)
+            , "idname" .= idLabel r
+            , "label" .= recordTarget r
+            , "urifrag" .= obsURIString (recordObsId r)
+            , "status" .= s
+            ] <> sinfo)
+           
+      obsInfo =
+        map (dataRow "done") done
+        <> maybe [] ((:[]) . (dataRow "doing")) mdoing
+        <> map (dataRow "todo") todo
+
+      jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode obsInfo)) of
+        Right ans -> toHtml ans
+        Left _ -> "[]"
+
       svgBlock = do
         (div ! id "map") ""
         script ! type_ "text/javascript" $ do
-                   void "var obsinfo = ["
-                   mapM_ (dataRow "done") done
-                   maybe mempty (dataRow "doing") mdoing
-                   mapM_ (dataRow "todo") todo
-                   " ];"
+                   void "var obsinfo = "
+                   jsHtml
+                   ";"
 
   in (svgBlock, tblBlock)
 

@@ -12,7 +12,7 @@ import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 import Data.Time (Day, defaultTimeLocale, formatTime, showGregorian)
@@ -98,31 +98,30 @@ renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
 
     svgBlock
 
-    p $ mconcat 
-        [ "This page shows ", hdays
-        , " of the Chandra schedule, either side of today"
-        , scienceTime
-        , ". The size of the circles indicate the exposure time, and "
-        , "the color shows whether the observation has been done, "
-        , "is running now, or is in the future; the same colors "
-        , "are used in the table below. For repeated observations "
-        , "it can be hard to make out what is going on, since the "
-        , "circles overlap! The shaded regions trace "
-        , "the Milky Way galaxy. "
-        , "The points are plotted in the "
-        , (a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy")
-          "Equatorial coordinate system"
-        , ", using the "
-        , (a ! href "http://en.wikipedia.org/wiki/Aitoff_projection")
-          "Aitoff projection"
-        , ". See "
-        , (a ! href "http://burro.astr.cwru.edu/")
-          "Chris Mihos'"
-        , " page on "
-        , (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html")
-          "Astronomical coordinate systems"
-        , " for more informaion."
-        ]
+    p ("This page shows "
+       <> hdays
+       <> " of the Chandra schedule, either side of today"
+       <> scienceTime
+       <> ". The size of the circles indicate the exposure time, and "
+       <> "the color shows whether the observation has been done, "
+       <> "is running now, or is in the future; the same colors "
+       <> "are used in the table below. For repeated observations "
+       <> "it can be hard to make out what is going on, since the "
+       <> "circles overlap! The shaded regions trace "
+       <> "the Milky Way galaxy. "
+       <> "The points are plotted in the "
+       <> (a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy")
+       "Equatorial coordinate system"
+       <> ", using the "
+       <> (a ! href "http://en.wikipedia.org/wiki/Aitoff_projection")
+       "Aitoff projection"
+       <> ". See "
+       <> (a ! href "http://burro.astr.cwru.edu/")
+       "Chris Mihos'"
+       <> " page on "
+       <> (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html")
+       "Astronomical coordinate systems"
+       <> " for more informaion.")
 
     tblBlock
 
@@ -150,15 +149,14 @@ renderDateSchedule date (Schedule cTime ndays done mdoing todo simbad) =
 
     svgBlock
 
-    p $ mconcat 
-        [ "This page shows ", hdays
-        , " of the Chandra schedule either side of "
-        , toHtml dateStr
-        , scienceTime
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows "
+      <> hdays
+      <> " of the Chandra schedule either side of "
+      <> toHtml dateStr
+      <> scienceTime
+      <> ". The format is the same as used in the "
+      <> (a ! href "/schedule") "schedule view"
+      <> ".")
 
     tblBlock
 

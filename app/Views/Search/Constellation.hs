@@ -113,7 +113,7 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) =
            <> ".html"
 
   in div ! A.id "scheduleBlock" $ do
-    h2 $ toHtml lbl
+    h2 (toHtml lbl)
 
     svgBlock
 

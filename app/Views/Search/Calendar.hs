@@ -18,6 +18,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Data.Aeson ((.=))
 import Data.Functor (void)
 import Data.Monoid ((<>))
+import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day , showGregorian)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -57,8 +58,12 @@ renderMatches cts =
         div ! id "calendar" $ ""
         script ! type_ "text/javascript" $ do
           void "var calinfo = "
-          toHtml (LB8.unpack (Aeson.encode jsonCts))
+          jsHtml
           ";"
+
+      jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode jsonCts)) of
+        P.Right ans -> toHtml ans
+        P.Left _ -> "{}"
 
       fromDay = T.pack . showGregorian
       conv (d, n) = fromDay d .= n

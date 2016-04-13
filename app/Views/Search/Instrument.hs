@@ -26,6 +26,7 @@ import Data.Function (on)
 import Data.Functor (void)
 import Data.List (sortBy)
 import Data.Monoid ((<>))
+import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -317,6 +318,10 @@ renderBreakdown total perDay =
         , "series" .= series
         ]
 
+      jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode json)) of
+        P.Right ans -> toHtml ans
+        P.Left _ -> "{}"
+      
       calLink = (a ! href "/search/calendar/")
       
   in div $ do
@@ -354,8 +359,8 @@ renderBreakdown total perDay =
     tbl "Instrument" instLinkSearch insts
     tbl "Grating" gratLinkSearch grats
     tbl "Instrument & Grating" igLinkSearch igs
-    
+
     script ! type_ "text/javascript" $ do
       void "var seriesinfo = "
-      toHtml (LB8.unpack (Aeson.encode json))
+      jsHtml
       ";"
