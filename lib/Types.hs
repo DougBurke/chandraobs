@@ -833,6 +833,13 @@ data ScienceObs = ScienceObs {
   , soACISS5 :: ChipStatus  
 
     -- TODO: need to review to see if any new elements have been added
+    -- TODO: some observations have information like (e.g. obsid 17393)
+    --   ("MULTITEL","Y")
+    --   ("MULTITEL_INT","0.5")
+    --   ("MULTITEL_OBS","XMM-Newton, Suzaku, NuStar")
+    --       which is not encoded in the joint-with data. Does this tell
+    --       us about simultaneous observations?
+    --
   , soJointWith :: Maybe T.Text
   , soJointHST :: Maybe TimeKS
   , soJointNOAO :: Maybe TimeKS

@@ -55,7 +55,7 @@ import System.IO (hPutStrLn, stderr)
 import Database (insertSimbadInfo
                 , insertSimbadMatch
                 , insertSimbadNoMatch
-                , putTIO
+                , putIO
                 , runDb)
 import Types
 
@@ -78,6 +78,9 @@ cleanupName s =
 --
 --   *) Special case conversion from 'ArLac' to 'ar lac'
 --      as this is an often-observed calibration target.
+--
+--      TODO: special case E0102 as well, as that is also a
+--            common cal target
 --
 --   *) remove trailing word of the form
 --     NORTH SOUTH EAST WEST NE SE SW NW
@@ -246,8 +249,8 @@ groupSorted ((a,b):xs) = go a [b] [] xs
 
 -}
 
-blagT :: (MonadIO m) => Bool -> T.Text -> m ()
-blagT f = when f . putTIO
+blag :: (MonadIO m) => Bool -> T.Text -> m ()
+blag f = when f . putIO
 
 -- | The flag is @True@ to get debug output from the @querySIMBAD@ calls.
 --
@@ -322,9 +325,9 @@ updateDB sloc f = withSocketsDo $ do
       let tname = _2 searchRes
       runDb $ case minfo of
                Just si -> do
-                          blagT f (">> inserting SimbadInfo for " <> smiName si)
+                          blag f (">> inserting SimbadInfo for " <> smiName si)
                           (key, cleanFlag) <- insertSimbadInfo si
-                          blagT f (">> and SimbadMatch with target=" <> tname)
+                          blag f (">> and SimbadMatch with target=" <> tname)
                           void (insertSimbadMatch (toM searchRes key))
 
                           -- TODO: is this correct?
@@ -332,7 +335,7 @@ updateDB sloc f = withSocketsDo $ do
                             (delete (SmnTargetField ==. smiName si))
       
                _ -> do
-                 blagT f (">> Inserting SimbadNoMatch for target=" <> tname)
+                 blag f (">> Inserting SimbadNoMatch for target=" <> tname)
                  void (insertSimbadNoMatch (toNM searchRes))
                  return ()
 

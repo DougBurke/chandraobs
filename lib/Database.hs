@@ -75,7 +75,7 @@ module Database ( getCurrentObs
                 , insertOrReplace
                 , addScheduleItem
 
-                , putIO, putTIO
+                , putIO
                 , runDb
                 , dbConnStr
                 , discarded
@@ -1494,11 +1494,8 @@ getExposureValues = do
   return out
 
   
-putIO :: MonadIO m => String -> m ()
-putIO = liftIO . putStrLn
-
-putTIO :: MonadIO m => T.Text -> m ()
-putTIO = liftIO . T.putStrLn
+putIO :: MonadIO m => T.Text -> m ()
+putIO = liftIO . T.putStrLn
 
 showSize ::
   (DbIO m, PersistEntity v)
@@ -1507,7 +1504,7 @@ showSize ::
   -> m Int
 showSize l t = do
   n <- countAll t
-  putIO ("Number of " ++ l ++ " : " ++ show n)
+  putIO ("Number of " <> T.pack l <> " : " <> T.pack (show n))
   return n
 
 -- | Quick on-screen summary of the database size.
@@ -1526,23 +1523,23 @@ reportSize = do
   putIO ""
   ns <- findObsStatusTypes
   forM_ ns (\(status, n) ->
-             putTIO ("  status=" <> status <> "  : " <> T.pack (show n)))
-  putIO (" -> total = " <> show (sum (map snd ns)))
+             putIO ("  status=" <> status <> "  : " <> T.pack (show n)))
+  putIO (" -> total = " <> T.pack (show (sum (map snd ns))))
   putIO ""
 
   -- unscheduled observations
   nuns <- count (SoStartTimeField ==. futureTime)
-  putIO ("  un-scheduled science obs      = " ++ show nuns)
+  putIO ("  un-scheduled science obs      = " <> T.pack (show nuns))
   
   -- non-science breakdown
   ns1 <- count notFromObsCat
   ns2 <- count (Not notNsDiscarded)
-  putIO ("  non-science (not from obscat) = " ++ show ns1)
-  putIO ("  non-science discarded         = " ++ show ns2)
+  putIO ("  non-science (not from obscat) = " <> T.pack (show ns1))
+  putIO ("  non-science discarded         = " <> T.pack (show ns2))
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
   putIO ""
-  putIO ("Number of rows              : " ++ show ntot)
+  putIO ("Number of rows              : " <> T.pack (show ntot))
   return ntot
 
 -- Need to make sure the following match the constraints on the tables found

@@ -1,6 +1,7 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 --
 -- Initialize the database using the manually-curated information
@@ -36,11 +37,14 @@
 -- field - if not nsInObsCatName then it's a scheduleitem data set...
 --
 
+import qualified Data.Text as T
+
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
 import Database.Groundhog.Postgresql
+import Data.Monoid ((<>))
 
 import Database (addScheduleItem
                 , cleanDataBase
@@ -87,7 +91,12 @@ main =
     n3 <- countAll (undefined :: NonScienceObs)
     n4 <- countAll (undefined :: Proposal)
 
-    when (o1 /= n1) $ putIO ("# Number of scheduled items increased by " ++ show (n1-o1))
-    when (o2 /= n2) $ putIO ("# Number of science obs     increased by " ++ show (n2-o2))
-    when (o3 /= n3) $ putIO ("# Number of non-science obs increased by " ++ show (n3-o3))
-    when (o4 /= n4) $ putIO ("# Number of proposals       increased by " ++ show (n4-o4))
+    let report lbl na nb =
+          let ndiff = T.pack (show (nb - na))
+          in when (na /= nb)
+             (putIO ("# Number of " <> lbl <> " increased by " <> ndiff))
+
+    report "scheduled items" o1 n1
+    report "science obs    " o2 n2
+    report "non-science obs" o3 n3
+    report "proposals"       o4 n4
