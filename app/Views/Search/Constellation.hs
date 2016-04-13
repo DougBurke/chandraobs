@@ -21,7 +21,7 @@ import Data.Function (on)
 -- import Data.Functor (void)
 import Data.List (sortBy)
 import Data.Maybe (isNothing)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -118,20 +118,18 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) =
     svgBlock
 
     -- TODO: improve English here
-    p $ mconcat
-        [ "This page shows Chandra observations of objects in the constellation "
-        , (a ! href conLink) (toHtml lbl)
-        , scienceTime
-        , ". The constellation outline is also shown; the outlines "
-        , "were taken from the "
-        , (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
-        , " project by Olaf Frohn. "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows Chandra observations of objects in the constellation "
+       <> (a ! href conLink) (toHtml lbl)
+       <> scienceTime
+       <> ". The constellation outline is also shown; the outlines "
+       <> "were taken from the "
+       <> (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
+       <> " project by Olaf Frohn. "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> ".")
 
     tblBlock
 

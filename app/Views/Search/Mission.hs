@@ -6,8 +6,9 @@ module Views.Search.Mission (indexPage, matchPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (Int, String, ($), compare, fst)
+import Prelude (Int, ($), compare, fst)
 
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -15,7 +16,7 @@ import Control.Monad (mapM_)
 
 import Data.Function (on)
 import Data.List (sortBy)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -77,7 +78,7 @@ renderMissions jms =
                     td (fromMissionLongLink jm)
                     (td ! A.title (toValue lbl)) (toHtml n)
 
-      lbl = "Number of observations" :: String
+      lbl = "Number of observations" :: T.Text
       sjms = sortBy (compare `on` fst) jms
 
   in do
@@ -121,19 +122,17 @@ renderMatches ms (Schedule cTime _ done mdoing todo simbad) =
     svgBlock
 
     -- TODO: improve English here
-    p $ mconcat
-        [ "This page shows Chandra observations of objects which had "
-        , "joint observations with the "
-        , fromMissionAboutLink ms
-        , scienceTime
-        , ". These observations may be simultaneous, but often "
-        , "they are not. "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows Chandra observations of objects which had "
+       <> "joint observations with the "
+       <> fromMissionAboutLink ms
+       <> scienceTime
+       <> ". These observations may be simultaneous, but often "
+       <> "they are not. "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> ".")
 
     tblBlock
 

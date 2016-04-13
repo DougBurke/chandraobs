@@ -16,6 +16,7 @@ import Prelude (($), (*), (/), Ord, Int, compare, fst, snd, mapM_)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -24,7 +25,7 @@ import Data.Aeson ((.=))
 import Data.Function (on)
 import Data.Functor (void)
 import Data.List (sortBy)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 import Data.Time (Day)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -143,19 +144,17 @@ renderInstMatches inst (Schedule cTime _ done mdoing todo simbad) =
 
     svgBlock
 
-    p $ mconcat
-        [ "This page shows observations of objects that use "
-        , "the "
-        , instLinkAbout inst
-        , " instrument on Chandra"
-        , scienceTime
-        , ". "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows observations of objects that use "
+       <> "the "
+       <> instLinkAbout inst
+       <> " instrument on Chandra"
+       <> scienceTime
+       <> ". "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> ".")
 
     tblBlock
 
@@ -172,18 +171,16 @@ renderGratMatches grat (Schedule cTime _ done mdoing todo simbad) =
 
     svgBlock
 
-    p $ mconcat
-        [ "This page shows observations of objects that use "
-        , gratLinkAbout grat
-        , " on Chandra"
-        , scienceTime
-        , ". "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows observations of objects that use "
+       <> gratLinkAbout grat
+       <> " on Chandra"
+       <> scienceTime
+       <> ". "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> ".")
 
     tblBlock
 
@@ -200,21 +197,19 @@ renderIGMatches (inst, grat) (Schedule cTime _ done mdoing todo simbad) =
 
     svgBlock
 
-    p $ mconcat
-        [ "This page shows observations of objects that use "
-        , instLinkAbout inst
-        , " with "
-        , gratLinkAbout grat
-        , " on Chandra"
-        , scienceTime
-        , ". "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
-
+    p ("This page shows observations of objects that use "
+       <> instLinkAbout inst
+       <> " with "
+       <> gratLinkAbout grat
+       <> " on Chandra"
+       <> scienceTime
+       <> ". "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> ".")
+    
     tblBlock
 
 renderTypes ::
@@ -280,10 +275,10 @@ renderBreakdown total perDay =
       totalTime = P.sum (P.map _toKS (M.elems total))
 
       -- | Will want to limit the % to a few dp
-      frac :: TimeKS -> P.String
+      frac :: TimeKS -> T.Text
       frac t =
         let v = 100 * _toKS t / totalTime
-        in printf "%.2f" v
+        in T.pack (printf "%.2f" v)
 
       tbl lbl f xs = table $ do
         thead $ tr $ do

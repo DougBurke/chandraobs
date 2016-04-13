@@ -11,6 +11,7 @@ module Views.WWT (wwtPage) where
 import qualified Prelude as P
 import Prelude (($))
 
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -70,7 +71,7 @@ wwtPage f ScienceObs{..} =
            $ "Jump to Source"
 
       -- can we use label rather than span here?
-      cBox :: P.String -> AttributeValue -> AttributeValue -> Html
+      cBox :: T.Text -> AttributeValue -> AttributeValue -> Html
       cBox lbl idVal oClick =
         H.label $ H.toHtml (lbl <> " ") <>
                   input ! id idVal
@@ -88,13 +89,12 @@ wwtPage f ScienceObs{..} =
                           , crossHair, constellation, boundaries]
 
       obsLink = if f
-                then a ! href "/" $ "observation page"
-                else a ! href (obsURI soObsId) $ "observation page"
+                then (a ! href "/") "observation page"
+                else (a ! href (obsURI soObsId)) "observation page"
 
       targetName = H.toHtml soTarget
-      titleVal =
-          "The World Wide Telescope view of "
-          <> targetName
+      titleVal = "The World Wide Telescope view of "
+                 <> targetName
 
   in docTypeHtml ! lang "en-US" $
     head 

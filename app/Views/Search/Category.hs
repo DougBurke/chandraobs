@@ -8,9 +8,10 @@ module Views.Search.Category (indexPage
                              ) where
 
 -- import qualified Prelude as P
-import Prelude (($), Maybe(..), Int, String
+import Prelude (($), Maybe(..), Int
                , compare, fst, mapM_)
 
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -85,7 +86,7 @@ renderTypes cats =
         td (categoryLinkSearch cat cat)
         (td ! A.title (toValue lbl)) (toHtml n)
 
-      lbl = "Number of proposals" :: String
+      lbl = "Number of proposals" :: T.Text
 
       scats = sortBy (compare `on` fst) cats
   in div $ do

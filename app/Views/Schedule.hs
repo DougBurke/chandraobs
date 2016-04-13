@@ -6,8 +6,9 @@
 module Views.Schedule (schedPage, schedDatePage) where
 
 -- import qualified Prelude as P
-import Prelude (Maybe(..), ($), (==), show)
+import Prelude (Maybe(..), ($), (==))
 
+import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -25,7 +26,9 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..))
 import Utils (defaultMeta, skymapMeta, cssLink, renderFooter
-             , getScienceTime)
+             , getScienceTime
+             , showInt
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -85,10 +88,10 @@ renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
       scienceTime = getScienceTime done mdoing todo
                          
       -- the assumption is that ndays > 0
-      title = show ndays <> "-day Schedule"
+      title = showInt ndays <> "-day Schedule"
       hdays = if ndays == 1
               then "one day"
-              else toHtml (show ndays) <> " days"
+              else toHtml (showInt ndays <> " days")
       
   in div ! A.id "scheduleBlock" $ do
     h2 (toHtml title)
@@ -107,13 +110,17 @@ renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
         , "circles overlap! The shaded regions trace "
         , "the Milky Way galaxy. "
         , "The points are plotted in the "
-        , a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy" $ "Equatorial coordinate system"
+        , (a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy")
+          "Equatorial coordinate system"
         , ", using the "
-        , a ! href "http://en.wikipedia.org/wiki/Aitoff_projection" $ "Aitoff projection"
+        , (a ! href "http://en.wikipedia.org/wiki/Aitoff_projection")
+          "Aitoff projection"
         , ". See "
-        , a ! href "http://burro.astr.cwru.edu/" $ "Chris Mihos'"
+        , (a ! href "http://burro.astr.cwru.edu/")
+          "Chris Mihos'"
         , " page on "
-        , a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html" $ "Astronomical coordinate systems"
+        , (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html")
+          "Astronomical coordinate systems"
         , " for more informaion."
         ]
 
@@ -130,10 +137,11 @@ renderDateSchedule date (Schedule cTime ndays done mdoing todo simbad) =
       scienceTime = getScienceTime done mdoing todo
 
       -- the assumption is that ndays > 0
-      title = show ndays <> "-day Schedule for " <> showGregorian date
+      title = showInt ndays <> "-day Schedule for "
+              <> T.pack (showGregorian date)
       hdays = if ndays == 1
               then "one day"
-              else toHtml (show ndays) <> " days"
+              else toHtml (showInt ndays <> " days")
 
       dateStr = formatTime defaultTimeLocale "%A, %B %e, %Y" date 
       

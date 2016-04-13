@@ -17,7 +17,7 @@ import Control.Monad (mapM_)
 
 import Data.Function (on)
 import Data.List (sortBy)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -210,17 +210,15 @@ renderMatches ptype (Schedule cTime _ done mdoing todo simbad) =
     svgBlock
 
     -- TODO: improve English here
-    p $ mconcat
-        [ "This page shows Chandra observations for proposals with "
-        , "the proposal type of "
-        , plabel
-        , scienceTime
-        , ". "
-          -- assume the schedule is all science observations
-        , toHtml (getNumObs done mdoing todo)
-        , ". The format is the same as used in the "
-        , (a ! href "/schedule") "schedule view"
-        , "."
-        ]
+    p ("This page shows Chandra observations for proposals with "
+       <> "the proposal type of "
+       <> plabel
+       <> scienceTime
+       <> ". "
+       -- assume the schedule is all science observations
+       <> toHtml (getNumObs done mdoing todo)
+       <> ". The format is the same as used in the "
+       <> (a ! href "/schedule") "schedule view"
+       <> ".")
 
     tblBlock

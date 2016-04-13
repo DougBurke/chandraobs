@@ -35,6 +35,7 @@ import qualified Data.Map.Strict as M
 
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as L
 
@@ -88,7 +89,7 @@ import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
-import System.IO (hFlush, hPutStrLn, stderr)
+import System.IO (hFlush, stderr)
 
 import Web.Heroku (dbConnParams)
 import Web.Scotty
@@ -155,11 +156,6 @@ import Types (Record, SimbadInfo, Proposal
              )
 import Utils (fromBlaze, standardResponse, getFact)
 
-readInt :: String -> Maybe Int
-readInt s = case reads s of
-              [(v,[])] -> Just v
-              _ -> Nothing
-
 production :: 
   Int  -- ^ The port number to use
   -> Options
@@ -177,9 +173,9 @@ getDbConnStr _ = do
   return $ T.unpack $ foldr (\(k,v) s ->
                         s <> (k <> "=" <> v <> " ")) "" cparams
 
-uerror :: String -> IO ()
+uerror :: T.Text -> IO ()
 uerror msg = do
-  hPutStrLn stderr ("ERROR: " ++ msg)
+  T.hPutStrLn stderr ("ERROR: " <> msg)
   hFlush stderr
   exitFailure
 
@@ -200,11 +196,11 @@ main :: IO ()
 main = do
   mports <- lookupEnv "PORT"
   let eopts = case mports of
-                Just ports -> case readInt ports of
-                                Just port -> Right (production port)
-                                _ -> Left ("Invalid PORT argument: " ++ ports)
+        Just ports -> case reads ports of
+          [(port,[])] ->  Right (production port)
+          _ -> Left ("Invalid PORT argument: " <> T.pack ports)
 
-                _ -> Right development
+        _ -> Right development
 
   connStr <- getDbConnStr (isJust mports)
  
@@ -827,7 +823,7 @@ proxy2 mgr pt seqVal obsid = do
   -- with the caching; if may have done.
   --
   -- Since the ETag header is opaque it should be okay
-  -- to just cioy it over, since the assumption is that the
+  -- to just copy it over, since the assumption is that the
   -- base64 encoding is not going to change.
   let rhdrs = NHC.responseHeaders rsp
       mLastMod = cText <$> lookup hLastModified rhdrs

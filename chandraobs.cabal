@@ -221,6 +221,7 @@ executable getcurrent
      base
      , chandraobs
      , groundhog-postgresql
+     , text
      , time
 
   else

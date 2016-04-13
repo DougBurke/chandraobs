@@ -14,7 +14,7 @@ module Views.Search.Types (indexPage, dependencyPage
                           , renderDependencyJSON) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), (==), (+), Int, String
+import Prelude ((.), ($), (==), (+), Int
                , compare, error, fst, lookup, mapM_, maybe
                , null, snd, sum, uncurry, unzip)
 
@@ -225,10 +225,10 @@ renderTypes objs =
                         td (uncurry typeLinkSearch sti)
                         (td ! A.title (toValue lbl)) (toHtml n)
 
-      lbl = "Number of objects" :: String
+      lbl = "Number of objects" :: T.Text
 
       sobjs = sortBy (compare `on` (snd.fst)) objs
-      str :: String -> H.Html
+      str :: T.Text -> H.Html
       str = toHtml
 
       unidLabel = "Unidentified sources"
@@ -329,7 +329,7 @@ toTree sl =
         let obj = makeObj st sc n
         in (n, Aeson.object obj)
         
-  in Aeson.object [ "name" .= ("all" :: String),
+  in Aeson.object [ "name" .= ("all" :: T.Text),
                     "children" .= P.map toChild1 c1 ]
 
 -- | Create the SIMBAD dependency graph and render it.
@@ -347,7 +347,7 @@ renderDependency objs =
                    toHtml (LB8.unpack (Aeson.encode xs))
                    ";"
 
-      str :: String -> H.Html
+      str :: T.Text -> H.Html
       str = toHtml
 
   in div $ do

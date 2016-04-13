@@ -12,7 +12,11 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (++), Eq, Bool(..), Either(..), Maybe(..), String, const, either, elem, filter, fst, length, map, maybe, null, otherwise, snd, splitAt, uncurry, zip)
+import Prelude ((.), (-), ($), (>), (==), (/=), (&&)
+               , Eq, Bool(..), Either(..), Maybe(..), String
+               , const, either, elem, filter, fst, length, map
+               , maybe, null, otherwise, snd, splitAt, uncurry
+               , zip)
 
 import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
@@ -202,12 +206,15 @@ groupProposal tName matches =
 
       toLink o = a ! href (obsURI o) $ toHtml o
 
+      addCommas xs = mconcat (intersperse ", " (P.map (toLink . snd) xs))
+                     
       tgtLinks [] = mempty -- should not happen
-      tgtLinks xs@(x:_) = mconcat $ [toHtml (fst x), " ("] ++ intersperse ", " (P.map (toLink . snd) xs) ++ [")"]
-      out = mconcat $ intersperse "; " (P.map tgtLinks grps)
+      tgtLinks xs@(x:_) = toHtml (fst x) <> " (" <> addCommas xs <> ")"
+      
+      out = mconcat (intersperse "; " (P.map tgtLinks grps))
 
   in case grps of
-    [xs@(x:_)] | fst x == tName -> mconcat $ intersperse ", " (P.map (toLink . snd) xs)
+    [xs@(x:_)] | fst x == tName -> addCommas xs
                | otherwise      -> out
     _ -> out
 

@@ -7,7 +7,9 @@ module Views.Render ( makeSchedule
                      ) where
 
 -- import qualified Prelude as P
-import Prelude ((.), ($), (==), (-), (+), Int, Integer, Either(..), Maybe(..), Show, String, map, mapM_, maybe, return, show, truncate)
+import Prelude ((.), ($), (==), (-), (+)
+               , Int, Integer, Either(..), Maybe(..), Show
+               , map, mapM_, maybe, return, show, truncate)
 
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
@@ -17,7 +19,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Bits (shiftL)
 import Data.Functor (void)
-import Data.List (foldl', intercalate, intersperse)
+import Data.List (foldl', intersperse)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -46,8 +48,8 @@ import Utils (obsURIString
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
-idLabel :: Record -> String
-idLabel = ("i" <>) . show . fromObsId . recordObsId
+idLabel :: Record -> T.Text
+idLabel = ("i" <>) . T.pack . show . fromObsId . recordObsId
 
 -- | Take the joint-with field and create an entry for
 --   it.
@@ -119,7 +121,7 @@ makeSchedule cTime done mdoing todo simbad =
 
       -- TODO: Are there any soConstrained fields with a Preferred constraint?
       --       If so, the output of this could be improved
-      showConstraint :: (String, Constraint) -> Maybe String
+      showConstraint :: (T.Text, Constraint) -> Maybe T.Text
       showConstraint (_, NoConstraint) = Nothing
       showConstraint (l, Preferred)    = Just (l <> " preferred")
       showConstraint (l, Required)     = Just l
@@ -155,16 +157,15 @@ makeSchedule cTime done mdoing todo simbad =
                       ("constrained", soConstrained)]
           in case mapMaybe showConstraint cons of
                [] -> "n/a"
-               xs -> toHtml (intercalate ", " xs)
+               xs -> toHtml (mconcat (intersperse ", " xs))
 
-      toRow :: (ChandraTime -> String) -> Record -> Html
+      toRow :: (ChandraTime -> T.Text) -> Record -> Html
       toRow ct r = hover r $ do
          td (linkToRecord r)
          td (linkToSimbad r)
-         td ! dataAttribute "sortvalue" (toValue (recordTime r)) $ showExp r
-         td ! dataAttribute "sortvalue" (aTime r)
-            ! class_ "starttime" 
-              $ toHtml (ct (recordStartTime r))
+         (td ! dataAttribute "sortvalue" (toValue (recordTime r))) (showExp r)
+         (td ! dataAttribute "sortvalue" (aTime r)
+             ! class_ "starttime") (toHtml (ct (recordStartTime r)))
          td (instVal r)
 
          td (showJoint r)
@@ -219,7 +220,7 @@ makeSchedule cTime done mdoing todo simbad =
       -- gah - manual conversion to JSON
       -- TODO: create a JSON object and then let Aeson serialize it
       --       it
-      dataRow :: String -> Record -> Html
+      dataRow :: T.Text -> Record -> Html
       dataRow s r =
         let (x, y) = getLongLat r
             -- repeats the linkToSimbad logic; but this time assumes that

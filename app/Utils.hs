@@ -46,6 +46,10 @@ module Utils (
      , getScienceExposure
      , getScienceTime
      , dquote
+
+       -- useful in conversion of String-handling code
+       -- to use Text instead
+     , showInt
      ) where
 
 import qualified Data.ByteString as B
@@ -116,8 +120,8 @@ import Types (ScienceObs(..), ObsIdVal(..)
 obsURI :: ObsIdVal -> H.AttributeValue
 obsURI = H.toValue . obsURIString
 
-obsURIString :: ObsIdVal -> String
-obsURIString (ObsIdVal oi) = "/obsid/" <> show oi
+obsURIString :: ObsIdVal -> T.Text
+obsURIString (ObsIdVal oi) = "/obsid/" <> T.pack (show oi)
 
 fromBlaze :: H.Html -> ActionM ()
 fromBlaze = html . renderHtml
@@ -166,7 +170,7 @@ d3Meta =
 jqueryMeta :: H.Html
 jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
 
-plural :: Int -> String
+plural :: Int -> T.Text
 plural i = if i > 1 then "s" else ""
 
 getTimeElems ::
@@ -186,8 +190,14 @@ getTimeElems t1 t2 =
 
 -- | Report a day that's more than about a week in the
 --   future or past.
-showTime :: UTCTime -> String
-showTime = formatTime defaultTimeLocale "%A, %B %e, %Y"
+showTime :: UTCTime -> T.Text
+showTime = T.pack . formatTime defaultTimeLocale "%A, %B %e, %Y"
+
+-- This could be more generic, but trying to identify where
+-- specific conversions are needed for Text.
+--
+showInt :: (Show a, Integral a) => a -> T.Text
+showInt = T.pack . show
 
 -- | Come up with a string representing the time difference. It
 --   is probably not general enough, since it adds in a
@@ -201,13 +211,13 @@ showTime = formatTime defaultTimeLocale "%A, %B %e, %Y"
 showTimeDeltaFwd ::
   UTCTime     -- time 1
   -> ChandraTime  -- time 2, >= time 1
-  -> String   -- time1 relative to time2
+  -> T.Text   -- time1 relative to time2
 showTimeDeltaFwd t1 c2@(ChandraTime t2) = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
-      mins = "in " <> show nm <> " minute" <> plural nm
-      hours = "in " <> show nh <> " hour" <> plural nh
-      days = "in " <> show nd <> " day" <> plural nd
+      mins = "in " <> showInt nm <> " minute" <> plural nm
+      hours = "in " <> showInt nh <> " hour" <> plural nh
+      days = "in " <> showInt nd <> " day" <> plural nd
       other = showTime t2
 
   in if c2 == futureTime
@@ -228,13 +238,13 @@ showTimeDeltaFwd t1 c2@(ChandraTime t2) =
 showTimeDeltaBwd ::
   ChandraTime     -- time 1
   -> UTCTime  -- time 2, >= time 1
-  -> String   -- time1 relative to time2
+  -> T.Text   -- time1 relative to time2
 showTimeDeltaBwd (ChandraTime t1) t2 = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
-      mins = show nm <> " minute" <> plural nm <> " ago"
-      hours = show nh <> " hour" <> plural nh <> " ago"
-      days = show nd <> " day" <> plural nd <> " ago"
+      mins = showInt nm <> " minute" <> plural nm <> " ago"
+      hours = showInt nh <> " hour" <> plural nh <> " ago"
+      days = showInt nd <> " day" <> plural nd <> " ago"
       other = showTime t1
 
   in if delta < 60
@@ -248,24 +258,27 @@ showTimeDeltaBwd (ChandraTime t1) t2 =
                       else "on " <> other
 
 
+
 -- TODO:
 -- Ideally we would link to something a bit more readable than the
 -- archive page (ie its use of frames), and also present the link
 -- in a more-friendly manner than as a link from the obsid or
 -- sequence number.
 --
+viewerURI :: T.Text -> ObsIdVal -> H.AttributeValue
+viewerURI opts ObsIdVal{..} =
+  let base = "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem="
+  in H.toValue (base <> opts <> "&obsid=" <> showInt fromObsId)
+
 obsIdLink :: ObsIdVal -> H.AttributeValue
-obsIdLink ObsIdVal{..} =
-  H.toValue $ "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=" ++ show fromObsId
+obsIdLink = viewerURI "details"
 
 seqLink :: ObsIdVal -> H.AttributeValue
-seqLink ObsIdVal{..} =
-  H.toValue ("http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=" <> show fromObsId)
+seqLink = viewerURI "sequenceSummary"
 
 detailsLink, abstractLink :: ObsIdVal -> H.AttributeValue
 detailsLink = obsIdLink
-abstractLink ObsIdVal{..} = 
-  H.toValue ("http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=" <> show fromObsId)
+abstractLink = viewerURI "propAbstract"
 
 jointLink :: JointMission -> H.AttributeValue
 jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
@@ -462,9 +475,9 @@ renderLinks ::
   -> ScienceObs
   -> H.Html
 renderLinks f mprop msimbad so@ScienceObs{..} =
-  let optSel :: String -> Bool -> H.Html
+  let optSel :: T.Text -> Bool -> H.Html
       optSel lbl cf = 
-        let idName = H.toValue (lbl++"button")
+        let idName = H.toValue (lbl <> "button")
             base = H.input H.! A.type_ "radio"
                            H.! A.name  "opttype"
                            H.! A.value (H.toValue lbl)
@@ -488,13 +501,15 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
                       , wwtLink
                       ]
 
-      urlHead = mconcat [ "http://asc.harvard.edu/targets/"
-                        , H.toValue soSequence, "/"
-                        , H.toValue soSequence, "."
-                        , H.toValue soObsId, ".soe."
-                        ]
+      urlHead = "http://asc.harvard.edu/targets/"
+                <> H.toValue soSequence
+                <> "/"
+                <> H.toValue soSequence
+                <> "."
+                <> H.toValue soObsId
+                <> ".soe."
 
-      link :: String -> H.AttributeValue -> Bool -> H.Html
+      link :: T.Text -> H.AttributeValue -> Bool -> H.Html
       link lbl frag af = 
         let uri = urlHead <> frag <> ".gif"
         in H.img H.! A.src    uri
@@ -707,15 +722,16 @@ maybeToList (Just x) = [x]
 schedToList :: [a] -> Maybe a -> [a] -> [a]
 schedToList done mdoing todo = done ++ maybeToList mdoing ++ todo
 
-getNumObs :: [a] -> Maybe a -> [a] -> String
+getNumObs :: [a] -> Maybe a -> [a] -> T.Text
 getNumObs done mdoing todo =
   let xs = schedToList done mdoing todo
       nobs = length xs
       obslen = case nobs of
         0 -> "are no observations"
         1 -> "is one observation"
-        _ -> "are " ++ show nobs ++ " observations"
-  in "There " ++ obslen ++ ", but this is a small fraction of the Chandra mission"
+        _ -> "are " <> showInt nobs <> " observations"
+  in "There " <> obslen
+     <> ", but this is a small fraction of the Chandra mission"
 
 
 -- | Return the total obervation time for the science observations in the
