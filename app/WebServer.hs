@@ -678,13 +678,13 @@ webapp cm mgr = do
     get "/search/instgrat/" igsearch
 
     get "/search/name" $ do
-      (target, matches) <- dbQuery "target" findTarget
+      (target, (matches, matchNames)) <- dbQuery "target" findTarget
       -- TODO: set an error code if no match? Once have sorted out search info
       if nullSL matches
         then fromBlaze (Target.noMatchPage target)
         else do
           sched <- liftSQL (makeSchedule (fmap Right matches))
-          fromBlaze (Target.targetPage target sched)
+          fromBlaze (Target.targetPage target matchNames sched)
 
     -- Try displaying a "calendar" view
     -- TODO: the choice of 21 days is somewhat arbitrary, but the idea

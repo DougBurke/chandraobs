@@ -1212,14 +1212,19 @@ findProposalNameMatch instr =
 --   It is related to `findNameMatch`.
 --
 --   TODO:
---     add in SIMBAD search
 --     improve space matching
 --     filter out % and _ ?
 --
 findTarget ::
   (PersistBackend m, SqlDb (PhantomDb m))
   => T.Text
-  -> m (SortedList StartTimeOrder ScienceObs)
+  -> m (SortedList StartTimeOrder ScienceObs, [TargetName])
+  -- ^ Returns a list of matching observations and the list of
+  --   "SIMBAD" names, that is, the names that are considered
+  --   the primary values for the source. I would hope that
+  --   there can only be one name here, but need to convince
+  --   myself of that, so leaving as a list.
+  --
 findTarget target = do
   -- have to do a direct search on SoTargetField, and an
   -- indirect search in case the match is against the SmiNameField.
@@ -1230,15 +1235,23 @@ findTarget target = do
   direct <- select ((upper SoTargetField ==. searchTerm)
                     `orderBy` [Asc SoStartTimeField])
 
-  -- I expect there to be zero or one matches (for skeys and snames),
-  -- but I want to see how in_ works
-  skeys <- project AutoKeyField (upper SmiNameField ==. searchTerm)
-  snames <- project SmmTargetField (SmmInfoField `in_` skeys)
-  indirect <- select ((SoTargetField `in_` snames)
+  -- find the "Simbad" name for these targets
+  let tnames = map soTarget direct
+  skeys <- project SmmInfoField (SmmTargetField `in_` tnames)
+  sfields <- project (AutoKeyField, SmiNameField) (AutoKeyField `in_` skeys)
+  let (sauto, snames) = unzip sfields
+
+  -- find those names that map to the "Simabd" names
+  smatches <- project SmmTargetField (SmmInfoField `in_` sauto)
+
+  -- remove those names we already have data for
+  let onames = S.fromList smatches `S.difference` S.fromList tnames
+  indirect <- select ((SoTargetField `in_` (S.toList onames))
                       `orderBy` [Asc SoStartTimeField])
 
+  -- hopefully there are no repeats in these two lists
   let sobs = mergeSL soStartTime (unsafeToSL direct) (unsafeToSL indirect)
-  return sobs
+  return (sobs, snames)
 
 type NumSrc = Int
 type NumObs = Int

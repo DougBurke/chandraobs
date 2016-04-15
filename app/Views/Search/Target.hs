@@ -10,7 +10,8 @@ import Prelude (($))
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>))
+import Data.List (intersperse)
+import Data.Monoid ((<>), mconcat)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -26,13 +27,23 @@ import Views.Render (makeSchedule)
 targetPage :: 
   TargetName
   -- ^ target name
+  -> [TargetName]
+  -- ^ The "official" name for this source (i.e. the SIMBAD-recognized name);
+  --   I think this should always be a singleton (unless QuerySimbad hasn't
+  --   been called when it could be empty). It should not have multiple values,
+  --   but I haven't convinced myself of this so leave as is for now.
   -> Schedule
   -- ^ the observations that match this target, organized into a "schedule"
   -> Html
-targetPage targetName sched =
+targetPage targetName fullNames sched =
   let jsLoad = "createMap(obsinfo);"
+
+      officialName = case fullNames of
+        [] -> targetName
+        _ -> mconcat (intersperse ", " fullNames)
+        
   in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml targetName) <>
+    head (H.title ("Chandra observations of " <> H.toHtml officialName) <>
           defaultMeta
           <> skymapMeta
           <> (cssLink "/css/main.css" ! A.title  "Default")
@@ -41,7 +52,7 @@ targetPage targetName sched =
     (body ! onload jsLoad)
      (mainNavBar CPExplore
       <> (div ! id "schedule") 
-          (renderMatches targetName sched)
+          (renderMatches officialName sched)
       <> renderFooter
      )
 
