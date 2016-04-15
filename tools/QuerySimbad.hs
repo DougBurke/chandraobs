@@ -79,9 +79,6 @@ cleanupName s =
 --   *) Special case conversion from 'ArLac' to 'ar lac'
 --      as this is an often-observed calibration target.
 --
---      TODO: special case E0102 as well, as that is also a
---            common cal target
---
 --   *) remove trailing word of the form
 --     NORTH SOUTH EAST WEST NE SE SW NW
 --     NORTHEAST SOUTHEAST SOUTHWEST NORTHWEST
@@ -106,7 +103,8 @@ cleanTargetName tgt =
   let lc = T.toLower
   in case T.words tgt of
     [] -> ""
-    [n] | lc n == "arlac" -> "Ar Lac" -- Special case a name used by CAL
+    -- special case names used by CAL
+    [n] | lc n == "arlac" -> "Ar Lac"
     toks -> let (ltok:rtoks) = reverse toks
 
                 -- Remove last token, if necessary
@@ -121,8 +119,11 @@ cleanTargetName tgt =
 
                 (ltok3:rtoks3) = reverse toks3
                 toks4 = if ltok3 == "-" then reverse rtoks3 else toks3
-                
-            in T.unwords toks4
+
+                cleanName = T.unwords toks4
+            in if "E0102-72" `T.isPrefixOf` cleanName 
+               then "1E 0102.2-7219"
+               else cleanName
 
 -- | Compass directions to remove (in lower case).
 compassDirs :: [T.Text]
