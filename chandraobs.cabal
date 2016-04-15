@@ -88,8 +88,11 @@ executable webserver
                        Views.Search.Constellation
                        Views.Search.Instrument
                        Views.Search.Mapping
+                       Views.Search.Mission
+                       Views.Search.PropType
                        Views.Search.Target
                        Views.Search.Types
+                       Views.Search.TOO
                        Views.WWT
   hs-source-dirs:      app/
 
@@ -102,6 +105,7 @@ executable webserver
      , base64-bytestring == 1.0.*
      , blaze-builder >= 0.3 && < 0.5
      , blaze-html
+     , blaze-markup
      , bytestring
      -- can we go to 1.2 as well for conduit?
      , conduit >= 1.1 && < 1.3

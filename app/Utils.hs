@@ -40,13 +40,17 @@ module Utils (
      , propTypeLink
      , nameLinkSearch
      , jointLinkSearch
+     , tooLinkSearch
+     , tooLinkSearchLong
      , cleanJointName
      , schedToList
      , getNumObs
      , getScienceExposure
      , getScienceTime
      , dquote
-
+     , standardTable
+     , floatableTable
+       
        -- useful in conversion of String-handling code
        -- to use Text instead
      , showInt
@@ -55,6 +59,7 @@ module Utils (
 import qualified Data.ByteString as B
 import qualified Data.Text as T
 
+import qualified Text.Blaze.Internal as Blaze
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -106,6 +111,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , Record
              , JointMission
              , TargetName
+             , TOORequest(..), TOORequestTime
              , recordObsId, recordTarget, recordStartTime
              , recordTime, futureTime
              , getJointObs, getConstellationName
@@ -113,6 +119,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , fromMission, toMission, fromMissionLongLink
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              , fromPropType, toPropType, toPropTypeLabel
+             , rtToLabel
              )
 
 -- | Convert a record into the URI fragment that represents the
@@ -288,6 +295,23 @@ jointLinkSearch :: JointMission -> H.Html
 jointLinkSearch jm =
   (H.a H.! A.href (jointLink jm)) (H.toHtml (fromMission jm))
 
+-- | Link to the TOO category. See also `tooLinkSearchLong`.
+--
+--   It is assumed that the input argument is valid.
+tooLinkSearch :: Maybe TOORequestTime -> H.Html
+tooLinkSearch too =
+  let lbl = maybe "None" rtToLabel too
+  in tooLinkSearchLong too lbl
+
+-- | Link to the TOO category. See also `tooLinkSearch`.
+--
+--   It is assumed that the input argument is valid.
+tooLinkSearchLong :: Maybe TOORequestTime -> T.Text -> H.Html
+tooLinkSearchLong too lbl =
+  let ttype = maybe "none" (T.toLower . rtToLabel) too
+      uri = encodePathSegments ["search", "turnaround", ttype]
+      uriVal = H.unsafeByteStringValue (toByteString uri)
+  in (H.a H.! A.href uriVal) (H.toHtml lbl)
 
 -- | Remove the CXO- prefix from the "joint with" field,
 --   since I have seen two cases of "CXO-HST". Presumably this
@@ -295,6 +319,12 @@ jointLinkSearch jm =
 --
 cleanJointName :: T.Text -> T.Text
 cleanJointName j = if "CXO-" `T.isPrefixOf` j then T.drop 4 j else j 
+
+
+-- | Try to make the code a little-bit easier to read
+addClass :: Blaze.Attributable a => H.AttributeValue -> a -> a
+addClass cls base = base H.! A.class_ cls
+
 
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.
@@ -326,8 +356,8 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
                  then mempty
                  else ", " <> H.toHtml grat
 
-      left = (H.td H.! A.class_ "key")
-      right = (H.td H.! A.class_ "value")
+      left = addClass "key" H.td
+      right = addClass "value" H.td
 
       keyVal k v = H.tr (left k <> " " <> right v)
 
@@ -372,7 +402,9 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           Just ln -> Just ((H.a H.! A.href uri) (H.toHtml (fromConLong ln)))
           _ -> Nothing
         
-      too = maybe mempty (keyVal "TOO:" . H.toHtml) soTOO
+      too = case soTOO of
+        Just tr -> keyVal "Turnaround time:" (tooLinkSearch (Just (trType tr)))
+        Nothing -> mempty
 
       -- the "chip" display depends on whether this has been archived or
       -- not (and if it's ACIS or HRC), since we display different things.
@@ -411,11 +443,10 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
 
       simbadInfo SimbadInfo {..} =
         keyVal "SIMBAD Type:" (typeDLinkSearch smiType3 smiType)
-
-      discardRows = if soStatus == "discarded"
-                    then [ H.tr ((H.td H.! A.class_ "note")
-                                 "Note: the observation was discarded") ]
-                    else []
+      
+      discardRows = [ H.tr (addClass "note" H.td
+                            "Note: the observation was discarded")
+                    | soStatus == "discarded" ]
 
       tblRows =
         mconcat discardRows
@@ -448,7 +479,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       -- ignore the thead element
       tbl = H.table (H.tbody tblRows)
 
-  in (H.div H.! A.class_ "inactive" H.! A.id "Details") 
+  in (addClass "inactive" H.div H.! A.id "Details") 
       tbl
 
 -- | Display the DSS/RASS/PSPC/WWT images and the observational
@@ -491,7 +522,7 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
                 then (H.a H.! A.href "/wwt.html") "WWT"
                 else (H.a H.! A.href (H.toValue (obsURI soObsId) <> "/wwt")) "WWT"
 
-      form = H.div H.! A.class_ "radiobuttons" $
+      form = addClass "radiobuttons" H.div $
               mconcat [ "View: "
                       , optSel "DSS" True
                       , optSel "RASS" False
@@ -520,7 +551,7 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
                  H.! A.class_ (if af then "active" else "inactive")
 
   in form <>
-    (H.div H.! A.class_ "links")
+     addClass "links" H.div
      (link "DSS" "dss" True <>
       link "PSPC" "pspc" False <>
       link "RASS" "rass" False <>
@@ -765,3 +796,7 @@ rdquo = H.preEscapedToHtml ("&rdquo;" :: T.Text)
 
 dquote :: H.Html -> H.Html
 dquote txt = ldquo <> txt <> rdquo
+
+standardTable, floatableTable :: H.Html -> H.Html
+standardTable = addClass "standard" H.table
+floatableTable = addClass "floatable" H.table

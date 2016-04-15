@@ -26,7 +26,9 @@ import Types (Schedule(..), JointMission
              , fromMissionLongLink, fromMissionAboutLink)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , getNumObs
-             , getScienceTime)
+             , getScienceTime
+             , floatableTable
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -97,7 +99,7 @@ renderMissions jms =
        <> "and others are decomissioned."
       )
       
-    (table ! class_ "floatable") $ do
+    floatableTable $ do
              thead $ tr $ do
                th "Facility"
                th (toHtml lbl)

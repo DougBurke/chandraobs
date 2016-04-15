@@ -54,6 +54,7 @@ import qualified Views.Search.Mapping as Mapping
 import qualified Views.Search.Mission as Mission
 import qualified Views.Search.PropType as PropType
 import qualified Views.Search.Target as Target
+import qualified Views.Search.TOO as TOO
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 import qualified Views.WWT as WWT
@@ -123,7 +124,9 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchInstrumentTypes
                  , fetchGratingTypes
                  , fetchIGTypes
-
+                 , fetchTOOs
+                 , fetchTOO
+                   
                  , findNameMatch
                  , findProposalNameMatch
                  , findTarget
@@ -153,6 +156,7 @@ import Types (Record, SimbadInfo, Proposal
              , nullSL, fromSL
              , showExpTime
              , handleMigration
+             , labelToRT
              )
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -568,6 +572,33 @@ webapp cm mgr = do
     get "/search/constellation/" $ do
       matches <- liftSQL fetchConstellationTypes
       fromBlaze (Constellation.indexPage matches)
+
+    -- TODO: also need a HEAD request version
+    --
+    get "/search/turnaround/:too" $ do
+      -- as I do not have a "none" type in TOORequestTime, parse
+      -- this parameter as a string rather than as a TOORequestTime
+      tooParam <- param "too"
+      let mans = if T.toLower tooParam == "none"
+                 then Just Nothing
+                 else case labelToRT tooParam of
+                        Nothing -> Nothing
+                        a -> Just a
+                      
+      case mans of
+        Just mtoo -> do
+          matches <- liftSQL (fetchTOO mtoo)
+          if nullSL matches
+            then next
+            else do
+              sched <- liftSQL (makeSchedule (fmap Right matches))
+              fromBlaze (TOO.matchPage mtoo sched)
+        Nothing -> next
+    
+    -- TODO: also need a HEAD request version
+    get "/search/turnaround/" $ do
+      (matches, noneTime) <- liftSQL fetchTOOs
+      fromBlaze (TOO.indexPage matches noneTime)
 
     -- TODO: also need a HEAD request version
     get "/search/category/:category/:type" $ do

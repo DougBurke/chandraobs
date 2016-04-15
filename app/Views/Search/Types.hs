@@ -48,7 +48,7 @@ import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
              , categoryLinkSearch
              , getNumObs
              , getScienceTime
-             , dquote
+             , dquote, floatableTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -247,7 +247,7 @@ renderTypes objs =
       str "SIMBAD hierarchy; to see how these object types are related visit "
       (a ! href "/search/dtype/") "the SIMBAD dendogram view"
       str "."
-    (table ! class_ "floatable") $ do
+    floatableTable $ do
              thead $ tr $ do
                th "Object Type"
                th (toHtml lbl)

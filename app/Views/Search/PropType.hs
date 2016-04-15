@@ -31,7 +31,7 @@ import Utils (defaultMeta, skymapMeta, renderFooter
              , propTypeLink
              , getScienceTime
              , getNumObs
-             , dquote
+             , dquote, standardTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
@@ -169,7 +169,7 @@ renderTypes pmap =
     let wrapper = (div ! class_ "term") . identifyType 
     mapM_ wrapper [CAL, DDT, GO, GTO, TOO]
 
-    table $ do
+    standardTable $ do
       thead $ tr $ do
         th "Proposal type"
         th "Number of proposals"

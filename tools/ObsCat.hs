@@ -604,7 +604,12 @@ toSOE m = do
       swift = toJointTime m "SWIFT"
       nustar = toJointTime m "NUSTAR"
 
-      too = toText m "TOO_TYPE"
+  -- NOTE: error out here in case of an invalid conversion
+  too <- case toText m "TOO_TYPE" of
+    Just tooReq -> case toTOORequest tooReq of
+      Nothing -> Left ("UNEXPECTED TOO_TYPE: " <> tooReq)
+      ans -> Right ans
+    Nothing -> Right Nothing
 
   (ra, dec, roll) <- toPos m
   
@@ -1101,7 +1106,7 @@ dump ScienceObs{..} = do
   joint "SWIFT" soJointSWIFT
   joint "NUSTAR" soJointNUSTAR
 
-  print soTOO
+  T.putStrLn (maybe "No TOO constraint" trValue soTOO)
   T.putStrLn (showRA soRA)
   T.putStrLn (showDec soDec)
   T.putStrLn ("which is in constellation: " <> fromConShort soConstellation)

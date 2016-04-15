@@ -311,6 +311,33 @@ p.footnote {
 }
 
 /*
+ * The standard table view is to add a background to every-other line
+ * and tweak the margins a bit.
+ */
+
+table.standard {
+    margin: 1em;
+}
+
+table.standard th , table.standard td {
+    padding: 0.2em 0.5em;
+}
+
+table.standard thead tr {
+    /* 
+     * background: rgba(0, 131, 179, 0.2);
+     * I have decided that there's too much blue; need something different,
+     * so for now go with grey which is boring but somewhat consistent with
+     * the overall look.
+     */
+    background: rgba(153, 153, 153, 0.4);
+}
+
+table.standard tbody tr:nth-child(2n+1) {
+    background: rgba(0, 131, 179, 0.1);
+}
+
+/*
  * Display a table as a bunch of floating boxes, so that there
  * can be multiple boxes on the same row. This is intended for
  * long tables where there's only a few elements per row.

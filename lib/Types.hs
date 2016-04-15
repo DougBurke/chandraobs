@@ -46,6 +46,7 @@ import Data.Bits (Bits(..), FiniteBits(..))
 import Data.Bits (Bits(..))
 #endif
 
+import Data.Aeson (ToJSON(..))
 import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
 import Data.Function (on)
@@ -652,11 +653,16 @@ normTimeKS (TimeKS a) n = TimeKS (a / fromIntegral n)
 showExpTime :: TimeKS -> T.Text
 showExpTime (TimeKS tks) = 
   let ns = round (tks * 1000) :: Int
+
+      -- This does not include the remainder in the calculation
+      -- of the "next" value, which is why we see some
+      -- surprising rounding.
       (nm, rs) = divMod ns 60
       (nh, rm) = divMod nm 60
       (nd, rh) = divMod nh 24
       (nw, rd) = divMod nd 7
-
+      (ny, rw) = divMod nw 52
+       
       units v1 v2 u1 u2 =
         let us 0 _ = ""
             us 1 u = "1 " <> u
@@ -678,7 +684,9 @@ showExpTime (TimeKS tks) =
           then units nh rm "hour" "minute"
           else if nd < 7
                then units nd rh "day" "hour"
-               else units nw rd "week" "day"
+               else if nw < 52
+                    then units nw rd "week" "day"
+                    else units ny rw "year" "week"
                     
 showExp :: Record -> H.Html
 showExp = H.toHtml . showExpTime . recordTime
@@ -851,7 +859,8 @@ data ScienceObs = ScienceObs {
   , soJointSWIFT :: Maybe TimeKS
   , soJointNUSTAR :: Maybe TimeKS
 
-  , soTOO :: Maybe T.Text -- contains values like "0-4" "4-15"; presumably #days for turn around
+  -- , soTOO :: Maybe T.Text -- contains values like "0-4" "4-15"; presumably #days for turn around
+  , soTOO :: Maybe TOORequest
   , soRA :: RA
   , soDec :: Dec
   , soConstellation :: ConShort -- name of the constellation the observation is in  
@@ -862,6 +871,99 @@ data ScienceObs = ScienceObs {
   -- deriving (Eq, Show)
   deriving Eq
     -- deriving instance Show ScienceObs
+
+-- | Bundle up the TOO periods into something a bit more user-friendly.
+--   The idea is that the database keeps the original field, but
+--   the API provides, where relevant, conversion routines.
+--
+--   The TOO fields do appear to be open ended, in that I've see
+--   "0-4" and "0-5", as well as ">30" and ">=30". So there needs to
+--   be some validation to check that we don't come across new values
+--   that don't fall into the categorisation below.
+--
+--   Current values include:
+--      less than a week   -> immediate / asap
+--      1 to 2 weeks       -> quick
+--      2 weeks to 1 month -> intermediate
+--      more than a month  -> slow
+--
+--   TODO: do I want a type that carries along both the enumeration
+--   and the actual value (essentially as a tag, so that it can
+--   be serialized to the database as a string, to avoid schema changes)?
+--   Hmmm, might try this, as then have the "nice" TOO handling everywhere.
+--
+--   I am beginning to thinkg that I should include None in TOORequestTime,
+--   which would remove the need for a Maybe for the field, which would
+--   then be a schema change.
+data TOORequestTime =
+  Immediate | Quick | Intermediate | Slow
+  deriving (Eq, Ord)
+
+rtToLabel :: TOORequestTime -> T.Text
+rtToLabel Immediate = "Immediate"
+rtToLabel Quick = "Quick"
+rtToLabel Intermediate = "Intermediate"
+rtToLabel Slow = "Slow"
+
+-- | Note that this does not handle "none".
+--
+--   This is a case-insensitive conversion
+labelToRT :: T.Text -> Maybe TOORequestTime
+labelToRT lbl =
+  let go "immediate" = Just Immediate
+      go "quick" = Just Quick
+      go "intermediate" = Just Intermediate
+      go "slow" = Just Slow
+      go _ = Nothing
+  in go (T.toLower lbl)
+
+data TOORequest = TR { trType :: TOORequestTime
+                     , trValue :: T.Text }
+
+-- | This creates a request with an empty value field,
+--   which is not ideal and should only be used to create
+--   a request used in a comparison, rather than one that
+--   will make it to the database.
+--
+--   I may change to create a time range value that is
+--   appropriate for the type.
+--
+rtToRequest :: TOORequestTime -> TOORequest
+rtToRequest rt = TR rt ""
+
+-- | A request is considered equal if its \"type\" is equal,
+--   not its actual value.
+instance Eq TOORequest where
+  (==) = (==) `on` trType
+
+-- | Needed as the data is stored as Maybe TOORequest (requirement of
+--   groundhog 0.7).
+--
+instance NeverNull TOORequest
+
+-- | Assume that the actual value is not important here, just the type.
+--   This could be changed to use an object
+instance ToJSON TOORequest where
+  toJSON TR {..} = toJSON (rtToLabel trType)
+
+-- | Convert a TOO label. This uses a heuristic, rather than converting
+--   the input string to a numeric value and deriving the value from
+--   those.
+--
+--   TODO: should this deal with the "n/a" case?
+toTOORequest :: T.Text -> Maybe TOORequest
+toTOORequest too = ($ too) <$> lookup too tooMap
+
+tooMap :: [(T.Text, T.Text -> TOORequest)]
+tooMap =
+  [ ("0-4", TR Immediate)
+  , ("0-5", TR Immediate)
+  , ("4-15", TR Quick)
+  , ("5-15", TR Quick)
+  , ("15-30", TR Intermediate)
+  , (">=30", TR Slow)
+  , (">30", TR Slow)
+  ]
 
 -- | What are the possible joint missions? This enumeration is for
 --   end-user code and is not to be used in the database, as there's
@@ -1226,10 +1328,9 @@ instance Ord Proposal where
 -- | This is for debug purposes.
 instance Show Proposal where
   show Proposal{..} = 
-    concat [ "Proposal: ", show (_unPropNum propNum)
-           , " ", (T.unpack propName)
-           , " PI ", (T.unpack propPI)
-           ]
+    "Proposal: " <> show (_unPropNum propNum)
+    <> " " <> T.unpack propName
+    <> " PI " <> T.unpack propPI
 
 -- | Enumeration for the different proposal categories.
 --   This is not currently used in the database - e.g. for
@@ -2258,6 +2359,12 @@ instance PersistField ConShort where
   fromPersistValues = primFromPersistValue
   dbType = _pType stringType
 
+instance PersistField TOORequest where
+  persistName _ = "TOORequest"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType = _pType stringType
+
 instance PrimitivePersistField Instrument where
   {- The Groundhog tutorial [1] had the following, but this fails to
      compile with
@@ -2332,6 +2439,15 @@ instance PrimitivePersistField ConShort where
     fromMaybe (error ("Unexpected Constellation type: " <> s)) (toConShort (T.pack s))
   -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
   fromPrimitivePersistValue _ x = error ("Expected ConShort (String), received: " <> show x)
+
+-- | Note that the actual value is stored, rather than the enumeration. This could
+--   lead to problems if the mapping rules change and are not checked against the
+--   values stored in the database.
+instance PrimitivePersistField TOORequest where
+  toPrimitivePersistValue _ = PersistString . T.unpack . trValue
+  fromPrimitivePersistValue _ (PersistString s) =
+    fromMaybe (error ("Unexpected TOO value: " <> s)) (toTOORequest (T.pack s))
+  fromPrimitivePersistValue _ x = error ("Expected TOO value (String), received: " <> show x)
 
 -- needed for persistent integer types
 
@@ -2506,9 +2622,12 @@ handleMigration =
 -- for now only bother with the ToJSON instances as do not need
 -- FromJSON.
 --
+
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''NonScienceObs)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ScienceObs)
+
 -- $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Record)
+
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ObsInfo)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''ChandraTime)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ChipStatus)

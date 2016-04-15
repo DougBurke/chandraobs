@@ -9,7 +9,7 @@ module Views.Render ( makeSchedule
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+)
                , Int, Integer, Either(..), Maybe(..)
-               , map, mapM_, maybe, return, show, truncate)
+               , fmap, map, mapM_, maybe, return, show, truncate)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
@@ -34,7 +34,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
-             , SimbadInfo(..), Record, TargetName)
+             , SimbadInfo(..), Record, TargetName, TOORequest(..))
 import Types (recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
              , showExp, toMission)
@@ -47,6 +47,7 @@ import Utils (obsURIString
              , basicTypeLinkSearch
              , constellationLinkSearch
              , jointLinkSearch
+             , tooLinkSearch
              , cleanJointName
              )
 
@@ -131,7 +132,8 @@ makeSchedule cTime done mdoing todo simbad =
       showConstraint (l, Required)     = Just l
 
       showTOO (Left _) = "n/a"
-      showTOO (Right ScienceObs{..}) = toHtml $ fromMaybe "n/a" soTOO
+      -- showTOO (Right ScienceObs{..}) = maybe "n/a" tooLinkSearch soTOO
+      showTOO (Right ScienceObs{..}) = tooLinkSearch (trType `fmap` soTOO)
 
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
@@ -203,7 +205,7 @@ makeSchedule cTime done mdoing todo simbad =
                       th "Start"
                       th "Instrument"
                       th "Joint with"
-                      th "TOO period"
+                      th "Turnaround"
                       {-
                       th "Time critical"
                       th "Monitor"

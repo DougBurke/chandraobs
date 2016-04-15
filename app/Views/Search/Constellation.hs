@@ -34,7 +34,9 @@ import Types (Schedule(..), ConShort(..), ConLong(..), TimeKS(..)
 import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , constellationLinkSearch
              , getNumObs
-             , getScienceTime)
+             , getScienceTime
+             , floatableTable
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -185,7 +187,7 @@ renderList cons =
 
     -- (div ! id "constellationMap") ""
     
-    (table ! class_ "floatable") $ do
+    floatableTable $ do
              thead $ tr $ do
                th "Constellation"
                th "Observing time"

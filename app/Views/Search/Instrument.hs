@@ -42,7 +42,9 @@ import Utils (defaultMeta, d3Meta, skymapMeta
              , instLinkAbout, gratLinkAbout -- , igLinkAbout
              , instLinkSearch, gratLinkSearch, igLinkSearch
              , getNumObs
-             , getScienceTime)
+             , getScienceTime
+             , standardTable
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -226,7 +228,7 @@ renderTypes insts grats igs =
       sortFst :: Ord a => [(a, b)] -> [(a, b)]
       sortFst = sortBy (compare `on` fst)
 
-      tbl lbl conv xs = table $ do
+      tbl lbl conv xs = standardTable $ do
         thead $ tr $ do
           th lbl
           th "Number of observations"
@@ -281,7 +283,7 @@ renderBreakdown total perDay =
         let v = 100 * _toKS t / totalTime
         in T.pack (printf "%.2f" v)
 
-      tbl lbl f xs = table $ do
+      tbl lbl f xs = standardTable $ do
         thead $ tr $ do
           th lbl
           th "Observing time"

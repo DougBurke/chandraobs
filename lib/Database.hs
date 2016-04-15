@@ -44,7 +44,9 @@ module Database ( getCurrentObs
                 , fetchInstrumentTypes
                 , fetchGratingTypes
                 , fetchIGTypes
-
+                , fetchTOOs
+                , fetchTOO
+                  
                 , findNameMatch
                 , findProposalNameMatch
                 , findTarget
@@ -114,7 +116,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Control.Arrow (second)
+import Control.Arrow (first, second)
 import Control.Monad (filterM, forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Logger (NoLoggingT)
@@ -1005,6 +1007,82 @@ fetchIGTypes = do
          (notDiscarded `orderBy`
           [Asc SoInstrumentField, Asc SoGratingField])
   return (countUp igs)
+
+
+-- | What is the breakdown of TOOs?
+--
+--   TODO: give some indication of the total exposure time
+--         (or some other metric) so that we can view as
+--         a fraction?
+--
+fetchTOOs ::
+  PersistBackend m
+  => m ([(TOORequestTime, TimeKS)], TimeKS)
+  -- ^ The TOO period and the associated time; the
+  --   second component is the time for those observations
+  --   with no constraint.
+fetchTOOs = do
+  res <- project (SoTOOField,
+                  (SoApprovedTimeField, SoObservedTimeField))
+         (notDiscarded `orderBy` [Asc SoTOOField])
+  let (nones, toos) = partitionEithers (map convField res)
+
+      getTExp = uncurry fromMaybe
+      convField (Just a, b) = Right (a, getTExp b)
+      convField (Nothing, b) = Left (getTExp b)
+
+      noneTime = foldl' addTimeKS zeroKS nones
+
+      ms = map (first trType) toos
+      ts = M.fromListWith addTimeKS ms
+      
+  return (M.toAscList ts, noneTime)
+
+{-
+-- | The set of TOO labels in the database. This
+--   does not include "none".
+--
+getTOOLabels :: PersistBackend m => m [TOORequestTime]
+getTOOLabels = do
+  ans <- catMaybes <$> project SoTOOField (distinct CondEmpty)
+  -- have to remove duplicates since the distinct check above
+  -- is not going to consolidate multiple time ranges within a
+  -- period
+  return (map trType (nub ans))
+-}
+
+
+-- | Return the schedule for a given TOO period.
+--
+fetchTOO ::
+  PersistBackend m
+  => Maybe TOORequestTime
+  -- Nothing means "no TOO"
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchTOO Nothing = do
+  ans <- select (((isFieldNothing SoTOOField)
+                  &&. notDiscarded)
+                 `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL ans)
+  
+fetchTOO too = do
+  -- It would be nice to say something like
+  --      (SoTOOField ==. Just (rtToRequest too))
+  -- but this doesn't work, since the DB representation
+  -- is the low-level string type.
+  --
+  -- Ideally the filtering would all be done in the DB,
+  -- but it's easier to do this in Haskell. I do not
+  -- want to hard-code the possible mappings from
+  -- too to the string representation, as that is fragile.
+  --
+  allAns <- select (((Not (isFieldNothing SoTOOField))
+                     &&. notDiscarded)
+                    `orderBy` [Asc SoStartTimeField])
+  let ans = filter isTOO allAns
+      isTOO ScienceObs{..} = trType `fmap` soTOO == too
+  return (unsafeToSL ans)
+
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.

@@ -30,7 +30,9 @@ import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , basicTypeLinkSearch
              , categoryLinkSearch
              , getNumObs
-             , getScienceTime)
+             , getScienceTime
+             , floatableTable
+             )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (makeSchedule)
 
@@ -130,7 +132,7 @@ renderTypes cats =
 
     -- hr
 
-    (table ! class_ "floatable") $ do
+    floatableTable $ do
              thead $ tr $ do
                th "Category"
                th (toHtml lbl)
