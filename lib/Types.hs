@@ -952,7 +952,7 @@ instance ToJSON TOORequest where
 --
 --   TODO: should this deal with the "n/a" case?
 toTOORequest :: T.Text -> Maybe TOORequest
-toTOORequest too = ($ too) <$> lookup too tooMap
+toTOORequest too = ($ too) `fmap` lookup too tooMap
 
 tooMap :: [(T.Text, T.Text -> TOORequest)]
 tooMap =
