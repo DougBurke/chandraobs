@@ -114,7 +114,9 @@ cleanTargetName tgt =
                         then reverse rtoks
                         else toks
 
-                isSkip x = any (`T.isPrefixOf` lc x) ["offset", "outskirt"]
+                -- stopping on filament could be dangerous, but not
+                -- seen anything problematic so far
+                isSkip x = any (`T.isPrefixOf` lc x) ["offset", "outskirt", "filament"]
                 toks3 = takeWhile (not . isSkip) toks2
 
                 (ltok3:rtoks3) = reverse toks3
