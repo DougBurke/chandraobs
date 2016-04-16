@@ -6,16 +6,55 @@ For a general-public view, I think this is a sensible choice
 (provide nice top-level views), but is there a place for
 some form of faceted browser?
 
+ - The "per object" page - e.g. /search/name?target=A1795
+   should include a link to the SIMBAD page.
+
  - Can I use the matched name for an observation as the search
    label in the schedule view, so that it will group the same
-   object together? It would likely require adding in extra
+   object together (at lease, once the search order is
+   changed to by name)? It would likely require adding in extra
    DB queries in makeSchedule.
 
+   I can not think of an obvious way to group the rows visually,
+   given that I already use color to indicate done/doing/todo.
+   It could also be distracting, since it is only useful when
+   sorted by name.
+
+ - can the SIMBAD links be made to switch between CfA and
+   CDS, as I am finding the CfA version rather flaky at the
+   moment? It could be something clever like: determine from
+   the users IP address which is nearer and use that (does not
+   help when one is down), periodically ping and choose
+   that one, ping whenever generating a page and use that,
+   or let the user choose.
+
+   All are quite invasive.
+   
+ - Can I improve cacheing by using ETag/LastModified? The idea
+   would be to use the git commit hash (generated at build time)
+   together with the last-modified-date of the database (would
+   need to be added) together with the URI to create a unique
+   id for a page.
+
+   The /search/mappings/ and /api/mappings/ URIs are a good test
+   case.
+
+ - Allow zoom and pan of the all-sky view, in a similar manner
+   to the SkyMap view from Chandra. It would also be nice
+   to switch between ecliptic and galactic coordinates.
+   
  - is it worth adding views of cycle and the various constrained
    observations, as well as the TOO field?
 
    Would these be standard schedule views, or something different
    (e.g. a "facet" for the calendar view for cycle)?
+
+   Perhaps highlight those days in the calendar view that
+   have constraints. Or in the timeline view. Do we need to
+   break down the various types of constraint? Do I have enough
+   information to do this reliably?
+
+   Done: TOO field
 
  - now that I list exposure time for each constellation at
    /search/constellation/, I wonder if it would make sense
@@ -51,6 +90,21 @@ some form of faceted browser?
    *but* this requires that we know the processing version
    (in this case N005) for each observation.  
 
+   The query
+   
+   http://cda.cfa.harvard.edu/chaser/viewerImageContents.do?imageType=loresimg_jpg&obsid=16275
+
+   returns HTML which contains links to both low and hires images; in this case they
+   look like
+
+   http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid=16275&filename=acisf16275N002_full_img2.jpg&filetype=loresimg_jpg
+
+   (so would need to parse the HTML to get this). There could be fields
+   in ScienceObs that include these (with the assumption that the
+   latest version in the archive is not going to change much); the
+   obscat query would then include a pass to update these fields for
+   observations which have gone public.
+
  - is it worth providing some sort of view of the exposure
    time values - e.g. provide a histogram alongside the
    schedule view? This may be more interesting for catalog
@@ -70,25 +124,11 @@ some form of faceted browser?
    isn't enough data to make this worthwhile (except perhaps
    for HST and NRAO).
 
- - I thought about extending /search/mappings/ to take
-   advantage of the SIMABD hierarchy, but further reflection
-   suggests it isn't easy: can have a link from a categoty
-   to a top-level SIMBAD element, but then how to go from
-   there to the children whilst stil identifying the separate
-   proposal categories?
-
  - do we want any note of PI_NAME == Calibration ?
-
- - some view of TOO/constrained observations might be nice.
-
-   Perhaps highlight those days in the calendar view that
-   have constraints. Or in the timeline view. Do we need to
-   break down the various types of constraint? Do I have enough
-   information to do this reliably?
 
  - break down into cycles? e.g. some view of what was observed
    in Cycle 16. The simple way would be essentially a facet,
-   to filer on this in other views.
+   to filter on this in other views.
  
  - the links between target name and SIMBAD can be improved;
    eg drop " offset ..." when searching. This requires
@@ -122,8 +162,6 @@ some form of faceted browser?
    inaccessible (roll angle + .. constraints), or even what
    part of the sky is visible now, for a given user (would
    need to know long/lat of the user to do this)
-
- - link to a description of what a TOO is
 
  - the joint-observation with field is potentially confusing,
    since I guess it's a proposal-wide field (ie should be
@@ -217,6 +255,11 @@ some form of faceted browser?
    Done: the text on the obsid view is now slightly different
    if Chandra was not the primary source of the observation,
    and there's improve links to the mission views.
+
+ - link to a description of what a TOO is
+
+   DONE (although the information can be improved and may
+   need to be placed elsewhere)
    
 ## Rejected
 
@@ -224,4 +267,13 @@ some form of faceted browser?
    diagram. I have tried this on the branch
    experiment-sankey-plot-for-simbad-dendogram
    and it didn't work out well.
+
+   Also:
    
+   I thought about extending /search/mappings/ to take
+   advantage of the SIMBAD hierarchy, but further investigation
+   suggests it does not really work: can have a link from a categoty
+   to a top-level SIMBAD element, but then how to go from
+   there to the children whilst stil identifying the separate
+   proposal categories?
+
