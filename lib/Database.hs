@@ -46,6 +46,8 @@ module Database ( getCurrentObs
                 , fetchIGTypes
                 , fetchTOOs
                 , fetchTOO
+                , fetchConstraints
+                , fetchConstraint
                   
                 , findNameMatch
                 , findProposalNameMatch
@@ -762,7 +764,7 @@ fetchJointMission jm = do
   so do this manually instead.
   -}
 
-  sobs <- select (((Not (isFieldNothing SoJointWithField))
+  sobs <- select ((Not (isFieldNothing SoJointWithField)
                    &&. notDiscarded)
                   `orderBy` [Asc SoStartTimeField])
 
@@ -785,8 +787,8 @@ fetchMissionInfo ::
 fetchMissionInfo = do
   jws <- map fromJust <$>
          project SoJointWithField
-         (((Not (isFieldNothing SoJointWithField))
-           &&. notDiscarded))
+         (Not (isFieldNothing SoJointWithField)
+          &&. notDiscarded)
 
   let toks = map (,1) (concatMap splitToMission jws)
   return (M.toList (M.fromListWith (+) toks))
@@ -1060,7 +1062,7 @@ fetchTOO ::
   -- Nothing means "no TOO"
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchTOO Nothing = do
-  ans <- select (((isFieldNothing SoTOOField)
+  ans <- select ((isFieldNothing SoTOOField
                   &&. notDiscarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
@@ -1076,7 +1078,7 @@ fetchTOO too = do
   -- want to hard-code the possible mappings from
   -- too to the string representation, as that is fragile.
   --
-  allAns <- select (((Not (isFieldNothing SoTOOField))
+  allAns <- select ((Not (isFieldNothing SoTOOField)
                      &&. notDiscarded)
                     `orderBy` [Asc SoStartTimeField])
   let ans = filter isTOO allAns
@@ -1084,6 +1086,66 @@ fetchTOO too = do
   return (unsafeToSL ans)
 
 
+-- | What is the breakdown of the constraints?
+--
+fetchConstraints ::
+  PersistBackend m
+  => m ([(ConstraintKind, TimeKS)], TimeKS)
+  -- ^ The constraint type period and the associated time; the
+  --   second component is the time for those observations
+  --   with no constraint. Note that because an observation
+  --   can have multiple constraints, the sum of all these
+  --   times can exceed the actual observing time.
+fetchConstraints = do
+  res <- project ((SoTimeCriticalField, SoMonitorField, SoConstrainedField),
+                  (SoApprovedTimeField, SoObservedTimeField))
+         notDiscarded
+  let (nones, cs) = partitionEithers (concatMap convField res)
+
+      getTExp = uncurry fromMaybe
+      convField ((NoConstraint, NoConstraint, NoConstraint), t)
+        = [Left (getTExp t)]
+      convField ((a,b,c), t) =
+        let tout = getTExp t
+            go (_, NoConstraint) = []
+            go (l, _) = [Right (l, tout)]
+        in concatMap go [ (TimeCritical, a)
+                        , (Monitor, b)
+                        , (Constrained, c) ]
+
+      noneTime = foldl' addTimeKS zeroKS nones
+
+      ts = M.fromListWith addTimeKS cs
+      
+  return (M.toAscList ts, noneTime)
+
+
+getCon ::
+  DbDescriptor db
+  => Maybe ConstraintKind
+  -> Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
+getCon Nothing =
+  (SoTimeCriticalField ==. NoConstraint)
+  &&. (SoMonitorField ==. NoConstraint)
+  &&. (SoConstrainedField ==. NoConstraint)
+getCon (Just TimeCritical) = SoTimeCriticalField /=. NoConstraint
+getCon (Just Monitor) = SoMonitorField /=. NoConstraint
+getCon (Just Constrained) = SoConstrainedField /=. NoConstraint
+  
+-- | Return the schedule for a given constraint.
+--
+fetchConstraint ::
+  PersistBackend m
+  => Maybe ConstraintKind
+  -- Nothing means "no constraint"
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchConstraint mcs = do
+  ans <- select ((getCon mcs
+                  &&. notDiscarded)
+                 `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL ans)
+
+  
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
 --   even if the observation was discarded.
@@ -1246,7 +1308,7 @@ findTarget target = do
 
   -- remove those names we already have data for
   let onames = S.fromList smatches `S.difference` S.fromList tnames
-  indirect <- select ((SoTargetField `in_` (S.toList onames))
+  indirect <- select ((SoTargetField `in_` S.toList onames)
                       `orderBy` [Asc SoStartTimeField])
 
   -- hopefully there are no repeats in these two lists

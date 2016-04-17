@@ -49,6 +49,7 @@ import qualified Views.Record as Record
 import qualified Views.Search.Calendar as Calendar
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
+import qualified Views.Search.Constraint as Constraint
 import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Mapping as Mapping
 import qualified Views.Search.Mission as Mission
@@ -126,6 +127,8 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , fetchIGTypes
                  , fetchTOOs
                  , fetchTOO
+                 , fetchConstraints
+                 , fetchConstraint
                    
                  , findNameMatch
                  , findProposalNameMatch
@@ -157,6 +160,7 @@ import Types (Record, SimbadInfo, Proposal
              , showExpTime
              , handleMigration
              , labelToRT
+             , labelToCS
              )
 import Utils (fromBlaze, standardResponse, getFact)
 
@@ -574,7 +578,6 @@ webapp cm mgr = do
       fromBlaze (Constellation.indexPage matches)
 
     -- TODO: also need a HEAD request version
-    --
     get "/search/turnaround/:too" $ do
       -- as I do not have a "none" type in TOORequestTime, parse
       -- this parameter as a string rather than as a TOORequestTime
@@ -599,6 +602,32 @@ webapp cm mgr = do
     get "/search/turnaround/" $ do
       (matches, noneTime) <- liftSQL fetchTOOs
       fromBlaze (TOO.indexPage matches noneTime)
+
+    -- TODO: also need a HEAD request version
+    get "/search/constraints/:cs" $ do
+      -- as I do not have a "none" type in ConstraintKind, parse
+      -- this parameter as a string rather than as a ConstraintKind
+      csParam <- param "cs"
+      let mans = if T.toLower csParam == "none"
+                 then Just Nothing
+                 else case labelToCS csParam of
+                        Nothing -> Nothing
+                        a -> Just a
+                      
+      case mans of
+        Just mcs -> do
+          matches <- liftSQL (fetchConstraint mcs)
+          if nullSL matches
+            then next
+            else do
+              sched <- liftSQL (makeSchedule (fmap Right matches))
+              fromBlaze (Constraint.matchPage mcs sched)
+        Nothing -> next
+    
+    -- TODO: also need a HEAD request version
+    get "/search/constraints/" $ do
+      (matches, noneTime) <- liftSQL fetchConstraints
+      fromBlaze (Constraint.indexPage matches noneTime)
 
     -- TODO: also need a HEAD request version
     get "/search/category/:category/:type" $ do

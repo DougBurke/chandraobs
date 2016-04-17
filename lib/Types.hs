@@ -794,6 +794,51 @@ fromConstraint NoConstraint = 'N'
 fromConstraint Preferred    = 'P'
 fromConstraint Required     = 'Y'
 
+-- | Represent those observations with time-critical or monitor
+--   constraints. There's no indication of what the constraint
+--   type is (i.e. a mapping between this and the `Constraint` type).
+--
+--   At present, it appears that all monitoring proposals are
+--   also time critical. There is a prefered time-critical observation
+--   which has no for the constrained field.
+--
+--   The Ord constraint is for convenience.
+data ConstraintKind =
+  TimeCritical | Monitor | Constrained
+  deriving (Eq, Ord)
+
+{-
+-- Report a constraint if it is preferred or required. At present
+-- do not distinguish between the two.
+getConstraintKinds :: ScienceObs -> [ConstraintKind]
+getConstraintKinds ScienceObs {..} =
+  let go l f = if f == NoConstraint then [] else [l]
+  in mconcat [ go TimeCritical soTimeCritical
+             , go Monitor soMonitor
+             , go Constrained soConstrained ]
+-}
+
+-- | Note that this does not handle "none".
+--
+--   This is a case-insensitive conversion
+labelToCS :: T.Text -> Maybe ConstraintKind
+labelToCS lbl =
+  let go "timecritical" = Just TimeCritical
+      go "monitor" = Just Monitor
+      go "constrained" = Just Constrained
+      go _ = Nothing
+  in go (T.toLower lbl)
+
+csToLC :: ConstraintKind -> T.Text
+csToLC TimeCritical = "timecritical"
+csToLC Monitor = "monitor"
+csToLC Constrained = "constrained"
+
+csToLabel :: ConstraintKind -> T.Text
+csToLabel TimeCritical = "Time Critical"
+csToLabel Monitor = "Monitoring"
+csToLabel Constrained = "Constrained"
+
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
 --
@@ -932,7 +977,8 @@ rtToRequest :: TOORequestTime -> TOORequest
 rtToRequest rt = TR rt ""
 
 -- | A request is considered equal if its \"type\" is equal,
---   not its actual value.
+--   not its actual value. This is potentially unsafe.
+--   
 instance Eq TOORequest where
   (==) = (==) `on` trType
 

@@ -54,7 +54,7 @@ some form of faceted browser?
    break down the various types of constraint? Do I have enough
    information to do this reliably?
 
-   Done: TOO field
+   Done: TOO and constrained fields
 
  - now that I list exposure time for each constellation at
    /search/constellation/, I wonder if it would make sense

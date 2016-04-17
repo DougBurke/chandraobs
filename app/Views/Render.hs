@@ -34,7 +34,8 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
-             , SimbadInfo(..), Record, TargetName, TOORequest(..))
+             , SimbadInfo(..), Record, TargetName, TOORequest(..)
+             , ConstraintKind(..))
 import Types (recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
              , showExp, toMission)
@@ -49,6 +50,7 @@ import Utils (obsURIString
              , jointLinkSearch
              , tooLinkSearch
              , cleanJointName
+             , constraintLinkSearch
              )
 
 -- | Convert the obsname of a record to an identifier
@@ -126,10 +128,11 @@ makeSchedule cTime done mdoing todo simbad =
 
       -- TODO: Are there any soConstrained fields with a Preferred constraint?
       --       If so, the output of this could be improved
-      showConstraint :: (T.Text, Constraint) -> Maybe T.Text
+      showConstraint :: (ConstraintKind, Constraint) -> Maybe Html
       showConstraint (_, NoConstraint) = Nothing
-      showConstraint (l, Preferred)    = Just (l <> " preferred")
-      showConstraint (l, Required)     = Just l
+      showConstraint (l, Preferred)    = Just (constraintLinkSearch (Just l)
+                                               <> " preferred")
+      showConstraint (l, Required)     = Just (constraintLinkSearch (Just l))
 
       showTOO (Left _) = "n/a"
       -- showTOO (Right ScienceObs{..}) = maybe "n/a" tooLinkSearch soTOO
@@ -158,9 +161,9 @@ makeSchedule cTime done mdoing todo simbad =
       constraintText :: Either a ScienceObs -> Html
       constraintText (Left _) = "n/a"
       constraintText (Right ScienceObs{..}) = 
-          let cons = [("time critical", soTimeCritical),
-                      ("monitor", soMonitor),
-                      ("constrained", soConstrained)]
+          let cons = [(TimeCritical, soTimeCritical),
+                      (Monitor, soMonitor),
+                      (Constrained, soConstrained)]
           in case mapMaybe showConstraint cons of
                [] -> "n/a"
                xs -> toHtml (mconcat (intersperse ", " xs))

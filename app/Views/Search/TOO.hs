@@ -97,7 +97,9 @@ renderTOOs objs noneTime=
     
     p ("For most objects observed by Chandra it does not matter "
        <> "when it is observed - perhaps because it varies so slowly, "
-       <> "predictably (such as the "
+       -- TODO: use a wrapper
+       <> (a ! href "/search/constraints/") "predictably"
+       <> " (such as the "
        <> (a ! href "http://chandra.si.edu/press/13_releases/press_072913.html")
        "occultation of a star by one of its planets"
        <> "), or even unpredictably - but for some Science "
@@ -143,7 +145,6 @@ renderTOOs objs noneTime=
                (mapM_ (toRow . first Just) sobjs
                 >> toRow (Nothing, noneTime)
                )
-
 
     (p ! class_ "footnote")
       (sup "1" <> " NASA communicates with its satellites using the "

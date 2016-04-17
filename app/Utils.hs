@@ -42,6 +42,7 @@ module Utils (
      , jointLinkSearch
      , tooLinkSearch
      , tooLinkSearchLong
+     , constraintLinkSearch
      , cleanJointName
      , schedToList
      , getNumObs
@@ -112,6 +113,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , JointMission
              , TargetName
              , TOORequest(..), TOORequestTime
+             , ConstraintKind(..)
              , recordObsId, recordTarget, recordStartTime
              , recordTime, futureTime
              , getJointObs, getConstellationName
@@ -120,6 +122,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              , fromPropType, toPropType, toPropTypeLabel
              , rtToLabel
+             , csToLabel, csToLC
              )
 
 -- | Convert a record into the URI fragment that represents the
@@ -312,6 +315,17 @@ tooLinkSearchLong too lbl =
       uri = encodePathSegments ["search", "turnaround", ttype]
       uriVal = H.unsafeByteStringValue (toByteString uri)
   in (H.a H.! A.href uriVal) (H.toHtml lbl)
+
+
+-- | Link to the constraint search.
+constraintLinkSearch :: Maybe ConstraintKind -> H.Html
+constraintLinkSearch (Just cs) =
+  let uri = H.toValue ("/search/constraints/" <> csToLC cs)
+  in (H.a H.! A.href uri) (H.toHtml (csToLabel cs))
+constraintLinkSearch Nothing =
+  let uri = H.toValue ("/search/constraints/none" :: T.Text)
+  in (H.a H.! A.href uri) "None"
+
 
 -- | Remove the CXO- prefix from the "joint with" field,
 --   since I have seen two cases of "CXO-HST". Presumably this
