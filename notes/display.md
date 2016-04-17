@@ -9,17 +9,6 @@ some form of faceted browser?
  - The "per object" page - e.g. /search/name?target=A1795
    should include a link to the SIMBAD page.
 
- - Can I use the matched name for an observation as the search
-   label in the schedule view, so that it will group the same
-   object together (at lease, once the search order is
-   changed to by name)? It would likely require adding in extra
-   DB queries in makeSchedule.
-
-   I can not think of an obvious way to group the rows visually,
-   given that I already use color to indicate done/doing/todo.
-   It could also be distracting, since it is only useful when
-   sorted by name.
-
  - can the SIMBAD links be made to switch between CfA and
    CDS, as I am finding the CfA version rather flaky at the
    moment? It could be something clever like: determine from
@@ -260,6 +249,21 @@ some form of faceted browser?
 
    DONE (although the information can be improved and may
    need to be placed elsewhere)
+   
+ - Can I use the matched name for an observation as the search
+   label in the schedule view, so that it will group the same
+   object together (at lease, once the search order is
+   changed to by name)? It would likely require adding in extra
+   DB queries in makeSchedule.
+
+   I can not think of an obvious way to group the rows visually,
+   given that I already use color to indicate done/doing/todo.
+   It could also be distracting, since it is only useful when
+   sorted by name.
+
+   DONE: I already had the data available, so was easy. There is
+   no visual indication that different names map to the same
+   target.
    
 ## Rejected
 

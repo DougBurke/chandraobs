@@ -9,7 +9,7 @@ module Views.Render ( makeSchedule
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+)
                , Int, Integer, Either(..), Maybe(..)
-               , fmap, map, mapM_, maybe, return, show, truncate)
+               , fmap, map, mapM_, maybe, not, return, show, truncate)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
@@ -21,6 +21,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Aeson ((.=))
 import Data.Bits (shiftL)
+import Data.Char (isSpace)
 import Data.Functor (void)
 import Data.List (foldl', intersperse)
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -33,6 +34,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
+             , NonScienceObs(nsTarget)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
              , SimbadInfo(..), Record, TargetName, TOORequest(..)
              , ConstraintKind(..))
@@ -168,29 +170,43 @@ makeSchedule cTime done mdoing todo simbad =
                [] -> "n/a"
                xs -> toHtml (mconcat (intersperse ", " xs))
 
+      sortRow sortVal row =
+        row ! dataAttribute "sortvalue" (toValue sortVal)
+        
+      -- The sortvalue for this column is the SIMBAD name for
+      -- the source, if it exists.
+      --
+      -- Add a prefix of "_" to calibration observations to separate
+      -- out.
+      makeTargetRow r =
+        let row = td (linkToRecord r)
+            sname = case r of
+              Left ns -> "_" <> nsTarget ns
+              Right so -> case M.lookup (soTarget so) simbad of
+                Just si -> smiName si
+                Nothing -> soTarget so
+
+            -- Spaces should not be a problem, but remove them just in case.
+            cname = T.filter (not . isSpace) sname
+        in sortRow cname row
+
       toRow :: (ChandraTime -> T.Text) -> Record -> Html
       toRow ct r = hover r $ do
-         td (linkToRecord r)
+         makeTargetRow r
          td (linkToSimbad r)
-         (td ! dataAttribute "sortvalue" (toValue (recordTime r))) (showExp r)
-         (td ! dataAttribute "sortvalue" (aTime r)
-             ! class_ "starttime") (toHtml (ct (recordStartTime r)))
+         sortRow (recordTime r) (td (showExp r))
+         sortRow (aTime r) ((td ! class_ "starttime")
+                            (toHtml (ct (recordStartTime r))))
          td (instVal r)
 
          td (showJoint r)
          td (showTOO r)
-         {-
-         td $ showConstraint soTimeCritical r
-         td $ showConstraint soMonitor r
-         td $ showConstraint soConstrained r
-         -}
-         (td ! dataAttribute "sortValue" (toValue (constraintScore r)))
-           (constraintText r)
+         sortRow (constraintScore r) (td (constraintText r))
 
          let ra = recordRa r
              dec = recordDec r
-         (td ! dataAttribute "sortvalue" (toValue ra))  (toHtml ra)
-         (td ! dataAttribute "sortvalue" (toValue dec)) (toHtml dec)
+         sortRow ra (td (toHtml ra))
+         sortRow dec (td (toHtml dec))
          td (showConstellation r)
 
       cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
