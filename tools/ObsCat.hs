@@ -145,6 +145,9 @@ I wonder what the following mean:
 --     where the obsid argument is for debugging
 --
 -- TODO:
+--    determine when I want "debug information" to be displayed
+--    to the user
+--
 --    extract more info
 --
 --    how to update existing info
@@ -185,7 +188,7 @@ import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger (NoLoggingT)
 
-import Data.Either (isLeft, rights)
+import Data.Either (isLeft, partitionEithers, rights)
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8')
@@ -748,20 +751,21 @@ addConstellation so = do
 makeObsCatQuery ::
   Bool    -- ^ True for debug output (a dump of the fields)
   -> ObsIdVal
-  -> IO (Maybe OCAT)
+  -> IO (Either T.Text OCAT)
 makeObsCatQuery flag oid = do
   rsplbs <- simpleHttp (getObsCatQuery oid)
   case lbsToText rsplbs of
     Right rsp -> processResponse flag oid rsp
+        
     Left emsg -> do
       let otxt = T.pack (show (fromObsId oid))
       T.hPutStrLn stderr
         ("Error converting response for ObsId: " <> otxt)
-      T.hPutStrLn stderr emsg
-      return Nothing
+      when flag (T.hPutStrLn stderr emsg)
+      return (Left emsg)
 
 
-processResponse :: Bool -> ObsIdVal -> T.Text -> IO (Maybe OCAT)
+processResponse :: Bool -> ObsIdVal -> T.Text -> IO (Either T.Text OCAT)
 processResponse flag oid rsp = do
   let isHash x = case T.uncons x of 
                    Just (y, _) -> y == '#'
@@ -785,13 +789,14 @@ processResponse flag oid rsp = do
     T.putStrLn ("##### Map " <> itxt <> " END #####")
 
   case out of
-    [x] -> return (Just x)
-    [] -> return Nothing
+    [x] -> return (Right x)
+    [] -> return (Left ("No key/value data found in:\n===\n"
+                        <> rsp <> "\n===\n")) 
     (x:_) -> do
       T.putStrLn ("WARNING: multiple responses for ObsId "
                   <> T.pack (show (fromObsId oid))
                   <> " - using first match")
-      return (Just x)
+      return (Right x)
 
 -- | Query the OCat about this science observation.
 --
@@ -804,28 +809,23 @@ queryScience ::
   -> ObsIdVal 
   -> IO (Either T.Text (Proposal, ScienceObs))
 queryScience flag oid = do
-  mout <- makeObsCatQuery flag oid
-  let mans = case mout of
-        Just out -> do
-          prop <- toProposalE out
-          so <- toSOE out
-          return (prop, so)
-        _ -> Left "No output from obscat call"
-
+  out <- makeObsCatQuery flag oid
+  let mans = case out of
+        Left emsg -> Left emsg
+        Right ocat -> do
+          prop <- toProposalE ocat
+          so <- toSOE ocat
+          Right (prop, so)
+      
   case mans of
-    Right (p, so) -> do
-      -- need to add the constellation
+    Left emsg -> return (Left emsg)
+    Right (prop, so) -> do
+      -- Hmmm; can we not just add in the constellation
+      -- in toSOE?
       so2 <- addConstellation so
-      return (Right (p, so2))
+      return (Right (prop, so2))
 
-    Left emsg -> do
-      -- for now skip those with issues
-      T.putStrLn ("SKIP: unable to parse science ObsId "
-                  <> T.pack (show (fromObsId oid))
-                  <> ": " <> emsg)
-      return (Left emsg)
-
-
+  
 -- | Query the OCat about this non-science observation.
 --
 --   This function errors out most ungracefully if multiple matches
@@ -837,16 +837,14 @@ queryNonScience ::
   -> ObsIdVal 
   -> IO (Either T.Text NonScienceObs)
 queryNonScience flag oid = do
-  mout <- makeObsCatQuery flag oid
-  let mans = case mout of
-        Just out -> toNSE out
-        _ -> Left "No output from obscat call"
-  
-      otxt = T.pack (show (fromObsId oid))
-
-  when (isLeft mans) 
-    (T.putStrLn ("SKIP: unable to parse non-science ObsId " <> otxt))
-  return mans
+  out <- makeObsCatQuery flag oid
+  case out of
+    Right ocat -> return (toNSE ocat)
+    Left emsg -> do
+      let otxt = T.pack (show (fromObsId oid))
+      T.putStrLn ("SKIP: unable to parse non-science ObsId " <> otxt)
+      when flag (T.putStrLn emsg)
+      return (Left emsg)
 
 
 -- | Identify:
@@ -1040,9 +1038,13 @@ updateDB f = withSocketsDo $ do
   when (nsmissing /= nsmissing1)
     (T.putStrLn ("# Number Non-sci: " <> slen nsmissing <>
                  " -> " <> slen nsmissing1))
-  
-viewObsId :: Int -> IO ()
-viewObsId oid = withSocketsDo $ do
+
+-- Note: I may have given a non-science observation, so really should
+--       look for both cases. In which case the debug flag might be
+--       more useful.
+--
+viewObsId :: Bool -> Int -> IO ()
+viewObsId _ oid = withSocketsDo $ do
   let otxt = T.pack (show oid)
   ans <- queryScience True (ObsIdVal oid)
   case ans of
@@ -1122,15 +1124,26 @@ usage = do
   T.hPutStrLn stderr ("       " <> pName <> " <obsid>")
   exitFailure
 
+-- | Has the user specified the debug argument?
+processArgs :: [String] -> (Bool, [String])
+processArgs xs =
+  let (ds, ys) = partitionEithers (map f xs)
+      f "debug" = Left ()
+      f x = Right x
+  in (not (null ds), ys)
+
+-- At the moment specifying an obsid forces the debug flag to be
+-- true, regardless of whether debug is set.
+--
 main :: IO ()
 main = do
-  args <- getArgs
+  allArgs <- getArgs
+  let (dbg, args) = processArgs allArgs
   case args of
-    [] -> updateDB False
-    [x] | x == "debug" -> updateDB True
-        | otherwise -> case (fmap fst . listToMaybe) (reads x) of
-             Just oid -> viewObsId oid
-             _ -> usage
+    [] -> updateDB dbg
+    [x] -> case (fmap fst . listToMaybe) (reads x) of
+      Just oid -> viewObsId dbg oid
+      _ -> usage
 
     _ -> usage
 
