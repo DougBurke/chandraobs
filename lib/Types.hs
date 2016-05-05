@@ -117,8 +117,8 @@ inRange lo hi v = (lo <= v) && (v <= hi)
 --   to do this. Perhaps I should look at functional dependencies,
 --   but I haven't really scoped out what information I
 --   want to carry along (to see what I really need).
---   For the current use case I do not think this is providing
---   anything useful, but leave as is for now.
+--   For the current use case I do not think that this
+--   abstraction is actually useful, but leave as is for now.
 --
 data SortedList f a = SL { _unSL :: [a] }
 
@@ -193,6 +193,15 @@ data StartTimeOrder
 
 -- | Indicate that a list is sorted by exposure time (shortest first)
 data ExposureTimeOrder
+
+-- | When was the contents of the database last updated.
+--
+--   Ideally the monad used to query or update the database
+--   would identify when this might be necessary from when
+--   not.
+--
+data MetaData = MetaData { mdLastModified :: UTCTime }
+     deriving Eq
 
 {-
 This is based on 'Read Color' instance of RWH, page 142, chapter 6
@@ -2619,6 +2628,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: SimbadNoMatchConstraint
           fields: [smnTarget]
+- entity: MetaData
+  constructors:
+    - name: MetaData
+      uniques:
+        - name: MetaDataLastModifiedConstraint
+          fields: [mdLastModified]
 |]
 
 
@@ -2655,6 +2670,7 @@ handleMigration =
     migrate (undefined :: SimbadInfo)
     migrate (undefined :: SimbadMatch)
     migrate (undefined :: SimbadNoMatch)
+    migrate (undefined :: MetaData)
 
 -- Use Template Haskell to derive the necessary To/FromJSON
 -- instances (seeing as we use TH already for GroundHog)

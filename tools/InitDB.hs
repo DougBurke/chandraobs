@@ -45,9 +45,11 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor (void)
 import Database.Groundhog.Postgresql
 import Data.Monoid ((<>))
+import Data.Time (getCurrentTime)
 
 import Database (addScheduleItem
                 , cleanDataBase
+                , updateLastModified
                 , reportSize, putIO, runDb)
 import HackData (STS, stsList)
 import Types
@@ -82,6 +84,9 @@ main =
     putIO ""
 
     cleanDataBase
+
+    ctime <- liftIO getCurrentTime
+    updateLastModified ctime
 
     void reportSize
     putIO ""

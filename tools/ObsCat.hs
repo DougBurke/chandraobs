@@ -220,6 +220,7 @@ import Database (insertScienceObs
                 , insertProposal
                 , cleanupDiscarded
                 , cleanDataBase
+                , updateLastModified
                 , putIO
                 , runDb
                 , discarded
@@ -939,6 +940,8 @@ addResults missing unarchived nsmissing = do
       cleanupDiscarded
       cleanDataBase
 
+      ctime <- liftIO getCurrentTime
+      updateLastModified ctime
 
 {-
 -- | add in the overlap observations; that is, the table of

@@ -79,6 +79,9 @@ module Database ( getCurrentObs
                 , insertOrReplace
                 , addScheduleItem
 
+                , updateLastModified
+                , getLastModified
+                  
                 , putIO
                 , runDb
                 , dbConnStr
@@ -1912,6 +1915,20 @@ cleanupDiscarded = do
   nsobsids <- project NsObsIdField (Not notNsDiscarded)
   forM_ nsobsids (\obsid -> delete (SiObsIdField ==. obsid))
 
+-- | Update the last-modified field with the time
+updateLastModified :: PersistBackend m => UTCTime -> m ()
+updateLastModified lastMod = do
+  let new = MetaData { mdLastModified = lastMod }
+  deleteAll (undefined :: MetaData)
+  insert_ new
+  
+-- | When was the database last modified?
+getLastModified :: PersistBackend m => m (Maybe UTCTime)
+getLastModified = do
+  lmods <- project MdLastModifiedField (CondEmpty `orderBy`
+                                        [Desc MdLastModifiedField])
+  return (listToMaybe lmods)
+  
 -- | Hard-coded connection string for the database connection.
 dbConnStr :: String
 dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"

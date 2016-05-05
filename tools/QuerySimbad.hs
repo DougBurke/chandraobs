@@ -35,7 +35,7 @@ import qualified Data.Text.IO as T
 import qualified Data.Set as S
 
 import Control.Monad (forM_, when)
-import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
@@ -55,6 +55,7 @@ import System.IO (hPutStrLn, stderr)
 import Database (insertSimbadInfo
                 , insertSimbadMatch
                 , insertSimbadNoMatch
+                , updateLastModified
                 , putIO
                 , runDb)
 import Types
@@ -326,21 +327,31 @@ updateDB sloc f = withSocketsDo $ do
     \tgt -> do
       (searchRes, minfo) <- querySIMBAD sloc f tgt
       let tname = _2 searchRes
-      runDb $ case minfo of
-               Just si -> do
-                          blag f (">> inserting SimbadInfo for " <> smiName si)
-                          (key, cleanFlag) <- insertSimbadInfo si
-                          blag f (">> and SimbadMatch with target=" <> tname)
-                          void (insertSimbadMatch (toM searchRes key))
+      runDb $ do
+      case minfo of
+        Just si -> do
+          blag f (">> inserting SimbadInfo for " <> smiName si)
+          (key, cleanFlag) <- insertSimbadInfo si
+          blag f (">> and SimbadMatch with target=" <> tname)
+          void (insertSimbadMatch (toM searchRes key))
 
-                          -- TODO: is this correct?
-                          when cleanFlag
-                            (delete (SmnTargetField ==. smiName si))
+          -- TODO: is this correct?
+          when cleanFlag
+            (delete (SmnTargetField ==. smiName si))
       
-               _ -> do
-                 blag f (">> Inserting SimbadNoMatch for target=" <> tname)
-                 void (insertSimbadNoMatch (toNM searchRes))
-                 return ()
+        _ -> do
+          blag f (">> Inserting SimbadNoMatch for target=" <> tname)
+          void (insertSimbadNoMatch (toNM searchRes))
+          return ()
+
+      -- Update the last-modified date after each transaction;
+      -- in production this should not matter, as this tool should not
+      -- be running against the production server, but for now
+      -- do it "properly"
+      --
+      liftIO getCurrentTime >>= updateLastModified
+
+
 
   {-
   forM_ tgs $ 
