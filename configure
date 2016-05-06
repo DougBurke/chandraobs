@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Insert the git commit value into the files in autogen/.
+# One problem with this approach is that the build system is
+# unaware of these relationships, so will not pick up changes to
+# the autogen/ files without manual intervention (e.g. manually
+# running `sh configure`).
+#
+
+commit=$(git rev-parse HEAD)
+
+sed -e s/@@GITHASH@@/$commit/ autogen/lib-Git.hs.in > lib/Git.hs
+sed -e s/@@GITHASH@@/$commit/g autogen/about-index.html.in > static/about/index.html
+
+# end

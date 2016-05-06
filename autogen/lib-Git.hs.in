@@ -1,0 +1,17 @@
+-- | What is the git commit used to build the code?
+--
+
+module Git (gitCommitId) where
+
+import Data.Text (Text, pack)
+
+-- | This is an indication of what version of the code is being used.
+--   It is not guaranteed to be correct for development builds, as
+--   it only uses the git hash of the last commit. It really should
+--   be an IO action, in that it is not guaranteed to be constant
+--   between builds, but for now I leave it as below, since it is constant
+--   within a build.
+--
+gitCommitId :: Text
+gitCommitId = pack "@@GITHASH@@"
+       

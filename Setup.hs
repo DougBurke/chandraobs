@@ -1,2 +1,3 @@
 import Distribution.Simple
-main = defaultMain
+{- use configure to create lib/Git.hs from lib/Git.hs.in -}
+main = defaultMainWithHooks autoConfUserHooks

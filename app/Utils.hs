@@ -51,6 +51,8 @@ module Utils (
      , dquote
      , standardTable
      , floatableTable
+
+     -- , makeCodeLink
        
        -- useful in conversion of String-handling code
        -- to use Text instead
@@ -100,6 +102,7 @@ import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 import System.Locale (defaultTimeLocale)
 #endif
 
+-- import Git (gitCommitId)
 import Types (ScienceObs(..), ObsIdVal(..)
              , Instrument, Grating(..)
              , ChandraTime(..), TimeKS(..)
@@ -814,3 +817,15 @@ dquote txt = ldquo <> txt <> rdquo
 standardTable, floatableTable :: H.Html -> H.Html
 standardTable = addClass "standard" H.table
 floatableTable = addClass "floatable" H.table
+
+{- At the moment this is only used in static/about/index.html, but
+   the link there is added via the configure script, so this routine
+   is not needed.
+
+-- | Create a link to the code version used for this build.
+makeCodeLink :: H.Html -> H.Html
+makeCodeLink =
+  let uri = "https://bitbucket.org/doug_burke/chandraobs/commits/"
+            <> gitCommitId
+  in (H.a H.! A.href (H.toValue uri))
+-}

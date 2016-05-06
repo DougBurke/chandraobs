@@ -142,6 +142,9 @@
     and runs thanks to
     one of the
     <a href="https://www.heroku.com/">free plans on Heroku</a>.
+    The version of the code used to create this site can
+    be found on bitbucket at:
+    <a href="https://bitbucket.org/doug_burke/chandraobs/commits/@@GITHASH@@">@@GITHASH@@</a>.
    </p>    
 
    <p>

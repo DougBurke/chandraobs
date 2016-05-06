@@ -1,5 +1,5 @@
 name:                chandraobs
-version:             0.0.5
+version:             0.0.6
 stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
 license:             PublicDomain
@@ -18,7 +18,7 @@ description:
 
 -- homepage:            https://github.com/yourName/repoName
 
-build-type:          Simple
+build-type:          Configure
 cabal-version:       >=1.8
 
 flag tools
@@ -38,8 +38,9 @@ library
   hs-source-dirs: lib/
 
   exposed-modules:
-    Database
-    Types
+                  Database
+                  Git
+                  Types
 
   ghc-options: -Wall
 
