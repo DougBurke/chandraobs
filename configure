@@ -6,8 +6,17 @@
 # the autogen/ files without manual intervention (e.g. manually
 # running `sh configure`).
 #
-
-commit=$(git rev-parse HEAD)
+# On heroku, the git setup has already been removed by the time
+# this is run, but fortunately it is available as the
+# SOURCE_VERSION environment variable - see
+# https://devcenter.heroku.com/changelog-items/630
+#
+if [ -z "$SOURCE_VERSION" ]; then
+    commit=$(git rev-parse HEAD)
+else
+    commit="$SOURCE_VERSION"
+fi
+echo "Using id: $commit"
 
 sed -e s/@@GITHASH@@/$commit/ autogen/lib-Git.hs.in > lib/Git.hs
 sed -e s/@@GITHASH@@/$commit/g autogen/about-index.html.in > static/about/index.html
