@@ -144,6 +144,14 @@ import Types
 
 type DbIO m = (MonadIO m, PersistBackend m)
 
+-- | The time used when no last-modified date can be accessed from
+--   the database. Ideally would use the current time, as this seems
+--   the safest, but just hard code a simple value (as this should not
+--   be used anyware).
+--
+dummyLastMod :: UTCTime
+dummyLastMod = UTCTime (ModifiedJulianDay 0) 0
+
 archived :: T.Text
 archived = "archived"
 
@@ -1353,7 +1361,8 @@ unidentifiedKey = SK (noSimbadLabel, noSimbadType)
 --
 getProposalObjectMapping ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs))
+  => m ((M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)),
+        UTCTime)
   -- ^ The keys are the proposal category and SIMBAD type.
   --   The values are the total time, the number of objects,
   --   and the number of observations of these objects.
@@ -1361,6 +1370,8 @@ getProposalObjectMapping ::
   --   There is a special SIMKey value - namely the vakue
   --   unidentifiedKey - which is used for those sources with
   --   no SIMBAD information.
+  --
+  --   The time is the last-modified time for the database
 getProposalObjectMapping = do
 
   -- Ideally a lot of this aggregation could be done by the database
@@ -1445,12 +1456,19 @@ getProposalObjectMapping = do
       obsMap :: M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)
       obsMap = M.unionsWith combine (M.elems obsMap3)
 
+  lastMods <- project MdLastModifiedField (CondEmpty
+                                           `orderBy` [Desc MdLastModifiedField]
+                                           `limitTo` 1)
+  let lastMod = case lastMods of
+        [] -> dummyLastMod
+        (x:_) -> x
+        
   -- The output is a map from
   --    (Proposal category, SIMBAD type)
   -- where both are human-readable strings, to
   --    { exposureTime: ..., numberSources: ..., numberObs: ...}
   --
-  return obsMap
+  return (obsMap, lastMod)
   
 -- | Work out a timeline based on instrument configuration; that is,
 --   start times, exposure lengths, and instruments.

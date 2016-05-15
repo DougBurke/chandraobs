@@ -1,9 +1,18 @@
 -- | What is the git commit used to build the code?
 --
 
-module Git (gitCommitId) where
+-- NOTE: this code is auto-generated from autoconf/lib-Git.hs.in
+
+module Git (CommitId, fromCommitId, gitCommitId) where
 
 import Data.Text (Text, pack)
+
+-- | An identifier for the version of code.
+newtype CommitId = CId Text deriving Eq
+
+-- | Extract the identifier value.
+fromCommitId :: CommitId -> Text
+fromCommitId (CId cid) = cid
 
 -- | This is an indication of what version of the code is being used.
 --   It is not guaranteed to be correct for development builds, as
@@ -12,6 +21,6 @@ import Data.Text (Text, pack)
 --   between builds, but for now I leave it as below, since it is constant
 --   within a build.
 --
-gitCommitId :: Text
-gitCommitId = pack "@@GITHASH@@"
+gitCommitId :: CommitId
+gitCommitId = CId (pack "@@GITHASH@@")
        

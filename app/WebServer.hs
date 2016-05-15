@@ -82,6 +82,7 @@ import Database.Groundhog.Postgresql (Postgresql(..)
                                      , runDbConn
                                      , withPostgresqlPool)
 
+-- import Network.HTTP.Date (HTTPDate, epochTimeToHTTPDate, formatHTTPDate)
 import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
                           , status404, status503)
@@ -146,6 +147,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                    
                  , dbConnStr
                  )
+-- import Git (gitCommitId)
 import Types (Record, SimbadInfo, Proposal
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
@@ -162,7 +164,10 @@ import Types (Record, SimbadInfo, Proposal
              , labelToRT
              , labelToCS
              )
-import Utils (fromBlaze, standardResponse, getFact)
+import Utils (fromBlaze, standardResponse, getFact
+             , timeToRFC1123
+             -- , makeETag
+             )
 
 production :: 
   Int  -- ^ The port number to use
@@ -292,13 +297,13 @@ webapp cm mgr = do
     -- next obsid values (if any), but leave as is for now.
     --
     get "/api/current" $ do
-              -- note: this is creating/throwing away a bunch of info that could be useful
-              mrec <- liftSQL getCurrentObs
-              let rval o = json ("Success" :: T.Text, fromObsId o)
-              case mrec of
-                Just (Left ns) -> rval (nsObsId ns)
-                Just (Right so) -> rval (soObsId so)
-                _ -> json ("Failed" :: T.Text)
+      -- note: this is creating/throwing away a bunch of info that could be useful
+      mrec <- liftSQL getCurrentObs
+      let rval o = json ("Success" :: T.Text, fromObsId o)
+      case mrec of
+        Just (Left ns) -> rval (nsObsId ns)
+        Just (Right so) -> rval (soObsId so)
+        _ -> json ("Failed" :: T.Text)
 
     get "/api/obsid/:obsid" $ do
       (obsid, mobs) <- queryObsidParam
@@ -379,7 +384,7 @@ webapp cm mgr = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" $ do
-      mapping <- liftSQL getProposalObjectMapping
+      (mapping, lastMod) <- liftSQL getProposalObjectMapping
 
       let names = M.keys mapping
           propNames = nub (map fst names)
@@ -418,6 +423,25 @@ webapp cm mgr = do
             , "simbadMap" .= object symbols
             ]
 
+      -- If the code is not changed then the last-modified date
+      -- of the database is sufficient. However, there's no guarantee
+      -- that there isn't a change in the serialization code (e.g. above
+      -- or at a lower level, such as a type or type class), so I
+      -- should use an ETag. This also helps to handle the case where
+      -- the database is updated within a second (which, given the
+      -- current set up, is only an issue for the test server since
+      -- the "production" one on Heroku is not updated in the
+      -- same manner).
+      --
+      -- However, initial testing suggests that setting the ETag
+      -- doesn't work, whereas Last-Modified does. So for now go
+      -- with the working-but-technically-broken version.
+      --
+      -- Should I add some middleware that handles these checks for
+      -- these resources?
+      setHeader "Last-Modified" (timeToRFC1123 lastMod)
+      -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
+      
       json out
 
     -- highly experimental

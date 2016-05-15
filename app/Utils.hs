@@ -53,6 +53,9 @@ module Utils (
      , floatableTable
 
      -- , makeCodeLink
+
+     , makeETag
+     , timeToRFC1123
        
        -- useful in conversion of String-handling code
        -- to use Text instead
@@ -61,6 +64,7 @@ module Utils (
 
 import qualified Data.ByteString as B
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
 
 import qualified Text.Blaze.Internal as Blaze
 import qualified Text.Blaze.Html5 as H
@@ -96,13 +100,13 @@ import Text.Blaze.Html.Renderer.Text
 import Web.Scotty
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, defaultTimeLocale, diffUTCTime, formatTime)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, defaultTimeLocale, diffUTCTime, formatTime, rfc822DateFormat)
 #else
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime, rfc822DateFormat)
 import System.Locale (defaultTimeLocale)
 #endif
 
--- import Git (gitCommitId)
+import Git (CommitId, fromCommitId)
 import Types (ScienceObs(..), ObsIdVal(..)
              , Instrument, Grating(..)
              , ChandraTime(..), TimeKS(..)
@@ -829,3 +833,50 @@ makeCodeLink =
             <> gitCommitId
   in (H.a H.! A.href (H.toValue uri))
 -}
+
+-- | What is the etag for a resource?
+--
+--   This is intended for resources that depend on the database.
+--   It returns a strong validation, since the implication is that
+--   the resource should be byte identical if the ETAGs match.
+--   It includes the start and end quotes (in part so that if
+--   I change my mind and go to a weak validator it can be used
+--   in the same manner).
+--
+makeETag ::
+  CommitId      -- ^ commit identifier
+  -> T.Text     -- ^ the resource path (local, not absolute)
+  -> UTCTime    -- ^ the last-modified date of the database
+  -> LT.Text
+makeETag cid path lastMod =
+  let cval = fromCommitId cid
+      -- Only use a small subset of the commit id as it should
+      -- be unique enough for our needs.
+      --
+      -- I doubt the use of %Q is needed, but support it just in case.
+      -- time = formatTime defaultTimeLocale "%s%Q" lastMod
+      --
+      -- The ETag is meant to be opaque; one way to do this is to
+      -- use base 64 encoding, but for our purposes this seems overkill;
+      -- if some entity wants to try and tweak the ETag settings then
+      -- they can.
+      --
+      -- The path isn't really needed, but include some version of it
+      -- for "fun".
+      --
+      time = formatTime defaultTimeLocale "%s%Q" lastMod
+      pathTxt = T.pack (show (T.length path))
+      dquot = "\""
+      txt = dquot <> T.take 8 cval <> pathTxt <> T.pack time <> dquot
+  in LT.fromStrict txt
+
+-- | Perhaps should use HTTPDate here, but unsure about the
+-- conversion from UTCTime to HTTPDate. The format for
+-- the last-modified date appears to be RFC1123, so use
+--   "Sun, 15 May 2016 13:11:48 GMT"
+-- (assume that the RFC822 format is enough, too lazy to look to
+-- see what the additions in RFC1123 are)
+--
+timeToRFC1123 :: UTCTime -> LT.Text
+timeToRFC1123 =
+  LT.pack . formatTime defaultTimeLocale rfc822DateFormat
