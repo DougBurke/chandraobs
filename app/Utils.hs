@@ -100,9 +100,9 @@ import Text.Blaze.Html.Renderer.Text
 import Web.Scotty
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, defaultTimeLocale, diffUTCTime, formatTime, rfc822DateFormat)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, defaultTimeLocale, diffUTCTime, formatTime)
 #else
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime, rfc822DateFormat)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
 import System.Locale (defaultTimeLocale)
 #endif
 
@@ -877,6 +877,17 @@ makeETag cid path lastMod =
 -- (assume that the RFC822 format is enough, too lazy to look to
 -- see what the additions in RFC1123 are)
 --
+-- Unfortunately ghc 7.8 doesn't export rfc822DateFormat so can
+-- not say
+--   LT.pack . formatTime defaultTimeLocale rfc822DateFormat
+-- and it's not worth hiding this within a CPP conditional
+-- (in part as I can not be bothered to look up when it was added to
+-- base). I also change from padding with spaces to zero padding
+-- for the day number, as I thought that was the intended behavior
+--
 timeToRFC1123 :: UTCTime -> LT.Text
 timeToRFC1123 =
-  LT.pack . formatTime defaultTimeLocale rfc822DateFormat
+  -- let rfc822DateFormat = "%a, %_d %b %Y %H:%M:%S %Z"
+  let rfc822DateFormat = "%a, %d %b %Y %H:%M:%S %Z"
+  in LT.pack . formatTime defaultTimeLocale rfc822DateFormat
+
