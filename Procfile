@@ -1,1 +1,1 @@
-web: cabal run webserver
+web: ./dist/build/webserver/webserver
