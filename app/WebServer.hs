@@ -87,7 +87,9 @@ import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
                           , status404, status503)
 -- import Network.Wai.Middleware.RequestLogger
-import Network.Wai.Middleware.Static
+import Network.Wai.Middleware.Static (CacheContainer, CachingStrategy(PublicStaticCaching)
+                                     , (>->)
+                                     , addBase, initCaching, noDots, staticPolicy')
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
@@ -231,9 +233,10 @@ main = do
         -- withManager
         do
           mgr <- NHC.newManager Client.defaultManagerSettings
+          scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
-            scottyOpts opts (webapp pool mgr)
+            scottyOpts opts (webapp pool mgr scache)
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -248,8 +251,9 @@ getDBInfo r = do
 webapp ::
     Pool Postgresql
     -> NHC.Manager
+    -> CacheContainer
     -> ScottyM ()
-webapp cm mgr = do
+webapp cm mgr scache = do
     let liftSQL a = liftIO (runDbConn a cm)
 
     defaultHandler errHandle
@@ -258,7 +262,8 @@ webapp cm mgr = do
     -- over by cabal; seems to be okay
     --
     -- middleware logStdoutDev
-    middleware (staticPolicy (noDots >-> addBase "static"))
+    -- middleware (staticPolicy (noDots >-> addBase "static"))
+    middleware (staticPolicy' scache (noDots >-> addBase "static"))
 
     -- proxy requests to the DSS/RASS/PSPC images so we can
     -- access them via AJAX. *experimental*
