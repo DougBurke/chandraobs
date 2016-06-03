@@ -26,7 +26,8 @@ some form of faceted browser?
    id for a page.
 
    The /search/mappings/ and /api/mappings/ URIs are a good test
-   case.
+   case. I have managed to do something to improve the access
+   to /api/mappings/, but it's not clear it's the best way.
 
  - Allow zoom and pan of the all-sky view, in a similar manner
    to the SkyMap view from Chandra. It would also be nice
