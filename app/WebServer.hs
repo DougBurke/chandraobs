@@ -902,7 +902,13 @@ proxy2 mgr pt seqVal obsid = do
       url = "http://asc.harvard.edu/targets/" 
             <> seqStr <> "/" <> seqStr <> "."
             <> obsStr <> ".soe." <> show pt <> ".gif"
+            
+#if defined(MIN_VERSION_http_client) && MIN_VERSION_http_client(0,4,31)
+  req <- liftIO $ NHC.parseRequest url
+#else
   req <- liftIO $ NHC.parseUrl url
+#endif
+  
   -- liftIO $ putStrLn $ "--> " ++ url
   rsp <- liftIO $ NHC.httpLbs req mgr
   -- liftIO $ putStrLn $ "<-- " ++ url

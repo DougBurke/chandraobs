@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Query SIMBAD for observations. This is to
@@ -174,7 +175,13 @@ querySIMBAD sloc f objname = do
   when f (putStrLn ">> Script:" >> print script)
 
   cTime <- getCurrentTime
+
+#if defined(MIN_VERSION_http_client) && MIN_VERSION_http_client(0,4,31)
+  req <- parseRequest uri
+#else
   req <- parseUrl uri
+#endif
+
   let hdrs = ("User-Agent", "chandraobs-obscat") : requestHeaders req
       req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }
 
