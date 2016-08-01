@@ -1933,7 +1933,11 @@ cleanupDiscarded = do
   nsobsids <- project NsObsIdField (Not notNsDiscarded)
   forM_ nsobsids (\obsid -> delete (SiObsIdField ==. obsid))
 
--- | Update the last-modified field with the time
+-- | Update the last-modified field with the time.
+--
+--   Some would say that this should be done by Postgres itself, with
+--   triggers, and they'd be right.
+--
 updateLastModified :: PersistBackend m => UTCTime -> m ()
 updateLastModified lastMod = do
   let new = MetaData { mdLastModified = lastMod }

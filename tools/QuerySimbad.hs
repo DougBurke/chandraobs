@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Query SIMBAD for observations. This is to
 --
@@ -7,10 +8,12 @@
 --
 --   b) redo searches for old observations
 --
---   not fully implemented yet
+--   option b is not fully implemented yet, although there is now
+--   the beginnings of support with the --ndays flag, but it needs
+--   some thought.
 --
 --   Usage:
---       querysimbad --cfa --cds --debug
+--       querysimbad --cfa --cds --debug --ndays <ndays>
 --
 --
 --   TODO:
@@ -42,7 +45,7 @@ import Data.Functor (void)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Data.Time (UTCTime, getCurrentTime)
+import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql
 
@@ -264,6 +267,9 @@ blag :: (MonadIO m) => Bool -> T.Text -> m ()
 blag f = when f . putIO
 
 -- | The flag is @True@ to get debug output from the @querySIMBAD@ calls.
+--   The Maybe argument controls the number of days back to use for
+--   updating the old versions: Nothing means none, 180 means ~ 6 months
+--   back.
 --
 -- Need to identify
 --
@@ -282,8 +288,13 @@ blag f = when f . putIO
 -- Not all options are currently supported, and it would be better
 -- to do this within the database query, where possible.
 --
-updateDB :: SimbadLoc -> Bool -> IO ()
-updateDB sloc f = withSocketsDo $ do
+-- Notes:
+-- 
+-- This code is not transactional, in that it relies on there
+-- being no other database updates running when this one is.
+--
+updateDB :: SimbadLoc -> Maybe Int -> Bool -> IO ()
+updateDB sloc mndays f = withSocketsDo $ do
   case sloc of
     SimbadCfA -> putStrLn "# Using CfA SIMBAD mirror"
     SimbadCDS -> putStrLn "# Using CDS SIMBAD"
@@ -295,6 +306,7 @@ updateDB sloc f = withSocketsDo $ do
                  `distinctOn` SoTargetField))
 
   matchTargets <- runDb (project SmmTargetField CondEmpty)
+
   noMatchTargets <- runDb (project SmnTargetField CondEmpty)
 
   -- these numbers aren't that useful, since the number of
@@ -339,17 +351,36 @@ updateDB sloc f = withSocketsDo $ do
         Just si -> do
           blag f (">> inserting SimbadInfo for " <> smiName si)
           (key, cleanFlag) <- insertSimbadInfo si
+
           blag f (">> and SimbadMatch with target=" <> tname)
           void (insertSimbadMatch (toM searchRes key))
 
-          -- TODO: is this correct?
-          when cleanFlag
-            (delete (SmnTargetField ==. smiName si))
+          -- If a SimbadInfo structure already exists (and
+          -- matches si) then cleanFlag will be True (if
+          -- it doesn't match si then there's a run-time
+          -- error, which is not very nice).
+          --
+          -- I have no idea what I meant by the following
+          -- deletion: is this to indicate that a previously
+          -- unknown source is now known, so we need to
+          -- delete the SimbadNoMatch field? I am not 100%
+          -- convinced that smiName si is the correct search
+          -- term for SmnTargetField. In insertSimbadNoMatch,
+          -- the smiName field is set to the first element
+          -- of searchRes, which is the same as tgt. The
+          -- SimbadInfo structure returned by querySIMBAD
+          -- has the smiName field set to cleanupName ran
+          -- on the name returned by SIMBAD. So it's not
+          -- clear that if the description above is correct
+          -- that it's doing what I want.
+          --
+          when cleanFlag $ do
+            liftIO (putStrLn "&&&&& deleting something")
+            delete (SmnTargetField ==. smiName si)
       
         _ -> do
           blag f (">> Inserting SimbadNoMatch for target=" <> tname)
           void (insertSimbadNoMatch (toNM searchRes))
-          return ()
 
       -- Update the last-modified date after each transaction;
       -- in production this should not matter, as this tool should not
@@ -357,8 +388,6 @@ updateDB sloc f = withSocketsDo $ do
       -- do it "properly"
       --
       liftIO getCurrentTime >>= updateLastModified
-
-
 
   {-
   forM_ tgs $ 
@@ -372,6 +401,81 @@ updateDB sloc f = withSocketsDo $ do
         _ -> doDB $ insertSimbadNoMatch $ toNM searchRes
   -}
 
+  -- Now try and do C and D; this is separated out of the above
+  -- for ease of initial implimentation, but should try and
+  -- amalgamate where possible.
+  --
+  updateOldRecords sloc mndays f
+
+
+-- Technically should look for "updated search term" matches
+-- even when ndays == Nothing, but easier to use the same logic.
+--
+updateOldRecords :: SimbadLoc -> Maybe Int -> Bool -> IO ()
+updateOldRecords _ Nothing _ = return ()
+updateOldRecords sloc (Just ndays) f = do
+
+  putStrLn "\n"
+  putStrLn ">>> Searching for old and updated records"
+  putStrLn (">>>   ndays = " ++ show ndays)
+
+  noMatchFields <- runDb (select (CondEmpty
+                                  `orderBy`
+                                  [Asc SmnLastCheckedField]))
+
+  tNow <- getCurrentTime
+  let dTime = -1 * 3600 * 24 * ndays
+      tOld = addUTCTime (fromIntegral dTime) tNow 
+      isOld SimbadNoMatch{..} = smnLastChecked <= tOld
+      old = takeWhile isOld noMatchFields
+
+      -- those queries which are old enough that the logic
+      -- used to "clean up" the query has changed; note that
+      -- this need not match one-to-one with the old check,
+      -- so can not just use (isOld || isChanged) in a
+      -- takeWhile statement. However, since we know that the
+      -- old ones are going to be re-queried, we can just limit
+      -- the search to "new" cases. The takeWhile and dropWhile
+      -- searched could be combined, but I leave that for the
+      -- compiler at the moment.
+      --
+      isChanged SimbadNoMatch{..} = cleanTargetName smnTarget /=
+                                    smnSearchTerm
+      changed = filter isChanged (dropWhile isOld noMatchFields)
+
+  putStrLn ("# Old queries to be redone: " ++ show (length old))
+  putStrLn ("# Changed queries: "          ++ show (length changed))
+
+  -- This is *very* similar to the previous version
+  forM_ (old ++ changed) $ 
+    \SimbadNoMatch{..} -> do
+      (searchRes, minfo) <- querySIMBAD sloc f smnTarget
+      let tname = _2 searchRes
+      runDb $ do
+      -- delete the old result; it could be updated but easiest
+      -- at the moment just to create a new one.
+      delete (SmnTargetField ==. smnTarget)
+      case minfo of
+        Just si -> do
+          blag f (">> Adding SimbadInfo for " <> smiName si)
+          (key, cleanFlag) <- insertSimbadInfo si
+          when cleanFlag
+            (liftIO (putStrLn "&&&&&&& errr, need to delete something"))
+          blag f (">> and SimbadMatch with target=" <> tname)
+          void (insertSimbadMatch (toM searchRes key))
+
+        _ -> do
+          blag f (">> Updating SimbadNoMatch for target=" <> tname)
+          void (insertSimbadNoMatch (toNM searchRes))
+
+      -- Update the last-modified date after each transaction;
+      -- in production this should not matter, as this tool should not
+      -- be running against the production server, but for now
+      -- do it "properly"
+      --
+      liftIO getCurrentTime >>= updateLastModified
+     
+    
 toNM :: SearchResults -> SimbadNoMatch
 toNM (a,b,c) = SimbadNoMatch {
                  smnTarget = a 
@@ -390,9 +494,9 @@ toM (a,b,c) k = SimbadMatch {
 usage :: IO ()
 usage = do
   pName <- getProgName
-  hPutStrLn stderr ("Usage: " ++ pName ++ " --cfa --cds --debug")
+  hPutStrLn stderr ("Usage: " ++ pName ++ " --cfa --cds --debug --ndays <int>")
   -- hPutStrLn stderr "\n       default is --cfa and no debug"
-  hPutStrLn stderr "\n       default is --cds and no debug"
+  hPutStrLn stderr "\n       default is --cds, no debug, and no days"
   exitFailure
 
 -- For now don't bother reporting on the actual error
@@ -400,20 +504,26 @@ usage = do
 -- I've seen recent problems with the CfA mirror, so switch back to
 -- CDS for now.
 --
-parseArgs :: [String] -> Maybe (SimbadLoc, Bool)
+parseArgs :: [String] -> Maybe (SimbadLoc, Maybe Int, Bool)
 -- parseArgs = go (SimbadCfA, False)
-parseArgs = go (SimbadCDS, False)
+parseArgs = go (SimbadCDS, Nothing, False)
   where
     go ans [] = Just ans
-    go (sloc, dbg) (x:xs) | x == "--cds" = go (SimbadCDS, dbg) xs
-                          | x == "--cfa" = go (SimbadCfA, dbg) xs
-                          | x == "--debug" = go (sloc, True) xs
-                          | otherwise = Nothing
+    go (sloc, mndays, dbg) (x:xs)
+      | x == "--cds" = go (SimbadCDS, mndays, dbg) xs
+      | x == "--cfa" = go (SimbadCfA, mndays, dbg) xs
+      | x == "--debug" = go (sloc, mndays, True) xs
+      | x == "--ndays" = case xs of
+        (y1:ys) -> case maybeRead y1 of
+          nd@(Just _) -> go (sloc, nd, dbg) ys
+          Nothing -> Nothing
+        _ -> Nothing
+      | otherwise = Nothing
 
 main :: IO ()
 main = do
   args <- getArgs
   case parseArgs args of
-    Just (sloc, debug) -> updateDB sloc debug
+    Just (sloc, mndays, debug) -> updateDB sloc mndays debug
     _ -> usage
 
