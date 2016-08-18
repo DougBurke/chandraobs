@@ -17,6 +17,12 @@ path.cycleall {
     stroke-dasharray: 5, 5;
 }
 
+/*
+ * It might be helpful to also highlight the corresponding legend
+ * in some way - probably just increase the opacity to avoid things
+ * like text movement due to thickness/bold changes - but that is
+ * more effort that I want to go to at the moment.
+ */
 path.cycle:hover {
     stroke-width: 4px;
     opacity: 0.8;

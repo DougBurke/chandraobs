@@ -154,7 +154,7 @@ function makePlot(plotInfo) {
         .attr("x", "2em")
         .attr("y", function(d, i) { return (i*1.5) + "em"; })
         .attr("dy", "2em")
-        .attr("class", "legend")
+        .attr("class", "legend legend" + cycle)
         .style("fill", colors)
         .text(function(cycle) {
             return makeLabel(plotInfo, cycle);
