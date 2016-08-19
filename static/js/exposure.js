@@ -135,7 +135,7 @@ function makePlot(plotInfo) {
         } else {
             lbl = "Cycle " + cycle;
         }
-                
+
         svg.append("path")
             .datum(plotInfo[cycle].times)
             .attr("class", "cycle cycle" + cycle)
@@ -144,7 +144,11 @@ function makePlot(plotInfo) {
         */
             .style("stroke", colors(cycle))
             .attr("title", lbl)
-            .attr("d", line(plotInfo[cycle].length));
+            .attr("d", line(plotInfo[cycle].length))
+            .on("mouseover", highlightCycle(plotInfo, cycle))
+            .on("mouseout", removeHighlightCycle(plotInfo, cycle))
+        ;
+
     }
 
     svg.selectAll(".legend")
@@ -154,12 +158,30 @@ function makePlot(plotInfo) {
         .attr("x", "2em")
         .attr("y", function(d, i) { return (i*1.5) + "em"; })
         .attr("dy", "2em")
-        .attr("class", "legend legend" + cycle)
+        .attr("class", function(cycle) {
+            return "legend legend" + cycle;
+        })
         .style("fill", colors)
         .text(function(cycle) {
             return makeLabel(plotInfo, cycle);
         });
     
+}
+
+function highlightCycle(plotInfo, cycle) {
+    return function () {
+        d3.selectAll('text.legend' + cycle)
+            .text(makeLabel(plotInfo, cycle) + " \u21E6")
+            .classed('item-selected', true);
+    };
+}
+
+function removeHighlightCycle(plotInfo, cycle) {
+    return function () {
+        d3.selectAll('text.legend' + cycle)
+            .text(makeLabel(plotInfo, cycle))
+            .classed('item-selected', false);
+    };
 }
 
 // See https://bl.ocks.org/mbostock/4061502
