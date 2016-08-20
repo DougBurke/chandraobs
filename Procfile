@@ -1,1 +1,1 @@
-web: ./dist/build/webserver/webserver
+web: ./bin/webserver
