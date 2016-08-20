@@ -487,3 +487,32 @@ Stack set. Next release on chandraobs-devel will use cedar-14.
 Run git push heroku master to create a new release on chandraobs-devel.
 
 Needed to clear the cache for the rebuild to work.
+
+# Slug too large?
+
+With the move to ghc 7.10 (or perhaps it is extra packages being picked
+up) the slug size exceeds 300Mb. I have hacked up the buildpack to allow
+a script to be run to delete some unneeded files (more could probably
+be done), and this means that - for now - the buildpack URL needs changing
+and an environment variable set up:
+
+% heroku buildpacks --app chandraobs-devel
+=== chandraobs-devel Buildpack URL
+https://github.com/begriffs/heroku-buildpack-ghc.git
+% heroku buildpacks:remove --app chandraobs-devel https://github.com/begriffs/heroku-buildpack-ghc.git
+Buildpack removed.
+ ▸    The BUILDPACK_URL config var is still set and will be used for the next
+ ▸    release
+% heroku config:unset --app chandraobs-devel BUILDPACK_URL
+Unsetting BUILDPACK_URL and restarting ⬢ chandraobs-devel... done, v192
+% heroku buildpacks:add --app chandraobs-devel https://DougBurke@github.com/DougBurke/heroku-buildpack-ghc#add-post-script
+Buildpack added. Next release on chandraobs-devel will use https://DougBurke@github.com/DougBurke/heroku-buildpack-ghc#add-post-script.
+Run git push heroku master to create a new release using this buildpack.
+heroku config:set POST_SCRIPT=heroku-compile-post-script.sh --app chandraobs-devel
+Setting POST_SCRIPT and restarting ⬢ chandraobs-devel... done, v193
+POST_SCRIPT: heroku-compile-post-script.sh
+
+Can now push the repository (which should contain the script
+heroky-compile-post-script.sh)
+
+% git push heroku master
