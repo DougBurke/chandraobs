@@ -18,7 +18,7 @@ echo "-----> Cleaning up files in slug"
 for dname in .cabal-sandbox .cabal ; do
     if [ -d $BUILD_DIR/$dname ]; then
         echo "-----> Deleting $dname"
-        rm -f $BUILD_DIR/$dname
+        rm -rf $BUILD_DIR/$dname
     fi
 done
 
