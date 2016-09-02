@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+  <title>A timeline of Chandra observations</title>
+
+  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default" media="all">
+
+  <link href="/data/timeline-schema.js" type="application/json"
+        rel="exhibit-data" />
+  <link href="/api/timeline" type="application/json"
+        rel="exhibit-data" />
+       
+  <script src="http://api.simile-widgets.org/exhibit/current/exhibit-api.js">
+  </script>
+
+  <link rel="exhibit-extension" type="text/javascript"
+        href="http://api.simile-widgets.org/exhibit/current/extensions/time/time-extension.js" />
+
+    <link rel='stylesheet' href='/css/timeline.css' type='text/css' />
+  
+ </head>
+ <body>
+  <nav role="navigation">
+   <ul>
+    <li><a href="/index2.html#">What is Chandra doing now?</a></li>
+    <li><a href="/schedule/index.html">Schedule</a></li>
+    <li><a id='currentLink' href="/search/index.html">Explore</a></li>
+    <li><a href="/about/index.html">About</a></li>
+    <li><a href="/about/instruments.html">Instruments</a></li>
+    <li><a href="/about/views.html">Views</a></li>
+   </ul>
+  </nav>
+
+  <div id="exhibit">
+
+    <h1>THIS IS A **TEST** FEATURE; THIGS ARE INTENTIONALLY BROKEN</h1>
+    
+    <!--
+    <p>
+      TODO: use
+      <a href="http://hea-www.harvard.edu/~dburke/chandra/timeline.html">http://hea-www.harvard.edu/~dburke/chandra/timeline.html</a>
+      to add:
+      three bands (day, month, year);
+      jump to year option.
+    </p>
+    -->
+    
+    <h1>A timeline of Chandra observations</h1>
+
+    <p>
+      This page shows the same data as the
+      <a href="/search/calendar/">calendar view</a>, but
+      using a more interactive format, where the timeline can
+      be scrolled (either by day or year, including double clicking
+      to jump to that time), items selected, and some simple
+      browsing done using
+      <a href="https://en.wikipedia.org/wiki/Faceted_search">faceted
+        browsing</a>,
+      taking advantage of the facilities provided by the
+      <a href="https://github.com/simile-widgets/exhibit/">Exhibit
+        widget framework</a>.
+    </p>
+
+    <div data-ex-role="collection" data-ex-item-types="ScheduledItem"></div>
+
+    <table id="frame">
+      <tr>
+        <td id="sidebar">
+                
+          <div id="exhibit-browse-panel">
+            <b>Search:</b>
+            <div data-ex-role="facet" data-ex-facet-class="TextSearch"></div>
+            <hr/>
+            
+            <div data-ex-role="facet" data-ex-expression=".instrument"
+                 data-ex-facet-label="Instrument" data-ex-height="6em" data-ex-color-coder="instrument-colors"></div>
+
+            <div data-ex-role="facet" data-ex-expression=".grating"
+                 data-ex-facet-label="Grating" data-ex-height="4em"></div>
+            
+            <div data-ex-role="facet" data-ex-expression=".isTOO"
+                 data-ex-facet-label="Target of Oportunity?" data-ex-height="3em"></div>
+
+            <div data-ex-role="facet" data-ex-expression=".constellation"
+                 data-ex-facet-label="Constellation" data-ex-height="10em"></div>
+
+            <div class="logo" data-ex-role="logo" data-ex-color="CornflowerBlue"></div>
+          </div>
+        </td>
+        
+        <td id="content">
+          <div data-ex-role="coder" data-ex-coder-class="Color"
+               id="instrument-colors" style="display: none;">
+            <!-- Use similar color scheme as the Chandra Footprint Service -->
+            <span data-ex-color="blue">ACIS-I</span>
+            <span data-ex-color="red">ACIS-S</span>
+            <span data-ex-color="#66CC33">HRC-I</span>
+            <span data-ex-color="#FFB6C1">HRC-S</span>
+          </div>
+                
+          <div class="item" data-ex-role="lens" style="display: none;">
+            <p>NOTE: this is <em>very much</em> a work in progress.</p>
+            <table class="lens-table">
+              <tr>
+                <!-- TODO: make this link to the obsid page,
+                           anything else? -->
+                <td>
+                  <span data-ex-content=".object"></span>,
+                  ObsId
+                  {{
+                  <!-- trying to convert exhibit-2 syntax, doesn't
+                  seem to work -->
+                  <a ex-href-subcontent="/obsid/{{.obsid}}"
+                     ex-content=".obsid"><span data-ex-content=".obsid"></span></a>
+                  }}
+                  <span data-ex-content=".obsid"></span>
+                </td>
+                <td>
+                  <span data-ex-content=".instrument"></span>
+                  +
+                  <span data-ex-content=".grating"></span>
+                </td>
+                <td>
+                  Constellation:
+                  <span data-ex-content=".constellation"></span>
+                </td>
+                  
+            <!--
+                <td><img data-ex-src-content=".imageURL" 
+                         alt="portrait"/></td>
+                <td>
+                  <a data-ex-href-content=".url"><span data-ex-content=".label"></span></a>
+                  <div>Terms: <span data-ex-content=".term"></span>, <span data-ex-content=".party"></span></div>
+                  <div>Religions: <span data-ex-content=".religion"></span></div>
+                  <div>Birth: <span data-ex-content=".birth"></span>, <span data-ex-content=".birthPlace"></span></div>
+                  <div data-ex-if-exists=".death">Death: <span data-ex-content=".death"></span>, <span data-ex-content=".deathPlace"></span></div>
+                  <div data-ex-control="item-link"></div>
+                </td>
+            -->
+              </tr>
+            </table>
+          </div>
+          
+          <div data-ex-role="coordinator" id="scheduleditem"></div>
+
+          <!-- do I need this
+               data-ex-proxy=".presidency"
+          -->
+          <div data-ex-role="view"
+               data-ex-formats="date { mode: medium; show: date }"
+               data-ex-view-class="Timeline"
+               data-ex-label="Observations"
+               data-ex-start=".start"
+               data-ex-end=".end"
+               data-ex-color-key=".instrument"
+               data-ex-color-coder="instrument-colors"
+	       data-ex-autoposition="true"
+               data-ex-bubble-width="320"
+               data-ex-top-band-pixels-per-unit="150"
+               data-ex-bottom-band-pixels-per-unit="600"
+               data-ex-top-band-unit="day"
+               data-ex-bottom-band-unit="year"
+               data-ex-select-coordinator="scheduleditem"
+               data-ex-show-summary="false"
+               data-ex-timeline-height="400"
+               >
+          </div>
+
+          <!-- We could have a tabular view, but leave that for later -->
+        </td>
+      </tr>
+    </table>
+  </div>
+  
+  <p id="banner">
+    The 'What is Chandra doing now?' web site is written
+    by <a href="http://twitter.com/doug_burke">@doug_burke</a>,
+    comes with no warranty (in other words, I make no
+    guarantee that the information presented is correct, although
+    I try my best to make sure it is), and is not
+    an official product of the 
+    <a href="http://chandra.si.edu/">Chandra X-ray Center</a>.
+  </p>
+ </body>
+</html>

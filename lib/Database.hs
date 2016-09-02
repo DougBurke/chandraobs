@@ -64,6 +64,9 @@ module Database ( getCurrentObs
 
                   -- Rather experimental
                 , getExposureValues
+
+                  -- Highly experimental
+                , getTimeline
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -1456,19 +1459,49 @@ getProposalObjectMapping = do
       obsMap :: M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)
       obsMap = M.unionsWith combine (M.elems obsMap3)
 
+  -- The output is a map from
+  --    (Proposal category, SIMBAD type)
+  -- where both are human-readable strings, to
+  --    { exposureTime: ..., numberSources: ..., numberObs: ...}
+  --
+  addLastMod obsMap
+  
+-- | Work out a timeline of the data.
+--
+--   For now it just returns science observations, but
+--   non-science observations need to be included too.
+--
+getTimeline ::
+  PersistBackend m
+  => m (SortedList StartTimeOrder ScienceObs, UTCTime)
+getTimeline = do
+
+  -- for now just deal with science observations
+  out <- select (notDiscarded
+                 `orderBy` [Asc SoStartTimeField])
+
+  addLastMod (unsafeToSL out)
+
+
+-- | Grab the last-modified date from the database and include
+--   it in the return value.
+--
+addLastMod ::
+  PersistBackend m
+  => a
+  -> m (a, UTCTime)
+  -- ^ The time value is set to @dummyLastMod@ if no last-modified
+  --   field is found in the database.
+addLastMod out = do
+  
   lastMods <- project MdLastModifiedField (CondEmpty
                                            `orderBy` [Desc MdLastModifiedField]
                                            `limitTo` 1)
   let lastMod = case lastMods of
         [] -> dummyLastMod
         (x:_) -> x
-        
-  -- The output is a map from
-  --    (Proposal category, SIMBAD type)
-  -- where both are human-readable strings, to
-  --    { exposureTime: ..., numberSources: ..., numberObs: ...}
-  --
-  return (obsMap, lastMod)
+
+  return (out, lastMod)
   
 -- | Work out a timeline based on instrument configuration; that is,
 --   start times, exposure lengths, and instruments.

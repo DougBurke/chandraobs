@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# Language RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 
 {-
@@ -109,6 +110,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , getRelatedObs
                  , getObsFromProposal
                  , getSimbadInfo
+                 , getTimeline
                  -- , findObsId
                  , fetchSIMBADType
                  , fetchNoSIMBADType
@@ -158,6 +160,7 @@ import Types (Record, SimbadInfo, Proposal
              , Sequence(..)
              , SortedList, StartTimeOrder
              , TimeKS(..)
+             , ChandraTime(..)
              , fromSimbadType
              , toSimbadType
              , nullSL, fromSL
@@ -165,9 +168,13 @@ import Types (Record, SimbadInfo, Proposal
              , handleMigration
              , labelToRT
              , labelToCS
+             , getConstellationNameStr
+             , fromInstrument
+             , fromGrating
              )
 import Utils (fromBlaze, standardResponse, getFact
              , timeToRFC1123
+             , getTimes
              -- , makeETag
              )
 
@@ -448,6 +455,49 @@ webapp cm mgr scache = do
       -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
       
       json out
+
+    -- HIGHLY EXPERIMENTAL: explore a timeline visualization
+    --
+    get "/api/timeline" $ do
+
+      (tlime, lastMod) <- liftSQL getTimeline
+
+      -- convert to something a little simpler for now
+      --
+      -- would be nice to include simbad types, or proposal types, or
+      -- ...
+      let fromSO so@ScienceObs {..} =
+            let (startTime, endTime) = getTimes (Right so)
+                obsid = fromObsId soObsId
+                objName = T.unpack soTarget
+
+            in object [
+              "type" .= ("ScheduledItem" :: T.Text),
+              -- need a unique label
+              "label" .= (objName ++ " - ObsId " ++ show obsid),
+              "object" .= objName,
+              "obsid" .= obsid,
+              "start" .= _toUTCTime startTime,
+              "end" .= _toUTCTime endTime,
+
+              -- observation length
+              -- cycle
+              -- proposal class
+              
+              "object" .= soTarget,
+              "instrument" .= fromInstrument soInstrument,
+              "grating" .= fromGrating soGrating,
+              -- including an isPublic check means validating each
+              -- soPublicRelease date, so leave that for now
+              -- "isPublic" .= ?
+              "isTOO" .= if isJust soTOO then "yes" else "no" :: T.Text,
+              "constellation" .= getConstellationNameStr soConstellation
+            ]
+
+      setHeader "Last-Modified" (timeToRFC1123 lastMod)
+      -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
+
+      json (object ["items" .= map fromSO (fromSL tlime)])
 
     -- highly experimental
     get "/api/exposures" $ do
