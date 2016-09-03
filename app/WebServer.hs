@@ -151,7 +151,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                    
                  , dbConnStr
                  )
--- import Git (gitCommitId)
+import Git (gitCommitId)
 import Types (Record, SimbadInfo, Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
@@ -175,7 +175,7 @@ import Types (Record, SimbadInfo, Proposal(..)
 import Utils (fromBlaze, standardResponse, getFact
              , timeToRFC1123
              , getTimes
-             -- , makeETag
+             , makeETag
              )
 
 production :: 
@@ -506,8 +506,12 @@ webapp cm mgr scache = do
               
               ]
 
-      setHeader "Last-Modified" (timeToRFC1123 lastMod)
-      -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
+      -- As we keep changing the structure of the JSON, using the
+      -- last-modified date in the header does not work well (although
+      -- it is showing some things are being cached)...
+      --
+      -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
+      setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
 
       json (object ["items" .= map fromSO (fromSL tlime)])
 
