@@ -1468,19 +1468,21 @@ getProposalObjectMapping = do
   
 -- | Work out a timeline of the data.
 --
---   For now it just returns science observations, but
---   non-science observations need to be included too.
+--   For now it just returns science observations. It is not
+--   clear if non-science observations should be included,
+--   as the timeline view is crowded already.
 --
 getTimeline ::
   PersistBackend m
-  => m (SortedList StartTimeOrder ScienceObs, UTCTime)
+  => m ((SortedList StartTimeOrder ScienceObs, [Proposal]), UTCTime)
 getTimeline = do
 
   -- for now just deal with science observations
-  out <- select (notDiscarded
+  obs <- select (notDiscarded
                  `orderBy` [Asc SoStartTimeField])
-
-  addLastMod (unsafeToSL out)
+  -- props <- select CondEmpty
+  props <- selectAll
+  addLastMod (unsafeToSL obs, map snd props)
 
 
 -- | Grab the last-modified date from the database and include

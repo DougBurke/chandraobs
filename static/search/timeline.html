@@ -18,7 +18,7 @@
         href="https://api.simile-widgets.org/exhibit/current/extensions/time/time-extension.js" />
 
     <link rel='stylesheet' href='/css/timeline.css' type='text/css' />
-  
+
  </head>
  <body>
   <nav role="navigation">
@@ -74,29 +74,91 @@
             <hr/>
             
             <div data-ex-role="facet" data-ex-expression=".instrument"
-                 data-ex-facet-label="Instrument" data-ex-height="6em" data-ex-color-coder="instrument-colors"></div>
+                 data-ex-facet-label="Instrument"
+                 data-ex-height="5.5em"
+                 data-ex-color-coder="instrument-colors"></div>
 
             <div data-ex-role="facet" data-ex-expression=".grating"
-                 data-ex-facet-label="Grating" data-ex-height="4em"></div>
+                 data-ex-facet-label="Grating"
+                 data-ex-height="6em"></div>
+
+            <!--
+            <div data-ex-role="facet" data-ex-expression=".length"
+                 data-ex-facet-class="NumericRange"
+                 data-ex-interval="2"
+                 data-ex-facet-label="Length (hours)"
+                 data-ex-collapsed="true"
+                 data-ex-height="8em"></div>
+            -->
+
+            <!-- try the histogram for now -->
+            <div data-ex-role="facet" data-ex-expression=".length"
+                 data-ex-facet-class="Slider"
+                 data-ex-precision="1"
+                 data-ex-horizontal="true"
+                 data-ex-facet-label="Length (hours)"
+                 data-ex-collapsed="true"
+                 data-ex-height="4em"></div>
+
+            <!-- would this be better a a histogram? -->
+            <div data-ex-role="facet" data-ex-expression=".cycle"
+                 data-ex-facet-label="Proposal Cycle"
+                 data-ex-collapsed="true"
+                 data-ex-height="8em"></div>
+
+            <!-- for some reason this does not work, so leave as a
+                 "text" facet
+            <div data-ex-role="facet" data-ex-expression=".cycle"
+                 data-ex-facet-class="Slider"
+                 data-ex-precision="1"
+                 data-ex-horizontal="true"
+                 data-ex-facet-label="Proposal Cycle"
+                 data-ex-collapsed="true"
+                 data-ex-height="4em"></div>
+            -->
             
+            <div data-ex-role="facet" data-ex-expression=".category"
+                 data-ex-facet-label="Proposal Category"
+                 data-ex-collapsed="true"
+                 data-ex-height="8em"></div>
+
+            <div data-ex-role="facet" data-ex-expression=".proptype"
+                 data-ex-facet-label="Proposal Type"
+                 data-ex-collapsed="true"
+                 data-ex-height="4.2em"></div>
+
             <div data-ex-role="facet" data-ex-expression=".isTOO"
-                 data-ex-facet-label="Target of Oportunity?" data-ex-height="3em"></div>
+                 data-ex-facet-label="Target of Oportunity?"
+                 data-ex-collapsed="true"
+                 data-ex-height="3em"></div>
 
             <div data-ex-role="facet" data-ex-expression=".constellation"
-                 data-ex-facet-label="Constellation" data-ex-height="10em"></div>
+                 data-ex-facet-label="Constellation"
+                 data-ex-collapsed="true"
+                 data-ex-height="10em"></div>
 
-            <div class="logo" data-ex-role="logo" data-ex-color="CornflowerBlue"></div>
+            <div class="logo" data-ex-role="logo"
+                 data-ex-color="CornflowerBlue"></div>
           </div>
         </td>
         
         <td id="content">
           <div data-ex-role="coder" data-ex-coder-class="Color"
                id="instrument-colors" style="display: none;">
-            <!-- Use similar color scheme as the Chandra Footprint Service -->
-            <span data-ex-color="blue">ACIS-I</span>
-            <span data-ex-color="red">ACIS-S</span>
-            <span data-ex-color="#66CC33">HRC-I</span>
-            <span data-ex-color="#FFB6C1">HRC-S</span>
+            <!-- Pick a 4-color colorblind "safe" diverging
+                 color scale from colorbrewer2.org:
+                 PuOr - not 100% convinced
+              -->
+            <span data-ex-color="#E66101">ACIS-I</span>
+            <span data-ex-color="#5E3C99">ACIS-S</span>
+            <span data-ex-color="#B2ABD2">HRC-I</span>
+            <span data-ex-color="#FDB863">HRC-S</span>
+            <!-- RdYlBu
+            <span data-ex-color="#D7191C">ACIS-I</span>
+            <span data-ex-color="#FDAE61">ACIS-S</span>
+            <span data-ex-color="#ABD9E9">HRC-I</span>
+            <span data-ex-color="#2C7BB6">HRC-S</span>
+            -->
           </div>
                 
           <div class="item" data-ex-role="lens" style="display: none;">
@@ -108,13 +170,8 @@
                 <td>
                   <span data-ex-content=".object"></span>,
                   ObsId
-                  {{
-                  <!-- trying to convert exhibit-2 syntax, doesn't
-                  seem to work -->
-                  <a ex-href-subcontent="/obsid/{{.obsid}}"
-                     ex-content=".obsid"><span data-ex-content=".obsid"></span></a>
-                  }}
-                  <span data-ex-content=".obsid"></span>
+                  <a data-ex-href-subcontent="/obsid/{{.obsid}}"
+                     data-ex-content=".obsid"></a>
                 </td>
                 <td>
                   <span data-ex-content=".instrument"></span>

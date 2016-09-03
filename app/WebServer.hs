@@ -152,7 +152,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , dbConnStr
                  )
 -- import Git (gitCommitId)
-import Types (Record, SimbadInfo, Proposal
+import Types (Record, SimbadInfo, Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
@@ -460,17 +460,25 @@ webapp cm mgr scache = do
     --
     get "/api/timeline" $ do
 
-      (tlime, lastMod) <- liftSQL getTimeline
+      ((tlime, props), lastMod) <- liftSQL getTimeline
 
-      -- convert to something a little simpler for now
+      -- What information do we want - e.g. Simbad type?
       --
-      -- would be nice to include simbad types, or proposal types, or
-      -- ...
-      let fromSO so@ScienceObs {..} =
+      let propMap = M.fromList (map (\p -> (propNum p, p)) props)
+
+          toHours ks = _toKS ks / 3.6
+      
+          fromSO so@ScienceObs {..} =
             let (startTime, endTime) = getTimes (Right so)
                 obsid = fromObsId soObsId
                 objName = T.unpack soTarget
 
+                -- TODO: do not include the item if the value is
+                --       not known
+                fromProp :: (Proposal -> T.Text) -> T.Text
+                fromProp f = fromMaybe "unknown"
+                             (f <$> M.lookup soProposal propMap)
+      
             in object [
               "type" .= ("ScheduledItem" :: T.Text),
               -- need a unique label
@@ -480,10 +488,9 @@ webapp cm mgr scache = do
               "start" .= _toUTCTime startTime,
               "end" .= _toUTCTime endTime,
 
-              -- observation length
-              -- cycle
-              -- proposal class
-              
+              -- observation length, in hours
+              "length" .= toHours (fromMaybe soApprovedTime soObservedTime),
+
               "object" .= soTarget,
               "instrument" .= fromInstrument soInstrument,
               "grating" .= fromGrating soGrating,
@@ -491,11 +498,16 @@ webapp cm mgr scache = do
               -- soPublicRelease date, so leave that for now
               -- "isPublic" .= ?
               "isTOO" .= if isJust soTOO then "yes" else "no" :: T.Text,
-              "constellation" .= getConstellationNameStr soConstellation
-            ]
+              "constellation" .= getConstellationNameStr soConstellation,
+
+              "cycle" .= fromProp propCycle,
+              "category" .= fromProp propCategory,
+              "proptype" .= fromProp propType
+              
+              ]
 
       setHeader "Last-Modified" (timeToRFC1123 lastMod)
-      -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
+      -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
 
       json (object ["items" .= map fromSO (fromSL tlime)])
 
