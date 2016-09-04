@@ -34,8 +34,6 @@
 
   <div id="exhibit">
 
-    <h1>THIS IS A **TEST** FEATURE; THIGS ARE INTENTIONALLY BROKEN</h1>
-    
     <!--
     <p>
       TODO: use
@@ -75,12 +73,12 @@
             
             <div data-ex-role="facet" data-ex-expression=".instrument"
                  data-ex-facet-label="Instrument"
-                 data-ex-height="5.5em"
+                 data-ex-height="6em"
                  data-ex-color-coder="instrument-colors"></div>
 
             <div data-ex-role="facet" data-ex-expression=".grating"
                  data-ex-facet-label="Grating"
-                 data-ex-height="6em"></div>
+                 data-ex-height="4.5em"></div>
 
             <!--
             <div data-ex-role="facet" data-ex-expression=".length"
@@ -160,29 +158,84 @@
             <span data-ex-color="#2C7BB6">HRC-S</span>
             -->
           </div>
-                
+
+          <!-- TODO: indicate if a TOO (ie only if isTOO == 'yes')
+               -->
           <div class="item" data-ex-role="lens" style="display: none;">
-            <p>NOTE: this is <em>very much</em> a work in progress.</p>
             <table class="lens-table">
               <tr>
-                <!-- TODO: make this link to the obsid page,
-                           anything else? -->
-                <td>
-                  <span data-ex-content=".object"></span>,
-                  ObsId
+                <td class="label">Observation:</td>
+                <td class="value">
                   <a data-ex-href-subcontent="/obsid/{{.obsid}}"
                      data-ex-content=".obsid"></a>
                 </td>
-                <td>
-                  <span data-ex-content=".instrument"></span>
+              </tr>
+              <tr>
+                <td class="label">Target:</td>
+                <td class="value">
+                  <a data-ex-href-subcontent="/search/name?target={{.object}}"
+                     data-ex-content=".object"></a>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Proposal Category:</td>
+                <td class="value">
+                  <a data-ex-href-subcontent="/search/category/{{.category}}"
+                     data-ex-content=".category"></a>
+              </tr>
+              <tr>
+                <td class="label">Configuration:</td>
+                <td class="value">
+                  <a data-ex-href-subcontent="/search/instrument/{{.instrument}}"
+                     data-ex-content=".instrument"></a>
                   +
-                  <span data-ex-content=".grating"></span>
+                  <a data-ex-href-subcontent="/search/grating/{{.grating}}"
+                     data-ex-content=".grating"></a>
                 </td>
-                <td>
-                  Constellation:
+              </tr>
+              <tr>
+                <td class="label">Start date:</td>
+                <td class="value">
+                  <!-- would like to make this a link to
+                       /schedule/data/YYYY-MM-DD/1
+                       but how to do the conversion of .start
+                       to this format?
+                       -->
+                  <span data-ex-content=".start"></span>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Proposal Cycle:</td>
+                <td class="value">
+                  <span data-ex-content=".cycle"></span>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Length:</td>
+                <td class="value">
+                  <!-- It would be nice to format this value,
+                       to at least clean up excessive precision
+                       but also to make the units vary with
+                       the length - e.g. 1 day and 4 hours
+                       instead of 28.223423 hours
+                    -->
+                  <span data-ex-content=".length"></span>
+                  hours
+                </td>
+              </tr>
+              
+              <tr>
+                <td class="label">Constellation:</td>
+                <td class="value">
                   <span data-ex-content=".constellation"></span>
+                  <!--
+                      need a mapping from long to short name
+                  <a data-ex-href-subcontent="/search/constellation/{{.constellation}}"
+                     data-ex-content=".constellation"></a>
+                  -->
                 </td>
-                  
+              </tr>
+              
             <!--
                 <td><img data-ex-src-content=".imageURL" 
                          alt="portrait"/></td>

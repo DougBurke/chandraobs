@@ -117,6 +117,9 @@
     JavaScript library, and I took "inspiration" for this
     feature from the
     <a href="http://adslabs.org/adsabs/">ADS Labs search page</a>.
+   </p>
+
+   <p>
     The table sorting on the <a href="/schedule/index.html">Schedule page</a>
     is done by the 
     <a href="http://tablesorter.com/docs/">TableSorter jQuery plugin</a>
@@ -125,6 +128,9 @@
     to display the scheduled observations on the sky, 
     following the approach used for the
     <a href="http://xrtpub.harvard.edu/photo/map/">Chandra Sky Map</a>.
+   </p>
+
+   <p>
     The outline of the Milky Way, shown on the
     <a href="/schedule/">schedule view</a> pages,
     and the constellation boundaries, on the
@@ -134,6 +140,20 @@
     project by Olaf Frohn (the Milky outline is based on the data from the
     <a href="http://www.skymap.com/milkyway_cat.htm">Milky Way
       Outline Catalog</a> from Jose R. Vieira).
+   </p>
+
+   <p>
+     The <a href="/search/timeline.html">timeline view</a>,
+     along with its faceted browsing, would not be possible
+     without the
+     <a href="https://github.com/simile-widgets/exhibit/">Exhibit
+       widget framework</a>. I am quite pleased to be able to use
+     this again, since my initial experiments for this project -
+     <em>many, many</em> moons ago - were based on an earlier
+     version of this framework.
+   </p>
+
+   <p>
     The web site 
     <a href="https://bitbucket.org/doug_burke/chandraobs">code
     is available on bitbucket</a>,

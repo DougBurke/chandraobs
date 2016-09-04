@@ -113,8 +113,21 @@ div.exhibit-facet-header {
     width: 100%
 }
 
+/* follow main.css div#Details table */
+table.lens-table tr:nth-child(even) {
+    background: rgba(153,153,153,0.2);
+}
+
 .lens-table td {
-   padding: 10px
+   /* padding: 10px */
+}
+
+table.lens-table td.label {
+    float: left;
+}
+
+table.lens-table td.value {
+    float: right;
 }
 
 #exhibit h1 {
