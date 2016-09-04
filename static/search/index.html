@@ -25,6 +25,9 @@
 
   <div id="explorebox">
     <h2>Explore the observations made by Chandra</h2>
+
+    <!-- TODO: would like to link to help information on
+         proposal categories or SIMBAD data types -->
     <div class="explanation">
       Here are some ways to explore the observations
       performed by Chandra. Many are just different ways to view
@@ -34,31 +37,42 @@
       the proposal categories are related to the SIMBAD data types).
     </div>
 
-  <ul>
-    <li><a href="/search/instrument/">by instrument</a>,</li>
-    <li>a look at <a href="/search/breakdown/">how the time is spent on each instrument</a>,</li>
-    <li>by viewing the
-      <a href="/search/dtype/">full SIMBAD object hierarchy</a>
-      or 
-      <a href="/search/type/">treating them individually</a>,
-    </li>
-    <li>by <a href="/search/constellation/">constellation</a>,</li>
-    <li>by proposal <a href="/search/category/">category</a>
-      or <a href="/search/proptype/">type</a>,</li>
-    <li>by what sort of <a href="/search/turnaround/">turnaround time</a>
-      or <a href="/search/constraints/">constraints</a>
-      was needed for the observation (if any),</li>
-    <li>the <a href="/search/joint/">observations done jointly with other telescopes</a>,</li>
-    <li>
-      <a href="/search/calendar/">a calendar view</a>,
-      which can be compared to the
-      <a href="/search/exposures/">exposure-time breakdown</a>,
-      to see how the observations are spread throughout the observing
-      cycle,
-    </li>
-    <li>and looking at <a href="/search/mappings/">how the proposal categories
+    <ul>
+
+      <li>
+        a view of the
+        <a href="/search/timeline/">Chandra observing timeline</a>,
+        which - unlike many of the following views - allows you
+        to filter the data, using
+        <a href="https://en.wikipedia.org/wiki/Faceted_search">faceted
+          browsing</a>,
+      </li>
+      
+      <li>
+        <a href="/search/calendar/">a calendar view</a>,
+        which can be compared to the
+        <a href="/search/exposures/">exposure-time breakdown</a>,
+        to see how the observations are spread throughout the observing
+        cycle,
+      </li>
+
+      <li><a href="/search/instrument/">by instrument</a>,</li>
+      <li>a look at <a href="/search/breakdown/">how the time is spent on each instrument</a>,</li>
+      <li>by viewing the
+        <a href="/search/dtype/">full SIMBAD object hierarchy</a>
+        or 
+        <a href="/search/type/">treating them individually</a>,
+      </li>
+      <li>by <a href="/search/constellation/">constellation</a>,</li>
+      <li>by proposal <a href="/search/category/">category</a>
+        or <a href="/search/proptype/">type</a>,</li>
+      <li>by what sort of <a href="/search/turnaround/">turnaround time</a>
+        or <a href="/search/constraints/">constraints</a>
+        was needed for the observation (if any),</li>
+      <li>the <a href="/search/joint/">observations done jointly with other telescopes</a>,</li>
+      <li>and looking at <a href="/search/mappings/">how the proposal categories
       and SIMBAD object types are related</a>.</li>
-  </ul>
+    </ul>
 
   <div>
     <form action="/search/name" method="get">
@@ -86,8 +100,9 @@
     observations of targets containing the string <tt>NGC</tt>.
     Note that there is an issue with spaces in the text searches; ideally the names
     would be normalized (or the search would be), but at present
-    they are not, so <tt>NGC   404</tt>, <tt>NGC 404</tt>, and
-    <tt>NGC404</tt> are different.
+    they are not, so the results of searching for
+    <tt>NGC   404</tt>, <tt>NGC 404</tt>, or
+    <tt>NGC404</tt> will be different.
   </p>
   </div>
   <script>

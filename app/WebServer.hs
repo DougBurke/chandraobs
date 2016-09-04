@@ -835,6 +835,7 @@ webapp cm mgr scache = do
     -- highly experimental
     -- for now use a static file
     get "/search/exposures/" (redirect "/search/exposures/index.html")
+    get "/search/timeline/" (redirect "/search/timeline.html")
 
     get "/search/proptype" $ do
       propInfo <- liftSQL getProposalTypeBreakdown

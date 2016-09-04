@@ -67,10 +67,13 @@
      since it is a large, heavy, spacecraft and so fast moves would
      make it harder to obtain the pointing accuracy needed 
      to maximise the high spatial resolution of the telescope.
-     This is in contrast to some missions, such as 
-     <a href="http://swift.gsfc.nasa.gov/about_swift/">the Swift Gamma-Ray Burst Mission</a>,
+     This is in contrast to some missions such as the
+     <a href="http://swift.gsfc.nasa.gov/about_swift/">Swift Gamma-Ray Burst Mission</a>,
      which is designed to be able to 
-     <a href="http://swift.gsfc.nasa.gov/help/swiftfaq.html#slew">slew very quickly</a>.
+     <a href="http://swift.gsfc.nasa.gov/help/swiftfaq.html#slew">slew very
+       quickly</a>
+     (as it's primary science goal is to observe sources which
+     vary very quickly).
    </p>
 
    <h2 id="orbit">Where is Chandra?</h2>
