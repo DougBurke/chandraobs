@@ -41,10 +41,17 @@ function makeLabel(plotInfo, cycle) {
 function makePlot(plotInfo) {
     dummy = plotInfo;
 
-    /* Plotting up a cumulative function */
     var allInfo = plotInfo['all']
-    var tmin = allInfo.times[0];
-    var tmax = allInfo.times[allInfo.length-1];
+
+    /* Since the X axis (time) is plotted using a log scale,
+       use the first non-zero value (ideally all the times
+       would be > 0, but some are 0).
+       */
+    var zeros = allInfo.times.filter(function(d) { return d <= 0; });
+    
+    /* Plotting up a cumulative function */
+    var tmin = allInfo.times[zeros.length];
+    var tmax = allInfo.times[allInfo.length - 1];
 
     /* actually, let's use 0 as the base. */
     /* tmin = 0;  not with a log scale */
@@ -121,7 +128,7 @@ function makePlot(plotInfo) {
                 return xrange(d);
             })
             .y(function(d, i) {
-                return yrange(100 * i / n);
+                return yrange(100 * (i + 1) / n);
             });
     };
 
@@ -136,6 +143,9 @@ function makePlot(plotInfo) {
             lbl = "Cycle " + cycle;
         }
 
+        plotInfo[cycle].times = plotInfo[cycle].times.
+            filter(function (d) { return d > 0; });
+        
         svg.append("path")
             .datum(plotInfo[cycle].times)
             .attr("class", "cycle cycle" + cycle)
