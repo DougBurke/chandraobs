@@ -1681,7 +1681,7 @@ getExposureValues = do
   -- ordering, but is it worth it?
   sobs <- project (SoProposalField,
                    (SoApprovedTimeField, SoObservedTimeField))
-          notDiscarded
+          (notDiscarded &&. isScheduled)
 
   -- Is it best to insert into an ordered list (so changing the
   -- list structure each iteration) or sort at the end?
