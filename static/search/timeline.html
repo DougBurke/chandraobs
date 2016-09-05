@@ -159,10 +159,14 @@
             -->
           </div>
 
-          <!-- TODO: indicate if a TOO (ie only if isTOO == 'yes')
-               -->
-          <div class="item" data-ex-role="lens" style="display: none;">
+          <div class="item" data-ex-role="lens"
+               data-ex-formats="date { template: 'yyyy-MM-dd'; show: date }"
+               style="display: none;">
+            <div class="label">Observation details</div>
             <table class="lens-table">
+              <tr data-ex-if=".isTOO = 'yes'">
+                <td class="note">This is a Target of Opportunity observation.</td>
+              </tr>
               <tr>
                 <td class="label">Observation:</td>
                 <td class="value">
@@ -196,18 +200,14 @@
               <tr>
                 <td class="label">Start date:</td>
                 <td class="value">
-                  <!-- would like to make this a link to
-                       /schedule/data/YYYY-MM-DD/1
-                       but how to do the conversion of .start
-                       to this format?
-                       -->
+                  <!-- dang it; it looks like data-ex-href-subcontent isn't
+                       following the format, even though data-ex-content
+                  is -->
+                  <!--
+                  <a data-ex-href-subcontent="/schedule/date/{{.start}}/1"
+                     data-ex-content=".start"></a>
+                  -->
                   <span data-ex-content=".start"></span>
-                </td>
-              </tr>
-              <tr>
-                <td class="label">Proposal Cycle:</td>
-                <td class="value">
-                  <span data-ex-content=".cycle"></span>
                 </td>
               </tr>
               <tr>
@@ -219,11 +219,19 @@
                        the length - e.g. 1 day and 4 hours
                        instead of 28.223423 hours
                     -->
-                  <span data-ex-content=".length"></span>
+                  <span data-ex-content=".length"
+                        ></span>
                   hours
                 </td>
               </tr>
               
+              <tr>
+                <td class="label">Proposal Cycle:</td>
+                <td class="value">
+                  <span data-ex-content=".cycle"></span>
+                </td>
+              </tr>
+
               <tr>
                 <td class="label">Constellation:</td>
                 <td class="value">

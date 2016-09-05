@@ -109,8 +109,23 @@ div.exhibit-facet-header {
    text-align: center
 }
 
+div.item {
+    margin-top: 0.7em; /* space for label */
+    border: 2px solid rgb(0, 131, 179); /* #B8B8BB; */
+}
+
+/* wanted a "label embeded within the border" look similar to
+   GtK+ widgets. */ 
+div.item div.label {
+    position: relative;
+    top: -1em;
+    padding-left: 0.5em;
+    background: white;
+}
+
 .lens-table {
-    width: 100%
+    width: 100%;
+    top: -1em;
 }
 
 /* follow main.css div#Details table */
@@ -128,6 +143,11 @@ table.lens-table td.label {
 
 table.lens-table td.value {
     float: right;
+}
+
+table.lens-table td.note {
+    text-align: center;
+    font-weight: bolder;
 }
 
 #exhibit h1 {
