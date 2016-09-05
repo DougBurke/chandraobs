@@ -10,12 +10,20 @@
         rel="exhibit-data" />
   <link href="/api/timeline" type="application/json"
         rel="exhibit-data" />
-       
+
+  <!--
   <script src="https://api.simile-widgets.org/exhibit/current/exhibit-api.js">
   </script>
 
   <link rel="exhibit-extension" type="text/javascript"
         href="https://api.simile-widgets.org/exhibit/current/extensions/time/time-extension.js" />
+  -->
+
+  <script src="https://api.simile-widgets.org/exhibit/HEAD/exhibit-api.js">
+  </script>
+  
+  <link rel="exhibit-extension" type="text/javascript"
+        href="https://api.simile-widgets.org/exhibit/HEAD/extensions/time/time-extension.js" />
 
     <link rel='stylesheet' href='/css/timeline.css' type='text/css' />
 
@@ -162,10 +170,28 @@
           <div class="item" data-ex-role="lens"
                data-ex-formats="date { template: 'yyyy-MM-dd'; show: date }"
                style="display: none;">
-            <div class="label">Observation details</div>
+
+            <span data-ex-if-exists=".imgURL">
+              <span class="label">Chandra image</span>
+            </span>
+            
+            <div data-ex-if-exists=".imgURL">
+              <div class="image">
+                <!-- 
+                can we add a 'image loading' icon?
+                -->
+                <img data-ex-src-content=".imgURL">
+              </div>
+            </div>
+
+            <span class="label">Observation details</span>
             <table class="lens-table">
               <tr data-ex-if=".isTOO = 'yes'">
-                <td class="note">This is a Target of Opportunity observation.</td>
+                <tr>
+                  <!-- would like it for the tense to change from "is" to "was" -->
+                  <td class="note">This is a Target of Opportunity
+                    observation.</td>
+                </tr>
               </tr>
               <tr>
                 <td class="label">Observation:</td>
@@ -193,8 +219,11 @@
                   <a data-ex-href-subcontent="/search/instrument/{{.instrument}}"
                      data-ex-content=".instrument"></a>
                   +
-                  <a data-ex-href-subcontent="/search/grating/{{.grating}}"
-                     data-ex-content=".grating"></a>
+                  <span data-ex-if=".grating = 'NONE'">
+                    <a href="/search/grating/NONE">no grating</a>
+                    <a data-ex-href-subcontent="/search/grating/{{.grating}}"
+                       data-ex-content=".grating"></a>
+                  </span>
                 </td>
               </tr>
               <tr>
@@ -274,7 +303,7 @@
                data-ex-color-key=".instrument"
                data-ex-color-coder="instrument-colors"
 	       data-ex-autoposition="true"
-               data-ex-bubble-width="320"
+               data-ex-bubble-width="400"
                data-ex-top-band-pixels-per-unit="150"
                data-ex-bottom-band-pixels-per-unit="600"
                data-ex-top-band-unit="day"

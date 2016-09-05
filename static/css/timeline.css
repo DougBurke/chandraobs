@@ -111,25 +111,38 @@ div.exhibit-facet-header {
 
 div.item {
     margin-top: 0.7em; /* space for label */
-    border: 2px solid rgb(0, 131, 179); /* #B8B8BB; */
+    /* border: 2px solid rgb(0, 131, 179); */ /* #B8B8BB; */
+    border: none;
 }
 
 /* wanted a "label embeded within the border" look similar to
    GtK+ widgets. */ 
-div.item div.label {
+div.item span.label {
     position: relative;
-    top: -1em;
+    top: 0.5em;
+    left: 1em;
     padding-left: 0.5em;
+    padding-right: 0.5em;
     background: white;
+}
+
+div.item div.image {
+    border: 2px solid rgb(0, 131, 179); /* #B8B8BB; */
+    /*
+    max-height: 300px;
+    overflow: auto;
+    */
 }
 
 .lens-table {
     width: 100%;
-    top: -1em;
+    /* top: -1em; */
+    border: 2px solid rgb(0, 131, 179); /* #B8B8BB; */
+    padding: 0.5em;
 }
 
 /* follow main.css div#Details table */
-table.lens-table tr:nth-child(even) {
+.lens-table tr:nth-child(even) {
     background: rgba(153,153,153,0.2);
 }
 

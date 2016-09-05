@@ -72,7 +72,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson((.=), object)
 import Data.Default (def)
 import Data.List (nub)
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
@@ -96,6 +96,8 @@ import Network.Wai.Handler.Warp (defaultSettings, setPort)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
+
+import Text.Printf (printf)
 
 import Web.Heroku (dbConnParams)
 import Web.Scotty
@@ -151,7 +153,7 @@ import Database (getCurrentObs, getRecord, getObsInfo
                    
                  , dbConnStr
                  )
-import Git (gitCommitId)
+-- import Git (gitCommitId)
 import Types (Record, SimbadInfo, Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
@@ -161,6 +163,7 @@ import Types (Record, SimbadInfo, Proposal(..)
              , SortedList, StartTimeOrder
              , TimeKS(..)
              , ChandraTime(..)
+             , Instrument(..)
              , fromSimbadType
              , toSimbadType
              , nullSL, fromSL
@@ -175,7 +178,7 @@ import Types (Record, SimbadInfo, Proposal(..)
 import Utils (fromBlaze, standardResponse, getFact
              , timeToRFC1123
              , getTimes
-             , makeETag
+             -- , makeETag
              )
 
 production :: 
@@ -460,8 +463,9 @@ webapp cm mgr scache = do
     --
     get "/api/timeline" $ do
 
-      ((tlime, props), lastMod) <- liftSQL getTimeline
-
+      ((tlime, props), _) <- liftSQL getTimeline
+      tNow <- liftIO getCurrentTime
+      
       -- What information do we want - e.g. Simbad type?
       --
       let propMap = M.fromList (map (\p -> (propNum p, p)) props)
@@ -473,45 +477,95 @@ webapp cm mgr scache = do
                 obsid = fromObsId soObsId
                 objName = T.unpack soTarget
 
+                isBool :: Bool -> T.Text
+                isBool True = "yes"
+                isBool _ = "no"
+
+                -- isn't this the logic of the Ord typeclass for Maybe
+                isPublic = case soPublicRelease of
+                  Just pDate -> pDate < tNow
+                  Nothing -> False
+
+                -- It would be good not to encode this aling with isPublic,
+                -- but I dont' see a sensible way of encoding the URL
+                -- from within Exhibit (the 0-padded obsid value)
+                -- without help from here. I guess could have a "label-ified"
+                -- version of the obsid field
+                --
+                -- TODO: how to find the correct version number (i.e.
+                -- 'N00x' value)? One option would be to provide an
+                -- endpoint (e.g. /api/image/:obsid) which would
+                -- do the navigation, but leave that for the (possible)
+                -- future.
+                --
+                imgURL :: T.Text
+                imgURL = "http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
+                         <> obsidTxt <> "&filename=" <> instTxt
+                         <> "f" <> obsidTxt
+                         <> "N001_full_img2.jpg&filetype=loresimg_jpg"
+
+                instTxt = case soInstrument of
+                  ACISI -> "acis"
+                  ACISS -> "acis"
+                  HRCI -> "hrc"
+                  HRCS -> "hrc"
+
+                obsidTxt = T.pack (printf "%05d" obsid)
+                
                 -- TODO: do not include the item if the value is
                 --       not known
                 fromProp :: (Proposal -> T.Text) -> T.Text
                 fromProp f = fromMaybe "unknown"
                              (f <$> M.lookup soProposal propMap)
       
-            in object [
-              "type" .= ("ScheduledItem" :: T.Text),
-              -- need a unique label
-              "label" .= (objName ++ " - ObsId " ++ show obsid),
-              "object" .= objName,
-              "obsid" .= obsid,
-              "start" .= _toUTCTime startTime,
-              "end" .= _toUTCTime endTime,
-
-              -- observation length, in hours
-              "length" .= toHours (fromMaybe soApprovedTime soObservedTime),
-
-              "object" .= soTarget,
-              "instrument" .= fromInstrument soInstrument,
-              "grating" .= fromGrating soGrating,
-              -- including an isPublic check means validating each
-              -- soPublicRelease date, so leave that for now
-              -- "isPublic" .= ?
-              "isTOO" .= if isJust soTOO then "yes" else "no" :: T.Text,
-              "constellation" .= getConstellationNameStr soConstellation,
-
-              "cycle" .= fromProp propCycle,
-              "category" .= fromProp propCategory,
-              "proptype" .= fromProp propType
+                objs = [
+                  "type" .= ("ScheduledItem" :: T.Text),
+                  -- need a unique label
+                  "label" .= (objName ++ " - ObsId " ++ show obsid),
+                  "object" .= objName,
+                  "obsid" .= obsid,
+                  "start" .= _toUTCTime startTime,
+                  "end" .= _toUTCTime endTime,
+                  
+                  -- includling isPublic means that the data can't
+                  -- be easily cached *OR* would have to identify
+                  -- the time until the next obsid is public -- which
+                  -- need not be the next item in the time-ordered
+                  -- list -- and then use that as the cache-until
+                  -- date
+                  "isPublic" .= isBool isPublic,
               
-              ]
+                  -- observation length, in hours
+                  "length" .= toHours (fromMaybe soApprovedTime soObservedTime),
+                  
+                  "object" .= soTarget,
+                  "instrument" .= fromInstrument soInstrument,
+                  "grating" .= fromGrating soGrating,
+                  "isTOO" .= isBool (isJust soTOO),
+                  "constellation" .= getConstellationNameStr soConstellation,
+                  
+                  "cycle" .= fromProp propCycle,
+                  "category" .= fromProp propCategory,
+                  "proptype" .= fromProp propType
+              
+                  ]
 
+            in object (objs
+                       ++ catMaybes
+                       [
+                         if isPublic
+                         then Just ("imgURL" .= imgURL)
+                         else Nothing
+                       ])
+               
       -- As we keep changing the structure of the JSON, using the
       -- last-modified date in the header does not work well (although
-      -- it is showing some things are being cached)...
+      -- it's use does at least validate that the caching was doing
+      -- something). The inclusion of the isPublic field complicates
+      -- the cacheing, so turn it off for now.
       --
       -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
-      setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
+      -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
 
       json (object ["items" .= map fromSO (fromSL tlime)])
 
