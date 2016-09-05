@@ -92,6 +92,7 @@ module Database ( getCurrentObs
                 , archived
                 , notDiscarded
                 , notArchived
+                , notCancelled
                 , isScheduled
 
                 , SIMKey
@@ -161,9 +162,20 @@ archived = "archived"
 discarded :: T.Text
 discarded = "discarded"
 
+-- | Bah, the archive goes with US spelling...
+cancelled :: T.Text
+cancelled = "canceled"
+
 nsInObsCatName :: T.Text
 nsInObsCatName = "unknown"
 
+-- | What is the logic to the status fields, in particular
+--   unobserved versus scheduled, and does cancelled (or, rather
+--   canceled, mean that this ObsId is not going to be re-used?
+--
+--   Question: should unobserved observations be removed from
+--             (most) queries?
+--
 notArchived ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
@@ -174,11 +186,18 @@ notDiscarded ::
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
 notDiscarded = SoStatusField /=. discarded
 
--- | Reject those observations which have no scheduled time.
+notCancelled ::
+  DbDescriptor db
+  => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
+notCancelled = SoStatusField /=. cancelled
+
+-- | Reject those observations which have no scheduled time
+--   *or* that are labelled as being cancelled.
+--
 isScheduled ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-isScheduled = SoStartTimeField <. futureTime
+isScheduled = (SoStartTimeField <. futureTime) &&. notCancelled
 
 -- | Identify non-science observations that are not from the
 --   ObsCat (i.e. ones that could be queried to see if there
@@ -260,15 +279,15 @@ identifyHelper px py ord xs ys =
 
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
---   finished or running. It will not be a discarded observation
---   or those with no scheduled time.
+--   finished or running. It will not be a discarded observation,
+--   one with no scheduled time, or labelled as cancelled.
 --
 findRecord :: (PersistBackend m) => UTCTime -> m (Maybe Record)
 findRecord t = do
   let tval = ChandraTime t
   xs <- select (((SoStartTimeField <=. tval)
                  &&. notDiscarded
-                 &&. isScheduled) -- at present the isScheduled does not add anything
+                 &&. isScheduled)
                 `orderBy` [Desc SoStartTimeField]
                 `limitTo` 1)
   ys <- select (((NsStartTimeField <=. tval) &&. notNsDiscarded)
@@ -1478,11 +1497,10 @@ getTimeline ::
 getTimeline = do
 
   -- for now just deal with science observations
-  obs <- select (notDiscarded
+  obs <- select ((notDiscarded &&. isScheduled)
                  `orderBy` [Asc SoStartTimeField])
-  -- props <- select CondEmpty
-  props <- selectAll
-  addLastMod (unsafeToSL obs, map snd props)
+  props <- map snd <$> selectAll
+  addLastMod (unsafeToSL obs, props)
 
 
 -- | Grab the last-modified date from the database and include
