@@ -1042,7 +1042,7 @@ fromScienceObs ::
   -- ^ The start time of the observation and a JSON dictionary
   --   following the Exhibit schema for the Science type.
 fromScienceObs propMap tNow so@ScienceObs {..} =
-  (startTime, object (objs ++ [ "imgURL" .= imgURL | isPublic ]))
+  (startTime, object (objs ++ [ "imgURL" .= imgURL | isPublic && notCC]))
 
   where
     (startTime, endTime) = getTimes (Right so)
@@ -1053,7 +1053,11 @@ fromScienceObs propMap tNow so@ScienceObs {..} =
     isBool True = "yes"
     isBool _ = "no"
 
-    -- isn't this the logic of the Ord typeclass for Maybe
+    notCC = case soDataMode of
+      Just mode -> not ("CC" `T.isPrefixOf` mode)
+      Nothing -> False
+
+    -- Isn't this the logic of the Ord typeclass for Maybe?
     isPublic = case soPublicRelease of
       Just pDate -> pDate < tNow
       Nothing -> False
