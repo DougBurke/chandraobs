@@ -94,10 +94,19 @@ div.thumbnail div {
 
 ***/
 
+div.exhibit-text-facet input {
+    background-color: rgba(153, 153, 153, 0.2);
+}
+
 div.exhibit-facet-body {
-    /* background-color: #E3E6EC; */
+    background-color: rgba(153, 153, 153, 0.2); /* #E3E6EC; */
     /* background-color: orange; */
     border: 1px solid #B8B8BB;
+}
+
+div.exhibit-slider-histogram {
+    /* setting this messes up the histogram quite spectacularly */
+    /* background-color: rgba(153, 153, 153, 0.2); */
 }
 
 div.exhibit-facet-header {
@@ -128,6 +137,12 @@ div.item span.label {
 
 div.item div.image {
     border: 2px solid rgb(0, 131, 179); /* #B8B8BB; */
+
+   /* This almost works, apart from the fact that a few images
+      are smaller than the gif!
+    background: no-repeat url('/img/loading.gif');
+   */
+    
     /*
     max-height: 300px;
     overflow: auto;
