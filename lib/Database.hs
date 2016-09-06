@@ -1487,20 +1487,47 @@ getProposalObjectMapping = do
   
 -- | Work out a timeline of the data.
 --
---   For now it just returns science observations. It is not
---   clear if non-science observations should be included,
---   as the timeline view is crowded already.
+--   It looks like there are some non-science observations that
+--   have been cancelled or removed, but are still in the system.
+--   These can be identified as having nsName /= "unknown" but
+--   in the past. A query like
+--   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52472
+--   returns no data, but it does for
+--   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=53718
+--
+--   For now, a simple solution is used to filter them out,
+--   which is to remove any record which has a start time before
+--   the last-modified time of the database and has nsName /= "unknown".
+--   Should be cleaned up *in* the database.
 --
 getTimeline ::
   PersistBackend m
-  => m ((SortedList StartTimeOrder ScienceObs, [Proposal]), UTCTime)
+  => m (SortedList StartTimeOrder ScienceObs,
+        SortedList StartTimeOrder NonScienceObs,
+        [Proposal])
+{-  
+  => m ((SortedList StartTimeOrder ScienceObs,
+         SortedList StartTimeOrder NonScienceObs,
+         [Proposal]), UTCTime)
+-}
 getTimeline = do
 
-  -- for now just deal with science observations
+  lastMod <- (ChandraTime . fromMaybe dummyLastMod) <$> getLastModified
+  
   obs <- select ((notDiscarded &&. isScheduled)
                  `orderBy` [Asc SoStartTimeField])
+
+  let unknown :: T.Text
+      unknown = "unknown"
+      
+  ns <- select ((NsStartTimeField >. discardedTime &&.
+                 (NsNameField ==. unknown ||.
+                  NsStartTimeField >. lastMod))
+                `orderBy` [Asc NsStartTimeField])
+
   props <- map snd <$> selectAll
-  addLastMod (unsafeToSL obs, props)
+  -- addLastMod (unsafeToSL obs, unsafeToSL ns, props)
+  return (unsafeToSL obs, unsafeToSL ns, props)
 
 
 -- | Grab the last-modified date from the database and include
@@ -1513,14 +1540,7 @@ addLastMod ::
   -- ^ The time value is set to @dummyLastMod@ if no last-modified
   --   field is found in the database.
 addLastMod out = do
-  
-  lastMods <- project MdLastModifiedField (CondEmpty
-                                           `orderBy` [Desc MdLastModifiedField]
-                                           `limitTo` 1)
-  let lastMod = case lastMods of
-        [] -> dummyLastMod
-        (x:_) -> x
-
+  lastMod <- fromMaybe dummyLastMod <$> getLastModified
   return (out, lastMod)
   
 -- | Work out a timeline based on instrument configuration; that is,
@@ -2000,8 +2020,9 @@ updateLastModified lastMod = do
 -- | When was the database last modified?
 getLastModified :: PersistBackend m => m (Maybe UTCTime)
 getLastModified = do
-  lmods <- project MdLastModifiedField (CondEmpty `orderBy`
-                                        [Desc MdLastModifiedField])
+  lmods <- project MdLastModifiedField (CondEmpty
+                                        `orderBy` [Desc MdLastModifiedField]
+                                        `limitTo` 1)
   return (listToMaybe lmods)
   
 -- | Hard-coded connection string for the database connection.

@@ -739,7 +739,10 @@ data ScheduleItem = ScheduleItem {
 --   but that the OCAT isn't updated.
 --
 data NonScienceObs = NonScienceObs {
-  nsName :: T.Text             -- the STS has a string identifier; where does this come from?
+  nsName :: T.Text
+  -- the STS has a string identifier; where does this come from?
+  -- It looks like these names may be removed once the "observation"
+  -- is finished.
   , nsObsId :: ObsIdVal
   , nsTarget :: TargetName
   , nsStartTime :: ChandraTime

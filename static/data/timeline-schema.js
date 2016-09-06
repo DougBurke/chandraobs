@@ -1,7 +1,10 @@
 {
     "types": {
-        "ScheduledItem": {
-            "PluralLabel": "Scheduled Items"
+        "Science": {
+            "PluralLabel": "Science Observations"
+        },
+        "Engineering": {
+            "PluralLabel": "Engineering Observations"
         }
     },
     "properties": {

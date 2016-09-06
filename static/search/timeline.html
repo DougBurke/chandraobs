@@ -49,6 +49,9 @@
       to add:
       three bands (day, month, year);
       jump to year option.
+
+Note that /search/timeline.html#CAL-ER%20(53718)  jumps to that label
+
     </p>
     -->
     
@@ -68,25 +71,33 @@
         widget framework</a>.
     </p>
 
-    <div data-ex-role="collection" data-ex-item-types="ScheduledItem"></div>
+    <div data-ex-role="collection" data-ex-item-types="Science,Engineering"></div>
 
     <table id="frame">
       <tr>
         <td id="sidebar">
                 
           <div id="exhibit-browse-panel">
-            <b>Search:</b>
+            <div class="exhibit-facet-header">
+              <span class="exhibit-facet-header-title">Search:</span>
+            </div>
             <div data-ex-role="facet" data-ex-facet-class="TextSearch"></div>
             <hr/>
             
+            <div data-ex-role="facet" data-ex-expression=".type"
+                 data-ex-facet-label="Observation type"
+                 data-ex-height="3em"></div>
+
             <div data-ex-role="facet" data-ex-expression=".instrument"
+                 data-ex-show-missing="false"
                  data-ex-facet-label="Instrument"
-                 data-ex-height="6em"
+                 data-ex-height="6.2em"
                  data-ex-color-coder="instrument-colors"></div>
 
             <div data-ex-role="facet" data-ex-expression=".grating"
+                 data-ex-show-missing="false"
                  data-ex-facet-label="Grating"
-                 data-ex-height="4.5em"></div>
+                 data-ex-height="4.7em"></div>
 
             <!--
             <div data-ex-role="facet" data-ex-expression=".length"
@@ -108,12 +119,14 @@
 
             <div data-ex-role="facet" data-ex-expression=".isPublic"
                  data-ex-facet-label="Is data available?"
+                 data-ex-show-missing="false"
                  data-ex-collapsed="true"
                  data-ex-height="3em"></div>
 
             <!-- would this be better a a histogram? -->
             <div data-ex-role="facet" data-ex-expression=".cycle"
                  data-ex-facet-label="Proposal Cycle"
+                 data-ex-show-missing="false"
                  data-ex-collapsed="true"
                  data-ex-height="8em"></div>
 
@@ -130,21 +143,25 @@
             
             <div data-ex-role="facet" data-ex-expression=".category"
                  data-ex-facet-label="Proposal Category"
+                 data-ex-show-missing="false"
                  data-ex-collapsed="true"
                  data-ex-height="8em"></div>
 
             <div data-ex-role="facet" data-ex-expression=".proptype"
                  data-ex-facet-label="Proposal Type"
+                 data-ex-show-missing="false"
                  data-ex-collapsed="true"
                  data-ex-height="4.2em"></div>
 
             <div data-ex-role="facet" data-ex-expression=".isTOO"
                  data-ex-facet-label="Target of Oportunity?"
+                 data-ex-show-missing="false"
                  data-ex-collapsed="true"
                  data-ex-height="3em"></div>
 
             <div data-ex-role="facet" data-ex-expression=".constellation"
                  data-ex-facet-label="Constellation"
+                 data-ex-show-missing="false"
                  data-ex-collapsed="true"
                  data-ex-height="10em"></div>
 
@@ -170,9 +187,12 @@
             <span data-ex-color="#ABD9E9">HRC-I</span>
             <span data-ex-color="#2C7BB6">HRC-S</span>
             -->
+            <!-- if this works, need to use a 5-color diverging scale -->
+            <span data-ex-color="#000000" data-ex-case="missing">Engineering</span>
           </div>
 
           <div class="item" data-ex-role="lens"
+               data-ex-item-types="Science"
                data-ex-formats="date { template: 'yyyy-MM-dd'; show: date }"
                style="display: none;">
 
@@ -225,9 +245,11 @@
                 <td class="value">
                   <a data-ex-href-subcontent="/search/instrument/{{.instrument}}"
                      data-ex-content=".instrument"></a>
-                  +
+                  <span data-ex-if="not(.grating = 'NONE')">
+                    <span>with</span>
+                  </span>
                   <span data-ex-if=".grating = 'NONE'">
-                    <a href="/search/grating/NONE">no grating</a>
+                    <a href="/search/grating/NONE">(no grating)</a>
                     <a data-ex-href-subcontent="/search/grating/{{.grating}}"
                        data-ex-content=".grating"></a>
                   </span>
@@ -280,23 +302,63 @@
                 </td>
               </tr>
               
-            <!--
-                <td><img data-ex-src-content=".imageURL" 
-                         alt="portrait"/></td>
-                <td>
-                  <a data-ex-href-content=".url"><span data-ex-content=".label"></span></a>
-                  <div>Terms: <span data-ex-content=".term"></span>, <span data-ex-content=".party"></span></div>
-                  <div>Religions: <span data-ex-content=".religion"></span></div>
-                  <div>Birth: <span data-ex-content=".birth"></span>, <span data-ex-content=".birthPlace"></span></div>
-                  <div data-ex-if-exists=".death">Death: <span data-ex-content=".death"></span>, <span data-ex-content=".deathPlace"></span></div>
-                  <div data-ex-control="item-link"></div>
-                </td>
-            -->
               </tr>
             </table>
           </div>
-          
-          <div data-ex-role="coordinator" id="scheduleditem"></div>
+
+      <div class="item" data-ex-role="lens"
+           data-ex-item-types="Engineering"
+           data-ex-formats="date { template: 'yyyy-MM-dd'; show: date }"
+           style="display: none;">
+
+            <span class="label">Engineering Observation</span>
+            <table class="lens-table">
+              <tr>
+                <td class="label">Observation:</td>
+                <td class="value">
+                  <a data-ex-href-subcontent="/obsid/{{.obsid}}"
+                     data-ex-content=".obsid"></a>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Target:</td>
+                <td class="value" data-ex-content=".label"></td>
+              </tr>
+              <tr>
+                <td class="label">Start date:</td>
+                <td class="value">
+                  <!-- dang it; it looks like data-ex-href-subcontent isn't
+                       following the format, even though data-ex-content
+                  is -->
+                  <!--
+                  <a data-ex-href-subcontent="/schedule/date/{{.start}}/1"
+                     data-ex-content=".start"></a>
+                  -->
+                  <span data-ex-content=".start"></span>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Length:</td>
+                <td class="value">
+                  <!-- It would be nice to format this value,
+                       to at least clean up excessive precision
+                       but also to make the units vary with
+                       the length - e.g. 1 day and 4 hours
+                       instead of 28.223423 hours
+
+                       Also, what to do about 0-length observations?
+                    -->
+                  <span data-ex-content=".length"
+                        ></span>
+                  hours
+                </td>
+              </tr>
+              
+            </table>
+          </div>
+
+          <div data-ex-role="coordinator" id="science"></div>
+          <div data-ex-role="coordinator" id="engineering"></div>
 
           <!-- do I need this
                data-ex-proxy=".presidency"
@@ -311,13 +373,13 @@
                data-ex-color-coder="instrument-colors"
 	       data-ex-autoposition="true"
                data-ex-bubble-width="400"
-               data-ex-top-band-pixels-per-unit="150"
+               data-ex-top-band-pixels-per-unit="400"
                data-ex-bottom-band-pixels-per-unit="600"
                data-ex-top-band-unit="day"
                data-ex-bottom-band-unit="year"
-               data-ex-select-coordinator="scheduleditem"
+               data-ex-select-coordinator="science"
                data-ex-show-summary="false"
-               data-ex-timeline-height="400"
+               data-ex-timeline-height="300"
                >
           </div>
 

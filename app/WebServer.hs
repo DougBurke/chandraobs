@@ -69,10 +69,10 @@ import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 -- import Control.Monad.Logger (NoLoggingT)
 
-import Data.Aeson((.=), object)
+import Data.Aeson(Value, (.=), object)
 import Data.Default (def)
 import Data.List (nub)
-import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
@@ -166,7 +166,7 @@ import Types (Record, SimbadInfo, Proposal(..)
              , Instrument(..)
              , fromSimbadType
              , toSimbadType
-             , nullSL, fromSL
+             , nullSL, fromSL, mergeSL
              , showExpTime
              , handleMigration
              , labelToRT
@@ -463,101 +463,23 @@ webapp cm mgr scache = do
     --
     get "/api/timeline" $ do
 
-      ((tlime, props), _) <- liftSQL getTimeline
+      -- ((stlime, nstline, props), lastMod) <- liftSQL getTimeline
+      (stline, nstline, props) <- liftSQL getTimeline
       tNow <- liftIO getCurrentTime
       
       -- What information do we want - e.g. Simbad type?
       --
       let propMap = M.fromList (map (\p -> (propNum p, p)) props)
+          fromSO = fromScienceObs propMap tNow
+          
+          sitems = fmap fromSO stline
+          nsitems = fmap fromNonScienceObs nstline
 
-          toHours ks = _toKS ks / 3.6
-      
-          fromSO so@ScienceObs {..} =
-            let (startTime, endTime) = getTimes (Right so)
-                obsid = fromObsId soObsId
-                objName = T.unpack soTarget
-
-                isBool :: Bool -> T.Text
-                isBool True = "yes"
-                isBool _ = "no"
-
-                -- isn't this the logic of the Ord typeclass for Maybe
-                isPublic = case soPublicRelease of
-                  Just pDate -> pDate < tNow
-                  Nothing -> False
-
-                -- It would be good not to encode this aling with isPublic,
-                -- but I dont' see a sensible way of encoding the URL
-                -- from within Exhibit (the 0-padded obsid value)
-                -- without help from here. I guess could have a "label-ified"
-                -- version of the obsid field
-                --
-                -- TODO: how to find the correct version number (i.e.
-                -- 'N00x' value)? One option would be to provide an
-                -- endpoint (e.g. /api/image/:obsid) which would
-                -- do the navigation, but leave that for the (possible)
-                -- future.
-                --
-                imgURL :: T.Text
-                imgURL = "http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
-                         <> obsidTxt <> "&filename=" <> instTxt
-                         <> "f" <> obsidTxt
-                         <> "N001_full_img2.jpg&filetype=loresimg_jpg"
-
-                instTxt = case soInstrument of
-                  ACISI -> "acis"
-                  ACISS -> "acis"
-                  HRCI -> "hrc"
-                  HRCS -> "hrc"
-
-                obsidTxt = T.pack (printf "%05d" obsid)
-                
-                -- TODO: do not include the item if the value is
-                --       not known
-                fromProp :: (Proposal -> T.Text) -> T.Text
-                fromProp f = fromMaybe "unknown"
-                             (f <$> M.lookup soProposal propMap)
-      
-                objs = [
-                  "type" .= ("ScheduledItem" :: T.Text),
-                  -- need a unique label
-                  "label" .= (objName ++ " - ObsId " ++ show obsid),
-                  "object" .= objName,
-                  "obsid" .= obsid,
-                  "start" .= _toUTCTime startTime,
-                  "end" .= _toUTCTime endTime,
-                  
-                  -- includling isPublic means that the data can't
-                  -- be easily cached *OR* would have to identify
-                  -- the time until the next obsid is public -- which
-                  -- need not be the next item in the time-ordered
-                  -- list -- and then use that as the cache-until
-                  -- date
-                  "isPublic" .= isBool isPublic,
-              
-                  -- observation length, in hours
-                  "length" .= toHours (fromMaybe soApprovedTime soObservedTime),
-                  
-                  "object" .= soTarget,
-                  "instrument" .= fromInstrument soInstrument,
-                  "grating" .= fromGrating soGrating,
-                  "isTOO" .= isBool (isJust soTOO),
-                  "constellation" .= getConstellationNameStr soConstellation,
-                  
-                  "cycle" .= fromProp propCycle,
-                  "category" .= fromProp propCategory,
-                  "proptype" .= fromProp propType
-              
-                  ]
-
-            in object (objs
-                       ++ catMaybes
-                       [
-                         if isPublic
-                         then Just ("imgURL" .= imgURL)
-                         else Nothing
-                       ])
-               
+          -- Use the time value, already pulled out by from*Science,
+          -- to merge the records. This saves having to query the
+          -- JSON itself.
+          items = fmap snd (mergeSL fst sitems nsitems)
+          
       -- As we keep changing the structure of the JSON, using the
       -- last-modified date in the header does not work well (although
       -- it's use does at least validate that the caching was doing
@@ -567,7 +489,7 @@ webapp cm mgr scache = do
       -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
       -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
 
-      json (object ["items" .= map fromSO (fromSL tlime)])
+      json (object ["items" .= fromSL items])
 
     -- highly experimental
     get "/api/exposures" $ do
@@ -1095,3 +1017,145 @@ proxy ::
     -> ObsIdVal 
     -> ActionM ()
 proxy = proxy2
+
+
+-- Conversion routines for the timeline API.
+--
+
+-- | Convert to hours.
+toHours :: TimeKS -> Double
+toHours ks = _toKS ks / 3.6
+
+-- | Convert a science observation into a JSON dictionary,
+--   using the "Science" schema for the Exhibit timeline.
+--
+fromScienceObs ::
+  M.Map PropNum Proposal
+  -- ^ The known proposals, used to enrich the ScienceObs values
+  --   with extra information.
+  -> UTCTime
+  -- ^ The current time (used to determine if an observation is
+  --   now public).
+  -> ScienceObs
+  -- ^ The observation to convert
+  -> (ChandraTime, Value)
+  -- ^ The start time of the observation and a JSON dictionary
+  --   following the Exhibit schema for the Science type.
+fromScienceObs propMap tNow so@ScienceObs {..} =
+  (startTime, object (objs ++ [ "imgURL" .= imgURL | isPublic ]))
+
+  where
+    (startTime, endTime) = getTimes (Right so)
+    obsid = fromObsId soObsId
+    objName = T.unpack soTarget
+
+    isBool :: Bool -> T.Text
+    isBool True = "yes"
+    isBool _ = "no"
+
+    -- isn't this the logic of the Ord typeclass for Maybe
+    isPublic = case soPublicRelease of
+      Just pDate -> pDate < tNow
+      Nothing -> False
+
+    -- It would be good not to encode this aling with isPublic,
+    -- but I dont' see a sensible way of encoding the URL
+    -- from within Exhibit (the 0-padded obsid value)
+    -- without help from here. I guess could have a "label-ified"
+    -- version of the obsid field
+    --
+    -- TODO: how to find the correct version number (i.e.
+    -- 'N00x' value)? One option would be to provide an
+    -- endpoint (e.g. /api/image/:obsid) which would
+    -- do the navigation, but leave that for the (possible)
+    -- future.
+    --
+    imgURL :: T.Text
+    imgURL = "http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
+             <> obsidTxt <> "&filename=" <> instTxt
+             <> "f" <> obsidTxt
+             <> "N001_full_img2.jpg&filetype=loresimg_jpg"
+
+    instTxt = case soInstrument of
+      ACISI -> "acis"
+      ACISS -> "acis"
+      HRCI -> "hrc"
+      HRCS -> "hrc"
+
+    obsidTxt = T.pack (printf "%05d" obsid)
+    
+    -- TODO: do not include the item if the value is
+    --       not known
+    fromProp :: (Proposal -> T.Text) -> T.Text
+    fromProp f = fromMaybe "unknown"
+                 (f <$> M.lookup soProposal propMap)
+
+    objs = [
+      "type" .= ("Science" :: T.Text),
+      -- need a unique label
+      "label" .= (objName ++ " - ObsId " ++ show obsid),
+      "object" .= objName,
+      "obsid" .= obsid,
+      "start" .= _toUTCTime startTime,
+      "end" .= _toUTCTime endTime,
+      
+      -- includling isPublic means that the data can't
+      -- be easily cached *OR* would have to identify
+      -- the time until the next obsid is public -- which
+      -- need not be the next item in the time-ordered
+      -- list -- and then use that as the cache-until
+      -- date
+      "isPublic" .= isBool isPublic,
+    
+      -- observation length, in hours
+      "length" .= toHours (fromMaybe soApprovedTime soObservedTime),
+      
+      "instrument" .= fromInstrument soInstrument,
+      "grating" .= fromGrating soGrating,
+      "isTOO" .= isBool (isJust soTOO),
+      "constellation" .= getConstellationNameStr soConstellation,
+      
+      "cycle" .= fromProp propCycle,
+      "category" .= fromProp propCategory,
+      "proptype" .= fromProp propType
+    
+      ]
+
+-- | Convert a non-science observation into a JSON dictionary,
+--   using the "Engineering" schema for the Exhibit timeline.
+--
+fromNonScienceObs ::
+  NonScienceObs
+  -- ^ The observation to convert
+  -> (ChandraTime, Value)
+  -- ^ The start time of the observation and a JSON dictionary
+  --   following the Exhibit schema for the NonScience type.
+fromNonScienceObs ns@NonScienceObs {..} =
+  (startTime, object objs)
+  where
+    (startTime, endTime) = getTimes (Left ns)
+    obsid = fromObsId nsObsId
+    -- do not use the nsName field as it is set from the STS value,
+    -- but then is later removed/replaced by values from ObsCat.
+    --
+    objName = T.unpack nsTarget
+
+    -- only include end time if > start time
+    objs = [
+      "type" .= ("Engineering" :: T.Text),
+      -- need a unique label, but the obhect name already includes
+      -- the obsid value, so can just use that
+      {-
+      "label" .= (objName ++ " - ObsId " ++ show obsid),
+      "object" .= objName,
+      -}
+      "label" .= objName,
+      "obsid" .= obsid,
+      "start" .= _toUTCTime startTime,
+      -- "end" .= _toUTCTime endTime,
+    
+      -- observation length, in hours
+      "length" .= toHours nsTime
+      
+      ] ++ ["end" .= _toUTCTime endTime | endTime > startTime]
+
