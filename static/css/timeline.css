@@ -98,10 +98,20 @@ div.exhibit-text-facet input {
     background-color: rgba(153, 153, 153, 0.2);
 }
 
+div.exhibit-text-facet input:hover {
+    background-color: rgba(153, 153, 153, 0.3);
+}
+
 div.exhibit-facet-body {
     background-color: rgba(153, 153, 153, 0.2); /* #E3E6EC; */
     /* background-color: orange; */
     border: 1px solid #B8B8BB;
+}
+
+div.exhibit-facet-body:hover {
+    background-color: rgba(153, 153, 153, 0.3); /* #E3E6EC; */
+    /* background-color: orange; */
+    border: 1px solid #738699; /* used for timeline; darker than non-hover */
 }
 
 div.exhibit-slider-histogram {
