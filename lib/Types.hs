@@ -614,7 +614,7 @@ data Schedule =
    , scDone  :: [Record]     -- ^ those that were done (ascending time order)
    , scDoing :: Maybe Record -- ^ current observation
    , scToDo  :: [Record]     -- ^ those that are to be done (ascending time order)
-   , scSimbad :: M.Map T.Text SimbadInfo
+   , scSimbad :: M.Map TargetName SimbadInfo
      -- ^ mapping from target to SIMBAD info for the observations in this
      --   schedule (it may be empty)
    }

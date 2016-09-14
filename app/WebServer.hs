@@ -154,13 +154,14 @@ import Database (getCurrentObs, getRecord, getObsInfo
                  , dbConnStr
                  )
 -- import Git (gitCommitId)
-import Types (Record, SimbadInfo, Proposal(..)
+import Types (Record, SimbadInfo(..), Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
              -- , PropType(..)
              , Sequence(..)
              , SortedList, StartTimeOrder
+             , TargetName
              , TimeKS(..)
              , ChandraTime(..)
              , Instrument(..)
@@ -464,13 +465,14 @@ webapp cm mgr scache = do
     get "/api/timeline" $ do
 
       -- ((stlime, nstline, props), lastMod) <- liftSQL getTimeline
-      (stline, nstline, props) <- liftSQL getTimeline
+      -- (stline, nstline, objects, props) <- liftSQL getTimeline
+      (stline, nstline, simbadMap, props) <- liftSQL getTimeline
       tNow <- liftIO getCurrentTime
       
       -- What information do we want - e.g. Simbad type?
       --
       let propMap = M.fromList (map (\p -> (propNum p, p)) props)
-          fromSO = fromScienceObs propMap tNow
+          fromSO = fromScienceObs propMap simbadMap tNow
           
           sitems = fmap fromSO stline
           nsitems = fmap fromNonScienceObs nstline
@@ -1033,6 +1035,9 @@ fromScienceObs ::
   M.Map PropNum Proposal
   -- ^ The known proposals, used to enrich the ScienceObs values
   --   with extra information.
+  -> M.Map TargetName SimbadInfo
+  -- ^ The known targets with SIMBAD information; note that multiple
+  --   target names can map to the same SIMBAD object.
   -> UTCTime
   -- ^ The current time (used to determine if an observation is
   --   now public).
@@ -1041,13 +1046,26 @@ fromScienceObs ::
   -> (ChandraTime, Value)
   -- ^ The start time of the observation and a JSON dictionary
   --   following the Exhibit schema for the Science type.
-fromScienceObs propMap tNow so@ScienceObs {..} =
-  (startTime, object (objs ++ [ "imgURL" .= imgURL | isPublic && notCC]))
+fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
+  (startTime, object (objs
+                      ++ [ "imgURL" .= imgURL | isPublic && notCC]
+                      ++ msimbad
+                     ))
 
   where
     (startTime, endTime) = getTimes (Right so)
     obsid = fromObsId soObsId
     objName = T.unpack soTarget
+
+    -- The SIMBAD info could be stored separately, and use cross-linking,
+    -- but for now just encode all the infomation we want in the science
+    -- target structure.
+    --
+    msimbad = case M.lookup soTarget simbadMap of
+      Just SimbadInfo {..} ->
+        ["aka" .= smiName | smiName /= soTarget] ++
+        ["simbadType" .= smiType, "simbadCode" .= fromSimbadType smiType3]
+      _ -> []
 
     isBool :: Bool -> T.Text
     isBool True = "yes"

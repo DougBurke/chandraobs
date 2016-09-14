@@ -123,6 +123,12 @@ Note that /search/timeline.html#CAL-ER%20(53718)  jumps to that label
                  data-ex-collapsed="true"
                  data-ex-height="3em"></div>
 
+            <div data-ex-role="facet" data-ex-expression=".simbadType"
+                 data-ex-facet-label="SIMBAD type"
+                 data-ex-show-missing="false"
+                 data-ex-collapsed="true"
+                 data-ex-height="8em"></div>
+
             <!-- would this be better a a histogram? -->
             <div data-ex-role="facet" data-ex-expression=".cycle"
                  data-ex-facet-label="Proposal Cycle"
@@ -232,8 +238,28 @@ Note that /search/timeline.html#CAL-ER%20(53718)  jumps to that label
                 <td class="value">
                   <a data-ex-href-subcontent="/search/name?target={{.object}}"
                      data-ex-content=".object"></a>
+                  <span data-ex-if-exists=".aka">aka</span>
+                  <!-- could make this a SIMBAD link (but would it
+                    -- need to be URL encoded), or to the target search
+                    -- results for this source (not sure we have this search
+                    -- API at this time).
+                    -- However, this "disadvantages" observations where
+                    -- the SIMBAD name was used, since they do not
+                    -- have an "AKA" field (that is, a lens of those
+                    -- observations would not show this information).
+                    -- So for now, no links!
+                    -->
+                  <span data-ex-if-exists=".aka" data-ex-content=".aka"></span>
                 </td>
               </tr>
+
+              <tr data-ex-if-exists=".simbadType">
+                <td class="label">SIMBAD type:</td>
+                <td class="value">
+                  <a data-ex-href-subcontent="/search/type/{{.simbadCode}}"
+                     data-ex-content=".simbadType"></a>
+              </tr>
+              
               <tr>
                 <td class="label">Proposal Category:</td>
                 <td class="value">
