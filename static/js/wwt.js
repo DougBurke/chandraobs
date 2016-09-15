@@ -139,8 +139,24 @@ function wwtReadyFunc(ra, dec, roll, instrument, name) {
   }
 }
 
+function hide_class(className) {
+    var elems = document.getElementsByClassName(className);
+    var i;
+    /* hide the elements; iterate backwards to try and
+     * reduce the amount of layout needed at the top of the file
+     * (probably pointless)
+     */
+    for (i=elems.length-1; i>=0; i--) {
+        elems[i].style.display = 'none';
+    }
+}
+
 function initialize(ra, dec, roll, instrument, name) {
+
+    hide_class("nojavascript");
+    
     wwt = wwtlib.WWTControl.initControl("WWTCanvas");
+    hide_class("nowwt");
     wwt.add_ready(wwtReadyFunc(ra, dec, roll, instrument, name));
     wwt.endInit();
 }

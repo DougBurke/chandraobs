@@ -58,6 +58,9 @@ wwtPage f ScienceObs{..} =
                                  <> toValue soTarget <> "\")" 
 
       -- apparently width/height need to be given inline not via CSS
+      warning = (div ! class_ "nowwt")
+                ("It appears that the World Wide Telescope javascript " <>
+                 "has not loaded.")
       host = (div ! id "WorldWideTelescopeControlHost") 
                $ (div ! style "width: 700px; height: 700px;"
                       ! id "WWTCanvas") ""
@@ -109,6 +112,10 @@ wwtPage f ScienceObs{..} =
     (body ! onload initialize)
      (mconcat 
         [ mainNavBar CPOther
+        , (p ! class_ "nojavascript")
+          ("This page requires JavaScript and it appears that it is " <>
+           "not available.")
+        , warning
         , (p ! class_ "wwt" ) ("The instrument outline approximates that of the " 
              <> iName <> " observation of " 
              <> targetName <> ". Return to the "
