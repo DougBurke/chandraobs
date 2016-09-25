@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Search on SIMBAD object type, including "no SIMBAD info was identified".
@@ -18,6 +19,10 @@ import Prelude ((.), ($), (==), (+), Int
                , compare, error, fst, lookup, mapM_, maybe
                , null, snd, sum, uncurry, unzip)
 
+#if (defined(__GLASGOW_HASKELL__)) && (__GLASGOW_HASKELL__ >= 710)
+import Prelude (mconcat)
+#endif
+
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.ByteString.Char8 as B8
@@ -29,7 +34,12 @@ import Data.Aeson ((.=))
 import Data.Function (on)
 import Data.Functor (void)
 import Data.List (groupBy, intersperse, sortBy)
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Data.Monoid ((<>), mconcat)
+#else
+import Data.Monoid ((<>))
+#endif
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -40,7 +50,7 @@ import Types (Schedule(..), SimbadType(..)
              , simbadLabels
              , noSimbadLabel
              , _2)
-import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
+import Utils (defaultMeta, d3Meta, renderFooter
              , jsScript , cssLink
              , typeLinkSearch
              , typeDLinkSearch
@@ -51,7 +61,7 @@ import Utils (defaultMeta, skymapMeta, d3Meta, renderFooter
              , dquote, floatableTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (standardSchedulePage)
 
 -- | A simple tabular view of the explicit object types
 indexPage :: 
@@ -103,55 +113,47 @@ matchPage ::
   -> Schedule  -- the observations that match this type, organized into a "schedule"
   -> Html
 matchPage typeInfo sched =
-  let lbl = niceType typeInfo
-  in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml lbl)
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderMatches lbl sched [])
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations of " <> H.toHtml lbl
+      lbl = niceType typeInfo
+
+      pageTitle = if lbl == noSimbadLabel
+                  then "Unidentified sources"
+                  else toHtml lbl
+
+      mainBlock = renderMatches lbl sched []
+      
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 matchDependencyPage :: 
   [SimbadTypeInfo] -- ^ guaranteed not to be empty
   -> Schedule  -- the observations that match this type, organized into a "schedule"
   -> Html
 matchDependencyPage typeInfos sched =
-  let typeInfo0 = P.head typeInfos
+  let hdrTitle = "Chandra observations of " <> H.toHtml lbl
+      typeInfo0 = P.head typeInfos
       lbl = niceType typeInfo0
 
-  in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml lbl)
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderMatches lbl sched (P.tail typeInfos))
-      <> renderFooter
-     )
+      pageTitle = if lbl == noSimbadLabel
+                  then "Unidentified sources"
+                  else toHtml lbl
+
+      mainBlock = renderMatches lbl sched (P.tail typeInfos)
+      
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
 
 niceType :: (SimbadType, SIMCategory) -> SIMCategory
 niceType (SimbadType "reg", _) = "Area of the sky"
 niceType (_, l) = l
 
--- | TODO: combine table rendering with Views.Schedule
---
+
 renderMatches ::
   SIMCategory          -- ^ SIMBAD type, as a string
   -> Schedule          -- ^ non-empty list of matches
   -> [SimbadTypeInfo]  -- ^ children of this type included in the page (if any)
   -> Html
-renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+renderMatches lbl sched children = 
+  let scienceTime = getScienceTime sched
       
       -- TODO: rewrite, re-position, and make links
       toLink = P.uncurry typeDLinkSearch 
@@ -165,8 +167,7 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
       -- TODO: improve English here
       introText =
         if lbl == noSimbadLabel
-        then mconcat
-             [ "This page shows the Chandra observations of objects for "
+        then [ "This page shows the Chandra observations of objects for "
              , "which no identification could be found in SIMBAD"
              , scienceTime
              , ". This "
@@ -182,8 +183,7 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
              , "hard to match to SIMBAD."
              ]
 
-        else mconcat
-             [ "This page shows the observations of "
+        else [ "This page shows the observations of "
              , toHtml lbl
              , " objects by Chandra"
                -- TODO: improve the English here; need to rework childTxt
@@ -197,20 +197,13 @@ renderMatches lbl (Schedule cTime _ done mdoing todo simbad) children =
              , "true that the Chandra field of view is large enough to contain "
              , "more objects than just the observation target!). "
                -- assume the schedule is all science observations
-             , toHtml (getNumObs done mdoing todo)
+             , toHtml (getNumObs sched)
              , ", and the format used here is the same as that of the "
              , (a ! href "/schedule") "schedule view"
              , "."
              ]
                   
-  in (div ! A.id "scheduleBlock") $ do
-    h2 (if lbl == noSimbadLabel
-        then "Unidentified sources"
-        else toHtml lbl)
-
-    svgBlock
-    p introText
-    tblBlock
+  in p (mconcat introText)
 
 -- | Render the list of object types, and include a link to the "unidentified"
 --   source, but at the moment this is separate, since I do not have a good

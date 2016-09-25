@@ -21,16 +21,16 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), JointMission
+import Types (Schedule, JointMission
              , fromMission, fromMissionLong
              , fromMissionLongLink, fromMissionAboutLink)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+import Utils (defaultMeta, renderFooter, cssLink
              , getNumObs
              , getScienceTime
              , floatableTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (standardSchedulePage)
 
 indexPage :: 
   [(JointMission, Int)]
@@ -50,26 +50,20 @@ indexPage jms =
      )
 
 
--- TODO: combine with Schedule.schedPage
-
 matchPage :: 
   JointMission
   -> Schedule
   -> Html
 matchPage ms sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations: mission "
-                   <> H.toHtml (fromMission ms))
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderMatches ms sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations: mission " <>
+                 H.toHtml (fromMission ms)
+
+      mission = toHtml (fromMissionLong ms)
+      pageTitle = "Joint observations with the " <> mission
+
+      mainBlock = renderMatches ms sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
 
 -- | Render the list of missions
 renderMissions ::
@@ -112,18 +106,9 @@ renderMatches ::
   JointMission
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderMatches ms (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
-
-      mission = toHtml (fromMissionLong ms)
-      
-  in div ! A.id "scheduleBlock" $ do
-    h2 ("Joint observations with the " <> mission)
-
-    svgBlock
-
-    -- TODO: improve English here
+renderMatches ms sched = 
+  let scienceTime = getScienceTime sched
+  in -- TODO: improve English here
     p ("This page shows Chandra observations of objects which had "
        <> "joint observations with the "
        <> fromMissionAboutLink ms
@@ -131,10 +116,8 @@ renderMatches ms (Schedule cTime _ done mdoing todo simbad) =
        <> ". These observations may be simultaneous, but often "
        <> "they are not. "
        -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
+       <> toHtml (getNumObs sched)
        <> ". The format is the same as used in the "
        <> (a ! href "/schedule") "schedule view"
        <> ".")
-
-    tblBlock
-
+    

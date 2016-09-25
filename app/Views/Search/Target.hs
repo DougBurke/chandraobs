@@ -16,13 +16,11 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), TargetName)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink,
+import Types (Schedule, TargetName)
+import Utils (defaultMeta, renderFooter, cssLink,
               getNumObs)
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
-
--- TODO: combine with Schedule.schedPage
+import Views.Render (standardSchedulePage)
 
 targetPage :: 
   TargetName
@@ -36,50 +34,33 @@ targetPage ::
   -- ^ the observations that match this target, organized into a "schedule"
   -> Html
 targetPage targetName fullNames sched =
-  let jsLoad = "createMap(obsinfo);"
-
+  let hdrTitle = "Chandra observations of " <> H.toHtml officialName
+      
       officialName = case fullNames of
         [] -> targetName
         _ -> mconcat (intersperse ", " fullNames)
-        
-  in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml officialName) <>
-          defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload jsLoad)
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderMatches officialName sched)
-      <> renderFooter
-     )
+
+      pageTitle = toHtml officialName
+      mainBlock = renderMatches officialName sched
+      
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
 
 renderMatches ::
   TargetName           -- ^ target name
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderMatches lbl (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml lbl)
-
-    svgBlock
-
-    p ("This page shows Chandra observations of the target "
-       <> toHtml lbl
-       <> ". "
-       -- TODO: need to mention what is going on here (i.e. what the
-       --       search represents)
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> "."
-       )
-
-    tblBlock
+renderMatches lbl sched = 
+  p ("This page shows Chandra observations of the target "
+     <> toHtml lbl
+     <> ". "
+     -- TODO: need to mention what is going on here (i.e. what the
+     --       search represents)
+     <> toHtml (getNumObs sched)
+     <> ". The format is the same as used in the "
+     <> (a ! href "/schedule") "schedule view"
+     <> "."
+    )
 
 
 noMatchPage :: 

@@ -33,11 +33,11 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 import Text.Printf
 
-import Types (Schedule(..), TimeKS(..), Instrument, Grating(..)
+import Types (Schedule, TimeKS(..), Instrument, Grating(..)
              , showExpTime, addTimeKS
              , fromInstrument, fromGrating
              )
-import Utils (defaultMeta, d3Meta, skymapMeta
+import Utils (defaultMeta, d3Meta
              , renderFooter, cssLink, jsScript
              , instLinkAbout, gratLinkAbout -- , igLinkAbout
              , instLinkSearch, gratLinkSearch, igLinkSearch
@@ -46,7 +46,7 @@ import Utils (defaultMeta, d3Meta, skymapMeta
              , standardTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (standardSchedulePage)
 
 indexPage :: 
   [(Instrument, Int)]
@@ -66,154 +66,95 @@ indexPage insts grats igs =
       <> renderFooter
      )
 
--- TODO: combine with Schedule.schedPage
-
 matchInstPage :: 
   Instrument
   -> Schedule
   -> Html
 matchInstPage inst sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations with " <> H.toHtml inst)
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderInstMatches inst sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations with " <> pageTitle
+      pageTitle = H.toHtml inst
+      mainBlock = renderInstMatches inst sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
 
 matchGratPage :: 
   Grating
   -> Schedule
   -> Html
 matchGratPage grat sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations with " <> H.toHtml grat)
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderGratMatches grat sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations with " <> pageTitle
+      pageTitle = H.toHtml grat
+      mainBlock = renderGratMatches grat sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
 
 matchIGPage :: 
   (Instrument, Grating)
   -> Schedule
   -> Html
 matchIGPage ig@(inst, grat) sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations with "
-                   <> H.toHtml inst
-                   <> " and "
-                   <> H.toHtml grat
-                  )
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderIGMatches ig sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations with " <> pageTitle
+      pageTitle = H.toHtml inst <> " and " <> H.toHtml grat
+      mainBlock = renderIGMatches ig sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
-
-
--- | TODO: combine table rendering with Views.Schedule
---
 renderInstMatches ::
   Instrument       
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderInstMatches inst (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+renderInstMatches inst sched = 
+  let scienceTime = getScienceTime sched
+  in p ("This page shows observations of objects that use "
+        <> "the "
+        <> instLinkAbout inst
+        <> " instrument on Chandra"
+        <> scienceTime
+        <> ". "
+        -- assume the schedule is all science observations
+        <> toHtml (getNumObs sched)
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> ".")
 
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml inst)
-
-    svgBlock
-
-    p ("This page shows observations of objects that use "
-       <> "the "
-       <> instLinkAbout inst
-       <> " instrument on Chandra"
-       <> scienceTime
-       <> ". "
-       -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> ".")
-
-    tblBlock
 
 renderGratMatches ::
   Grating       
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderGratMatches grat (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+renderGratMatches grat sched = 
+  let scienceTime = getScienceTime sched
+  in p ("This page shows observations of objects that use "
+        <> gratLinkAbout grat
+        <> " on Chandra"
+        <> scienceTime
+        <> ". "
+        -- assume the schedule is all science observations
+        <> toHtml (getNumObs sched)
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> ".")
 
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml grat)
-
-    svgBlock
-
-    p ("This page shows observations of objects that use "
-       <> gratLinkAbout grat
-       <> " on Chandra"
-       <> scienceTime
-       <> ". "
-       -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> ".")
-
-    tblBlock
 
 renderIGMatches ::
   (Instrument, Grating)
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderIGMatches (inst, grat) (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
-
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml inst <> " and " <> toHtml grat)
-
-    svgBlock
-
-    p ("This page shows observations of objects that use "
-       <> instLinkAbout inst
-       <> " with "
-       <> gratLinkAbout grat
-       <> " on Chandra"
-       <> scienceTime
-       <> ". "
-       -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> ".")
+renderIGMatches (inst, grat) sched = 
+  let scienceTime = getScienceTime sched
+  in p ("This page shows observations of objects that use "
+        <> instLinkAbout inst
+        <> " with "
+        <> gratLinkAbout grat
+        <> " on Chandra"
+        <> scienceTime
+        <> ". "
+        -- assume the schedule is all science observations
+        <> toHtml (getNumObs sched)
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> ".")
     
-    tblBlock
 
 renderTypes ::
   [(Instrument, Int)]

@@ -26,19 +26,19 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), ConShort(..), ConLong(..), TimeKS(..)
+import Types (Schedule, ConShort(..), ConLong(..), TimeKS(..)
               , getConstellationNameStr
               , constellationMap
               , getConstellationNameStr
               , showExpTime)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+import Utils (defaultMeta, renderFooter, cssLink
              , constellationLinkSearch
              , getNumObs
              , getScienceTime
              , floatableTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (extraSchedulePage)
 
 indexPage :: 
   [(ConShort, TimeKS)]
@@ -60,17 +60,15 @@ indexPage cons =
       <> renderFooter
      )
 
--- TODO: combine with Schedule.schedPage
-
 matchPage :: 
   ConShort
   -> Schedule
   -- ^ the observations that match this type, organized into a "schedule"
   -> Html
 matchPage con sched =
-  let lbl = getConstellationNameStr con
-      -- unlike other pages, need to send in additional information
-
+  let hdrTitle = "Chandra observations in " <> H.toHtml lbl
+      lbl = getConstellationNameStr con
+      
       conInfo = Aeson.object
                 [ "shortName" .= fromConShort con
                 , "longName" .= getConstellationNameStr con
@@ -79,62 +77,48 @@ matchPage con sched =
       jsTxt = "conInfo = " <> Aeson.encode conInfo
               <> "; createMap(obsinfo, conInfo);"
       jsLoad = toValue (LB8.unpack jsTxt)
-      
-  in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations in " <> H.toHtml lbl) <>
-          defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload jsLoad)
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-      (renderMatches lbl sched)
-      <> renderFooter
-     )
 
--- | TODO: combine table rendering with Views.Schedule
---
---   TODO: convert the long version of SimbadType to a nice string (may want to send in SimbadType here to match on)
+      (pageTitle, mainBlock) = renderMatches lbl sched
+      
+  in extraSchedulePage sched CPExplore hdrTitle pageTitle mainBlock jsLoad
+
+
+-- | TODO: convert the long version of SimbadType to a nice string
+--         (may want to send in SimbadType here to match on)
 renderMatches ::
   T.Text           -- ^ Constellation name
   -> Schedule      -- ^ non-empty list of matches
-  -> Html
-renderMatches lbl (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+  -> (Html, Html)
+renderMatches lbl sched = 
+  let scienceTime = getScienceTime sched
 
       conLink =
-        let clean c | c == ' '  = '_'
-                    | c == '\246'  = 'o' -- o umlaut
-                    | otherwise = c
+        let clean c | c == ' '    = '_'
+                    | c == '\246' = 'o' -- o umlaut
+                    | otherwise   = c
             l = T.map clean lbl
         in "http://www.astro.wisc.edu/~dolan/constellations/constellations/"
            <> toValue l
            <> ".html"
 
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml lbl)
+      -- TODO: improve English here
+      matchBlock = p (
+        "This page shows Chandra observations of objects in the constellation "
+        <> (a ! href conLink) (toHtml lbl)
+        <> scienceTime
+        <> ". The constellation outline is also shown; the outlines "
+        <> "were taken from the "
+        <> (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
+        <> " project by Olaf Frohn. "
+        -- assume the schedule is all science observations
+        <> toHtml (getNumObs sched)
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> ".")
+      
+  in (toHtml lbl, matchBlock)
 
-    svgBlock
-
-    -- TODO: improve English here
-    p ("This page shows Chandra observations of objects in the constellation "
-       <> (a ! href conLink) (toHtml lbl)
-       <> scienceTime
-       <> ". The constellation outline is also shown; the outlines "
-       <> "were taken from the "
-       <> (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
-       <> " project by Olaf Frohn. "
-       -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> ".")
-
-    tblBlock
-
+     
 -- | Render the list of constellations
 renderList ::
   [(ConShort, TimeKS)]

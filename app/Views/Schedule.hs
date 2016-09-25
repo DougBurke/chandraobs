@@ -1,18 +1,19 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Display the schedule as a table.
 --
 module Views.Schedule (schedPage, schedDatePage) where
 
 -- import qualified Prelude as P
-import Prelude (Maybe(..), ($), (==))
+import Prelude ((==))
 
 import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Monoid ((<>))
+import Data.Maybe (isJust)
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 import Data.Time (Day, defaultTimeLocale, formatTime, showGregorian)
@@ -25,51 +26,29 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule(..))
-import Utils (defaultMeta, skymapMeta, cssLink, renderFooter
-             , getScienceTime
+import Utils (getScienceTime
              , showInt
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Record (CurrentPage(..))
+import Views.Render (standardSchedulePage)
 
 schedPage :: 
   Schedule
   -> Html
 schedPage sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "The Chandra schedule" 
-          <> defaultMeta
-          <> skymapMeta
-          <> cssLink "/css/schedule.css"
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPSchedule
-      <> (div ! id "schedule") 
-         (renderSchedule sched)
-      <> renderFooter
-     )
+  let hdrTitle = "The Chandra schedule"
+      (pageTitle, mainBlock) = renderSchedule sched
+  in standardSchedulePage sched CPSchedule hdrTitle pageTitle mainBlock
+
 
 schedDatePage ::
   Day
   -> Schedule
   -> Html
 schedDatePage date sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("The Chandra schedule for " <> H.toHtml (showGregorian date))
-          <> defaultMeta
-          <> skymapMeta
-          <> cssLink "/css/schedule.css"
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPSchedule
-      <> (div ! id "schedule") 
-         (renderDateSchedule date sched)
-      <> renderFooter
-     )
+  let hdrTitle = "The Chandra schedule for " <> H.toHtml (showGregorian date)
+      (pageTitle, mainBlock) = renderDateSchedule date sched
+  in standardSchedulePage sched CPSchedule hdrTitle pageTitle mainBlock
 
 -- | The previous schedule could be displayed if there is
 --   no current schedule, but let's just have a simple display
@@ -77,86 +56,78 @@ schedDatePage date sched =
 --
 renderSchedule :: 
   Schedule
-  -> Html
-renderSchedule (Schedule _ _ _ Nothing _ _) =
-  div ! A.id "schedule" $ 
-    p ("There seems to be a problem, in that I do not know what the "
-       <> "current observation is!")
-
-renderSchedule (Schedule cTime ndays done mdoing todo simbad) =
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+  -> (Html, Html)
+renderSchedule sched =
+  let scienceTime = getScienceTime sched
                          
-      -- the assumption is that ndays > 0
+      -- the assumption is that the number of days is > 0
+      ndays = scDays sched
       title = showInt ndays <> "-day Schedule"
       hdays = if ndays == 1
               then "one day"
               else toHtml (showInt ndays <> " days")
+
+      -- TODO: if there is no schedule, what happens to the
+      --       SVG and table display which get added automatically?
+      missingBlock = 
+        p ("There seems to be a problem, in that I do not know what the "
+           <> "current observation is!")
+
+      bodyBlock = p (
+        "This page shows "
+        <> hdays
+        <> " of the Chandra schedule, either side of today"
+        <> scienceTime
+        <> ". The size of the circles indicate the exposure time, and "
+        <> "the color shows whether the observation has been done, "
+        <> "is running now, or is in the future; the same colors "
+        <> "are used in the table below. For repeated observations "
+        <> "it can be hard to make out what is going on, since the "
+        <> "circles overlap! The shaded regions trace "
+        <> "the Milky Way galaxy. "
+        <> "The points are plotted in the "
+        <> (a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy")
+        "Equatorial coordinate system"
+        <> ", using the "
+        <> (a ! href "http://en.wikipedia.org/wiki/Aitoff_projection")
+        "Aitoff projection"
+        <> ". See "
+        <> (a ! href "http://burro.astr.cwru.edu/")
+        "Chris Mihos'"
+        <> " page on "
+        <> (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html")
+        "Astronomical coordinate systems"
+        <> " for more information."
+        )
       
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml title)
-
-    svgBlock
-
-    p ("This page shows "
-       <> hdays
-       <> " of the Chandra schedule, either side of today"
-       <> scienceTime
-       <> ". The size of the circles indicate the exposure time, and "
-       <> "the color shows whether the observation has been done, "
-       <> "is running now, or is in the future; the same colors "
-       <> "are used in the table below. For repeated observations "
-       <> "it can be hard to make out what is going on, since the "
-       <> "circles overlap! The shaded regions trace "
-       <> "the Milky Way galaxy. "
-       <> "The points are plotted in the "
-       <> (a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy")
-       "Equatorial coordinate system"
-       <> ", using the "
-       <> (a ! href "http://en.wikipedia.org/wiki/Aitoff_projection")
-       "Aitoff projection"
-       <> ". See "
-       <> (a ! href "http://burro.astr.cwru.edu/")
-       "Chris Mihos'"
-       <> " page on "
-       <> (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html")
-       "Astronomical coordinate systems"
-       <> " for more informaion.")
-
-    tblBlock
-
+  in (toHtml title, if isJust (scDoing sched) then bodyBlock else missingBlock)
   
 
 renderDateSchedule :: 
   Day
   -> Schedule
-  -> Html
-renderDateSchedule date (Schedule cTime ndays done mdoing todo simbad) =
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+  -> (Html, Html)
+renderDateSchedule date sched@Schedule{..} =
+  let scienceTime = getScienceTime sched
 
-      -- the assumption is that ndays > 0
-      title = showInt ndays <> "-day Schedule for "
+      -- the assumption is that the number of days is > 0
+      title = showInt scDays <> "-day Schedule for "
               <> T.pack (showGregorian date)
-      hdays = if ndays == 1
+      hdays = if scDays == 1
               then "one day"
-              else toHtml (showInt ndays <> " days")
+              else toHtml (showInt scDays <> " days")
 
       dateStr = formatTime defaultTimeLocale "%A, %B %e, %Y" date 
-      
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml title)
 
-    svgBlock
+      bodyBlock = p (
+        "This page shows "
+        <> hdays
+        <> " of the Chandra schedule either side of "
+        <> toHtml dateStr
+        <> scienceTime
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> ".")
 
-    p ("This page shows "
-      <> hdays
-      <> " of the Chandra schedule either side of "
-      <> toHtml dateStr
-      <> scienceTime
-      <> ". The format is the same as used in the "
-      <> (a ! href "/schedule") "schedule view"
-      <> ".")
-
-    tblBlock
+  in (toHtml title, bodyBlock)
 

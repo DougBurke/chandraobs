@@ -121,6 +121,7 @@ import Types (ScienceObs(..), ObsIdVal(..)
              , TargetName
              , TOORequest(..), TOORequestTime
              , ConstraintKind(..)
+             , Schedule(..)
              , recordObsId, recordTarget, recordStartTime
              , recordTime, futureTime
              , getJointObs, getConstellationName
@@ -768,15 +769,14 @@ maybeToList :: Maybe a -> [a]
 maybeToList Nothing = []
 maybeToList (Just x) = [x]
 
--- | Convert the schedule contents to a list (although the
---   routine is generic in the list input.
+-- | Convert the schedule contents to a list.
 --
-schedToList :: [a] -> Maybe a -> [a] -> [a]
-schedToList done mdoing todo = done ++ maybeToList mdoing ++ todo
+schedToList :: Schedule -> [Record]
+schedToList Schedule{..} = scDone ++ maybeToList scDoing ++ scToDo
 
-getNumObs :: [a] -> Maybe a -> [a] -> T.Text
-getNumObs done mdoing todo =
-  let xs = schedToList done mdoing todo
+getNumObs :: Schedule -> T.Text
+getNumObs sched =
+  let xs = schedToList sched
       nobs = length xs
       obslen = case nobs of
         0 -> "are no observations"
@@ -789,23 +789,19 @@ getNumObs done mdoing todo =
 -- | Return the total obervation time for the science observations in the
 --   schedule.
 getScienceExposure ::
-  [Record]
-  -> Maybe Record
-  -> [Record]
+  Schedule
   -> TimeKS
-getScienceExposure done mdoing todo =
-  let sobs = rights (schedToList done mdoing todo)
+getScienceExposure sched =
+  let sobs = rights (schedToList sched)
       getTime so = fromMaybe (soApprovedTime so) (soObservedTime so)
   in foldl' addTimeKS zeroKS (map getTime sobs)
 
 
 getScienceTime ::
-  [Record]
-  -> Maybe Record
-  -> [Record]
+  Schedule
   -> H.Html
-getScienceTime done mdoing todo =
-  let etime = getScienceExposure done mdoing todo
+getScienceTime sched =
+  let etime = getScienceExposure sched
   in if isZeroKS etime
      then mempty
      else ", and the total science exposure time for these observations is "

@@ -17,18 +17,16 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), TimeKS, ConstraintKind(..)
+import Types (Schedule, TimeKS, ConstraintKind(..)
              , showExpTime
              , csToLabel)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+import Utils (defaultMeta, renderFooter, cssLink
              , getScienceTime
              , constraintLinkSearch
              , dquote, standardTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
-
--- TODO: combine with Schedule.schedPage
+import Views.Render (standardSchedulePage)
 
 indexPage :: 
   [(ConstraintKind, TimeKS)]
@@ -57,22 +55,14 @@ matchPage ::
   -> Schedule
   -> Html
 matchPage mcs sched =
-  let lbl = case mcs of
+  let hdrTitle = "Chandra observations: " <> H.toHtml lbl
+      lbl = case mcs of
         Just cs -> csToLabel cs <> " observations"
         Nothing -> "No constraint"
-  in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations: " <> H.toHtml lbl)
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-      (renderMatches mcs sched)
-      <> renderFooter
-     )
+
+      pageTitle = toHtml lbl
+      mainBlock = renderMatches mcs sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 proplink :: H.Html
@@ -195,17 +185,6 @@ renderMatches ::
   Maybe ConstraintKind
   -> Schedule          -- ^ non-empty list of matches
   -> Html
-renderMatches mcs (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
-      
-      lbl = case mcs of
-        Just cs -> csToLabel cs <> " observations"
-        Nothing -> "No constraint"
-
-  in (div ! A.id "scheduleBlock") $ do
-    h2 (H.toHtml lbl)
-
-    svgBlock
-    p (explain mcs scienceTime)
-    tblBlock
+renderMatches mcs sched = 
+  let scienceTime = getScienceTime sched
+  in p (explain mcs scienceTime)

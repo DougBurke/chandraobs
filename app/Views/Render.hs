@@ -1,23 +1,34 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- | A collection of routines.
 
-module Views.Render ( makeSchedule
-                     ) where
+module Views.Render (standardSchedulePage
+                    , extraSchedulePage
+                    , baseSchedulePage
+                    ) where
 
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+)
                , Int, Integer, Either(..), Maybe(..)
                , fmap, map, mapM_, maybe, not, return, show, truncate)
 
+#if (defined(__GLASGOW_HASKELL__)) && (__GLASGOW_HASKELL__ >= 710)
+import Prelude ((<$>), mconcat, mempty)
+#endif
+
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
--- import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
+import Control.Applicative ((<$>))
+#endif
 
 import Data.Aeson ((.=))
 import Data.Bits (shiftL)
@@ -25,9 +36,14 @@ import Data.Char (isSpace)
 import Data.Functor (void)
 import Data.List (foldl', intersperse)
 import Data.Maybe (fromMaybe, mapMaybe)
+
+#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Data.Monoid ((<>), mconcat, mempty)
+#else
+import Data.Monoid ((<>))
+#endif
+
 import Data.Text.Encoding (decodeUtf8')
-import Data.Time (UTCTime)
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -36,8 +52,10 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , NonScienceObs(nsTarget)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
-             , SimbadInfo(..), Record, TargetName, TOORequest(..)
-             , ConstraintKind(..))
+             , SimbadInfo(..), Record, TOORequest(..)
+             , ConstraintKind(..)
+             , Schedule(..)
+             )
 import Types (recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
              , showExp, toMission)
@@ -53,7 +71,12 @@ import Utils (obsURIString
              , tooLinkSearch
              , cleanJointName
              , constraintLinkSearch
+             , defaultMeta, skymapMeta
+             , renderFooter
+             , cssLink
              )
+
+import Views.Record (CurrentPage(..), mainNavBar)
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
@@ -84,14 +107,9 @@ makeJointLinks jw =
 --   static/js/table.js
 --
 makeSchedule ::
-  UTCTime          -- current time
-  -> [Record]      -- observations in the past
-  -> Maybe Record  -- the current observation (if there is one)
-  -> [Record]      -- observations in the future
-  -> M.Map TargetName SimbadInfo
-  -- Target information (may be empty)
+  Schedule
   -> (Html, Html)  -- ("graph", table)
-makeSchedule cTime done mdoing todo simbad =
+makeSchedule (Schedule cTime _ done mdoing todo simbad) =
   let instVal r = fromMaybe "n/a" $ do
         inst <- recordInstrument r
         grat <- recordGrating r
@@ -278,4 +296,88 @@ makeSchedule cTime done mdoing todo simbad =
                    ";"
 
   in (svgBlock, tblBlock)
+
+
+-- | Pages which include a schedule block.
+--
+standardSchedulePage ::
+  Schedule
+  -> CurrentPage
+  -- ^ location for the nav bar
+  -> Html
+  -- ^ title (header)
+  -> Html
+  -- ^ title of the page (displayed as H2 above the SVG display)
+  -> Html
+  -- ^ explanation block; displayed below the SVG display
+  -> Html
+standardSchedulePage sched navLoc hdrTitle pageTitle explain =
+  let jsLoad = "createMap(obsinfo);"
+  in extraSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad
+
+-- | Pages which include a schedule block.
+--
+extraSchedulePage ::
+  Schedule
+  -> CurrentPage
+  -- ^ location for the nav bar
+  -> Html
+  -- ^ title (header)
+  -> Html
+  -- ^ title of the page (displayed as H2 above the SVG display)
+  -> Html
+  -- ^ explanation block; displayed below the SVG display
+  -> AttributeValue
+  -- ^ onload javascript
+  -> Html
+extraSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad =
+  baseSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad Nothing
+
+-- | Pages which include a schedule block.
+--
+baseSchedulePage ::
+  Schedule
+  -> CurrentPage
+  -- ^ location for the nav bar
+  -> Html
+  -- ^ title (header)
+  -> Html
+  -- ^ title of the page (displayed as H2 above the SVG display)
+  -> Html
+  -- ^ explanation block; displayed below the SVG display
+  -> AttributeValue
+  -- ^ onload javascript
+  -> Maybe AttributeValue
+  -- ^ optional extra CSS page
+  -> Html
+baseSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad mcss =
+  let hdr = (H.title hdrTitle
+             <> defaultMeta
+             <> skymapMeta
+
+             -- TODO: should /css/schedule.css be made optional
+             <> cssLink "/css/schedule.css"
+
+             <> fromMaybe mempty (cssLink <$> mcss)
+
+             <> (cssLink "/css/main.css" ! A.title "Default")
+            )
+
+      (svgBlock, tblBlock) = makeSchedule sched
+      
+      -- TODO: clean up CSS for div.schedule div.scheduleBlock
+      bodyBlock = div ! A.id "scheduleBlock" $ do
+        h2 pageTitle
+        svgBlock
+        explain
+        tblBlock
+
+  in docTypeHtml ! lang "en-US" $
+    head hdr
+    <>
+    (body ! onload jsLoad)
+      (mainNavBar navLoc
+       <> (div ! id "schedule") bodyBlock
+       <> renderFooter
+      )
 

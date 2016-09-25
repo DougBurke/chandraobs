@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Information on proposal types - e.g. GO vs GTO vs CAL ...
 
@@ -6,7 +7,7 @@ module Views.Search.PropType (indexPage, matchPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (Int, Maybe(Nothing), (.), ($), compare, fst)
+import Prelude (Int, Maybe(..), (.), ($), compare, fst)
 
 import qualified Data.Map.Strict as M
 
@@ -26,7 +27,7 @@ import Types (Schedule(..), PropType(..), TimeKS
              , toPropTypeLabel
              , normTimeKS
              , showExpTime)
-import Utils (defaultMeta, skymapMeta, renderFooter
+import Utils (defaultMeta, renderFooter
              , cssLink
              , propTypeLink
              , getScienceTime
@@ -34,7 +35,7 @@ import Utils (defaultMeta, skymapMeta, renderFooter
              , dquote, standardTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (baseSchedulePage)
 
 indexPage :: 
   M.Map PropType (Int, Int, TimeKS)
@@ -60,23 +61,14 @@ matchPage ::
   -> Schedule
   -> Html
 matchPage pType sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title
-          ("Chandra observations: "
-           <> toHtml (toPropTypeLabel pType)
-           <> " proposals")
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          <> cssLink "/css/mission.css"
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderMatches pType sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations: " <> pageTitle <> " proposals"
+      jsLoad = "createMap(obsinfo);"
+      cssPage = Just "/css/mission.css"
 
+      pageTitle = toHtml (toPropTypeLabel pType)
+      mainBlock = renderMatches pType sched
+      
+  in baseSchedulePage sched CPExplore hdrTitle pageTitle mainBlock jsLoad cssPage
 
 tstrong :: Html -> Html
 tstrong = (strong ! class_ "label")
@@ -198,27 +190,19 @@ renderMatches ::
   PropType
   -> Schedule      -- ^ non-empty list of matches
   -> Html
-renderMatches ptype (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+renderMatches ptype sched = 
+  let scienceTime = getScienceTime sched
 
       plabel = toHtml (toPropTypeLabel ptype)
       
-  in div ! A.id "scheduleBlock" $ do
-    h2 plabel
-
-    svgBlock
-
-    -- TODO: improve English here
+  in -- TODO: improve English here
     p ("This page shows Chandra observations for proposals with "
        <> "the proposal type of "
        <> plabel
        <> scienceTime
        <> ". "
        -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
+       <> toHtml (getNumObs sched)
        <> ". The format is the same as used in the "
        <> (a ! href "/schedule") "schedule view"
        <> ".")
-
-    tblBlock

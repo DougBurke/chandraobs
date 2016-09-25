@@ -18,14 +18,14 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), TimeKS, TOORequestTime(..), rtToLabel, showExpTime)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+import Types (Schedule, TimeKS, TOORequestTime(..), rtToLabel, showExpTime)
+import Utils (defaultMeta, renderFooter, cssLink
              , tooLinkSearch
              , getScienceTime
              , dquote, standardTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (standardSchedulePage)
 
 -- TODO: combine with Schedule.schedPage
 
@@ -55,22 +55,14 @@ matchPage ::
   -> Schedule
   -> Html
 matchPage mtoo sched =
-  let lbl = case mtoo of
-        Just too -> rtToLabel too <> " turnaround"
-        Nothing -> "No constraint"
-  in docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations: " <> H.toHtml lbl) <>
-          defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-      (renderMatches mtoo sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations: " <> lbl
+      lbl = H.toHtml (case mtoo of
+                       Just too -> rtToLabel too <> " turnaround time"
+                       Nothing -> "No constraint")
+
+      mainBlock = renderMatches mtoo sched
+      
+  in standardSchedulePage sched CPExplore hdrTitle lbl mainBlock
 
 
 proplink :: H.Html
@@ -195,18 +187,7 @@ renderMatches ::
   Maybe TOORequestTime
   -> Schedule          -- ^ non-empty list of matches
   -> Html
-renderMatches mtoo (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
-      
-      lbl = case mtoo of
-        Just too -> rtToLabel too <> " turnaround time"
-        Nothing -> "No constraint"
-
-  in (div ! A.id "scheduleBlock") $ do
-    h2 (H.toHtml lbl)
-
-    svgBlock
-    p (explain mtoo scienceTime)
-    tblBlock
+renderMatches mtoo sched = 
+  let scienceTime = getScienceTime sched
+  in p (explain mtoo scienceTime)
 

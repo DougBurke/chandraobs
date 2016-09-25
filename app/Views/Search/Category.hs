@@ -22,10 +22,10 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..), ObsIdVal(..), SimbadType
+import Types (Schedule, ObsIdVal(..), SimbadType
              , PropCategory
              , simbadTypeToDesc)
-import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
+import Utils (defaultMeta, renderFooter, cssLink
              , abstractLink
              , basicTypeLinkSearch
              , categoryLinkSearch
@@ -34,7 +34,7 @@ import Utils (defaultMeta, skymapMeta, renderFooter, cssLink
              , floatableTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (makeSchedule)
+import Views.Render (standardSchedulePage)
 
 indexPage :: 
   [(PropCategory, Int)]
@@ -54,25 +54,16 @@ indexPage cats =
       <> renderFooter
      )
 
--- TODO: combine with Schedule.schedPage
-
 matchPage :: 
   PropCategory
-  -> Schedule  -- the observations that match this category, organized into a "schedule"
+  -> Schedule
+  -- the observations that match this category, organized into a "schedule"
   -> Html
 matchPage cat sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations: category " <> H.toHtml cat) <>
-          defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderMatches cat sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations: category " <> H.toHtml cat
+      (pageTitle, mainBlock) = renderMatches cat sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
 
 -- | Render the list of categories.
 --
@@ -163,7 +154,6 @@ getComboTitle :: PropCategory -> Maybe SimbadType -> Html
 getComboTitle cat mtype = 
   H.toHtml cat <> " → " <> getSimbadHtml mtype
 
--- TODO: 
 categoryAndTypePage :: 
   PropCategory  -- ^ propoal category
   -> Maybe SimbadType
@@ -171,80 +161,58 @@ categoryAndTypePage ::
   -> Schedule
   -> Html
 categoryAndTypePage cat mtype sched =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations: "
-                   <> getComboTitle cat mtype
-                  )
-          <> defaultMeta
-          <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload "createMap(obsinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderComboMatches cat mtype sched)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations: " <> getComboTitle cat mtype
+      (pageTitle, mainBlock) = renderComboMatches cat mtype sched
+  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 -- | TODO: combine table rendering with Views.Schedule
 --
 renderMatches ::
   PropCategory     -- ^ Category name
   -> Schedule      -- ^ non-empty list of matches
-  -> Html
-renderMatches cat (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+  -> (Html, Html)
+renderMatches cat sched = 
+  let scienceTime = getScienceTime sched
 
-  in div ! A.id "scheduleBlock" $ do
-    h2 (toHtml cat)
-
-    svgBlock
-
-    -- TODO: improve English here
-    p ("This page shows Chandra observations of objects from proposals "
-       <> "in the category "
-       <> toHtml cat
-       <> scienceTime
-       <> ". "
-       -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> "."
-      )
-
-    tblBlock
+      -- TODO: improve English here
+      matchBlock = p (
+        "This page shows Chandra observations of objects from proposals "
+        <> "in the category "
+        <> toHtml cat
+        <> scienceTime
+        <> ". "
+        -- assume the schedule is all science observations
+        <> toHtml (getNumObs sched)
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> "."
+        )
+        
+  in (toHtml cat, matchBlock)
 
 renderComboMatches ::
   PropCategory           -- ^ Category name
   -> Maybe SimbadType
   -- ^ If Nothing then the unidentified matches.
   -> Schedule      -- ^ non-empty list of matches
-  -> Html
-renderComboMatches cat mtype (Schedule cTime _ done mdoing todo simbad) = 
-  let (svgBlock, tblBlock) = makeSchedule cTime done mdoing todo simbad
-      scienceTime = getScienceTime done mdoing todo
+  -> (Html, Html)
+renderComboMatches cat mtype sched = 
+  let scienceTime = getScienceTime sched
 
-  in div ! A.id "scheduleBlock" $ do
-    h2 (getComboTitle cat mtype)
+      -- TODO: improve English here
+      matchBlock = p (
+        "This page shows Chandra observations of objects from proposals "
+        <> "in the category "
+        <> categoryLinkSearch cat cat
+        <> " that observe targets with the SIMBAD type of "
+        <> basicTypeLinkSearch mtype
+        <> scienceTime
+        <> ". "
+        -- assume the schedule is all science observations
+        <> toHtml (getNumObs sched)
+        <> ". The format is the same as used in the "
+        <> (a ! href "/schedule") "schedule view"
+        <> "."
+        )
 
-    svgBlock
-
-    -- TODO: improve English here
-    p ("This page shows Chandra observations of objects from proposals "
-       <> "in the category "
-       <> categoryLinkSearch cat cat
-       <> " that observe targets with the SIMBAD type of "
-       <> basicTypeLinkSearch mtype
-       <> scienceTime
-       <> ". "
-       -- assume the schedule is all science observations
-       <> toHtml (getNumObs done mdoing todo)
-       <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
-       <> "."
-      )
-
-    tblBlock
-
+  in (getComboTitle cat mtype, matchBlock)
