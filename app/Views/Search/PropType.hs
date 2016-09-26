@@ -11,9 +11,6 @@ import Prelude (Int, Maybe(..), (.), ($), compare, fst)
 
 import qualified Data.Map.Strict as M
 
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
-
 import Control.Monad (mapM_)
 
 import Data.Function (on)
@@ -27,33 +24,24 @@ import Types (Schedule(..), PropType(..), TimeKS
              , toPropTypeLabel
              , normTimeKS
              , showExpTime)
-import Utils (defaultMeta, renderFooter
-             , cssLink
-             , propTypeLink
+import Utils (propTypeLink
              , getScienceTime
              , getNumObs
              , dquote, standardTable
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (baseSchedulePage)
+import Views.Record (CurrentPage(..))
+import Views.Render (baseSchedulePage,
+                     standardExplorePage)
 
 indexPage :: 
   M.Map PropType (Int, Int, TimeKS)
   -- Number of proposals, number of targets, total exposure time
   -> Html
 indexPage pmap =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations: proposal types"
-          <> defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          <> cssLink "/css/mission.css"
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderTypes pmap)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations by proposal type"
+      bodyBlock = renderTypes pmap
+      mcss = Just "/css/mission.css"
+  in standardExplorePage mcss hdrTitle bodyBlock Nothing
 
 
 matchPage ::

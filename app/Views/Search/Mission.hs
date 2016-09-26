@@ -6,7 +6,7 @@ module Views.Search.Mission (indexPage, matchPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (Int, ($), compare, fst)
+import Prelude (($), Int, Maybe(..), compare, fst)
 
 import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
@@ -24,32 +24,24 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (Schedule, JointMission
              , fromMission, fromMissionLong
              , fromMissionLongLink, fromMissionAboutLink)
-import Utils (defaultMeta, renderFooter, cssLink
-             , getNumObs
+import Utils (getNumObs
              , getScienceTime
              , floatableTable
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
+import Views.Record (CurrentPage(..))
+import Views.Render (standardSchedulePage
+                     , standardExplorePage)
 
 indexPage :: 
   [(JointMission, Int)]
   -> Html
 indexPage jms =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations with other facilities"
-          <> defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          <> cssLink "/css/mission.css"
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") (renderMissions jms)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations with other facilities"
+      cssPage = Just "/css/mission.css"
+      bodyBlock = renderMissions jms
+  in standardExplorePage cssPage hdrTitle bodyBlock Nothing
 
-
+     
 matchPage :: 
   JointMission
   -> Schedule
@@ -90,7 +82,9 @@ renderMissions jms =
        <> "this table as this website only covers a small fraction of the full "
        <> "Chandra schedule. The set of missions for which joint proposals "
        <> "are available changes over time, as new facilities become available "
-       <> "and others are decomissioned."
+       <> "and others are decomissioned or "
+       <> (a ! href "https://en.wikipedia.org/wiki/Suzaku_(satellite)")
+       "are turned off."
       )
       
     floatableTable $ do

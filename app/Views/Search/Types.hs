@@ -15,7 +15,7 @@ module Views.Search.Types (indexPage, dependencyPage
                           , renderDependencyJSON) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), (==), (+), Int
+import Prelude ((.), ($), (==), (+), Int, Maybe(Just)
                , compare, error, fst, lookup, mapM_, maybe
                , null, snd, sum, uncurry, unzip)
 
@@ -61,26 +61,20 @@ import Utils (defaultMeta, d3Meta, renderFooter
              , dquote, floatableTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
+import Views.Render (standardSchedulePage
+                    , standardExplorePage)
 
 -- | A simple tabular view of the explicit object types
 indexPage :: 
   [(SimbadTypeInfo, Int)]
   -> Html
 indexPage objs =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations by object type"
-          <> defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          <> cssLink "/css/simbad.css"
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      -- TODO: need to clean up CSS and document structure
-      <> (div ! id "explorebox") (renderTypes objs)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations by object type"
+      bodyBlock = renderTypes objs
+      mid = Just "explorebox"
+      mcss = Just "/css/simbad.css"
+  in standardExplorePage mcss hdrTitle bodyBlock mid
+
 
 -- | Show the "full" object hierarcy (at least, as much as we have)
 --   and allow the user to zoom around in it.

@@ -11,7 +11,7 @@ module Views.Search.Instrument (indexPage
        where
 
 import qualified Prelude as P
-import Prelude (($), (*), (/), Ord, Int, compare, fst, snd, mapM_)
+import Prelude (($), (*), (/), Int, Maybe(..), Ord, compare, fst, snd, mapM_)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
@@ -46,7 +46,8 @@ import Utils (defaultMeta, d3Meta
              , standardTable
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
+import Views.Render (standardSchedulePage
+                    , standardExplorePage)
 
 indexPage :: 
   [(Instrument, Int)]
@@ -54,17 +55,10 @@ indexPage ::
   -> [((Instrument, Grating), Int)]
   -> Html
 indexPage insts grats igs =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations"
-          <> defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") (renderTypes insts grats igs)
-      <> renderFooter
-     )
+  let bodyBlock = renderTypes insts grats igs
+      mid = Just "explorebox"
+  in standardExplorePage Nothing "Chandra observations" bodyBlock mid
+
 
 matchInstPage :: 
   Instrument

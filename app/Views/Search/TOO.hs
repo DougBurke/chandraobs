@@ -8,7 +8,6 @@ module Views.Search.TOO (indexPage, matchPage) where
 import Prelude (Maybe(..), ($), (.), (>>), compare, fst, mapM_)
 
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Arrow (first)
 import Data.Function (on)
@@ -19,15 +18,13 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule, TimeKS, TOORequestTime(..), rtToLabel, showExpTime)
-import Utils (defaultMeta, renderFooter, cssLink
-             , tooLinkSearch
+import Utils (tooLinkSearch
              , getScienceTime
              , dquote, standardTable
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
-
--- TODO: combine with Schedule.schedPage
+import Views.Record (CurrentPage(..))
+import Views.Render (standardSchedulePage
+                     , standardExplorePage)
 
 indexPage :: 
   [(TOORequestTime, TimeKS)]
@@ -36,18 +33,11 @@ indexPage ::
   -- ^ Time for the "no TOO" category
   -> Html
 indexPage toos noneTime =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations by turnaround time" <>
-          defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") 
-             (renderTOOs toos noneTime)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations by turnaround time"
+      bodyBlock = renderTOOs toos noneTime
+      mid = Just "explorebox"
+  in standardExplorePage Nothing hdrTitle bodyBlock mid
+
 
 -- | Render the results for a single class of TOOs.
 matchPage :: 

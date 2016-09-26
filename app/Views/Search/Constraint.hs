@@ -8,7 +8,6 @@ module Views.Search.Constraint (indexPage, matchPage) where
 import Prelude (Maybe(..), ($), compare, fst, mapM_)
 
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Function (on)
 import Data.List (sortBy)
@@ -20,13 +19,13 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (Schedule, TimeKS, ConstraintKind(..)
              , showExpTime
              , csToLabel)
-import Utils (defaultMeta, renderFooter, cssLink
-             , getScienceTime
+import Utils (getScienceTime
              , constraintLinkSearch
              , dquote, standardTable
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
+import Views.Record (CurrentPage(..))
+import Views.Render (standardSchedulePage
+                    , standardExplorePage)
 
 indexPage :: 
   [(ConstraintKind, TimeKS)]
@@ -36,18 +35,11 @@ indexPage ::
   -- ^ Time for the "no constraint" category
   -> Html
 indexPage cs noneTime =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations by observational constraint"
-          <> defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") 
-             (renderConstraints cs noneTime)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations by observational constraint"
+      bodyBlock = renderConstraints cs noneTime
+      mid = Just "explorebox"
+  in standardExplorePage Nothing hdrTitle bodyBlock mid
+
 
 -- | Render the results for a single class of constraints.
 matchPage :: 

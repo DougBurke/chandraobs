@@ -25,35 +25,27 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (Schedule, ObsIdVal(..), SimbadType
              , PropCategory
              , simbadTypeToDesc)
-import Utils (defaultMeta, renderFooter, cssLink
-             , abstractLink
+import Utils (abstractLink
              , basicTypeLinkSearch
              , categoryLinkSearch
              , getNumObs
              , getScienceTime
              , floatableTable
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
+import Views.Record (CurrentPage(..))
+import Views.Render (standardSchedulePage
+                     , standardExplorePage)
 
 indexPage :: 
   [(PropCategory, Int)]
   -> Html
 indexPage cats =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations by category" <>
-          defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          <> cssLink "/css/category.css"
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "schedule") 
-          (renderTypes cats)
-      <> renderFooter
-     )
+  let hdrTitle = "Chandra observations by category"
+      css = Just "/css/category.css"
+      bodyBlock = renderTypes cats
+  in standardExplorePage css hdrTitle bodyBlock Nothing
 
+     
 matchPage :: 
   PropCategory
   -> Schedule

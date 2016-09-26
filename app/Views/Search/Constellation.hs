@@ -14,7 +14,6 @@ import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Aeson ((.=))
 import Data.Function (on)
@@ -31,35 +30,25 @@ import Types (Schedule, ConShort(..), ConLong(..), TimeKS(..)
               , constellationMap
               , getConstellationNameStr
               , showExpTime)
-import Utils (defaultMeta, renderFooter, cssLink
-             , constellationLinkSearch
+import Utils (constellationLinkSearch
              , getNumObs
              , getScienceTime
              , floatableTable
              )
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (extraSchedulePage)
+import Views.Record (CurrentPage(..))
+import Views.Render (extraSchedulePage
+                    , standardExplorePage)
 
 indexPage :: 
   [(ConShort, TimeKS)]
   -> Html
 indexPage cons =
-  docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations"
-          <> defaultMeta
-          -- <> skymapMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          <> cssLink "/css/constellation.css"
-          )
-    <>
-    -- (body ! onload "showConstellations(coninfo);")
-    body
-     (mainNavBar CPExplore
-      -- TODO: need to clean up CSS and document structure
-      <> (div ! id "explorebox") (renderList cons)
-      <> renderFooter
-     )
+  let cssPage = P.Just "/css/constellation.css"
+      bodyBlock = renderList cons
+      mid = P.Just "explorebox"
+  in standardExplorePage cssPage "Chandra observations" bodyBlock mid
 
+     
 matchPage :: 
   ConShort
   -> Schedule

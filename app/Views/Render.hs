@@ -5,6 +5,7 @@
 -- | A collection of routines.
 
 module Views.Render (standardSchedulePage
+                    , standardExplorePage
                     , extraSchedulePage
                     , baseSchedulePage
                     ) where
@@ -380,4 +381,34 @@ baseSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad mcss =
        <> (div ! id "schedule") bodyBlock
        <> renderFooter
       )
+
+
+-- | Default page for the explore menu.
+--
+standardExplorePage ::
+  Maybe AttributeValue
+  -- ^ CSS file location (set last if given)
+  -> Html
+  -- ^ title (header)
+  -> Html
+  -- ^ main text of the page; appears within the div created by the
+  --   followingn argument.
+  -> Maybe AttributeValue
+  -- ^ If Nothing, place contents within div#schedule, otherwise
+  --   use div#<contents>
+  -> Html
+standardExplorePage mCSSPage hdrTitle bodyBlock mIdName=
+  let hdr = (H.title hdrTitle
+             <> defaultMeta
+             <> (cssLink "/css/main.css" ! A.title "Default")
+             <> fromMaybe mempty (cssLink <$> mCSSPage)
+            )
+
+      idVal = fromMaybe "schedule" mIdName
+
+      bdy = mainNavBar CPExplore
+            <> (div ! id idVal) bodyBlock
+            <> renderFooter
+
+  in (docTypeHtml ! lang "en-US") (head hdr <> body bdy)
 

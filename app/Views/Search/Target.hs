@@ -5,10 +5,9 @@
 module Views.Search.Target (targetPage, noMatchPage) where
 
 -- import qualified Prelude as P
-import Prelude (($))
+import Prelude (Maybe(Nothing))
 
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.List (intersperse)
 import Data.Monoid ((<>), mconcat)
@@ -17,10 +16,10 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (Schedule, TargetName)
-import Utils (defaultMeta, renderFooter, cssLink,
-              getNumObs)
-import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage)
+import Utils (getNumObs)
+import Views.Record (CurrentPage(..))
+import Views.Render (standardSchedulePage,
+                     standardExplorePage)
 
 targetPage :: 
   TargetName
@@ -68,16 +67,7 @@ noMatchPage ::
   -- ^ target name
   -> Html
 noMatchPage targetName =
-  docTypeHtml ! lang "en-US" $
-    head (H.title ("Chandra observations of " <> H.toHtml targetName) <>
-          defaultMeta
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    body
-     (mainNavBar CPExplore
-      <> (div ! id "schedule")
-          (p ("There was no match for " <> toHtml targetName <> "."))
-      <> renderFooter
-     )
-
+  let hdrTitle = "Chandra observations of " <> tName
+      bodyBlock = p ("There was no match for " <> tName <> ".")
+      tName = toHtml targetName
+  in standardExplorePage Nothing hdrTitle bodyBlock Nothing
