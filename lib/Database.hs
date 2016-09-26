@@ -1383,7 +1383,7 @@ unidentifiedKey = SK (noSimbadLabel, noSimbadType)
 --
 getProposalObjectMapping ::
   (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => m ((M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)),
+  => m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs),
         UTCTime)
   -- ^ The keys are the proposal category and SIMBAD type.
   --   The values are the total time, the number of objects,
