@@ -83,6 +83,8 @@ import Database.Groundhog.Postgresql (Postgresql(..)
                                      , runDbConn
                                      , withPostgresqlPool)
 
+import Formatting hiding (now)
+
 -- import Network.HTTP.Date (HTTPDate, epochTimeToHTTPDate, formatHTTPDate)
 import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
@@ -96,8 +98,6 @@ import Network.Wai.Handler.Warp (defaultSettings, setPort)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
-
-import Text.Printf (printf)
 
 import Web.Heroku (dbConnParams)
 import Web.Scotty
@@ -179,6 +179,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
 import Utils (fromBlaze, standardResponse, getFact
              , timeToRFC1123
              , getTimes
+             , showInt
              -- , makeETag
              )
 
@@ -1055,8 +1056,8 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
   where
     (startTime, endTime) = getTimes (Right so)
     obsid = fromObsId soObsId
-    objName = T.unpack soTarget
-
+    obsidTxt = sformat (left 5 '0' %. int) obsid
+    
     -- The SIMBAD info could be stored separately, and use cross-linking,
     -- but for now just encode all the infomation we want in the science
     -- target structure.
@@ -1104,8 +1105,6 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
       HRCI -> "hrc"
       HRCS -> "hrc"
 
-    obsidTxt = T.pack (printf "%05d" obsid)
-    
     -- TODO: do not include the item if the value is
     --       not known
     fromProp :: (Proposal -> T.Text) -> T.Text
@@ -1115,8 +1114,8 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
     objs = [
       "type" .= ("Science" :: T.Text),
       -- need a unique label
-      "label" .= (objName ++ " - ObsId " ++ show obsid),
-      "object" .= objName,
+      "label" .= (soTarget <> " - ObsId " <> showInt obsid),
+      "object" .= soTarget,
       "obsid" .= obsid,
       "start" .= _toUTCTime startTime,
       "end" .= _toUTCTime endTime,
@@ -1160,18 +1159,12 @@ fromNonScienceObs ns@NonScienceObs {..} =
     -- do not use the nsName field as it is set from the STS value,
     -- but then is later removed/replaced by values from ObsCat.
     --
-    objName = T.unpack nsTarget
 
     -- only include end time if > start time
     objs = [
       "type" .= ("Engineering" :: T.Text),
-      -- need a unique label, but the obhect name already includes
-      -- the obsid value, so can just use that
-      {-
-      "label" .= (objName ++ " - ObsId " ++ show obsid),
-      "object" .= objName,
-      -}
-      "label" .= objName,
+      -- need a unique label
+      "label" .= nsTarget,
       "obsid" .= obsid,
       "start" .= _toUTCTime startTime,
       -- "end" .= _toUTCTime endTime,

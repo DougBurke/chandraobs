@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 --
 -- parser for the Chandra Short-Term schecule
 --
@@ -40,11 +42,14 @@ example
 module Parser (parseSTS, testParser) where
 
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Data.Char (digitToInt, isSpace)
 import Data.Functor (void)
 import Data.List (intercalate)
 import Data.Monoid ((<>))
+
+import Formatting (int, sformat)
 
 import Text.Parsec
 
@@ -54,9 +59,13 @@ type Parser = Parsec String ()
 
 type STS = (ScheduleItem, Maybe NonScienceObs)
 
+showInt :: Int -> T.Text
+showInt = sformat int
+
 testParser :: String -> IO ()
 testParser =
-  either print (\as -> putStrLn ("found " ++ show (length as) ++ " records")) . parseSTS
+  let lbl as = T.putStrLn ("found " <> showInt (length as) <> " records")
+  in either print lbl . parseSTS
 
 commentLine :: Parser ()
 commentLine = comments >> void (char eol)

@@ -62,16 +62,17 @@ import Database.Groundhog.Generic (primToPersistValue, primFromPersistValue)
 import Database.Groundhog.TH
 import Database.Groundhog.Postgresql
 
-import Network.HTTP.Types.URI (renderSimpleQuery)
+import Formatting
+import Formatting.Time
 
-import Text.Printf
+import Network.HTTP.Types.URI (renderSimpleQuery)
 
 import Web.Scotty (Parsable(..))
 
 #if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, TimeLocale, addUTCTime, defaultTimeLocale, formatTime, parseTimeOrError)
+import Data.Time (UTCTime, TimeLocale, addUTCTime, defaultTimeLocale, parseTimeOrError)
 #else
-import Data.Time (UTCTime, addUTCTime, formatTime, readTime)
+import Data.Time (UTCTime, addUTCTime, readTime)
 import System.Locale (defaultTimeLocale)
 #endif
 
@@ -454,7 +455,21 @@ toCTime = ChandraTime . readTime defaultTimeLocale "%Y:%j:%T%Q"
 showCTime :: ChandraTime -> T.Text
 showCTime ct = 
   let utc = _toUTCTime ct
-  in T.pack (formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)" utc)
+
+      -- I want the equivalent of
+      --   formatTime defaultTimeLocale "%R %A, %e %B %Y (UTC)
+      --
+      -- %R is same as %H:%M
+      -- %A is day of week, long form
+      -- %e is day of month, space-padded
+      -- %B is month name, long form
+      -- %Y is year, no padding (for the use case here it
+      --    does not matter about padding)
+      --
+      tfmt = hm <> " " % dayName <> ", " % dayOfMonthS <>
+             " " % monthName <> " " % year
+
+  in sformat (tfmt % " (UTC)") utc
 
 endCTime :: ChandraTime -> TimeKS -> ChandraTime
 endCTime (ChandraTime start) (TimeKS elen) =
@@ -550,6 +565,12 @@ splitRA (RA ra) =
         s = r2 * 60
     in (h, m, s)
 
+int2 :: Format r (Int -> r)
+int2 = left 2 '0' %. int
+
+float4 :: Format r (Double -> r)
+float4 = left 4 '0' %. fixed 1
+
 -- I do use this in ObsCat.hs for informational purposes, so keep
 -- around for now.
 --
@@ -557,7 +578,7 @@ splitRA (RA ra) =
 showRA :: RA -> T.Text
 showRA ra = 
   let (h, m, s) = splitRA ra
-  in T.pack (printf "%dh %dm %.1fs" h m s)
+  in sformat (int % "h " % int % "m " % fixed 1 % "s") h m s
 
 htmlRA :: RA -> H.Html
 htmlRA ra = 
@@ -567,10 +588,9 @@ htmlRA ra =
       msym = H.sup "m"
       ssym = H.sup "s"
 
-      hstr, mstr, sstr :: String
-      hstr = printf "%02d" h
-      mstr = printf " %02d" m
-      sstr = printf " %04.1f" s
+      hstr = sformat int2 h
+      mstr = sformat (" " % int2) m
+      sstr = sformat (" " % float4) s
 
   in H.toMarkup hstr <> hsym <> H.toMarkup mstr
      <> msym <> H.toMarkup sstr <> ssym
@@ -589,8 +609,8 @@ showDec (Dec dec) =
       (m, r2) = properFraction dm
       s = r2 * 60
       c = if dec < 0 then '-' else '+'
-  -- in printf "%c%d\176 %d' %.1f\"" c d m s
-  in T.pack (printf "%c%02d\176 %02d' %04.1f\"" c d m s)
+
+  in sformat (char % int2 % "\176 " % int2 % "' " % float4 % "\"") c d m s
 
 instance H.ToMarkup RA where
   -- toMarkup = H.toMarkup . showRA
@@ -675,11 +695,7 @@ showExpTime (TimeKS tks) =
       units v1 v2 u1 u2 =
         let us 0 _ = ""
             us 1 u = "1 " <> u
-            -- ideally would use the equivalent to "Data.Text.show",
-            -- but that pulls in too much (e.g. text-format: convert
-            -- integer to LT.Builder, then to Text) so convert
-            -- via a String for now.
-            us x u = T.pack (show x) <> " " <> u <> "s"
+            us x u = sformat (int % " " % stext % "s") x u
 
             str1 = us v1 u1
             str2 = us v2 u2
@@ -1802,8 +1818,10 @@ data SimbadCode =
 -- can be removed from the check, or does it not matter?
 
 instance Show SimbadCode where
-  show SimbadCode {..} =
-    printf "%02d.%02d.%02d.%d" _sc1 _sc2 _sc3 _sc4
+  show SimbadCode {..} = T.unpack txt
+    where
+      txt = sformat (int2 % "." % int2 % "." % int2 % "." % int)
+            _sc1 _sc2 _sc3 _sc4
 
 -- | The list is assumed to be in ascending SimbadCode order,
 --   but this is not checked.
@@ -2154,14 +2172,12 @@ toSC4 sc1 sc2 sc3 sc4 = do
   
 ivalidate :: Int -> Int -> Int -> T.Text -> Either T.Text Int
 ivalidate v minv maxv lbl =
-  if v >= minv && v <= maxv
-  then Right v
-  else Left ("Component " <> lbl <> " range "
-             <> T.pack (show minv)
-             <> " to "
-             <> T.pack (show maxv)
-             <> " sent "
-             <> T.pack (show v))
+  let emsg = sformat ("Component " % stext % " range "
+                      % int % " to " % int % " sent " % int)
+             lbl minv maxv v
+  in if v >= minv && v <= maxv
+     then Right v
+     else Left emsg
 
 -- | Given a Simbad type, identify all the children
 --   of that type. The parent is not included in the

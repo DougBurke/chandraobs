@@ -14,13 +14,10 @@ import qualified Text.Blaze.Html5 as H
 
 import Data.Monoid ((<>))
 import Data.Maybe (isJust)
+import Data.Time (Day, showGregorian)
 
-#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (Day, defaultTimeLocale, formatTime, showGregorian)
-#else
-import Data.Time (Day, formatTime, showGregorian)
-import System.Locale (defaultTimeLocale)
-#endif
+import Formatting ((%), sformat)
+import Formatting.Time (dayName, dayOfMonthS, monthName, year)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
@@ -117,13 +114,14 @@ renderDateSchedule date sched@Schedule{..} =
               then "one day"
               else toHtml (showInt scDays <> " days")
 
-      dateStr = formatTime defaultTimeLocale "%A, %B %e, %Y" date 
+      dateTxt = sformat (dayName <> ", " % monthName <> " "
+                        % dayOfMonthS <> ", " % year) date
 
       bodyBlock = p (
         "This page shows "
         <> hdays
         <> " of the Chandra schedule either side of "
-        <> toHtml dateStr
+        <> toHtml dateTxt
         <> scienceTime
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"

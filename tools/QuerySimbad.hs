@@ -175,7 +175,7 @@ querySIMBAD sloc f objname = do
       --       that make Simbad matches fail
       searchTerm = cleanTargetName objname
 
-  when f (putStrLn ">> Script:" >> print script)
+  when f (T.putStrLn ">> Script:" >> print script)
 
   cTime <- getCurrentTime
 
@@ -197,10 +197,10 @@ querySIMBAD sloc f objname = do
       dropUntilNext c = drop 1 . dropWhile (not . c)
       ls = dropWhile T.null $ dropUntilNext (("::data::" :: T.Text) `T.isPrefixOf`) (T.lines body)
 
-  when f (putStrLn ">> Response:" >> T.putStrLn body >> putStrLn ">> object info:" >> print ls)
+  when f (T.putStrLn ">> Response:" >> T.putStrLn body >> T.putStrLn ">> object info:" >> print ls)
   let rval = listToMaybe ls >>= parseObject 
   -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) (putStrLn " -- no match found" >> putStrLn " -- response:" >> T.putStrLn body)
+  when (isNothing rval) (T.putStrLn " -- no match found" >> T.putStrLn " -- response:" >> T.putStrLn body)
 
   let searchRes = (objname, searchTerm, cTime)
 
@@ -228,8 +228,8 @@ parseObject txt =
       Just (cleanupName name, toT otype3, otype)
     _ -> Nothing
 
-slen :: [a] -> String
-slen = show . length
+slen :: [a] -> T.Text
+slen = sformat int . length
 
 {-
 -- | Given a "sorted" list (on a), return
@@ -296,10 +296,10 @@ blag f = when f . putIO
 updateDB :: SimbadLoc -> Maybe Int -> Bool -> IO ()
 updateDB sloc mndays f = withSocketsDo $ do
   case sloc of
-    SimbadCfA -> putStrLn "# Using CfA SIMBAD mirror"
-    SimbadCDS -> putStrLn "# Using CDS SIMBAD"
+    SimbadCfA -> T.putStrLn "# Using CfA SIMBAD mirror"
+    SimbadCDS -> T.putStrLn "# Using CDS SIMBAD"
 
-  putStrLn "# Querying the database"
+  T.putStrLn "# Querying the database"
 
   obs <- runDb (project SoTargetField
                 (CondEmpty `orderBy` [Asc SoTargetField]
@@ -311,9 +311,9 @@ updateDB sloc mndays f = withSocketsDo $ do
 
   -- these numbers aren't that useful, since the number of
   -- obsids and targets aren't the same, but leave for now
-  putStrLn ("# " ++ slen obs ++ " obsids / " ++ 
-            slen matchTargets ++ " targets " ++
-            slen noMatchTargets ++ " no match ")
+  T.putStrLn ("# " <> slen obs <> " obsids / " <>
+              slen matchTargets <> " targets " <>
+              slen noMatchTargets <> " no match ")
 
   -- Do steps A and B - ie identify those fields for which
   -- we have no Simbad information.
@@ -332,7 +332,7 @@ updateDB sloc mndays f = withSocketsDo $ do
 
       -- tgs = filter ((`S.member` unidSet) . fst) allTgs
 
-  putStrLn ("# -> " ++ show (S.size unidSet) ++ " have no Simbad info")
+  T.putStrLn ("# -> " <> showInt (S.size unidSet) <> " have no Simbad info")
 
   -- Could do all the database changes at once, but let's see
   -- how this works out.
@@ -375,7 +375,7 @@ updateDB sloc mndays f = withSocketsDo $ do
           -- that it's doing what I want.
           --
           when cleanFlag $ do
-            liftIO (putStrLn "&&&&& deleting something")
+            liftIO (T.putStrLn "&&&&& deleting something")
             delete (SmnTargetField ==. smiName si)
       
         _ -> do
@@ -415,9 +415,9 @@ updateOldRecords :: SimbadLoc -> Maybe Int -> Bool -> IO ()
 updateOldRecords _ Nothing _ = return ()
 updateOldRecords sloc (Just ndays) f = do
 
-  putStrLn "\n"
-  putStrLn ">>> Searching for old and updated records"
-  putStrLn (">>>   ndays = " ++ show ndays)
+  T.putStrLn "\n"
+  T.putStrLn ">>> Searching for old and updated records"
+  T.putStrLn (">>>   ndays = " <> showInt ndays)
 
   noMatchFields <- runDb (select (CondEmpty
                                   `orderBy`
@@ -443,8 +443,8 @@ updateOldRecords sloc (Just ndays) f = do
                                     smnSearchTerm
       changed = filter isChanged (dropWhile isOld noMatchFields)
 
-  putStrLn ("# Old queries to be redone: " ++ show (length old))
-  putStrLn ("# Changed queries: "          ++ show (length changed))
+  T.putStrLn ("# Old queries to be redone: " <> (slen old))
+  T.putStrLn ("# Changed queries: "          <> (slen changed))
 
   -- This is *very* similar to the previous version
   forM_ (old ++ changed) $ 
@@ -460,7 +460,7 @@ updateOldRecords sloc (Just ndays) f = do
           blag f (">> Adding SimbadInfo for " <> smiName si)
           (key, cleanFlag) <- insertSimbadInfo si
           when cleanFlag
-            (liftIO (putStrLn "&&&&&&& errr, need to delete something"))
+            (liftIO (T.putStrLn "&&&&&&& errr, need to delete something"))
           blag f (">> and SimbadMatch with target=" <> tname)
           void (insertSimbadMatch (toM searchRes key))
 

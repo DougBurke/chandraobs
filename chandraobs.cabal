@@ -54,6 +54,7 @@ library
      , blaze-html >= 0.7 && < 0.9
      , bytestring == 0.10.*
      , containers >= 0.4 && < 0.6
+     , formatting == 6.2.*
      -- seem to have some trouble with groundhog 0.5.0 and ghc 7.8.4
      , groundhog >= 0.5.1 && < 0.8
      , groundhog-postgresql >= 0.5 && < 0.8
@@ -115,6 +116,7 @@ executable webserver
      , containers
      , chandraobs
      , data-default >= 0.5 && < 0.7
+     , formatting
      , groundhog
      , groundhog-postgresql
      , heroku == 0.1.*
@@ -151,6 +153,7 @@ executable initdb
      base
      , chandraobs
      , containers
+     , formatting
      , groundhog-postgresql
      , parsec == 3.1.*
      , template-haskell >= 2.8 && < 3.0

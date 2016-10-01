@@ -5,7 +5,7 @@
 
 module Views.Proposal (matchPage) where
 
-import Prelude (($), (==), length, show)
+import Prelude ((==), length)
 
 import Data.Either (rights)
 import Data.Monoid ((<>), mconcat)
@@ -17,7 +17,7 @@ import Types (Proposal(..)
               , ScienceObs(..)
               , Schedule
               )
-import Utils (abstractLink, categoryLinkSearch, schedToList)
+import Utils (abstractLink, categoryLinkSearch, schedToList, showInt)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage)
 
@@ -42,7 +42,7 @@ renderProposal Proposal{..} sched =
       nobs = length obsList
       count = if nobs == 1
               then "consists of one observation"
-              else "contains " <> toHtml (show nobs) <> " observations"
+              else "contains " <> toHtml (showInt nobs) <> " observations"
 
       -- TODO: can we create a link just from the proposal number?
       --       probably not, since the links I am using take you to per-ObsId
@@ -53,18 +53,17 @@ renderProposal Proposal{..} sched =
                  in (a ! href uri) hName
        _ ->  hName
 
-      explain = p $ mconcat
-                [ "The proposal, "
-                , abstxt
-                , ", "
-                , count
-                , ". It is a cycle "
-                , toHtml propCycle
-                , " "
-                , toHtml propType
-                , " observation, and was submitted to the "
-                , catLink
-                , " category."
-                ]
+  in p (mconcat
+        [ "The proposal, "
+        , abstxt
+        , ", "
+        , count
+        , ". It is a cycle "
+        , toHtml propCycle
+        , " "
+        , toHtml propType
+        , " observation, and was submitted to the "
+        , catLink
+        , " category."
+        ])
 
-  in explain

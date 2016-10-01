@@ -29,9 +29,10 @@ import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day)
 
+import Formatting
+
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
-import Text.Printf
 
 import Types (Schedule, TimeKS(..), Instrument, Grating(..)
              , showExpTime, addTimeKS
@@ -216,7 +217,7 @@ renderBreakdown total perDay =
       frac :: TimeKS -> T.Text
       frac t =
         let v = 100 * _toKS t / totalTime
-        in T.pack (printf "%.2f" v)
+        in sformat (fixed 2) v
 
       tbl lbl f xs = standardTable $ do
         thead $ tr $ do

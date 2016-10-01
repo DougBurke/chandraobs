@@ -47,12 +47,17 @@ import Database.Groundhog.Postgresql
 import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
+import Formatting (int, sformat)
+
 import Database (addScheduleItem
                 , cleanDataBase
                 , updateLastModified
                 , reportSize, putIO, runDb)
 import HackData (STS, stsList)
 import Types
+
+showInt :: Int -> T.Text
+showInt = sformat int
 
 -- | Given a schedule item, add it to the database if there is
 --   no matching observation already in the database.
@@ -64,7 +69,7 @@ addSTS ::
 addSTS sts = do
   flag <- addScheduleItem sts
   let obsid = fromObsId (siObsId (fst sts))
-  when flag (liftIO (putStrLn (" - inserted si: " ++ show obsid)))
+  when flag (putIO (" - inserted si: " <> showInt obsid))
 
 main :: IO ()
 main = 
@@ -97,7 +102,7 @@ main =
     n4 <- countAll (undefined :: Proposal)
 
     let report lbl na nb =
-          let ndiff = T.pack (show (nb - na))
+          let ndiff = showInt (nb - na)
           in when (na /= nb)
              (putIO ("# Number of " <> lbl <> " increased by " <> ndiff))
 

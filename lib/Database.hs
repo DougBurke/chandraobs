@@ -135,7 +135,6 @@ import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (foldl', group, groupBy, nub, sortBy)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isNothing, listToMaybe, mapMaybe)
-import Data.Monoid ((<>))
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
@@ -143,6 +142,8 @@ import Database.Groundhog.Core (PersistEntity, EntityConstr,
                                 DbDescriptor, RestrictionHolder)
 import Database.Groundhog.Core (distinct)
 import Database.Groundhog.Postgresql
+
+import Formatting hiding (now)
 
 import Types
 
@@ -1773,12 +1774,12 @@ putIO = liftIO . T.putStrLn
 
 showSize ::
   (DbIO m, PersistEntity v)
-  => String
+  => T.Text
   -> v
   -> m Int
 showSize l t = do
   n <- countAll t
-  putIO ("Number of " <> T.pack l <> " : " <> T.pack (show n))
+  putIO (sformat ("Number of " % stext % " : " % int) l n)
   return n
 
 -- | Quick on-screen summary of the database size.
@@ -1796,24 +1797,25 @@ reportSize = do
   -- break down the status field of the scheduled observations
   putIO ""
   ns <- findObsStatusTypes
+  let field = right 10 ' '
   forM_ ns (\(status, n) ->
-             putIO ("  status=" <> status <> "  : " <> T.pack (show n)))
-  putIO (" -> total = " <> T.pack (show (sum (map snd ns))))
+             putIO (sformat ("  status=" % field % "  : " % int) status n))
+  putIO (sformat (" -> total = " % int) (sum (map snd ns)))
   putIO ""
 
   -- unscheduled observations
   nuns <- count (SoStartTimeField ==. futureTime)
-  putIO ("  un-scheduled science obs      = " <> T.pack (show nuns))
+  putIO (sformat ("  un-scheduled science obs      = " % int) nuns)
   
   -- non-science breakdown
   ns1 <- count notFromObsCat
   ns2 <- count (Not notNsDiscarded)
-  putIO ("  non-science (not from obscat) = " <> T.pack (show ns1))
-  putIO ("  non-science discarded         = " <> T.pack (show ns2))
+  putIO (sformat ("  non-science (not from obscat) = " % int) ns1)
+  putIO (sformat ("  non-science discarded         = " % int) ns2)
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
   putIO ""
-  putIO ("Number of rows              : " <> T.pack (show ntot))
+  putIO (sformat ("Number of rows              : " % int) ntot)
   return ntot
 
 -- Need to make sure the following match the constraints on the tables found

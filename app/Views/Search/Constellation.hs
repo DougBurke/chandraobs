@@ -7,7 +7,7 @@ module Views.Search.Constellation (indexPage, matchPage) where
 import qualified Prelude as P
 import Prelude (($), (==),
                 compare, fst, length, lookup, mapM_,
-                show, otherwise)
+                otherwise)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as LB8
@@ -34,6 +34,7 @@ import Utils (constellationLinkSearch
              , getNumObs
              , getScienceTime
              , floatableTable
+             , showInt
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (extraSchedulePage
@@ -133,7 +134,7 @@ renderList cons =
         0 -> "and has a target in each constellation"
         1 -> "and is missing one constellation, namely "
              <> toHtml (P.head missing)
-        nm -> "and is missing " <> toHtml (show nm)
+        nm -> "and is missing " <> toHtml (showInt nm)
               <> " constellations: "
               <> toHtml (T.intercalate "," missing)
 

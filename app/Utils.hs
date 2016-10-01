@@ -66,6 +66,9 @@ import qualified Data.ByteString as B
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
+import qualified Formatting as F
+import qualified Formatting.Time as FT
+
 import qualified Text.Blaze.Internal as Blaze
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -88,6 +91,7 @@ import Data.Monoid ((<>))
 #endif
 
 import Data.Text.Encoding (encodeUtf8)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime)
 
 import Network.HTTP.Types.URI (encodePath
                               , encodePathSegments
@@ -98,13 +102,6 @@ import System.Random (Random(..), getStdRandom)
 import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
-
-#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, defaultTimeLocale, diffUTCTime, formatTime)
-#else
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, formatTime)
-import System.Locale (defaultTimeLocale)
-#endif
 
 import Git (CommitId, fromCommitId)
 import Types (ScienceObs(..), ObsIdVal(..)
@@ -139,7 +136,7 @@ obsURI :: ObsIdVal -> H.AttributeValue
 obsURI = H.toValue . obsURIString
 
 obsURIString :: ObsIdVal -> T.Text
-obsURIString (ObsIdVal oi) = "/obsid/" <> T.pack (show oi)
+obsURIString (ObsIdVal oi) = "/obsid/" <> showInt oi
 
 fromBlaze :: H.Html -> ActionM ()
 fromBlaze = html . renderHtml
@@ -209,13 +206,18 @@ getTimeElems t1 t2 =
 -- | Report a day that's more than about a week in the
 --   future or past.
 showTime :: UTCTime -> T.Text
-showTime = T.pack . formatTime defaultTimeLocale "%A, %B %e, %Y"
-
+showTime =
+  -- this is the equivalent of
+  --    formatTime defaultTimeLocale "%A, %B %e, %Y"
+  let tfmt = FT.dayName <> ", " F.% FT.monthName <> " "
+             F.% FT.dayOfMonthS <> ", " F.% FT.year
+  in F.sformat tfmt
+     
 -- This could be more generic, but trying to identify where
 -- specific conversions are needed for Text.
 --
-showInt :: (Show a, Integral a) => a -> T.Text
-showInt = T.pack . show
+showInt :: Integral a => a -> T.Text
+showInt = F.sformat F.int
 
 -- | Come up with a string representing the time difference. It
 --   is probably not general enough, since it adds in a
@@ -233,9 +235,14 @@ showTimeDeltaFwd ::
 showTimeDeltaFwd t1 c2@(ChandraTime t2) = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
-      mins = "in " <> showInt nm <> " minute" <> plural nm
-      hours = "in " <> showInt nh <> " hour" <> plural nh
-      days = "in " <> showInt nd <> " day" <> plural nd
+      -- TODO: look at F.plural
+      toTxt n lbl =
+        F.sformat ("in " F.% F.int F.% " " F.% F.stext F.% F.stext)
+        n lbl (plural n)
+      
+      mins = toTxt nm "minute"
+      hours = toTxt nh "hour"
+      days = toTxt nd "day"
       other = showTime t2
 
   in if c2 == futureTime
@@ -260,9 +267,14 @@ showTimeDeltaBwd ::
 showTimeDeltaBwd (ChandraTime t1) t2 = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
-      mins = showInt nm <> " minute" <> plural nm <> " ago"
-      hours = showInt nh <> " hour" <> plural nh <> " ago"
-      days = showInt nd <> " day" <> plural nd <> " ago"
+      -- TODO: look at F.plural
+      toTxt n lbl =
+        F.sformat (F.int F.% " " F.% F.stext F.% F.stext F.% " ago")
+        n lbl (plural n)
+      
+      mins = toTxt nm "minute"
+      hours = toTxt nh "hour"
+      days = toTxt nd "day"
       other = showTime t1
 
   in if delta < 60
@@ -449,7 +461,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       subArray = do
         start <- soSubArrayStart
         nrow <- soSubArraySize
-        return $ keyVal "Sub Array:" $ H.toHtml ("Start: " ++ show start ++ " Rows: " ++ show nrow)
+        return $ keyVal "Sub Array:" $ H.toHtml ("Start: " <> showInt start <> " Rows: " <> showInt nrow)
 
       -- bundle several items into a single line
       propInfo Proposal {..} =
@@ -492,7 +504,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           , keyVal "Right Ascension:" (H.toHtml soRA)
           -- rely on the ToMarkup instance of Dec
           , keyVal "Declination:" (H.toHtml soDec)
-          , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- this should be \u00b0, the degree symbol
+          , keyVal "Roll:" (H.toHtml soRoll <> "\176") -- aka \u00b0, the degree symbol
           , fromMaybe mempty $ keyVal "Constellation:" <$> conLink soConstellation
           , jointElems
           , constraintElems
@@ -594,7 +606,7 @@ getTimes rs =
 getFact :: IO H.Html
 getFact = do
   n <- getStdRandom (randomR (0, length facts - 1))
-  return $ facts !! n
+  return (facts !! n)
 
 facts :: [H.Html]
 facts = [
@@ -850,7 +862,6 @@ makeETag cid path lastMod =
       -- be unique enough for our needs.
       --
       -- I doubt the use of %Q is needed, but support it just in case.
-      -- time = formatTime defaultTimeLocale "%s%Q" lastMod
       --
       -- The ETag is meant to be opaque; one way to do this is to
       -- use base 64 encoding, but for our purposes this seems overkill;
@@ -860,10 +871,10 @@ makeETag cid path lastMod =
       -- The path isn't really needed, but include some version of it
       -- for "fun".
       --
-      time = formatTime defaultTimeLocale "%s%Q" lastMod
-      pathTxt = T.pack (show (T.length path))
+      time = F.sformat (FT.epoch <> FT.pico) lastMod
+      pathTxt = showInt (T.length path)
       dquot = "\""
-      txt = dquot <> T.take 8 cval <> pathTxt <> T.pack time <> dquot
+      txt = dquot <> T.take 8 cval <> pathTxt <> time <> dquot
   in LT.fromStrict txt
 
 -- | Perhaps should use HTTPDate here, but unsure about the
@@ -873,17 +884,22 @@ makeETag cid path lastMod =
 -- (assume that the RFC822 format is enough, too lazy to look to
 -- see what the additions in RFC1123 are)
 --
--- Unfortunately ghc 7.8 doesn't export rfc822DateFormat so can
--- not say
---   LT.pack . formatTime defaultTimeLocale rfc822DateFormat
--- and it's not worth hiding this within a CPP conditional
--- (in part as I can not be bothered to look up when it was added to
--- base). I also change from padding with spaces to zero padding
--- for the day number, as I thought that was the intended behavior
+-- Would it be worth proposing rfc822DateFormat to formatting
+-- (and have I exactly captured this RFC here)?
 --
 timeToRFC1123 :: UTCTime -> LT.Text
 timeToRFC1123 =
-  -- let rfc822DateFormat = "%a, %_d %b %Y %H:%M:%S %Z"
-  let rfc822DateFormat = "%a, %d %b %Y %H:%M:%S %Z"
-  in LT.pack . formatTime defaultTimeLocale rfc822DateFormat
+  let tfmt = FT.dayNameShort <> ", "
+             F.% FT.dayOfMonth <> " "
+             F.% FT.monthNameShort <> " "
+             F.% FT.year <> " "
+             F.% FT.hms <> " "
+             F.% FT.tzName
+  in F.format tfmt
 
+-- This was
+--  -- let rfc822DateFormat = "%a, %_d %b %Y %H:%M:%S %Z"
+--  let rfc822DateFormat = "%a, %d %b %Y %H:%M:%S %Z"
+--  in LT.pack . formatTime defaultTimeLocale rfc822DateFormat
+--
+-- note ghc 7.8 does not export rfc822DateFormat

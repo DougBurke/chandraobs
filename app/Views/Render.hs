@@ -13,7 +13,7 @@ module Views.Render (standardSchedulePage
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+)
                , Int, Integer, Either(..), Maybe(..)
-               , fmap, map, mapM_, maybe, not, return, show, truncate)
+               , fmap, map, mapM_, maybe, not, return, truncate)
 
 #if (defined(__GLASGOW_HASKELL__)) && (__GLASGOW_HASKELL__ >= 710)
 import Prelude ((<$>), mconcat, mempty)
@@ -75,6 +75,7 @@ import Utils (obsURIString
              , defaultMeta, skymapMeta
              , renderFooter
              , cssLink
+             , showInt
              )
 
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -82,7 +83,7 @@ import Views.Record (CurrentPage(..), mainNavBar)
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
 idLabel :: Record -> T.Text
-idLabel = ("i" <>) . T.pack . show . fromObsId . recordObsId
+idLabel = ("i" <>) . showInt . fromObsId . recordObsId
 
 -- | Take the joint-with field and create an entry for
 --   it.
