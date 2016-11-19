@@ -1072,9 +1072,13 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
     isBool True = "yes"
     isBool _ = "no"
 
+    -- If it is HRC the soDataMode will be Nothing. This is okay.
+    -- I am not sure if we can have ACIS data with soDataMode equal to
+    -- Nothing, so add a check here, just in case.
+    --
     notCC = case soDataMode of
       Just mode -> not ("CC" `T.isPrefixOf` mode)
-      Nothing -> False
+      Nothing -> soInstrument `elem` [HRCI, HRCS]
 
     -- Isn't this the logic of the Ord typeclass for Maybe?
     isPublic = case soPublicRelease of
