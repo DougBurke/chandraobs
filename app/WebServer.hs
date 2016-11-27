@@ -3,21 +3,6 @@
 {-# Language RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 
-{-
-TODO: when all tables are removed, get errors like
-
-% curl http://localhost:3000/index.html
-<h1>500 Internal Server Error</h1>user error (Postgresql.withStmt': bad result status FatalError ("PGRES_FATAL_ERROR"). Error message: ERROR:  relation "ScheduleItem" does not exist
-LINE 1: ...siScienceObs","siStart","siEnd","siDuration" FROM "ScheduleI...
-
-but it returns a 200 status !                                                             ^
-% curl -I http://localhost:3000/index.html
-HTTP/1.1 200 OK
-Date: Wed, 11 Jun 2014 19:56:35 GMT
-Server: Warp/2.1.5.2
-
--}
-
 -- TODO:
 --   provide cache information for JSON responses; could have a last-updated
 --   field in the database which is used to seed the last-Modified header,
@@ -266,7 +251,7 @@ webapp ::
     -> CacheContainer
     -> ScottyM ()
 webapp cm mgr scache = do
-    let liftSQL a = liftIO (runDbConn a cm)
+    let liftSQL a = liftAndCatchIO (runDbConn a cm)
 
     defaultHandler errHandle
 
@@ -897,7 +882,7 @@ errHandle :: L.Text -> ActionM ()
 errHandle txt = do
   liftIO (L.putStrLn ("Error string: " <> txt))
   fromBlaze NotFound.errPage
-  -- Can we change the HTTP status code? The following does not
+  -- Can we change the HTTP status code? The following does not seem to
   -- work.
   status status503
 
