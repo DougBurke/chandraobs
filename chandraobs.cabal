@@ -141,6 +141,33 @@ executable webserver
      build-depends:
        old-locale
 
+executable getschedule
+  main-is:             GetSchedule.hs
+  hs-source-dirs:      tools/
+  other-modules:       Parser
+                       
+  ghc-options: -Wall
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     , directory == 1.2.*
+     , formatting
+     , http-conduit
+     , network >= 2.4 && < 2.7
+     , parsec == 3.1.*
+     , tagsoup >= 0.13 && < 0.15
+     -- , template-haskell >= 2.8 && < 3.0
+     , text
+     -- , time
+     -- , transformers
+
+  else
+    buildable:  False
+
 executable initdb
   main-is:             InitDB.hs
   hs-source-dirs:      tools/
@@ -180,7 +207,7 @@ executable obscat
      , groundhog-postgresql
      -- TODO: what versions of http-conduit can we use
      , http-conduit == 2.1.*
-     , network >= 2.4 && < 2.7
+     , network
      , monad-logger
      , process >= 1.1 && < 1.5
      , split
@@ -208,6 +235,7 @@ executable querysimbad
      , bytestring
      , chandraobs
      , containers
+     , formatting
      , groundhog-postgresql
      , http-conduit
      , network

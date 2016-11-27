@@ -49,6 +49,8 @@ import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql
 
+import Formatting (int, sformat)
+
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
 
@@ -229,7 +231,11 @@ parseObject txt =
     _ -> Nothing
 
 slen :: [a] -> T.Text
-slen = sformat int . length
+slen = showInt . length
+
+showInt :: Int -> T.Text
+showInt = sformat int
+
 
 {-
 -- | Given a "sorted" list (on a), return
