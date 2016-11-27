@@ -95,6 +95,10 @@ module Database ( getCurrentObs
                 , notCancelled
                 , isScheduled
 
+                  -- do we really want to expose these?
+                , NumSrc
+                , NumObs
+                  
                 , SIMKey
                 , keyToPair
                   

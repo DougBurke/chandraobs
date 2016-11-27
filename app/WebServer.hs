@@ -87,7 +87,8 @@ import System.IO (hFlush, stderr)
 import Web.Heroku (dbConnParams)
 import Web.Scotty
 
-import Database (getCurrentObs, getRecord, getObsInfo
+import Database (NumObs, NumSrc, SIMKey
+                 , getCurrentObs, getRecord, getObsInfo
                  , getObsId
                  , getSchedule
                  , getScheduleDate
@@ -143,8 +144,10 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
+             , PropCategory
              -- , PropType(..)
              , Sequence(..)
+             , SIMCategory
              , SortedList, StartTimeOrder
              , TargetName
              , TimeKS(..)
@@ -385,66 +388,7 @@ webapp cm mgr scache = do
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
     --
-    get "/api/mappings" $ do
-      (mapping, lastMod) <- liftSQL getProposalObjectMapping
-
-      let names = M.keys mapping
-          propNames = nub (map fst names)
-          simKeys = nub (map (keyToPair . snd) names)
-          simNames = map fst simKeys
-
-          -- remove the object that would be created by the
-          -- ToJSON instance of SimbadType
-          toPair (k, v) = k .= fromSimbadType v
-          symbols = map toPair simKeys
-          
-          -- Need to provide unique numeric identifiers than
-          -- can be used to index into the 'nodes' array.
-          --
-          nprop = length propNames
-          zero = 0 :: Int
-          propMap = M.fromList (zip propNames [zero..])
-          simMap = M.fromList (zip simNames [nprop, nprop+1..])
-      
-          makeName n = object [ "name" .= n ]
-          getVal n m = fromJust (M.lookup n m)
-          
-          makeLink ((prop,skey), (texp, nsrc, nobs)) =
-            let stype = fst (keyToPair skey)
-            in object [ "source" .= getVal prop propMap
-                      , "target" .= getVal stype simMap
-                      , "totalExp" .= _toKS texp
-                      , "numSource" .= nsrc
-                      , "numObs" .= nobs ]
-
-          out = object [
-            "nodes" .= map makeName (propNames ++ simNames)
-            , "links" .= map makeLink (M.toList mapping)
-            , "proposals" .= propNames
-            , "simbadNames" .= simNames
-            , "simbadMap" .= object symbols
-            ]
-
-      -- If the code is not changed then the last-modified date
-      -- of the database is sufficient. However, there's no guarantee
-      -- that there isn't a change in the serialization code (e.g. above
-      -- or at a lower level, such as a type or type class), so I
-      -- should use an ETag. This also helps to handle the case where
-      -- the database is updated within a second (which, given the
-      -- current set up, is only an issue for the test server since
-      -- the "production" one on Heroku is not updated in the
-      -- same manner).
-      --
-      -- However, initial testing suggests that setting the ETag
-      -- doesn't work, whereas Last-Modified does. So for now go
-      -- with the working-but-technically-broken version.
-      --
-      -- Should I add some middleware that handles these checks for
-      -- these resources?
-      setHeader "Last-Modified" (timeToRFC1123 lastMod)
-      -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
-      
-      json out
+    get "/api/mappings" (apiMappings liftSQL)
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
@@ -885,6 +829,74 @@ errHandle txt = do
   -- Can we change the HTTP status code? The following does not seem to
   -- work.
   status status503
+
+
+apiMappings ::
+  PersistBackend m
+  => (m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
+      -> ActionM (M.Map (SIMCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime))
+  -> ActionM ()
+apiMappings liftSQL = do
+  (mapping, lastMod) <- liftSQL getProposalObjectMapping
+
+  let names = M.keys mapping
+      propNames = nub (map fst names)
+      simKeys = nub (map (keyToPair . snd) names)
+      simNames = map fst simKeys
+
+      -- remove the object that would be created by the
+      -- ToJSON instance of SimbadType
+      toPair (k, v) = k .= fromSimbadType v
+      symbols = map toPair simKeys
+      
+      -- Need to provide unique numeric identifiers than
+      -- can be used to index into the 'nodes' array.
+      --
+      nprop = length propNames
+      zero = 0 :: Int
+      propMap = M.fromList (zip propNames [zero..])
+      simMap = M.fromList (zip simNames [nprop, nprop+1..])
+  
+      makeName n = object [ "name" .= n ]
+      getVal n m = fromJust (M.lookup n m)
+      
+      makeLink ((prop,skey), (texp, nsrc, nobs)) =
+        let stype = fst (keyToPair skey)
+        in object [ "source" .= getVal prop propMap
+                  , "target" .= getVal stype simMap
+                  , "totalExp" .= _toKS texp
+                  , "numSource" .= nsrc
+                  , "numObs" .= nobs ]
+
+      out = object [
+        "nodes" .= map makeName (propNames ++ simNames)
+        , "links" .= map makeLink (M.toList mapping)
+        , "proposals" .= propNames
+        , "simbadNames" .= simNames
+        , "simbadMap" .= object symbols
+        ]
+
+  -- If the code is not changed then the last-modified date
+  -- of the database is sufficient. However, there's no guarantee
+  -- that there isn't a change in the serialization code (e.g. above
+  -- or at a lower level, such as a type or type class), so I
+  -- should use an ETag. This also helps to handle the case where
+  -- the database is updated within a second (which, given the
+  -- current set up, is only an issue for the test server since
+  -- the "production" one on Heroku is not updated in the
+  -- same manner).
+  --
+  -- However, initial testing suggests that setting the ETag
+  -- doesn't work, whereas Last-Modified does. So for now go
+  -- with the working-but-technically-broken version.
+  --
+  -- Should I add some middleware that handles these checks for
+  -- these resources?
+  setHeader "Last-Modified" (timeToRFC1123 lastMod)
+  -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
+  
+  json out
+
 
 -- TODO: move into a separate module once it works
 -- TODO: should cache the http manager
