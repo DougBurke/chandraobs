@@ -208,8 +208,7 @@ executable obscat
      , containers
      -- , containers >= 0.4 && < 0.6
      , groundhog-postgresql
-     -- TODO: what versions of http-conduit can we use
-     , http-conduit == 2.1.*
+     , http-conduit >= 2.1 && < 2.3
      , network
      , monad-logger
      , process >= 1.1 && < 1.5
