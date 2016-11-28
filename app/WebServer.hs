@@ -52,7 +52,6 @@ import Control.Applicative ((<$>))
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Logger (NoLoggingT)
 
 import Data.Aeson(Value, (.=), object)
 import Data.Default (def)
@@ -62,7 +61,6 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
 
-import Database.Groundhog.Core (DbPersist)
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , PersistBackend
                                      , runDbConn
@@ -374,7 +372,8 @@ webapp cm mgr scache = do
       --       thought on how the search functionality should work
       json (nub (exact ++ other))
     
-    get "/api/search/proposal" (apiSearchProposal dbQuery)
+    get "/api/search/proposal" (apiSearchProposal
+                                (dbQuery "term" findProposalNameMatch))
 
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
@@ -777,13 +776,18 @@ errHandle txt = do
   status status503
 
 
+{-
 apiSearchProposal ::
   (L.Text
    -> (String -> DbPersist Postgresql (NoLoggingT IO) [(T.Text, PropNum)])
    -> ActionM (String, [(T.Text, PropNum)]))
   -> ActionM ()
-apiSearchProposal dbQuery = do
-  (_, matches) <- dbQuery "term" findProposalNameMatch
+-}
+apiSearchProposal ::
+  ActionM (String, [(T.Text, PropNum)])
+  -> ActionM ()
+apiSearchProposal getData = do
+  (_, matches) <- getData
   -- for now, explicitly convert the PropNum field to an integer
   -- for easy serialization, but maybe this should be the default
   -- ToJSON serialization?
