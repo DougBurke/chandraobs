@@ -52,7 +52,7 @@ import Control.Applicative ((<$>))
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
--- import Control.Monad.Logger (NoLoggingT)
+import Control.Monad.Logger (NoLoggingT)
 
 import Data.Aeson(Value, (.=), object)
 import Data.Default (def)
@@ -62,7 +62,7 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
 
--- import Database.Groundhog.Core (DbPersist)
+import Database.Groundhog.Core (DbPersist)
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , PersistBackend
                                      , runDbConn
@@ -148,7 +148,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              -- , PropType(..)
              , Sequence(..)
              , SIMCategory
-             , SortedList, StartTimeOrder
+             , SortedList, StartTimeOrder, ExposureTimeOrder
              , TargetName
              , TimeKS(..)
              , ChandraTime(..)
@@ -375,15 +375,7 @@ webapp cm mgr scache = do
       --       thought on how the search functionality should work
       json (nub (exact ++ other))
     
-    get "/api/search/proposal" $ do
-      (_, matches) <- dbQuery "term" findProposalNameMatch
-      -- for now, explicitly convert the PropNum field to an integer
-      -- for easy serialization, but maybe this should be the default
-      -- ToJSON serialization?
-      let out = fmap conv matches
-          conv (title, pnum) = object [ "title" .= title
-                                      , "number" .= _unPropNum pnum ]
-      json out
+    get "/api/search/proposal" (apiSearchProposal dbQuery)
 
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
@@ -392,55 +384,10 @@ webapp cm mgr scache = do
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
-    get "/api/timeline" $ do
-
-      -- ((stlime, nstline, props), lastMod) <- liftSQL getTimeline
-      -- (stline, nstline, objects, props) <- liftSQL getTimeline
-      (stline, nstline, simbadMap, props) <- liftSQL getTimeline
-      tNow <- liftIO getCurrentTime
-      
-      -- What information do we want - e.g. Simbad type?
-      --
-      let propMap = M.fromList (map (\p -> (propNum p, p)) props)
-          fromSO = fromScienceObs propMap simbadMap tNow
-          
-          sitems = fmap fromSO stline
-          nsitems = fmap fromNonScienceObs nstline
-
-          -- Use the time value, already pulled out by from*Science,
-          -- to merge the records. This saves having to query the
-          -- JSON itself.
-          items = fmap snd (mergeSL fst sitems nsitems)
-          
-      -- As we keep changing the structure of the JSON, using the
-      -- last-modified date in the header does not work well (although
-      -- it's use does at least validate that the caching was doing
-      -- something). The inclusion of the isPublic field complicates
-      -- the cacheing, so turn it off for now.
-      --
-      -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
-      -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
-
-      json (object ["items" .= fromSL items])
+    get "/api/timeline" (apiTimeline liftSQL)
 
     -- highly experimental
-    get "/api/exposures" $ do
-      pairs <- liftSQL getExposureValues
-      let toPair (cyc, vals) =
-            let ts = map _toKS (fromSL vals)
-                allTime = showExpTime (TimeKS (sum ts))
-            in 
-              cyc .= object
-              [ "cycle" .= cyc
-              , "units" .= ("ks" :: T.Text)
-              , "length" .= length ts
-              , "totalTime" .= allTime
-              , "times" .= ts
-              ]
-
-          out = object (map toPair pairs)
-      json out
-
+    get "/api/exposures" (apiExposures liftSQL)
     
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")
@@ -831,6 +778,22 @@ errHandle txt = do
   status status503
 
 
+apiSearchProposal ::
+  (L.Text
+   -> (String -> DbPersist Postgresql (NoLoggingT IO) [(T.Text, PropNum)])
+   -> ActionM (String, [(T.Text, PropNum)]))
+  -> ActionM ()
+apiSearchProposal dbQuery = do
+  (_, matches) <- dbQuery "term" findProposalNameMatch
+  -- for now, explicitly convert the PropNum field to an integer
+  -- for easy serialization, but maybe this should be the default
+  -- ToJSON serialization?
+  let out = fmap conv matches
+      conv (title, pnum) = object [ "title" .= title
+                                  , "number" .= _unPropNum pnum ]
+  json out
+
+
 apiMappings ::
   PersistBackend m
   => (m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
@@ -895,6 +858,72 @@ apiMappings liftSQL = do
   setHeader "Last-Modified" (timeToRFC1123 lastMod)
   -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
   
+  json out
+ 
+
+apiTimeline ::
+  PersistBackend m
+  => (m (SortedList StartTimeOrder ScienceObs,
+         SortedList StartTimeOrder NonScienceObs,
+         M.Map TargetName SimbadInfo,
+         [Proposal])
+      -> ActionM (SortedList StartTimeOrder ScienceObs,
+                  SortedList StartTimeOrder NonScienceObs,
+                  M.Map TargetName SimbadInfo,
+                  [Proposal]))
+  -> ActionM ()
+apiTimeline liftSQL = do
+
+  -- ((stlime, nstline, props), lastMod) <- liftSQL getTimeline
+  -- (stline, nstline, objects, props) <- liftSQL getTimeline
+  (stline, nstline, simbadMap, props) <- liftSQL getTimeline
+  tNow <- liftIO getCurrentTime
+  
+  -- What information do we want - e.g. Simbad type?
+  --
+  let propMap = M.fromList (map (\p -> (propNum p, p)) props)
+      fromSO = fromScienceObs propMap simbadMap tNow
+      
+      sitems = fmap fromSO stline
+      nsitems = fmap fromNonScienceObs nstline
+
+      -- Use the time value, already pulled out by from*Science,
+      -- to merge the records. This saves having to query the
+      -- JSON itself.
+      items = fmap snd (mergeSL fst sitems nsitems)
+      
+  -- As we keep changing the structure of the JSON, using the
+  -- last-modified date in the header does not work well (although
+  -- it's use does at least validate that the caching was doing
+  -- something). The inclusion of the isPublic field complicates
+  -- the cacheing, so turn it off for now.
+  --
+  -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
+  -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
+
+  json (object ["items" .= fromSL items])
+
+
+apiExposures ::
+  PersistBackend m
+  => (m [(T.Text, SortedList ExposureTimeOrder TimeKS)]
+      -> ActionM [(T.Text, SortedList ExposureTimeOrder TimeKS)])
+  -> ActionM ()
+apiExposures liftSQL = do
+  pairs <- liftSQL getExposureValues
+  let toPair (cyc, vals) =
+        let ts = map _toKS (fromSL vals)
+            allTime = showExpTime (TimeKS (sum ts))
+        in 
+          cyc .= object
+          [ "cycle" .= cyc
+          , "units" .= ("ks" :: T.Text)
+          , "length" .= length ts
+          , "totalTime" .= allTime
+          , "times" .= ts
+          ]
+
+      out = object (map toPair pairs)
   json out
 
 
