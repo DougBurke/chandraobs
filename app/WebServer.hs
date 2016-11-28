@@ -144,7 +144,6 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
-             , PropCategory
              -- , PropType(..)
              , Sequence(..)
              , SIMCategory
@@ -380,14 +379,14 @@ webapp cm mgr scache = do
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
     --
-    get "/api/mappings" (apiMappings liftSQL)
+    get "/api/mappings" (apiMappings (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
-    get "/api/timeline" (apiTimeline liftSQL)
+    get "/api/timeline" (apiTimeline (liftSQL getTimeline))
 
     -- highly experimental
-    get "/api/exposures" (apiExposures liftSQL)
+    get "/api/exposures" (apiExposures (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
     get "/about.html" (redirect "/about/index.html")
@@ -795,12 +794,10 @@ apiSearchProposal dbQuery = do
 
 
 apiMappings ::
-  PersistBackend m
-  => (m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
-      -> ActionM (M.Map (SIMCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime))
+  ActionM (M.Map (SIMCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
   -> ActionM ()
-apiMappings liftSQL = do
-  (mapping, lastMod) <- liftSQL getProposalObjectMapping
+apiMappings getData = do
+  (mapping, lastMod) <- getData
 
   let names = M.keys mapping
       propNames = nub (map fst names)
@@ -862,21 +859,14 @@ apiMappings liftSQL = do
  
 
 apiTimeline ::
-  PersistBackend m
-  => (m (SortedList StartTimeOrder ScienceObs,
-         SortedList StartTimeOrder NonScienceObs,
-         M.Map TargetName SimbadInfo,
-         [Proposal])
-      -> ActionM (SortedList StartTimeOrder ScienceObs,
-                  SortedList StartTimeOrder NonScienceObs,
-                  M.Map TargetName SimbadInfo,
-                  [Proposal]))
+  ActionM (SortedList StartTimeOrder ScienceObs,
+           SortedList StartTimeOrder NonScienceObs,
+           M.Map TargetName SimbadInfo,
+           [Proposal])
   -> ActionM ()
-apiTimeline liftSQL = do
+apiTimeline getData = do
 
-  -- ((stlime, nstline, props), lastMod) <- liftSQL getTimeline
-  -- (stline, nstline, objects, props) <- liftSQL getTimeline
-  (stline, nstline, simbadMap, props) <- liftSQL getTimeline
+  (stline, nstline, simbadMap, props) <- getData
   tNow <- liftIO getCurrentTime
   
   -- What information do we want - e.g. Simbad type?
@@ -905,12 +895,10 @@ apiTimeline liftSQL = do
 
 
 apiExposures ::
-  PersistBackend m
-  => (m [(T.Text, SortedList ExposureTimeOrder TimeKS)]
-      -> ActionM [(T.Text, SortedList ExposureTimeOrder TimeKS)])
+  ActionM [(T.Text, SortedList ExposureTimeOrder TimeKS)]
   -> ActionM ()
-apiExposures liftSQL = do
-  pairs <- liftSQL getExposureValues
+apiExposures getData = do
+  pairs <- getData
   let toPair (cyc, vals) =
         let ts = map _toKS (fromSL vals)
             allTime = showExpTime (TimeKS (sum ts))
