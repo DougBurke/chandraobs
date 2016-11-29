@@ -298,20 +298,9 @@ webapp cm mgr scache = do
     -- excessive here; probably just need the preceeding and
     -- next obsid values (if any), but leave as is for now.
     --
-    get "/api/current" $ do
-      -- note: this is creating/throwing away a bunch of info that could be useful
-      mrec <- liftSQL getCurrentObs
-      let rval o = json ("Success" :: T.Text, fromObsId o)
-      case mrec of
-        Just (Left ns) -> rval (nsObsId ns)
-        Just (Right so) -> rval (soObsId so)
-        _ -> json ("Failed" :: T.Text)
+    get "/api/current" (apiCurrent (liftSQL getCurrentObs))
 
-    get "/api/obsid/:obsid" $ do
-      (obsid, mobs) <- queryObsidParam
-      case mobs of
-        Just v -> json ("Success" :: T.Text, v)
-        _ -> json ("Unknown ObsId" :: T.Text, obsid)
+    get "/api/obsid/:obsid" (apiObsId queryObsidParam)
 
     -- break down the monolithic queries into separate ones, which may or may not
     -- be a good idea
@@ -324,11 +313,8 @@ webapp cm mgr scache = do
         Just sim -> json ("Success" :: T.Text, sim)
         _ -> json ("Unknown Target" :: T.Text, name)
 
-    get "/api/proposal/:propnum" $ do
-      (propNum, mres) <- dbQuery "propnum" getProposalFromNumber
-      case mres of
-        Just res -> json ("Success" :: T.Text, res)
-        _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
+    get "/api/proposal/:propnum" (apiProposal
+                                  (dbQuery "propnum" getProposalFromNumber))
 
     get "/api/related/:propnum/:obsid" $ do
       propNum <- param "propnum"
@@ -358,19 +344,9 @@ webapp cm mgr scache = do
     -- not easy to search the db in this manner with the current
     -- set up.
     --
-    {-
-    get "/api/search/name" $ do
-      (query, (exact, other)) <- dbQuery "term" findNameMatch
-      json (object [ "query" .= query
-                   , "exact" .= exact
-                   , "other" .= other])
-    -}
-    get "/api/search/name" $ do
-      (_, (exact, other)) <- dbQuery "term" findNameMatch
-      -- for now, flatten out the response
-      -- TODO: should also remove excess spaces, but this requires some
-      --       thought on how the search functionality should work
-      json (nub (exact ++ other))
+    get "/api/search/name" (apiSearchName
+                            (dbQuery "term" findNameMatch))
+
     
     get "/api/search/proposal" (apiSearchProposal
                                 (dbQuery "term" findProposalNameMatch))
@@ -763,26 +739,57 @@ webapp cm mgr scache = do
 
     notFound $ do
       fact <- liftIO getFact
-      fromBlaze (NotFound.notFoundPage fact)
       status status404
+      fromBlaze (NotFound.notFoundPage fact)
 
 -- | Exception handler. We should log the error.
 errHandle :: L.Text -> ActionM ()
 errHandle txt = do
   liftIO (L.putStrLn ("Error string: " <> txt))
-  fromBlaze NotFound.errPage
   -- Can we change the HTTP status code? The following does not seem to
   -- work.
   status status503
+  fromBlaze NotFound.errPage
 
 
-{-
-apiSearchProposal ::
-  (L.Text
-   -> (String -> DbPersist Postgresql (NoLoggingT IO) [(T.Text, PropNum)])
-   -> ActionM (String, [(T.Text, PropNum)]))
+apiCurrent :: ActionM (Maybe Record) -> ActionM ()
+apiCurrent getData = do
+  -- note: this is creating/throwing away a bunch of info that could be useful
+  mrec <- getData
+  let rval o = json ("Success" :: T.Text, fromObsId o)
+  case mrec of
+    Just (Left ns) -> rval (nsObsId ns)
+    Just (Right so) -> rval (soObsId so)
+    _ -> json ("Failed" :: T.Text)
+
+
+apiObsId :: ActionM (Int, Maybe ObsInfo) -> ActionM ()
+apiObsId getData = do
+  (obsid, mobs) <- getData
+  case mobs of
+    Just v -> json ("Success" :: T.Text, v)
+    _ -> json ("Unknown ObsId" :: T.Text, obsid)
+
+
+apiProposal :: ActionM (PropNum, Maybe Proposal) -> ActionM ()
+apiProposal getData = do
+  (propNum, mres) <- getData
+  case mres of
+    Just res -> json ("Success" :: T.Text, res)
+    _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
+
+
+apiSearchName ::
+  ActionM (String, ([T.Text], [T.Text]))
   -> ActionM ()
--}
+apiSearchName getData = do
+  (_, (exact, other)) <- getData
+  -- for now, flatten out the response
+  -- TODO: should also remove excess spaces, but this requires some
+  --       thought on how the search functionality should work
+  json (nub (exact ++ other))
+
+
 apiSearchProposal ::
   ActionM (String, [(T.Text, PropNum)])
   -> ActionM ()
