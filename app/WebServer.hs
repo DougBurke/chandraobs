@@ -145,6 +145,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              -- , PropType(..)
              , Sequence(..)
              , SIMCategory
+             , SimbadTypeInfo
              , SortedList, StartTimeOrder, ExposureTimeOrder
              , TargetName
              , TimeKS(..)
@@ -307,32 +308,22 @@ webapp cm mgr scache = do
     --
     -- Note that for Simbad names we may have a / in them, so we use
     -- a regex
-    get (regex "^/api/simbad/name/(.+)$") $ do
-      (name, msim) <- dbQuery "1" getSimbadInfo
-      case msim of
-        Just sim -> json ("Success" :: T.Text, sim)
-        _ -> json ("Unknown Target" :: T.Text, name)
-
+    get (regex "^/api/simbad/name/(.+)$") (apiSimbadName
+                                           (dbQuery "1" getSimbadInfo))
+      
     get "/api/proposal/:propnum" (apiProposal
                                   (dbQuery "propnum" getProposalFromNumber))
 
     get "/api/related/:propnum/:obsid" $ do
       propNum <- param "propnum"
       obsid <- param "obsid"
-      res <- liftSQL (getRelatedObs propNum (ObsIdVal obsid))
-      -- hmmm, can't tell between an unknown propnum/obsid
-      -- pair and an observation with no related observations.
-      json ("Success" :: T.Text, fromSL res)
+      apiRelatedPropNumObsId
+        (liftSQL (getRelatedObs propNum obsid))
 
-    get "/api/related/:propnum" $ do
-      res <- snd <$> dbQuery "propnum" getObsFromProposal
-      -- hmmm, can't tell between an unknown propnum
-      -- and an observation with no related observations.
-      json ("Success" :: T.Text, fromSL res)
+    get "/api/related/:propnum" (apiRelatedPropNum
+                                 (dbQuery "propnum" getObsFromProposal))
 
-    get "/api/search/dtype" $ do
-      matches <- liftSQL fetchObjectTypes
-      json (SearchTypes.renderDependencyJSON matches)
+    get "/api/search/dtype" (apiSearchDtype (liftSQL fetchObjectTypes))
 
     -- note that this is different from /api/simbad/name since it
     -- is a search, rather than exact match
@@ -771,12 +762,46 @@ apiObsId getData = do
     _ -> json ("Unknown ObsId" :: T.Text, obsid)
 
 
+apiSimbadName :: ActionM (T.Text, Maybe SimbadInfo) -> ActionM ()
+apiSimbadName getData = do
+  (name, msim) <- getData
+  case msim of
+    Just sim -> json ("Success" :: T.Text, sim)
+    _ -> json ("Unknown Target" :: T.Text, name)
+
+
 apiProposal :: ActionM (PropNum, Maybe Proposal) -> ActionM ()
 apiProposal getData = do
   (propNum, mres) <- getData
   case mres of
     Just res -> json ("Success" :: T.Text, res)
     _ -> json ("Unknown Proposal Number" :: T.Text, propNum)
+
+
+apiRelatedPropNumObsId ::
+  ActionM (SortedList StartTimeOrder ScienceObs)
+  -> ActionM ()
+apiRelatedPropNumObsId getData = do
+  res <- getData 
+  -- hmmm, can't tell between an unknown propnum/obsid
+  -- pair and an observation with no related observations.
+  json ("Success" :: T.Text, fromSL res)
+
+
+apiRelatedPropNum ::
+  ActionM (PropNum, SortedList StartTimeOrder ScienceObs)
+  -> ActionM ()
+apiRelatedPropNum getData = do     
+  res <- snd <$> getData
+  -- hmmm, can't tell between an unknown propnum
+  -- and an observation with no related observations.
+  json ("Success" :: T.Text, fromSL res)
+
+
+apiSearchDtype :: ActionM [(SimbadTypeInfo, Int)] -> ActionM ()
+apiSearchDtype getData = do
+  matches <- getData
+  json (SearchTypes.renderDependencyJSON matches)
 
 
 apiSearchName ::
