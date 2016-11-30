@@ -143,6 +143,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
              -- , PropType(..)
+             , Schedule
              , Sequence(..)
              , SIMCategory
              , SimbadTypeInfo
@@ -368,38 +369,22 @@ webapp cm mgr scache = do
         _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
 
     -- TODO: send in proposal details
-    get "/wwt.html" $ do
-      mobs <- liftSQL getCurrentObs
-      case mobs of 
-        Just (Right so) -> fromBlaze (WWT.wwtPage True so)
-        _ -> liftIO getFact >>= fromBlaze . Index.noDataPage
+    get "/wwt.html" (wwt (liftSQL getCurrentObs))
         
-    get "/obsid/:obsid" $ do
-      mobs <- snd <$> queryObsidParam
-      case mobs of
-        Just obs -> do
-          cTime <- liftIO getCurrentTime
-          mCurrent <- liftSQL getCurrentObs
-          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
-          fromBlaze (Record.recordPage cTime mCurrent obs dbInfo)
-        _ -> liftIO getFact >>= fromBlaze . Index.noObsIdPage
+    get "/obsid/:obsid" (obsidOnly
+                         (snd <$> queryObsidParam)
+                         (liftSQL getCurrentObs)
+                         (liftSQL . getDBInfo . oiCurrentObs)
+                        )
 
     -- TODO: send in proposal details
-    get "/obsid/:obsid/wwt" $ do
-      mobs <- queryRecord
-      case mobs of
-        Just (Right so) -> fromBlaze (WWT.wwtPage False so)
-        _               -> next -- status status404
+    get "/obsid/:obsid/wwt" (obsidWWT queryRecord)
 
     -- TODO: head requests
-    get "/proposal/:propnum" $ do
-      (mprop, matches) <- snd <$> dbQuery "propnum" fetchProposal
-      case mprop of
-        Just prop -> do
-          sched <- liftSQL (makeSchedule (fmap Right matches))
-          fromBlaze (Proposal.matchPage prop sched)
-        _         -> next -- status status404
-
+    get "/proposal/:propnum" (proposal
+                              (snd <$> dbQuery "propnum" fetchProposal)
+                              (liftSQL .makeSchedule))
+      
     let querySchedule n = do
           sched <- liftSQL (getSchedule n)
           fromBlaze (Schedule.schedPage sched)
@@ -407,31 +392,28 @@ webapp cm mgr scache = do
         queryScheduleDate date n = do
           sched <- liftSQL (getScheduleDate date n)
           fromBlaze (Schedule.schedDatePage date sched)
+
+        queryScheduleTime name mul = do
+          val <- param name
+          when (val <= 0) next  -- TODO: better error message
+          querySchedule (mul * val)
           
     get "/schedule" (redirect "/schedule/index.html")
     get "/schedule/index.html" (querySchedule 3)
     get "/schedule/day" (querySchedule 1)
     get "/schedule/week" (querySchedule 7)
-
-    get "/schedule/day/:ndays" $ do
-      ndays <- param "ndays"
-      when (ndays <= 0) next  -- TODO: better error message
-      querySchedule ndays
-
-    get "/schedule/week/:nweeks" $ do
-      nweeks <- param "nweeks"
-      when (nweeks <= 0) next  -- TODO: better error message
-      querySchedule (7 * nweeks)
+    get "/schedule/day/:ndays" (queryScheduleTime "ndays" 1)
+    get "/schedule/week/:nweeks" (queryScheduleTime "nweeks" 7)
 
     -- allow the schedule to be centered on a date
     --
     -- TODO: when should the validity of the input date be checked?
     get "/schedule/date/:date/:ndays" $ do
+      ndays <- param "ndays"
+      when (ndays <= 0) next  -- TODO: better error message
       -- there is no Parsable instance for Date, so rather than have
       -- an orphan instance, deal with conversion manually
       dateText <- param "date"
-      ndays <- param "ndays"
-      when (ndays <= 0) next  -- TODO: better error message
       case readEither dateText of
         Left _ -> next -- TODO: better error message
         Right date -> queryScheduleDate date ndays
@@ -440,12 +422,10 @@ webapp cm mgr scache = do
     -- This returns only those observations that match this
     -- type; contrast with /seatch/dtype/:type
     --
-    --
-    get "/search/type/unidentified" $ do
-      (typeInfo, ms) <- liftSQL fetchNoSIMBADType
-      sched <- liftSQL (makeSchedule (fmap Right ms))
-      fromBlaze (SearchTypes.matchPage typeInfo sched)
-      
+    get "/search/type/unidentified" (searchTypeUnId
+                                     (liftSQL fetchNoSIMBADType)
+                                     (liftSQL . makeSchedule))
+
     get "/search/type/:type" $ do
       matches <- snd <$> dbQuery "type" fetchSIMBADType
       case matches of
@@ -743,6 +723,9 @@ errHandle txt = do
   fromBlaze NotFound.errPage
 
 
+-- TODO: define a data type to represent the JSON response, so that
+--       there's a "defined" success/error reporting structure.
+--
 apiCurrent :: ActionM (Maybe Record) -> ActionM ()
 apiCurrent getData = do
   -- note: this is creating/throwing away a bunch of info that could be useful
@@ -951,6 +934,63 @@ apiExposures getData = do
   json out
 
 
+wwt :: ActionM (Maybe Record) -> ActionM ()
+wwt getData = do
+  mobs <- getData
+  case mobs of 
+    Just (Right so) -> fromBlaze (WWT.wwtPage True so)
+    _ -> liftIO getFact >>= fromBlaze . Index.noDataPage
+
+
+obsidOnly ::
+  ActionM (Maybe ObsInfo)
+  -> ActionM (Maybe Record)
+  -> (ObsInfo -> ActionM
+      (Maybe SimbadInfo, 
+       (Maybe Proposal, SortedList StartTimeOrder ScienceObs)))
+  -> ActionM ()
+obsidOnly getData getObs getDB = do
+  mobs <- getData
+  case mobs of
+    Just obs -> do
+      cTime <- liftIO getCurrentTime
+      mCurrent <- getObs
+      dbInfo <- getDB obs
+      fromBlaze (Record.recordPage cTime mCurrent obs dbInfo)
+    _ -> liftIO getFact >>= fromBlaze . Index.noObsIdPage
+
+
+obsidWWT :: ActionM (Maybe Record) -> ActionM ()
+obsidWWT getData = do
+  mobs <- getData
+  case mobs of
+    Just (Right so) -> fromBlaze (WWT.wwtPage False so)
+    _               -> next -- status status404
+
+
+proposal ::
+  ActionM (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
+  -> (SortedList StartTimeOrder Record -> ActionM Schedule)
+  -> ActionM ()
+proposal getData getSched = do
+  (mprop, matches) <- getData
+  case mprop of
+    Just prop -> do
+      sched <- getSched (fmap Right matches)
+      fromBlaze (Proposal.matchPage prop sched)
+    _         -> next -- status status404
+
+
+searchTypeUnId ::
+  ActionM (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs)
+  -> (SortedList StartTimeOrder Record -> ActionM Schedule)
+  -> ActionM ()
+searchTypeUnId getData getSched = do
+  (typeInfo, ms) <- getData
+  sched <- getSched (fmap Right ms)
+  fromBlaze (SearchTypes.matchPage typeInfo sched)
+      
+  
 -- TODO: move into a separate module once it works
 -- TODO: should cache the http manager
 -- TODO: use a streaming solution/base64 converter from
