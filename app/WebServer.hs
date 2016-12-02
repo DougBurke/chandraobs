@@ -437,27 +437,37 @@ webapp cm mgr scache = do
     --     FOR TESTING
     get "/search/dtype/" (searchDTypeNone (liftSQL fetchObjectTypes))
 
+    let searchResults getData isNull page = do
+          (xs, matches) <- getData
+          when (nullSL matches || isNull xs) next
+          sched <- liftSQL (makeSchedule (fmap Right matches))
+          fromBlaze (page xs sched)
+
+    let maybeSearchResults mval getData page =
+          case mval of
+            Just val -> do
+              matches <- getData val
+              when (nullSL matches) next
+              sched <- liftSQL (makeSchedule (fmap Right matches))
+              fromBlaze (page val sched)
+            Nothing -> next
+            
     -- This returns those observations that match this
     -- type and any "sub types"; contrast with /seatch/type/:type
     -- TODO: also need a HEAD request version
-    get "/search/dtype/:type" $ do
-      (types, matches) <- snd <$> dbQuery "type" fetchSIMBADDescendentTypes
-      when (null types || nullSL matches) next
-      -- TODO: want a slightly different match page
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (SearchTypes.matchDependencyPage types sched)
+    get "/search/dtype/:type"
+      (searchResults (snd <$> dbQuery "type" fetchSIMBADDescendentTypes)
+       null SearchTypes.matchDependencyPage)
 
     -- TODO: also need a HEAD request version
-    get "/search/constellation/:constellation" $ do
-      (con, matches) <- dbQuery "constellation" fetchConstellation
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (Constellation.matchPage con sched)
-
+    get "/search/constellation/:constellation"
+      (searchResults (dbQuery "constellation" fetchConstellation)
+       (const False) Constellation.matchPage)
+    
     -- TODO: also need a HEAD request version
-    get "/search/constellation/" $ do
-      matches <- liftSQL fetchConstellationTypes
-      fromBlaze (Constellation.indexPage matches)
+    get "/search/constellation/"
+      (liftSQL fetchConstellationTypes >>= fromBlaze . Constellation.indexPage)
+          
 
     -- TODO: also need a HEAD request version
     get "/search/turnaround/:too" $ do
@@ -469,16 +479,9 @@ webapp cm mgr scache = do
                  else case labelToRT tooParam of
                         Nothing -> Nothing
                         a -> Just a
-                      
-      case mans of
-        Just mtoo -> do
-          matches <- liftSQL (fetchTOO mtoo)
-          when (nullSL matches) next
-          sched <- liftSQL (makeSchedule (fmap Right matches))
-          fromBlaze (TOO.matchPage mtoo sched)
-          
-        Nothing -> next
-    
+
+      maybeSearchResults mans (liftSQL . fetchTOO) TOO.matchPage
+        
     -- TODO: also need a HEAD request version
     get "/search/turnaround/" $ do
       (matches, noneTime) <- liftSQL fetchTOOs
@@ -495,15 +498,8 @@ webapp cm mgr scache = do
                         Nothing -> Nothing
                         a -> Just a
                       
-      case mans of
-        Just mcs -> do
-          matches <- liftSQL (fetchConstraint mcs)
-          when (nullSL matches) next
-          sched <- liftSQL (makeSchedule (fmap Right matches))
-          fromBlaze (Constraint.matchPage mcs sched)
-          
-        Nothing -> next
-    
+      maybeSearchResults mans (liftSQL . fetchConstraint) Constraint.matchPage
+      
     -- TODO: also need a HEAD request version
     get "/search/constraints/" $ do
       (matches, noneTime) <- liftSQL fetchConstraints
@@ -522,20 +518,12 @@ webapp cm mgr scache = do
                     Just s -> Just (Just s)
                     _ -> Nothing
 
-      case mtype of
-        Just stype -> do
-          matches <- liftSQL (fetchCategorySubType cat stype)
-          when (nullSL matches) next
-          sched <- liftSQL (makeSchedule (fmap Right matches))
-          fromBlaze (Category.categoryAndTypePage cat stype sched)
-          
-        Nothing -> next
-        
-    get "/search/category/:category" $ do
-      (cat, matches) <- dbQuery "category" fetchCategory
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (Category.matchPage cat sched)
+      maybeSearchResults mtype (liftSQL . fetchCategorySubType cat)
+        (Category.categoryAndTypePage cat)
+      
+    get "/search/category/:category"
+      (searchResults (dbQuery "category" fetchCategory) (const False)
+       Category.matchPage)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
@@ -543,26 +531,20 @@ webapp cm mgr scache = do
       fromBlaze (Category.indexPage matches)
 
     -- TODO: also need a HEAD request version
-    get "/search/instrument/:instrument" $ do
-      (inst, matches) <- dbQuery "instrument" fetchInstrument
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (Instrument.matchInstPage inst sched)
+    get "/search/instrument/:instrument"
+      (searchResults (dbQuery "instrument" fetchInstrument) (const False)
+       Instrument.matchInstPage)
 
     -- TODO: also need a HEAD request version
-    get "/search/grating/:grating" $ do
-      (inst, matches) <- dbQuery "grating" fetchGrating
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (Instrument.matchGratPage inst sched)
-
+    get "/search/grating/:grating"
+      (searchResults (dbQuery "grating" fetchGrating) (const False)
+       Instrument.matchGratPage)
+    
     -- TODO: also need a HEAD request version
-    get "/search/instgrat/:ig" $ do
-      (ig, matches) <- dbQuery "ig" fetchIG
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (Instrument.matchIGPage ig sched)
-
+    get "/search/instgrat/:ig"
+      (searchResults (dbQuery "ig" fetchIG) (const False)
+       Instrument.matchIGPage)
+    
     let igsearch = do
           (imatches, gmatches, igmatches) <- liftSQL (
             do
@@ -617,30 +599,21 @@ webapp cm mgr scache = do
       propInfo <- liftSQL getProposalTypeBreakdown
       fromBlaze (PropType.indexPage propInfo)
 
-    get "/search/proptype/:proptype" $ do
-      (propType, matches) <- dbQuery "proptype" getProposalType
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (PropType.matchPage propType sched)
-
+    get "/search/proptype/:proptype"
+      (searchResults (dbQuery "proptype" getProposalType) (const False)
+       PropType.matchPage)
+    
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" (fromBlaze Mapping.indexPage)
 
-    get "/search/joint/:mission" $ do
-      (mission, matches) <- dbQuery "mission" fetchJointMission
-      when (nullSL matches) next
-      sched <- liftSQL (makeSchedule (fmap Right matches))
-      fromBlaze (Mission.matchPage mission sched)
-
-    get "/search/joint/" $ do
-      missions <- liftSQL fetchMissionInfo
-      fromBlaze (Mission.indexPage missions)
+    get "/search/joint/:mission"
+      (searchResults (dbQuery "mission" fetchJointMission) (const False)
+       Mission.matchPage)
+    
+    get "/search/joint/"
+      (liftSQL fetchMissionInfo >>= fromBlaze . Mission.indexPage)
 
     -- TODO: also need a HEAD request version
-    {-
-    get "/search/" $ do
-      fromBlaze $ ?.indexPage
-    -}
     get "/search/" (redirect "/search/index.html")
                 
     -- HEAD requests
