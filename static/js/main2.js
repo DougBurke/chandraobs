@@ -9,8 +9,6 @@
 // It's complicated by the Haskell structure "infecting"
 // the JSON.
 
-// TODO: obsid 17169 is in the schedule when it probably shouldn't be
-
 // TODO: better error handling (in particular if ajax calls fail)
 //
 
@@ -177,7 +175,7 @@ var _missions = ["HST", "NOAO", "NRAO", "RXTE", "Spitzer", "Suzaku", "XMM", "Swi
 function getJointObs(so, timeConv) {
     return _missions.map(function(d) { return [d, so["Joint" + d.toUpperCase()]]; })
                .filter(function(d) { return d[1] !== null; })
-               .map(function(d) { return d[0] + " (for " + timeConv(d[1]['S']) + ")"; });
+               .map(function(d) { return d[0] + " (for " + timeConv(d[1]['KS']) + ")"; });
 }
 
 // Remove the "CXO-" prefix from the joint-with field since
@@ -256,14 +254,14 @@ function getKeyed(obj, key1, key2) {
     }
 }
 
-// Returns the value of ObservedTime or ApprovedTime
+// Returns the value of ObservedTime or ApprovedTime in KS,
 // or undefined.
 //
 function getScienceExposure(val) {
 
-    var texp = getKeyed(val, "ObservedTime", "S");
+    var texp = getKeyed(val, "ObservedTime", "KS");
     return (texp === undefined) ? 
-	getKeyed(val, "ApprovedTime", "S") : texp;
+	getKeyed(val, "ApprovedTime", "KS") : texp;
 }
 
 // Given a science obs or non-science obs, 
@@ -283,7 +281,7 @@ function getStartEndTimes(val) {
 	console.log("ERROR: getStartEndTimes unable to convert starttime=" + start);
 	return undefined;
     }
-    var texp = getKeyed(val, "Time", "S");
+    var texp = getKeyed(val, "Time", "KS");
     if (texp === undefined) {
 	texp = getScienceExposure(val);
     }
@@ -808,11 +806,11 @@ function renderObsIdDetails(obsdata, sobs, mprop) {
 
     if (sobs["ObservedTime"] === null) {
 	h += keyVal("Exposure (approved):",
-		    sobs["ApprovedTime"]["S"] +
+		    sobs["ApprovedTime"]["KS"] +
 		    " ks");
     } else {
 	h += keyVal("Exposure (observed):",
-		    sobs["ObservedTime"]["S"] +
+		    sobs["ObservedTime"]["KS"] +
 		    " ks");
     }
 
@@ -1129,7 +1127,7 @@ function renderScienceObs($el, so, obsdata, simrsp, proprsp, relrsp) {
 	var typestr = simType;
 	if (typestr === "Region defined in the sky") {
 	    typestr = "an area of the sky";
-	} else if ("aeiou".contains(typestr[0].toLowerCase())) {
+	} else if ("aeiou".indexOf(typestr[0].toLowerCase()) > -1) {
 	    typestr = "an " + typestr;
 	} else {
 	    typestr = "a " + typestr;
@@ -1227,7 +1225,7 @@ function reportNonScienceObs($el, nso) {
 
     var obsLen = undefined;
     if (endTime > startTime) {
-	obsLen = showExpTime(getKeyed(nso, "Time", "S"));
+	obsLen = showExpTime(getKeyed(nso, "Time", "KS"));
     }
 
     var h = "<p>The calibration observation - " + target;
