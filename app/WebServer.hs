@@ -1007,13 +1007,13 @@ proxy2 mgr pt seqVal obsid = do
             <> obsStr <> ".soe." <> show pt <> ".gif"
             
 #if defined(MIN_VERSION_http_client) && MIN_VERSION_http_client(0,4,31)
-  req <- liftIO $ NHC.parseRequest url
+  req <- liftIO (NHC.parseRequest url)
 #else
-  req <- liftIO $ NHC.parseUrl url
+  req <- liftIO (NHC.parseUrl url)
 #endif
   
   -- liftIO $ putStrLn $ "--> " ++ url
-  rsp <- liftIO $ NHC.httpLbs req mgr
+  rsp <- liftIO (NHC.httpLbs req mgr)
   -- liftIO $ putStrLn $ "<-- " ++ url
   setHeader "Content-Type" plainText
 
@@ -1022,7 +1022,11 @@ proxy2 mgr pt seqVal obsid = do
   --
   -- Since the ETag header is opaque it should be okay
   -- to just copy it over, since the assumption is that the
-  -- base64 encoding is not going to change.
+  -- base64 encoding is not going to change. Except that it
+  -- also depends on what my code does, so if there's ever
+  -- any change here I might want to change the ETag,
+  -- so perhaps there should be some addition to it.
+  --
   let rhdrs = NHC.responseHeaders rsp
       mLastMod = cText <$> lookup hLastModified rhdrs
       mETag = cText <$> lookup "ETag" rhdrs
