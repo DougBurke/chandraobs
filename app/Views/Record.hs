@@ -6,7 +6,7 @@
 module Views.Record (CurrentPage(..)
                      , recordPage
                      , renderStuff
-                     , renderTwitter
+                     , twitterDiv
                      , mainNavBar
                      , obsNavBar
                      ) where
@@ -100,7 +100,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
       <> (div ! id "mainBar") 
          (renderStuff cTime thisObs dbInfo
           <> imgLinks)
-      <> (div ! id "otherBar") renderTwitter)
+      <> twitterDiv)
       <> renderFooter
 
 -- | A redesign of the page.
@@ -580,6 +580,9 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
       lenVal = toHtml $ showExpTime nsTime
 
   in p $ cts obsStatus
+
+twitterDiv :: Html
+twitterDiv = (div ! id "otherBar") renderTwitter
 
 renderTwitter :: Html
 renderTwitter = 

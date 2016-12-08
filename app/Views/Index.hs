@@ -19,7 +19,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..)
              , SortedList, StartTimeOrder)
 import Utils (defaultMeta, jqueryMeta, jsScript, cssLink, renderLinks, renderFooter)
-import Views.Record (CurrentPage(..), renderStuff, renderTwitter
+import Views.Record (CurrentPage(..), renderStuff, twitterDiv
                     , mainNavBar, obsNavBar)
 
 noObsIdPage :: Html -> Html
@@ -32,16 +32,20 @@ noObsIdPage fact =
     <>
     body
      (mainNavBar CPOther
-      <> (div ! id "mainBar") (
-           (p ! class_ "error")
-            ("The observation is unknown, but I can tell you " <>
-             "this fun Chandra fact:")
-          <> (p ! class_ "fact") fact
-          )
-      <> (div ! id "otherBar") renderTwitter)
+      <> noObsIdDiv fact
+      <> twitterDiv)
     <> renderFooter
 
+noObsIdDiv :: Html -> Html
+noObsIdDiv fact = (div ! id "mainBar") (noObsIdParas fact)
 
+noObsIdParas :: Html -> Html
+noObsIdParas fact =
+  (p ! class_ "error")
+  ("The observation is unknown, but I can tell you " <>
+   "this fun Chandra fact:")
+  <> (p ! class_ "fact") fact
+  
 noDataPage :: Html -> Html
 noDataPage fact =
   docTypeHtml ! lang "en-US" $
@@ -52,20 +56,26 @@ noDataPage fact =
     <>
     body
      (mainNavBar CPOther
-      <> (div ! id "mainBar") (
-           (p ! class_ "error")
-            ("Unfortunately there doesn't seem to be any observations in my database, " <>
-             "which hopefully means that the database is being updated, so " <>
-             "please wait a few minutes and try again. If there is still " <>
-             "a problem, try reporting the problem to either " <>
-             (a ! href "http://twitter.com/doug_burke" $ "@doug_burke") <>
-             " or the " <>
-             (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
-             ". Whilst you are waiting, how about this fun Chandra fact:")
-          <> (p ! class_ "fact") fact
-          )
-      <> (div ! id "otherBar") renderTwitter)
+      <> noDataDiv fact
+      <> twitterDiv)
     <> renderFooter
+
+noDataDiv :: Html -> Html
+noDataDiv fact = (div ! id "mainBar") (noDataParas fact)
+
+noDataParas :: Html -> Html
+noDataParas fact = 
+  (p ! class_ "error")
+  ("Unfortunately there doesn't seem to be any observations in my database, " <>
+   "which hopefully means that the database is being updated, so " <>
+   "please wait a few minutes and try again. If there is still " <>
+   "a problem, try reporting the problem to either " <>
+   (a ! href "http://twitter.com/doug_burke" $ "@doug_burke") <>
+   " or the " <>
+   (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
+   ". Whilst you are waiting, how about this fun Chandra fact:")
+  <> (p ! class_ "fact") fact
+
 
 tourElements :: Html
 tourElements =
@@ -103,5 +113,5 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
       <> (div ! id "mainBar") 
          (renderStuff cTime currentObs dbInfo
           <> imgLinks)
-      <> (div ! id "otherBar") renderTwitter)
+      <> twitterDiv)
       <> renderFooter

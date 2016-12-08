@@ -16,7 +16,7 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Utils (defaultMeta, cssLink, renderFooter)
-import Views.Record (CurrentPage(..), renderTwitter
+import Views.Record (CurrentPage(..), twitterDiv
                     , mainNavBar)
 
 notFoundPage :: Html -> Html
@@ -29,15 +29,20 @@ notFoundPage fact =
     <>
     body
      (mainNavBar CPOther
-      <> (div ! id "mainBar") (
-         (p ! class_ "error")  
-         ("Unfortunately there was an error and I don't know what to do. "
-          <> "To take your mind off this calamity, how about a fun "
-          <> "Chandra fact:")
-         <> (p ! class_ "fact") fact
-         )
-      <> (div ! id "otherBar") renderTwitter)
+      <> notFoundDiv fact
+      <> twitterDiv)
      <> renderFooter
+
+notFoundDiv :: Html -> Html
+notFoundDiv fact = (div ! id "mainBar") (notFoundParas fact)
+  
+notFoundParas :: Html -> Html
+notFoundParas fact = 
+  (p ! class_ "error")  
+  ("Unfortunately there was an error and I don't know what to do. "
+   <> "To take your mind off this calamity, how about a fun "
+   <> "Chandra fact:")
+  <> (p ! class_ "fact") fact
 
 errPage :: Html
 errPage = do
