@@ -45,25 +45,25 @@ notFoundParas fact =
   <> (p ! class_ "fact") fact
 
 errPage :: Html
-errPage = do
+errPage =
   h1 "Oops, something isn't right"
-  p $ "There has been some sort of error - probably the "
-      <> "database and the web server not getting along - "
-      <> "which means you've ended up here. Hopefully it is "
-      <> "just due to an update to the database and it will "
-      <> "be finished in a few minutes, after which time "
-      <> "the site should be back to normal - except with "
-      <> "even more data to explore! - but if it doesn't "
-      <> "get fixed within 10 minutes, send a note to me "
-      <> "at "
-      <> (a ! href "https://twitter.com/doug_burke") "@doug_burke"
-      <> " or via the "
-      <> (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open") "issue tracker"
-      <> "."
-  p $ "You could while away the time by "
-      <> (a ! href "http://joshworth.com/dev/pixelspace/pixelspace_solarsystem.html") "exploring the Solar System"
-      <> " from the comfort of your web browser. If you scroll "
-      <> "out to Jupiter - which shows remarkable dedication - "
-      <> "you should have spent enough time for any database updates to have "
-      <> "run their course!"
+  <> p ("There has been some sort of error - probably the "
+        <> "database and the web server not getting along - "
+        <> "which means you've ended up here. Hopefully it is "
+        <> "just due to an update to the database and it will "
+        <> "be finished in a few minutes, after which time "
+        <> "the site should be back to normal - except with "
+        <> "even more data to explore! - but if it doesn't "
+        <> "get fixed within 10 minutes, send a note to me "
+        <> "at "
+        <> (a ! href "https://twitter.com/doug_burke") "@doug_burke"
+        <> " or via the "
+        <> (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open") "issue tracker"
+        <> ".")
+  <> p ("You could while away the time by "
+        <> (a ! href "http://joshworth.com/dev/pixelspace/pixelspace_solarsystem.html") "exploring the Solar System"
+        <> " from the comfort of your web browser. If you scroll "
+        <> "out to Jupiter - which shows remarkable dedication - "
+        <> "you should have spent enough time for any database updates to have "
+        <> "run their course!")
       
