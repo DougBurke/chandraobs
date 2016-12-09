@@ -347,4 +347,26 @@ STEPS:
 
 % heroku pg:reset DATABASE_URL --confirm chandraobs-devel ; PGUSER=postgres PGPASSWORD=postgres heroku pg:push chandraobs DATABASE_URL --app chandraobs-devel
 
- 
+ which has apparently now changed due to
+
+▸    Error: Multiple apps in git remotes
+ ▸    Usage: heroku pg:reset DATABASE_URL --confirm chandraobs-devel --remote heroku-cedar-14
+ ▸       or: heroku pg:reset DATABASE_URL --confirm chandraobs-devel --app chandraobs-devel-cedar-14
+ ▸    
+ ▸    Your local git repository has more than 1 app referenced in git remotes.
+ ▸    Because of this, we can't determine which app you want to run this command against.
+ ▸    Specify the app you want with --app or --remote.
+ ▸    
+ ▸    Heroku remotes in repo:
+ ▸    heroku          (chandraobs-devel)
+ ▸    heroku-cedar-14 (chandraobs-devel-cedar-14)
+ ▸    
+ ▸    https://devcenter.heroku.com/articles/multiple-environments
+heroku-cli: Pushing chandraobs ---> sailing-quietly-1739
+ ▸    Remote database is not empty. Please create a new database or use
+ ▸    heroku pg:reset
+
+to the following, which no-longer seems to ask for passwords
+
+% heroku pg:reset DATABASE_URL --confirm chandraobs-devel --app chandraobs-devel; PGUSER=postgres PGPASSWORD=postgres heroku pg:push chandraobs DATABASE_URL --app chandraobs-devel
+
