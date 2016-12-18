@@ -9,6 +9,8 @@ module Views.Record (CurrentPage(..)
                      , twitterDiv
                      , mainNavBar
                      , obsNavBar
+
+                     , noObsIdParas
                      ) where
 
 import qualified Prelude as P
@@ -116,10 +118,70 @@ renderStuff ::
   -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
   -> Html
 renderStuff cTime rs dbInfo = 
-  div ! id "observation" $
-    case rs of
+  (div ! id "observation")
+    (case rs of
       Left ns -> otherInfo cTime ns
-      Right so -> targetInfo cTime so dbInfo
+      Right so -> targetInfo cTime so dbInfo)
+
+{-
+
+I want something that I can match to a UI call - e.g.
+something like
+
+   /api/html/getObservationInfo/{:obsid}
+
+the question is, is this the API we want/need (sending
+in the obsid), or perhaps we already have some/all of
+the information we need so we can avoid some DB calls.
+
+-- | Return the HTML for the observation div, i.e. the information
+--   for an obsid (either science or non-science).
+--
+getObservationHTML ::
+  Maybe ObsId
+  -- ^ The ObsId to show (if Nothing then use the current observation)
+  -> (ObsId -> ActionM (Maybe Obsinfo))
+  -- ^ Action to query the database about the observation
+  -> ActionM (Maybe Record)
+  -- ^ The current observation
+  -> (ObsInfo -> ActionM
+      (Maybe SimbadInfo,
+       (Maybe Proposal, SortedList StartTimeOrder ScienceObs)))
+  -- ^ Return related information.
+  -> ActionM (Either Html Html)
+  -- ^ A div, with id of "observation" and contents for the observation.
+  --   The left response is if there is an error recovering the info
+  --   (e.g. the observation is unknown or there was a database error).
+getObservationHTML mobs getObsInfo getCurrentObs getRelatedInfo = do
+  let odiv = (div ! class_ "observation")
+
+actually, the logic of the following is wrong, since it has mobs wrong;
+if it's nothing then it doesn't mean that we should error out.
+
+                     not sure how this is going to be used, is the problem.
+  
+  case mobs of
+    Just obs -> do
+      cTime <- liftIO getCurrentTime
+      mCurrent <- getCurrentObs
+      dbInfo <- getRelatedInfo obs
+      return (Right (renderStuff cTime rs dbInfo))
+
+    Nothing -> do
+      fact <-liftIO getFact
+      return (Left ((div ! id "observation") cts))
+
+
+-}
+
+
+noObsIdParas :: Html -> Html
+noObsIdParas fact =
+  (p ! class_ "error")
+  ("The observation is unknown, but I can tell you " <>
+   "this fun Chandra fact:")
+  <> (p ! class_ "fact") fact
+  
 
 -- | What is the page being viewed?
 --
@@ -579,7 +641,7 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
       targetName = toHtml nsTarget
       lenVal = toHtml $ showExpTime nsTime
 
-  in p $ cts obsStatus
+  in p (cts obsStatus)
 
 twitterDiv :: Html
 twitterDiv = (div ! id "otherBar") renderTwitter

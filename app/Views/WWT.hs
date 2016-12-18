@@ -20,7 +20,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
-import Types (ScienceObs(..), Instrument(..))
+import Types (ScienceObs(..), Instrument(..), TargetName, ObsIdVal)
 import Utils (defaultMeta, jsScript, cssLink, obsURI, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 
@@ -44,60 +44,15 @@ wwtPage ::
   P.Bool -- ^ True if this is the current observation
   -> ScienceObs
   -> Html
-wwtPage f ScienceObs{..} =
-  let iName = case soInstrument of
-                ACISI -> "ACIS-I"
-                ACISS -> "ACIS-S"
-                HRCI  -> "HRC-I"
-                HRCS  -> "HRC-S"
-
-      initialize = "initialize(" <> toValue soRA <> "," 
+wwtPage isCurrent ScienceObs{..} =
+  let initialize = "initialize(" <> toValue soRA <> "," 
                                  <> toValue soDec <> "," 
                                  <> toValue soRoll <> ",\"" 
                                  <> toValue soInstrument <> "\",\"" 
                                  <> toValue soTarget <> "\")" 
 
-      -- apparently width/height need to be given inline not via CSS
-      warning = (div ! class_ "nowwt")
-                ("It appears that the World Wide Telescope javascript " <>
-                 "has not loaded.")
-      host = (div ! id "WorldWideTelescopeControlHost") 
-               $ (div ! style "width: 700px; height: 700px;"
-                      ! id "WWTCanvas") ""
-
-      zoomSource = 
-        button ! id "jump"
-               ! A.name "jump"
-               ! value "jump"
-               ! type_ "button"
-               ! onclick "resetLocation();"
-           $ "Jump to Source"
-
-      -- can we use label rather than span here?
-      cBox :: T.Text -> AttributeValue -> AttributeValue -> Html
-      cBox lbl idVal oClick =
-        H.label $ H.toHtml (lbl <> " ") <>
-                  input ! id idVal
-                        ! type_ "checkbox"
-                        ! checked "checked"
-                        ! onclick oClick
-
-      -- fov = cBox "View Instrument outline" "fov" "toggleFOV();"
-      crossHair = cBox "Show cross hair" "crosshairs" "toggleCrosshairs();"
-      constellation = cBox "Show constellations" "constellations" "toggleConstellations();"
-      boundaries = cBox "Show constellation boundaries" "boundaries" "toggleBoundaries();"
-
-      userInput = mconcat [ zoomSource
-                          -- , fov
-                          , crossHair, constellation, boundaries]
-
-      obsLink = if f
-                then (a ! href "/") "observation page"
-                else (a ! href (obsURI soObsId)) "observation page"
-
-      targetName = H.toHtml soTarget
       titleVal = "The World Wide Telescope view of "
-                 <> targetName
+                 <> H.toHtml soTarget
 
   in docTypeHtml ! lang "en-US" $
     head 
@@ -112,18 +67,87 @@ wwtPage f ScienceObs{..} =
     (body ! onload initialize)
      (mconcat 
         [ mainNavBar CPOther
-        , (p ! class_ "nojavascript")
-          ("This page requires JavaScript and it appears that it is " <>
-           "not available.")
-        , warning
-        , (p ! class_ "wwt" ) ("The instrument outline approximates that of the " 
-             <> iName <> " observation of " 
-             <> targetName <> ". Return to the "
-             <> obsLink <> "."
-            )
-        , (div ! id "wwtControls") userInput
-        , host
+        , noJSPara
+        , warningDiv
+        , outlinePara isCurrent soTarget soInstrument soObsId
+        , userInputDiv
+        , hostDiv
         , renderFooter
         ])
 
+
+noJSPara :: Html
+noJSPara =
+  (p ! class_ "nojavascript")
+  ("This page requires JavaScript and it appears that it is " <>
+   "not available.")
+
+warningDiv :: Html
+warningDiv =
+  (div ! class_ "nowwt")
+  ("It appears that the javascript needed to display the " <>
+   "World Wide Telescope has not loaded.")
+
+outlinePara ::
+  P.Bool
+  -- ^ True if this is the current observation
+  -> TargetName
+  -> Instrument
+  -> ObsIdVal
+  -> Html
+outlinePara isCurrent targetName instrument obsid =
+  let cts = "The instrument outline approximates that of the " 
+            <> iName <> " observation of " 
+            <> H.toHtml targetName <> ". Return to the "
+            <> obsLink <> "."
+
+      iName = case instrument of
+                ACISI -> "ACIS-I"
+                ACISS -> "ACIS-S"
+                HRCI  -> "HRC-I"
+                HRCS  -> "HRC-S"
+
+      obsLink =
+        let uri = if isCurrent then "/" else obsURI obsid
+        in (a ! href uri) "observation page"
+
+  in (p ! class_ "wwt" ) cts
+
+-- apparently width/height need to be given inline not via CSS
+hostDiv :: Html
+hostDiv =
+  let innerDiv =
+        (div ! style "width: 700px; height: 700px;" ! id "WWTCanvas") ""
+  in (div ! id "WorldWideTelescopeControlHost") innerDiv
+
+userInputDiv :: Html
+userInputDiv =
+  let zoomSource = 
+        button ! id "jump"
+               ! A.name "jump"
+               ! value "jump"
+               ! type_ "button"
+               ! onclick "resetLocation();"
+           $ "Jump to Source"
+
+      inputBox idVal oClick = input ! id idVal
+                                    ! type_ "checkbox"
+                                    ! checked "checked"
+                                    ! onclick oClick
+        
+      -- can we use label rather than span here?
+      cBox :: T.Text -> AttributeValue -> AttributeValue -> Html
+      cBox lbl idVal oClick =
+        H.label (H.toHtml (lbl <> " ") <> inputBox idVal oClick)
+
+      -- fov = cBox "View Instrument outline" "fov" "toggleFOV();"
+      crossHair = cBox "Show cross hair" "crosshairs" "toggleCrosshairs();"
+      constellation = cBox "Show constellations" "constellations" "toggleConstellations();"
+      boundaries = cBox "Show constellation boundaries" "boundaries" "toggleBoundaries();"
+
+      userInput = mconcat [ zoomSource
+                          -- , fov
+                          , crossHair, constellation, boundaries]
+
+  in (div ! id "wwtControls") userInput
 

@@ -586,7 +586,7 @@ function constellationLink(con) {
 //    minutes
 //
 function getTimeElems(t1, t2) {
-    // Too laxy to look for a good-quality JavaScript time library
+    // Too lazy to look for a good-quality JavaScript time library
     // that does this for me.
     //
     var delta = (t2.getTime() - t1.getTime()) / 1000.0;
@@ -602,7 +602,7 @@ function getTimeElems(t1, t2) {
 // NOTE: I am not bothered about changes in the current time
 // during the rendering of the page, although perhaps I should
 // for the very unlikely case of a page being rendered during
-// the switch over between not-observerd and observing or
+// the switch over between not-observered and observing or
 // observing and done.
 //
 

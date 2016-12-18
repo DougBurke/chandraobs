@@ -20,7 +20,8 @@ import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..)
              , SortedList, StartTimeOrder)
 import Utils (defaultMeta, jqueryMeta, jsScript, cssLink, renderLinks, renderFooter)
 import Views.Record (CurrentPage(..), renderStuff, twitterDiv
-                    , mainNavBar, obsNavBar)
+                    , mainNavBar, obsNavBar
+                    , noObsIdParas)
 
 noObsIdPage :: Html -> Html
 noObsIdPage fact =
@@ -39,13 +40,6 @@ noObsIdPage fact =
 noObsIdDiv :: Html -> Html
 noObsIdDiv fact = (div ! id "mainBar") (noObsIdParas fact)
 
-noObsIdParas :: Html -> Html
-noObsIdParas fact =
-  (p ! class_ "error")
-  ("The observation is unknown, but I can tell you " <>
-   "this fun Chandra fact:")
-  <> (p ! class_ "fact") fact
-  
 noDataPage :: Html -> Html
 noDataPage fact =
   docTypeHtml ! lang "en-US" $
