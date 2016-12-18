@@ -459,6 +459,43 @@ getObsId = findObsInfo
 getRecord :: PersistBackend m => ObsIdVal -> m (Maybe Record)
 getRecord = findObsId
 
+
+-- Select the science and non-science observations separately
+-- and then merge them. As the science observations have no
+-- end-time field, post-process the database results here,
+-- rather than having the database do all the filtering.
+--
+-- TODO: not sure this is a good idea any more
+--
+getObsInRange ::
+  DbIO m
+  => ChandraTime
+  -> ChandraTime
+  -> m [Record]
+getObsInRange tStart tEnd = do
+  xs1 <- select (((SoStartTimeField <. tEnd)
+                  &&. notDiscarded
+                  &&. isScheduled) -- the isScheduled check is unlikely to restrict anything
+                 `orderBy` [Asc SoStartTimeField])
+  ys1 <- select (((NsStartTimeField <. tEnd) &&.
+                  notNsDiscarded)
+                 `orderBy` [Asc NsStartTimeField])
+
+  -- should filter by the actual run-time, but the following is
+  -- easier
+  let filtEnd proj_start proj_runtime o =
+        let stime = proj_start o
+            rtime = proj_runtime o
+            etime = endCTime stime rtime
+        in etime < tStart
+      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs1)
+      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys1)
+
+      res = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
+
+  return (fromSL res)
+
+
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
 --
@@ -483,34 +520,8 @@ getSchedule ndays = do
       tStart = ChandraTime (UTCTime dayStart 0)
       tEnd   = ChandraTime (UTCTime dayEnd 0)
 
-  -- Select the science and non-science observations separately
-  -- and then merge them. As the science observations have no
-  -- end-time field, post-process the database results here,
-  -- rather than having the database do all the filtering.
-  --
-  -- TODO: not sure this is a good idea any more
-  --
-  xs1 <- select (((SoStartTimeField <. tEnd)
-                  &&. notDiscarded
-                  &&. isScheduled) -- the isScheduled check is unlikely to restrict anything
-                 `orderBy` [Asc SoStartTimeField])
-  ys1 <- select (((NsStartTimeField <. tEnd) &&.
-                  notNsDiscarded)
-                 `orderBy` [Asc NsStartTimeField])
-
-  -- should filter by the actual run-time, but the following is
-  -- easier
-  let filtEnd proj_start proj_runtime o =
-        let stime = proj_start o
-            rtime = proj_runtime o
-            etime = endCTime stime rtime
-        in etime < tStart
-      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs1)
-      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys1)
-
-      res1 = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
-      res = fromSL res1
-      
+  res <- getObsInRange tStart tEnd
+  
   -- I used siStart r <= cnow, so keep with that logic for now
   -- (could use siEnd r < cnow)
   let cnow = ChandraTime now
@@ -539,35 +550,9 @@ getScheduleDate day ndays = do
 
       tStart = ChandraTime (UTCTime dayStart 0)
       tEnd   = ChandraTime (UTCTime dayEnd 0)
-      
-  -- Select the science and non-science observations separately
-  -- and then merge them. As the science observations have no
-  -- end-time field, post-process the database results here,
-  -- rather than having the database do all the filtering.
-  --
-  -- TODO: not sure this is a good idea any more
-  --
-  xs1 <- select (((SoStartTimeField <. tEnd)
-                  &&. notDiscarded
-                  &&. isScheduled) -- the isScheduled check is unlikely to restrict anything
-                 `orderBy` [Asc SoStartTimeField])
-  ys1 <- select (((NsStartTimeField <. tEnd) &&.
-                  notNsDiscarded)
-                 `orderBy` [Asc NsStartTimeField])
 
-  -- should filter by the actual run-time, but the following is
-  -- easier
-  let filtEnd proj_start proj_runtime o =
-        let stime = proj_start o
-            rtime = proj_runtime o
-            etime = endCTime stime rtime
-        in etime < tStart
-      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs1)
-      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys1)
-
-      res1 = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
-      res = fromSL res1
-      
+  res <- getObsInRange tStart tEnd
+  
   simbad <- getSimbadList res
 
   -- TODO: this logic is more general than getSchedule, perhaps
