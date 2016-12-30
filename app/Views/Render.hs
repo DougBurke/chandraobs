@@ -5,15 +5,16 @@
 -- | A collection of routines.
 
 module Views.Render (standardSchedulePage
-                    , standardExplorePage
                     , extraSchedulePage
                     , baseSchedulePage
+                    , standardExplorePage
+                    , extraExplorePage
                     ) where
 
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (-), (+)
                , Int, Integer, Either(..), Maybe(..)
-               , fmap, map, mapM_, maybe, not, return, truncate)
+               , fmap, map, mapM_, maybe, not, return, snd, truncate)
 
 #if (defined(__GLASGOW_HASKELL__)) && (__GLASGOW_HASKELL__ >= 710)
 import Prelude ((<$>), mconcat, mempty)
@@ -384,14 +385,35 @@ standardExplorePage ::
   -- ^ title (header)
   -> Html
   -- ^ main text of the page; appears within the div created by the
-  --   followingn argument.
+  --   following argument.
   -> Maybe AttributeValue
   -- ^ If Nothing, place contents within div#schedule, otherwise
   --   use div#<contents>
   -> Html
-standardExplorePage mCSSPage hdrTitle bodyBlock mIdName=
+standardExplorePage = extraExplorePage Nothing
+
+-- | Page for the explore menu with optional JS assets
+--   (onload event and JS to set up).
+--
+extraExplorePage ::
+  Maybe (AttributeValue, Html)
+  -- ^ The onload value and any code/stylesheets to load in the
+  --   page header.
+  -> Maybe AttributeValue
+  -- ^ CSS file location (set last if given)
+  -> Html
+  -- ^ title (header)
+  -> Html
+  -- ^ main text of the page; appears within the div created by the
+  --   following argument.
+  -> Maybe AttributeValue
+  -- ^ If Nothing, place contents within div#schedule, otherwise
+  --   use div#<contents>
+  -> Html
+extraExplorePage mJS mCSSPage hdrTitle bodyBlock mIdName =
   let hdr = (H.title hdrTitle
              <> defaultMeta
+             <> fromMaybe mempty (snd <$> mJS)
              <> (cssLink "/css/main.css" ! A.title "Default")
              <> fromMaybe mempty (cssLink <$> mCSSPage)
             )
@@ -402,5 +424,9 @@ standardExplorePage mCSSPage hdrTitle bodyBlock mIdName=
             <> (div ! id idVal) bodyBlock
             <> renderFooter
 
-  in (docTypeHtml ! lang "en-US") (head hdr <> body bdy)
+      bodyCon = case mJS of
+        Just (jsLoad, _) -> body ! onload jsLoad
+        _ -> body
+
+  in (docTypeHtml ! lang "en-US") (head hdr <> bodyCon bdy)
 

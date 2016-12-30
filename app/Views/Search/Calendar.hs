@@ -5,14 +5,11 @@
 module Views.Search.Calendar (indexPage) where
 
 import qualified Prelude as P
-import Prelude ((.), ($), Int, fst)
+import Prelude (Maybe(Just), (.), Int, fst)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Aeson ((.=))
 import Data.Monoid ((<>))
@@ -21,9 +18,8 @@ import Data.Time (Day , showGregorian)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (defaultMeta, d3Meta, renderFooter
-             , jsScript, cssLink, toJSVarObj)
-import Views.Record (CurrentPage(..), mainNavBar)
+import Utils (d3Meta, jsScript, toJSVarObj)
+import Views.Render (extraExplorePage)
 
 indexPage ::
   M.Map Day Int
@@ -32,21 +28,18 @@ indexPage ::
   -> Html
 indexPage cts =
   let jsLoad = "createCalendar(calinfo);"
-  in docTypeHtml ! lang "en-US" $
-    head (H.title "Chandra observations: a calendar view"
-          <> defaultMeta
-          <> d3Meta
-          <> jsScript "/js/calendar-view.js"
-          <> cssLink "/css/calendar.css"
-          <> (cssLink "/css/main.css" ! A.title  "Default")
-          )
-    <>
-    (body ! onload jsLoad)
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") (renderMatches cts)
-      <> renderFooter
-     )
+      jsCts = d3Meta <> jsScript "/js/calendar-view.js"
+      mJS = Just (jsLoad, jsCts)
+      
+      mCSS = Just "/css/calendar.css"
 
+      title = "Chandra observations: a calendar view"
+
+      bdy = renderMatches cts
+      mIdName = Just "explorebox"
+      
+  in extraExplorePage mJS mCSS title bdy mIdName
+     
 renderMatches ::
   M.Map Day Int
   -> Html
@@ -60,39 +53,50 @@ renderMatches cts =
 
       getDay = fromDay . fst
 
+      -- Should this just be a date that is within the Chandra
+      -- schedule, or in the future, or ?
       dummyDate = "2016-01-01"
+
       (startDate, endDate) = if M.null cts
                              then (dummyDate, dummyDate)
-                             else (getDay (M.findMin cts), getDay (M.findMax cts))
+                             else (getDay (M.findMin cts),
+                                   getDay (M.findMax cts))
 
       jsonCts = Aeson.object [
         "startDate" .= startDate
         , "endDate" .= endDate
         , "counts" .= Aeson.object (P.map conv (M.toAscList cts))
         ]
-                
-  in div ! A.id "calendarBlock" $ do
-    h2 "Calendar"
-    
-    p ("This page shows the number of Chandra science observations per "
-       <> "day. It is " <> em "very" <> " experimental and the results should "
-       <> "not be taken too seriously as there are a lot of issues regarding "
-       <> "getting hold of an accurate schedule. There's also the fact that "
-       <> "I only currently include a small fraction of the total schedule, "
-       <> "since Chandra was launched "
-       <> (a ! href "http://chandra.harvard.edu/about/deployment.html")
-       "on July 23, 1999"
-       <> " (although observations only started about a month after this). "
-       <> "The shaded regions indicate the number of science observations that "
-       <> "started on that day; normally there are only a handful, but occasionally "
-       <> "the count can get quite high, which normally means a set of "
-       <> "calibration observations of Ar Lac - for instance, "
-       <> (a ! href "/schedule/date/2015-09-26/1")
-       "the twenty-one observations on September 26, 2015"
-       <> " - but it can sometimes be something different. "
-       <> "Selecting a day will bring up a schedule for that day, along with "
-       <> "a few days on either side, so you can explore; see if you can find "
-       <> "the Venus observations!")
 
-    svgBlock
+      paraBlock = 
+        p ("This page shows the number of Chandra science observations per "
+           <> "day. It is " <> em "very"
+           <> " experimental and the results should not be taken too "
+           <> "seriously as there are a lot of issues regarding "
+           <> "getting hold of an accurate schedule. There's also the fact "
+           <> "that I only currently include a small fraction of the total "
+           <> "schedule, since Chandra was launched "
+           <> (a ! href "http://chandra.harvard.edu/about/deployment.html")
+           "on July 23, 1999"
+           <> " (although observations only started about a month after "
+           <> "this). The shaded regions indicate the number of science "
+           <> "observations that " <> em "started"
+           <>" on that day; normally there are only a handful, but "
+           <> "occasionally the count can get quite high, which normally "
+           <> "means a set of calibration observations of "
+           <> (a ! href "/search/name?target=ArLac") "Ar Lac"
+           <> " - for instance, "
+           <> (a ! href "/schedule/date/2015-09-26/1")
+           "the twenty-one observations on September 26, 2015"
+           <> " - but it can sometimes be something different. "
+           <> "Selecting a square will bring up a schedule for that day, "
+           <> "along with a few days on either side, so you can explore; "
+           <> "see if you can find the Venus observations!")
+
+      divCts = 
+        h2 "Calendar"
+        <> paraBlock
+        <> svgBlock
+                
+  in (div ! id "calendarBlock") divCts
 
