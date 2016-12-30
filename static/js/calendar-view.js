@@ -30,6 +30,9 @@ var rect;
 var opacityRest = 1.0;
 var opacitySel = 0.8;
 
+var monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function createCalendar(cal) {
 
     var startDate = new Date(cal.startDate);
@@ -51,8 +54,8 @@ function createCalendar(cal) {
     var minCount = 1;
     var maxCount = d3.max(d3.values(counts)) || minCount;
 
-    // TODO: can now go to a scale starting at 0 counts; would be nice to go to 9+
-    //       rather than 8+
+    // TODO: can now go to a scale starting at 0 counts;
+    //       would be nice to go to 9+ rather than 8+
     var domain = [0, 8];
     color = d3.scale.quantize()
         .domain(domain)
@@ -110,6 +113,22 @@ function createCalendar(cal) {
         .enter().append("path")
         .attr("class", "month")
         .attr("d", monthPath);
+
+    // month labels
+    svg.selectAll(".monthLabel")
+        .data(function(d) {
+            var months = d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1));
+            return months.filter(function (d) { return (d >= startMonth) && (d < endMonth); });
+        })
+        .enter().append("text")
+        .attr("class", "monthLabel")
+        .style("text-anchor", "middle")
+        .attr("x", monthX)
+    // easiest to place above, as text is cut off if place below the
+    // boxes, and I don't want to have to fix that
+        .attr("y", 0)
+        .attr("dy", "-0.2em")
+        .text(function(d) { return monthName[d.getMonth()]; });
 
     // add counts info for those days that have it
     //
@@ -220,6 +239,15 @@ function unhighlightDay(dd) {
         .transition()
         .duration(transitionTime)
         .attr("opacity", opacityRest);
+}
+
+// Return the X value corresponding to the last day of the month.
+//
+function monthX(t0) {
+    var m = t0.getMonth();
+    var tend = new Date(t0.getFullYear(), t0.getMonth() + 1, 0);
+    var wend = d3.time.weekOfYear(tend);
+    return wend * cellSize;
 }
 
 function monthPath(t0) {
