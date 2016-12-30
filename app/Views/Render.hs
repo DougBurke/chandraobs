@@ -20,7 +20,6 @@ import Prelude ((<$>), mconcat, mempty)
 #endif
 
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
@@ -34,7 +33,6 @@ import Control.Applicative ((<$>))
 import Data.Aeson ((.=))
 import Data.Bits (shiftL)
 import Data.Char (isSpace)
-import Data.Functor (void)
 import Data.List (foldl', intersperse)
 import Data.Maybe (fromMaybe, mapMaybe)
 
@@ -44,7 +42,6 @@ import Data.Monoid ((<>), mconcat, mempty)
 import Data.Monoid ((<>))
 #endif
 
-import Data.Text.Encoding (decodeUtf8')
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -76,6 +73,7 @@ import Utils (obsURIString
              , renderFooter
              , cssLink
              , showInt
+             , toJSVarArr
              )
 
 import Views.Record (CurrentPage(..), mainNavBar)
@@ -286,16 +284,9 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
         <> maybe [] ((:[]) . (dataRow "doing")) mdoing
         <> map (dataRow "todo") todo
 
-      jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode obsInfo)) of
-        Right ans -> toHtml ans
-        Left _ -> "[]"
-
       svgBlock = do
         (div ! id "map") ""
-        script ! type_ "text/javascript" $ do
-                   void "var obsinfo = "
-                   jsHtml
-                   ";"
+        toJSVarArr "obsinfo" obsInfo
 
   in (svgBlock, tblBlock)
 

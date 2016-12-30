@@ -8,7 +8,6 @@ import qualified Prelude as P
 import Prelude ((.), ($), Int, fst)
 
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
@@ -16,16 +15,14 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Aeson ((.=))
-import Data.Functor (void)
 import Data.Monoid ((<>))
-import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day , showGregorian)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Utils (defaultMeta, d3Meta, renderFooter
-             , jsScript, cssLink)
+             , jsScript, cssLink, toJSVarObj)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 indexPage ::
@@ -54,16 +51,9 @@ renderMatches ::
   M.Map Day Int
   -> Html
 renderMatches cts = 
-  let svgBlock = do
-        div ! id "calendar" $ ""
-        script ! type_ "text/javascript" $ do
-          void "var calinfo = "
-          jsHtml
-          ";"
-
-      jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode jsonCts)) of
-        P.Right ans -> toHtml ans
-        P.Left _ -> "{}"
+  let svgBlock = 
+        (div ! id "calendar") ""
+        <> toJSVarObj "calinfo" jsonCts
 
       fromDay = T.pack . showGregorian
       conv (d, n) = fromDay d .= n

@@ -52,6 +52,9 @@ module Utils (
      , standardTable
      , floatableTable
 
+     , toJSVarArr
+     , toJSVarObj
+       
      -- , makeCodeLink
 
      , makeETag
@@ -62,7 +65,11 @@ module Utils (
      , showInt
      ) where
 
+import qualified Data.Aeson as Aeson
+
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy.Char8 as LB8
+
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -90,7 +97,7 @@ import Data.Monoid ((<>), mconcat, mempty)
 import Data.Monoid ((<>))
 #endif
 
-import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8')
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime)
 
 import Network.HTTP.Types.URI (encodePath
@@ -219,6 +226,20 @@ showTime =
 showInt :: Integral a => a -> T.Text
 showInt = F.sformat F.int
 
+
+-- It is expected that a and b are both Int, but keep it
+-- polymorphic for now.
+getTimeLabels ::
+  (a -> T.Text -> b)
+  -> a
+  -> a
+  -> a
+  -> UTCTime
+  -> (b, b, b, T.Text)
+getTimeLabels f nm nh nd t =
+  (f nm "minute", f nh "hour", f nd "day", showTime t)
+
+
 -- | Come up with a string representing the time difference. It
 --   is probably not general enough, since it adds in a
 --   prefix (here, "in"), in most cases. So, this is to be
@@ -240,11 +261,15 @@ showTimeDeltaFwd t1 c2@(ChandraTime t2) =
         F.sformat ("in " F.% F.int F.% " " F.% F.stext F.% F.stext)
         n lbl (plural n)
       
+      (mins, hours, days, other) = getTimeLabels toTxt nm nh nd t2
+
+      {-
       mins = toTxt nm "minute"
       hours = toTxt nh "hour"
       days = toTxt nd "day"
       other = showTime t2
-
+      -}
+      
   in if c2 == futureTime
      then "observation is not scheduled"
      else if delta < 60
@@ -271,12 +296,16 @@ showTimeDeltaBwd (ChandraTime t1) t2 =
       toTxt n lbl =
         F.sformat (F.int F.% " " F.% F.stext F.% F.stext F.% " ago")
         n lbl (plural n)
-      
+
+      (mins, hours, days, other) = getTimeLabels toTxt nm nh nd t1
+
+      {-
       mins = toTxt nm "minute"
       hours = toTxt nh "hour"
       days = toTxt nd "day"
       other = showTime t1
-
+      -}
+      
   in if delta < 60
      then "now"
      else if m < 60
@@ -903,3 +932,69 @@ timeToRFC1123 =
 --  in LT.pack . formatTime defaultTimeLocale rfc822DateFormat
 --
 -- note ghc 7.8 does not export rfc822DateFormat
+
+-- | Create a javascript block that creates a variable with
+--   the given label set to the value.
+--
+toJSVar ::
+  Aeson.ToJSON a
+  => H.Html
+  -- ^ The default value to use when the conversion of the input
+  --   value fails. It is expected to be @"[]"@ or @"{}"@.
+  -> T.Text
+  -- ^ The name of the JS variable to create.
+  -> a
+  -- ^ The value to convert to JSON; if it can not be decodeded
+  --   because of a UTF-8 conversion error then the default value
+  --   will be used instead.
+  -> H.Html
+toJSVar defVal lbl js =
+
+  -- TODO: do we need all this conversion?
+  --   a) need to add toEncoding of our datatypes
+  --      (although note that at present the data sent to this
+  --       routine is created on the fly)
+  --   b) can we just H.toHtml the output of Aeson.encode?
+  --   c) if we can, how do we handle encoding errors
+  --  
+  let jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode js)) of
+        Right ans -> H.toHtml ans
+        Left _ -> defVal
+
+  in (H.script H.! A.type_ "text/javascript")
+     ("var " <> H.toHtml lbl <> " = " <> jsHtml <> ";")
+
+-- | Create a javascript block that creates a variable with
+--   the given label set to the value.
+--
+--   There is *no* check that the input value maps to an
+--   object.
+--
+toJSVarObj ::
+  Aeson.ToJSON a
+  => T.Text
+  -- ^ The name of the JS variable to create.
+  -> a
+  -- ^ The value to convert to JSON; if it can not be decodeded
+  --   because of a UTF-8 conversion error then an empty object
+  --   will be used instead.
+  -> H.Html
+toJSVarObj = toJSVar "{}"
+
+-- | Create a javascript block that creates a variable with
+--   the given label set to the value.
+--
+--
+--   There is *no* check that the input value maps to an
+--   array.
+--
+toJSVarArr ::
+  Aeson.ToJSON a
+  => T.Text
+  -- ^ The name of the JS variable to create.
+  -> a
+  -- ^ The value to convert to JSON; if it can not be decodeded
+  --   because of a UTF-8 conversion error then an empty array
+  --   will be used instead.
+  -> H.Html
+toJSVarArr = toJSVar "[]"

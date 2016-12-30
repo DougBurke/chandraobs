@@ -35,6 +35,7 @@ import Utils (constellationLinkSearch
              , getScienceTime
              , floatableTable
              , showInt
+             -- , toJSVarObj
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (extraSchedulePage
@@ -170,8 +171,5 @@ renderList cons =
     {-
     To do this, need to work out how to get filled constellation
     outlines.
-    script ! type_ "text/javascript" $ do
-      void "var coninfo = "
-      toHtml (LB8.unpack (Aeson.encode conMap))
-      ";"
+    toJSVarObj "coninfo" conMap
     -}

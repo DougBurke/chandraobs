@@ -24,7 +24,6 @@ import Prelude (mconcat)
 #endif
 
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
@@ -32,7 +31,6 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Aeson ((.=))
 import Data.Function (on)
-import Data.Functor (void)
 import Data.List (groupBy, intersperse, sortBy)
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
@@ -59,6 +57,7 @@ import Utils (defaultMeta, d3Meta, renderFooter
              , getNumObs
              , getScienceTime
              , dquote, floatableTable
+             , toJSVarObj
              )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (standardSchedulePage
@@ -199,6 +198,13 @@ renderMatches lbl sched children =
                   
   in p (mconcat introText)
 
+nameInfo :: H.Html
+nameInfo =
+  "The target names set by the proposal writers were used to identify " <>
+  "the object types using " <>
+  (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
+  <> ". "
+
 -- | Render the list of object types, and include a link to the "unidentified"
 --   source, but at the moment this is separate, since I do not have a good
 --   count of the number of targets in the latter case, rather than number
@@ -208,41 +214,42 @@ renderTypes ::
   [(SimbadTypeInfo, Int)]
   -> Html
 renderTypes objs = 
-  let toRow (sti,n) = tr $ do
-                        td (uncurry typeLinkSearch sti)
-                        (td ! A.title (toValue lbl)) (toHtml n)
+  let toRow (sti,n) = tr (tdObject sti <> tdNum n)
+                        
+      tdObject = td . uncurry typeLinkSearch
+      tdNum n = (td ! A.title (toValue lbl)) (toHtml n)
 
       lbl = "Number of objects" :: T.Text
 
+      tableHead = tr (th "Object Type" <>
+                      th (toHtml lbl))
+
+      unidRow =
+        td ((a ! href "/search/type/unidentified") unidLabel) <>
+        (td ! A.title (toValue lbl)) "lots"
+        
+      tableBody = 
+        tr unidRow <>
+        mapM_ toRow sobjs
+
       sobjs = sortBy (compare `on` (snd.fst)) objs
-      str :: T.Text -> H.Html
-      str = toHtml
 
       unidLabel = "Unidentified sources"
+
+      pText = 
+        nameInfo
+        <> "Not all objects could be found, in which case the object "
+        <> "was added to the "
+        <> dquote unidLabel
+        <> " category (this includes so-called serendipitous sources, "
+        <> "that is, those sources that are near-enough to the target to also "
+        <> "be observed by Chandra). The table below does not indicate the "
+        <> "SIMBAD hierarchy; to see how these object types are related visit "
+        <> (a ! href "/search/dtype/") "the SIMBAD dendogram view"
+        <> "."
       
-  in div $ do
-    p $ do
-      str "The target names set by the proposal writers were used to identify "
-      str "the object types using "
-      (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
-      str ". Not all objects could be found, in which case the object "
-      str "was added to the "
-      dquote unidLabel
-      str " category (this includes so-called serendipitous sources, "
-      str "that is, those sources that are near-enough to the target to also "
-      str "be observed by Chandra). The table below does not indicate the "
-      str "SIMBAD hierarchy; to see how these object types are related visit "
-      (a ! href "/search/dtype/") "the SIMBAD dendogram view"
-      str "."
-    floatableTable $ do
-             thead $ tr $ do
-               th "Object Type"
-               th (toHtml lbl)
-             tbody $ do
-               tr (do
-                      td ((a ! href "/search/type/unidentified") unidLabel)
-                      (td ! A.title (toValue lbl)) "lots")
-               mapM_ toRow sobjs
+  in div (p pText
+          <> floatableTable (thead tableHead <> tbody tableBody))
 
 
 -- | Silently remove any for which there's no code, adds elements
@@ -285,7 +292,7 @@ toTree sl =
            , "level" .= lvl
            , "shortName" .= short st
            , "searchLink" .= mkLink st
-           , "size" .= ntot]
+           , "size" .= ntot ]
 
       -- the assumption is that the first element in this list is the level-1
       -- value
@@ -319,6 +326,7 @@ toTree sl =
   in Aeson.object [ "name" .= ("all" :: T.Text),
                     "children" .= P.map toChild1 c1 ]
 
+
 -- | Create the SIMBAD dependency graph and render it.
 --
 renderDependency ::
@@ -328,41 +336,32 @@ renderDependency objs =
   let xs = toTree (addCode objs)
         
       svgBlock = do
-        div ! id "tree" $ ""
-        script ! type_ "text/javascript" $ do
-                   void "var typeinfo = "
-                   toHtml (LB8.unpack (Aeson.encode xs))
-                   ";"
+        (div ! id "tree") ""
+        toJSVarObj "typeinfo" xs
 
-      str :: T.Text -> H.Html
-      str = toHtml
-
-  in div $ do
-    p $ do
       -- TODO: would like to add in a link to the unidentified sources
-      str "The target names set by the proposal writers were used to identify "
-      str "the object types using "
-      (a ! href "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
-      str ". Not all objects could be found, so the following list is "
-      str "incomplete (and does not include so-called serendipitous sources, "
-      str "that is, those sources that are near-enough to the target to also "
-      str "be observed by Chandra). The "
-      (a ! href "https://en.wikipedia.org/wiki/Dendrogram") "dendogram view"
-      str " is used to show the SIMBAD hierarchy. Selecting a circle will "
-      str "close or open the children of the item (i.e. those types that are "
-      str "more specific than the selected item); a filled circle shows that "
-      str "the item has been closed (or hidden). "
-      -- note what the numbers show and how the links work
-      str "The number after a name indicates the number of objects that "
-      str "have this type, or are a descendent of this type, and "
-      str "selecting the type will show the observations of these "
-      str "objects. "
-      str "For a simpler view, which just lists the SIMBAD types but does "
-      str "not show the hierarchy, is available at "
-      (a ! href "/search/type/") "the SIMBAD types view"
-      str "."
+      pText =
+        nameInfo
+        <> "Not all objects could be found, so the following list is "
+        <> "incomplete (and does not include so-called serendipitous sources, "
+        <> "that is, those sources that are near-enough to the target to also "
+        <> "be observed by Chandra). The "
+        <> (a ! href "https://en.wikipedia.org/wiki/Dendrogram") "dendogram view"
+        <> " is used to show the SIMBAD hierarchy. Selecting a circle will "
+        <> "close or open the children of the item (i.e. those types that are "
+        <> "more specific than the selected item); a filled circle shows that "
+        <> "the item has been closed (or hidden). "
+        -- note what the numbers show and how the links work
+        <> "The number after a name indicates the number of objects that "
+        <> "have this type, or are a descendent of this type, and "
+        <> "selecting the type will show the observations of these "
+        <> "objects. "
+        <> "For a simpler view, which just lists the SIMBAD types but does "
+        <> "not show the hierarchy, is available at "
+        <> (a ! href "/search/type/") "the SIMBAD types view"
+        <> "."
 
-    svgBlock
+  in div (p pText <> svgBlock)
 
 -- | for testing; may want to support something like this more generally
 renderDependencyJSON ::

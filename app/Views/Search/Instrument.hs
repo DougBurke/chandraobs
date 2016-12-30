@@ -14,7 +14,6 @@ import qualified Prelude as P
 import Prelude (($), (*), (/), Int, Maybe(..), Ord, compare, fst, snd, mapM_)
 
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 
@@ -23,10 +22,8 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Aeson ((.=))
 import Data.Function (on)
-import Data.Functor (void)
 import Data.List (sortBy)
 import Data.Monoid ((<>))
-import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day)
 
 import Formatting
@@ -45,6 +42,7 @@ import Utils (defaultMeta, d3Meta
              , getNumObs
              , getScienceTime
              , standardTable
+             , toJSVarObj
              )
 import Views.Record (CurrentPage(..), mainNavBar)
 import Views.Render (standardSchedulePage
@@ -170,13 +168,12 @@ renderTypes insts grats igs =
           th "Number of observations"
         tbody (mapM_ (toRow conv) (sortFst xs))
       
-  in div $ do
-    p ("There are several ways to view the configurations: by "
-       <> "instrument, grating, or both.")
-
-    tbl "Instrument" instLinkSearch insts
-    tbl "Grating" gratLinkSearch grats
-    tbl "Instrument & Grating" igLinkSearch igs
+  in div 
+     (p ("There are several ways to view the configurations: by "
+         <> "instrument, grating, or both.")
+      <> tbl "Instrument" instLinkSearch insts
+      <> tbl "Grating" gratLinkSearch grats
+      <> tbl "Instrument & Grating" igLinkSearch igs)
 
 
 -- Experimental
@@ -256,10 +253,6 @@ renderBreakdown total perDay =
         , "series" .= series
         ]
 
-      jsHtml = case decodeUtf8' (LB8.toStrict (Aeson.encode json)) of
-        P.Right ans -> toHtml ans
-        P.Left _ -> "{}"
-      
       calLink = (a ! href "/search/calendar/")
       
   in div $ do
@@ -293,12 +286,9 @@ renderBreakdown total perDay =
        <> "that is, the data shown in the "
        <> calLink "calendar view"
        <> ".")
-      
+
     tbl "Instrument" instLinkSearch insts
     tbl "Grating" gratLinkSearch grats
     tbl "Instrument & Grating" igLinkSearch igs
 
-    script ! type_ "text/javascript" $ do
-      void "var seriesinfo = "
-      jsHtml
-      ";"
+    toJSVarObj "seriesinfo" json
