@@ -41,6 +41,7 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , typeLinkSearch
            , nameLinkSearch
            , constellationLinkSearch
+           , proposalLink
            , obsURI
            , jsScript, cssLink)
 import Layout (defaultMeta
@@ -308,8 +309,7 @@ targetInfo ::
 targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
-      -- targetName = toHtml soTarget
-      targetName = nameLinkSearch soTarget
+      targetName = nameLinkSearch soTarget Nothing
       lenVal = toHtml (showExpTime (fromMaybe soApprovedTime soObservedTime))
 
       -- The search using the alternative name could well return different
@@ -321,7 +321,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                    then mempty 
                    else " - also called "
                         <> toHtml (smiName sm)
-                        -- <> nameLinkSearch (smiName sm)
+                        -- <> nameLinkSearch (smiName sm) Nothing
                         <> " -"
         _ -> mempty
 
@@ -330,7 +330,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       -- ignore missing cases
       constellationTxt = case getConstellationName soConstellation of
         Just con -> let conStr = fromConLong con
-                    in "The target" <> otherName <> " is located in the constellation "
+                    in "The target" <> otherName
+                       <> " is located in the constellation "
                        <> constellationLinkSearch soConstellation conStr
                        <> if hasSimbad then " and " else mempty
         _ -> "The target "
@@ -345,7 +346,8 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
               term _ = "a custom sub array "
           in if frac == 1
              then mempty -- this should not happen
-             else "The source is so bright in X-rays that " <> term frac
+             else "The source is so bright in X-rays that "
+                  <> term frac
                   <> verb <> " used for the observation. "
         _ -> mempty
 
@@ -379,10 +381,9 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       endChars = ".?"
 
       reason = case mproposal of
-        Just Proposal{..} ->
-          let proplink =
-                (a ! href ("/proposal/" <> toValue propNum) $ toHtml propName)
-                <> endSentence propName
+        Just prop ->
+          let proplink = proposalLink prop Nothing
+                <> endSentence (propName prop)
           in (if obsStatus == Unscheduled
               then "It is part of the proposal "
               else ", and is part of the proposal ") <> proplink

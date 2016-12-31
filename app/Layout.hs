@@ -326,7 +326,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
         mconcat discardRows
         <>
         mconcat
-          [ keyVal "Target:" (nameLinkSearch name)
+          [ keyVal "Target:" (nameLinkSearch name Nothing)
           , maybe mempty simbadInfo msimbad
           , keyVal "Observation Details:" oLink
           , keyVal "Sequence Summary:" sLink

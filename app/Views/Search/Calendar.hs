@@ -17,7 +17,7 @@ import Data.Time.Calendar (Day, fromGregorian)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import API (jsScript, targetSearch, scheduleOnDate)
+import API (jsScript, nameLinkSearch, scheduleOnDate)
 import Layout (d3Meta)
 import Utils (toJSVarObj, fromDay)
 import Views.Render (extraExplorePage)
@@ -71,9 +71,7 @@ renderMatches cts =
         (a ! href "http://chandra.harvard.edu/about/deployment.html")
         "on July 23, 1999"
 
-      arLacSearchLink =
-        let uri = targetSearch "ArLac"
-        in (a ! href uri) "Ar Lac"
+      arLacSearchLink = nameLinkSearch "ArLac" (Just "Ar Lac")
 
       arLacSchedLink =
         let uri = scheduleOnDate day 1

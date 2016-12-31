@@ -3,8 +3,7 @@
 
 -- | Create URIs for various access points.
 --
-module API (targetSearch
-           , scheduleOnDate
+module API (scheduleOnDate
 
            , obsURI
            , obsURIString
@@ -18,6 +17,7 @@ module API (targetSearch
            , seqLink
 
            , propTypeLink
+           , proposalLink
              
            , tooLinkSearch
            , tooLinkSearchLong
@@ -50,20 +50,21 @@ import qualified Data.ByteString as B
 import qualified Data.Text as T
 
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
-import Text.Blaze.Html5 (AttributeValue, Html, textValue, toHtml)
+import Text.Blaze.Html5 (AttributeValue, Html
+                        , a, link, script
+                        , textValue, toHtml)
+import Text.Blaze.Html5.Attributes (href, media, rel, src, type_)
 
 import Blaze.ByteString.Builder (toByteString)
 
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
-import Data.Text.Encoding (encodeUtf8)
 import Data.Time.Calendar (Day)
 
-import Network.HTTP.Types.URI (encodePath
-                               , encodePathSegments
-                               , simpleQueryToQuery)
+import Network.HTTP.Types.URI (encodePathSegments
+                               , queryTextToQuery
+                               , renderQuery)
 
 import Types (ConShort(..)
              , ConstraintKind(..)
@@ -72,6 +73,7 @@ import Types (ConShort(..)
              , Grating(..)
              , ObsIdVal(..)
              , PropCategory
+             , Proposal(..)
              , PropType
              , Record
              , SimbadType(..)
@@ -95,13 +97,6 @@ obsURI = textValue . obsURIString
 obsURIString :: ObsIdVal -> T.Text
 obsURIString (ObsIdVal oi) = "/obsid/" <> showInt oi
 
--- | Search for the given target. This is an exact (case insensitive)
---   search.
---
-targetSearch :: TargetName -> AttributeValue
-targetSearch name =
-  "/search/name?target=" <> textValue name
-
 -- | Show the schedule around the given date.
 --
 scheduleOnDate ::
@@ -118,9 +113,6 @@ scheduleOnDate d n =
   in "/schedule/date/" <> day <> "/" <> ndays
 
 
-linkToRecord :: Record -> Html
-linkToRecord = linkToRecordA recordTarget
-
 linkToRecordA ::
   H.ToMarkup a
   => (Record -> a)
@@ -128,7 +120,10 @@ linkToRecordA ::
   -> Html
 linkToRecordA f r = 
   let uri = obsURI (recordObsId r)
-  in (H.a H.! A.href uri) (toHtml (f r))
+  in (a H.! href uri) (toHtml (f r))
+
+linkToRecord :: Record -> Html
+linkToRecord = linkToRecordA recordTarget
 
 
 -- TODO:
@@ -137,6 +132,9 @@ linkToRecordA f r =
 -- in a more-friendly manner than as a link from the obsid or
 -- sequence number.
 --
+-- options should be typed
+--
+-- TODO: use query encoding
 viewerURI :: T.Text -> ObsIdVal -> AttributeValue
 viewerURI opts ObsIdVal{..} =
   let base = "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem="
@@ -157,8 +155,16 @@ propTypeLink :: PropType -> Maybe T.Text -> Html
 propTypeLink propType mlbl =
   let lbl = fromMaybe (toPropTypeLabel propType) mlbl
       pLink = "/search/proptype/" <> H.toValue (fromPropType propType)
-  in (H.a H.! A.href pLink) (toHtml lbl)
+  in (a H.! href pLink) (toHtml lbl)
 
+
+proposalLink :: Proposal -> Maybe T.Text -> Html
+proposalLink Proposal{..} mlbl =
+  let lbl = fromMaybe propName mlbl
+      uri = "/proposal/" <> H.toValue propNum
+  in (a H.! href uri) (toHtml lbl)
+
+     
 -- | Link to the TOO category. See also `tooLinkSearchLong`.
 --
 --   It is assumed that the input argument is valid.
@@ -175,7 +181,7 @@ tooLinkSearchLong too lbl =
   let ttype = maybe "none" (T.toLower . rtToLabel) too
       uri = encodePathSegments ["search", "turnaround", ttype]
       uriVal = H.unsafeByteStringValue (toByteString uri)
-  in (H.a H.! A.href uriVal) (toHtml lbl)
+  in (a H.! href uriVal) (toHtml lbl)
 
 
 -- Note that there is a slight difference in the instrument and grating
@@ -189,13 +195,13 @@ tooLinkSearchLong too lbl =
 instLinkSearch :: Instrument -> Html
 instLinkSearch inst = 
   let iLink = "/search/instrument/" <> H.toValue inst
-  in (H.a H.! A.href iLink) (toHtml inst)
+  in (a H.! href iLink) (toHtml inst)
 
 -- | Add in a link to the grating search page.
 gratLinkSearch :: Grating -> Html
 gratLinkSearch grat = 
   let gLink = "/search/grating/" <> H.toValue (show grat)
-  in (H.a H.! A.href gLink) (toHtml grat)
+  in (a H.! href gLink) (toHtml grat)
 
 -- | Add in a link to the combined instrument+grating search page.
 igLinkSearch :: (Instrument, Grating) -> Html
@@ -203,14 +209,14 @@ igLinkSearch (inst, grat) =
   let linkVal = "/search/instgrat/" <> H.toValue frag
       frag = show inst ++ "-" ++ show grat
       lbl = toHtml inst <> " with " <> toHtml grat
-  in (H.a H.! A.href linkVal) lbl
+  in (a H.! href linkVal) lbl
 
 -- | Add in a link to a "what is this" page for the
 --   instrument.
 instLinkAbout :: Instrument -> Html
 instLinkAbout inst = 
   let iLink = "/about/instruments.html#" <> H.toValue inst
-  in (H.a H.! A.href iLink) (toHtml inst)
+  in (a H.! href iLink) (toHtml inst)
 
 -- | Add in a link to a "what is this" page for the
 --   grating.
@@ -218,12 +224,12 @@ gratLinkAbout :: Grating -> Html
 gratLinkAbout NONE = "no grating"
 gratLinkAbout grat = 
   let linkVal = "/about/instruments.html#" <> H.toValue (show grat)
-  in (H.a H.! A.href linkVal) ("the " <> toHtml grat)
+  in (a H.! href linkVal) ("the " <> toHtml grat)
 
 {-
 -- | Link to the general instruments page
 igLinkAbout :: Html
-igLinkAbout = (H.a H.! A.href "/about/instruments.html") "Chandra instruments"
+igLinkAbout = (a H.! href "/about/instruments.html") "Chandra instruments"
 -}
 
 -- | Add in a link to the constellation search page.
@@ -235,17 +241,18 @@ constellationLinkSearch ::
   -> Html
 constellationLinkSearch con lbl = 
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
-  in (H.a H.! A.href iLink) (toHtml lbl)
+  in (a H.! href iLink) (toHtml lbl)
 
-typeLinkURI :: SimbadType -> B.ByteString
-typeLinkURI st =
-  let uri = ["search", "type", fromSimbadType st]
+toTypeLinkURI :: T.Text -> SimbadType -> B.ByteString
+toTypeLinkURI t st = 
+  let uri = ["search", t, fromSimbadType st]
   in toByteString (encodePathSegments uri)
+     
+typeLinkURI :: SimbadType -> B.ByteString
+typeLinkURI = toTypeLinkURI "type"
 
 typeDLinkURI :: SimbadType -> B.ByteString
-typeDLinkURI st =
-  let uri = ["search", "dtype", fromSimbadType st]
-  in toByteString (encodePathSegments uri)
+typeDLinkURI = toTypeLinkURI "dtype"
   
 -- | Add in a link to the object-type search page.
 --
@@ -259,7 +266,7 @@ typeLinkSearch ::
   -> Html
 typeLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeLinkURI st)
-  in (H.a H.! A.href iLink) (toHtml lbl)
+  in (a H.! href iLink) (toHtml lbl)
 
 typeDLinkSearch ::
   H.ToMarkup a
@@ -268,13 +275,13 @@ typeDLinkSearch ::
   -> Html
 typeDLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
-  in (H.a H.! A.href iLink) (toHtml lbl)
+  in (a H.! href iLink) (toHtml lbl)
 
 -- | Should this be a wrapper around typeLinkSearch or
 --   typeDLinkSearch?
 basicTypeLinkSearch :: Maybe SimbadType -> Html
 basicTypeLinkSearch Nothing =
-  (H.a H.! A.href "/search/type/unidentified") "Unidentified"
+  (a H.! href "/search/type/unidentified") "Unidentified"
 basicTypeLinkSearch (Just s) =
   let txt = fromMaybe "unknown SIMBAD type" (simbadTypeToDesc s)
   in typeLinkSearch s txt
@@ -287,16 +294,27 @@ categoryLinkSearch ::
   -> Html
 categoryLinkSearch cat lbl = 
   let iLink = "/search/category/" <> H.toValue cat
-  in (H.a H.! A.href iLink) (toHtml lbl)
+  in (a H.! href iLink) (toHtml lbl)
 
+-- | Search for the given target. This is an exact (case insensitive)
+--   search.
+--
+targetSearch :: TargetName -> AttributeValue
+targetSearch name =
+  let qry = queryTextToQuery [("target", Just name)]
+      uriBS = "/search/name" <> renderQuery True qry
+  in H.unsafeByteStringValue uriBS
+     
 -- | Add a link to the name-search for an object.
-nameLinkSearch :: TargetName -> Html
-nameLinkSearch name =
-  let uriBS = toByteString (encodePath ["search", "name"] qry)
-      uri = H.unsafeByteStringValue uriBS
-      -- be explicit that query has a value
-      qry = simpleQueryToQuery [("target", encodeUtf8 name)]
-  in (H.a H.! A.href uri) (toHtml name)
+nameLinkSearch ::
+  TargetName
+  -> Maybe T.Text
+  -- ^ The text to use for the link; if Nothing then use the
+  --   target name.
+  -> Html
+nameLinkSearch name mlbl =
+  let lbl = fromMaybe name mlbl
+  in (a H.! href (targetSearch name)) (toHtml lbl)
     
 jointLink :: JointMission -> AttributeValue
 jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
@@ -304,25 +322,25 @@ jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
 -- | Create a link to the mission.
 jointLinkSearch :: JointMission -> Html
 jointLinkSearch jm =
-  (H.a H.! A.href (jointLink jm)) (toHtml (fromMission jm))
+  (a H.! href (jointLink jm)) (toHtml (fromMission jm))
 
 -- | Link to the constraint search.
 constraintLinkSearch :: Maybe ConstraintKind -> Html
 constraintLinkSearch (Just cs) =
-  let uri = H.toValue ("/search/constraints/" <> csToLC cs)
-  in (H.a H.! A.href uri) (toHtml (csToLabel cs))
+  let uri = textValue ("/search/constraints/" <> csToLC cs)
+  in (a H.! href uri) (toHtml (csToLabel cs))
 constraintLinkSearch Nothing =
-  let uri = H.toValue ("/search/constraints/none" :: T.Text)
-  in (H.a H.! A.href uri) "None"
+  let uri = textValue "/search/constraints/none"
+  in (a H.! href uri) "None"
 
 
 jsScript :: AttributeValue -> Html
-jsScript uri = (H.script H.! A.src uri) ""
+jsScript uri = (script H.! src uri) ""
 
 cssLink :: AttributeValue -> Html
 cssLink uri =
-  H.link H.! A.href   uri
-         H.! A.type_  "text/css"
-         H.! A.rel    "stylesheet"
-         H.! A.media  "all"
+  link H.! href   uri
+       H.! type_  "text/css"
+       H.! rel    "stylesheet"
+       H.! media  "all"
 
