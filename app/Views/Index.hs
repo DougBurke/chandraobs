@@ -16,10 +16,10 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import API (renderLinks)
+import API (jsScript, cssLink)
+import Layout (defaultMeta, jqueryMeta, renderLinks, renderFooter)
 import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..)
              , SortedList, StartTimeOrder)
-import Utils (defaultMeta, jqueryMeta, jsScript, cssLink, renderFooter)
 import Views.Record (CurrentPage(..), renderStuff, twitterDiv
                     , mainNavBar, obsNavBar
                     , noObsIdParas)

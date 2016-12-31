@@ -82,6 +82,7 @@ library
 executable webserver
   main-is:             WebServer.hs
   other-modules:       API
+                       Layout
                        Utils
                        Views.Index
                        Views.NotFound

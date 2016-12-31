@@ -21,11 +21,10 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (basicTypeLinkSearch
-           , categoryLinkSearch)
-import Utils (defaultMeta, d3Meta, renderFooter
-             , jsScript, cssLink
-             , dquote
-             )
+           , categoryLinkSearch
+           , jsScript, cssLink)
+import Layout (defaultMeta, d3Meta, renderFooter)
+import Utils (dquote)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 indexPage :: Html

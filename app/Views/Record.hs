@@ -42,7 +42,10 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , nameLinkSearch
            , constellationLinkSearch
            , obsURI
-           , renderLinks)
+           , jsScript, cssLink)
+import Layout (defaultMeta
+              , renderLinks
+              , renderFooter)
 import Types (Record, ScienceObs(..), NonScienceObs(..)
              , SimbadInfo(..)
              , Proposal(..)
@@ -62,11 +65,9 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , toMission, fromMissionLongLink
              , recordObsId, showExpTime
              )
-import Utils (defaultMeta, jsScript, cssLink
-             , showTimeDeltaFwd
+import Utils (showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
-             , renderFooter
              )
 
 -- The specific page for this observation. At present I have not

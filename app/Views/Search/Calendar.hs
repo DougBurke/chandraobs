@@ -17,8 +17,9 @@ import Data.Time.Calendar (Day, fromGregorian)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import API (targetSearch, scheduleOnDate)
-import Utils (d3Meta, jsScript, toJSVarObj, fromDay)
+import API (jsScript, targetSearch, scheduleOnDate)
+import Layout (d3Meta)
+import Utils (toJSVarObj, fromDay)
 import Views.Render (extraExplorePage)
 
 indexPage ::

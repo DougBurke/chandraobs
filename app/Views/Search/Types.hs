@@ -45,16 +45,16 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import API (typeLinkSearch
            , typeDLinkSearch
            , typeDLinkURI
-           , categoryLinkSearch)
+           , categoryLinkSearch
+           , jsScript , cssLink)
+import Layout (defaultMeta, d3Meta, renderFooter)
 import Types (Schedule(..), SimbadType(..)
              , SimbadTypeInfo, SimbadCode(..)
              , SIMCategory
              , simbadLabels
              , noSimbadLabel
              , _2)
-import Utils (defaultMeta, d3Meta, renderFooter
-             , jsScript , cssLink
-             , getNumObs
+import Utils (getNumObs
              , getScienceTime
              , dquote, floatableTable
              , toJSVarObj

@@ -35,14 +35,14 @@ import API (instLinkSearch
            , gratLinkSearch
            , igLinkSearch
            , instLinkAbout
-           , gratLinkAbout)
+           , gratLinkAbout
+           , cssLink, jsScript)
+import Layout (defaultMeta, d3Meta, renderFooter)
 import Types (Schedule, TimeKS(..), Instrument, Grating(..)
              , showExpTime, addTimeKS
              , fromInstrument, fromGrating
              )
-import Utils (defaultMeta, d3Meta
-             , renderFooter, cssLink, jsScript
-             , getNumObs
+import Utils (getNumObs
              , getScienceTime
              , standardTable
              , toJSVarObj

@@ -20,9 +20,9 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (style, title)
 import Text.Blaze.Html5.Attributes hiding (span, title, name)
 
-import API (obsURI)
+import API (obsURI, jsScript, cssLink)
+import Layout (defaultMeta, renderFooter)
 import Types (ScienceObs(..), Instrument(..), TargetName, ObsIdVal)
-import Utils (defaultMeta, jsScript, cssLink, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 {-

@@ -15,7 +15,8 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (defaultMeta, cssLink, renderFooter)
+import API (cssLink)
+import Layout (defaultMeta, renderFooter)
 import Views.Record (CurrentPage(..), twitterDiv
                     , mainNavBar)
 

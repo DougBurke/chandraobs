@@ -57,7 +57,9 @@ import API (obsURIString
             , basicTypeLinkSearch
             , constellationLinkSearch
             , jointLinkSearch
-            , constraintLinkSearch)
+            , constraintLinkSearch
+            , cssLink)
+import Layout (defaultMeta, skymapMeta, renderFooter)
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , NonScienceObs(nsTarget)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
@@ -69,9 +71,6 @@ import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , showExp, toMission)
 import Utils (showTimeDeltaFwd, showTimeDeltaBwd
              , cleanJointName
-             , defaultMeta, skymapMeta
-             , renderFooter
-             , cssLink
              , showInt
              , toJSVarArr
              )

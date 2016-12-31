@@ -5,17 +5,11 @@
 -- | general routines
 
 module Utils (
-     defaultMeta
-     , skymapMeta
-     , d3Meta
-     , jqueryMeta
-     , fromBlaze
+     fromBlaze
      , standardResponse
      , showTimeDeltaFwd
      , showTimeDeltaBwd
      , getTimes
-     , getFact
-     , renderFooter
      , cleanJointName
      , schedToList
      , getNumObs
@@ -28,9 +22,6 @@ module Utils (
      , toJSVarArr
      , toJSVarObj
        
-     , jsScript
-     , cssLink
-
      -- , makeCodeLink
 
      , makeETag
@@ -76,8 +67,6 @@ import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day, NominalDiffTime, UTCTime
                  , addUTCTime, diffUTCTime, showGregorian)
 
-import System.Random (Random(..), getStdRandom)
-
 import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
@@ -100,46 +89,6 @@ fromBlaze = html . renderHtml
 -- response settings.
 standardResponse :: ActionM ()
 standardResponse = return ()
-
-defaultMeta :: H.Html
-defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
-                     H.! A.content "text/html; charset=UTF-8"
-
-jsScript :: H.AttributeValue -> H.Html
-jsScript uri = (H.script H.! A.src uri) ""
-
-cssLink :: H.AttributeValue -> H.Html
-cssLink uri =
-  H.link H.! A.href   uri
-         H.! A.type_  "text/css"
-         H.! A.rel    "stylesheet"
-         H.! A.media  "all"
-
-
--- | Load the JS and CSS needed to display the sky map and table info.
---
-skymapMeta :: H.Html
-skymapMeta =
-  d3Meta
-  <> jsScript "/js/jquery.tablesorter.min.js"
-  <> jsScript "/js/table.js"
-  <> jsScript "/js/projection.js"
-  <> cssLink "/css/tablesorter.css"
-  <> cssLink "/css/schedule.css"
-
--- | Load D3 and JQuery.
-d3Meta :: H.Html
-d3Meta =
-  jqueryMeta
-  <> jsScript "https://d3js.org/d3.v3.min.js"
-  <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
-
--- | Load JQuery.
---
---   It is likely that this should not be used, as you probably want
---   skymapMeta or d3Meta instead.
-jqueryMeta :: H.Html
-jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
 
 plural :: Int -> T.Text
 plural i = if i > 1 then "s" else ""
@@ -288,44 +237,6 @@ getTimes rs =
       expTime = fromInteger . ceiling $ 1000 * _toKS (recordTime rs)
       eTime = addUTCTime expTime sTime
   in (ChandraTime sTime, ChandraTime eTime)
-
--- | Return a "random" Chandra fact. The HTML is inserted into
---   a div with class of "fact".
---
-getFact :: IO H.Html
-getFact = do
-  n <- getStdRandom (randomR (0, length facts - 1))
-  return (facts !! n)
-
-facts :: [H.Html]
-facts = [
-  "Chandra flies 200 times higher than Hubble - more than 1/3 of the way to the moon!"
-  , "Chandra can observe X-rays from clouds of gas so vast that it takes light five million years to go from one side to the other!"
-  , "During maneuvers from one target to the next, Chandra slews more slowly than the minute hand on a clock."
-  , "At 45 feet long, Chandra is the largest satellite the shuttle has ever launched."
-  , "If Colorado were as smooth as Chandra's mirrors, Pikes Peak would be less than one inch tall!"
-  , "Chandra's resolving power is equivalent to the ability to read a stop sign at a distance of twelve miles."
-  , "The electrical power required to operate the Chandra spacecraft and instruments is 2 kilowatts, about the same power as a hair dryer."
-  , "The light from some of the quasars observed by Chandra will have been traveling through space for ten billion years."
-  , "STS-93, the space mission that deployed Chandra, was the first NASA shuttle mission commanded by a woman."
-  , "Chandra can observe X-rays from particles up to the last second before they fall into a black hole!!!"
-  ]
-
--- | The standard footer; needs to match up with the html files in static/.
-renderFooter :: H.Html
-renderFooter =
-  H.p H.! A.id "banner" $
-    mconcat [
-      "The 'What is Chandra doing now?' web site is written "
-      , "by "
-      , (H.a H.! A.href "http://twitter.com/doug_burke") "@doug_burke"
-      , ", comes with no warranty (in other words, I make no "
-      , "guarantee that the information presented is correct, although "
-      , "I try my best to make sure it is), and is not "
-      , "an official product of the "
-      , (H.a H.! A.href "http://chandra.si.edu/") "Chandra X-ray Center"
-      , "."
-    ]
 
 maybeToList :: Maybe a -> [a]
 maybeToList Nothing = []

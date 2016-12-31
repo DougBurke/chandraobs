@@ -138,6 +138,8 @@ import Database (NumObs, NumSrc, SIMKey
                  , dbConnStr
                  )
 -- import Git (gitCommitId)
+
+import Layout (getFact)
 import Types (Record, SimbadInfo(..), Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
@@ -163,7 +165,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , fromInstrument
              , fromGrating
              )
-import Utils (fromBlaze, standardResponse, getFact
+import Utils (fromBlaze, standardResponse
              , timeToRFC1123
              , getTimes
              , showInt
