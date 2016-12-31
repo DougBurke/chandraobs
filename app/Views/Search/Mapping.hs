@@ -20,10 +20,10 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (basicTypeLinkSearch
+           , categoryLinkSearch)
 import Utils (defaultMeta, d3Meta, renderFooter
              , jsScript, cssLink
-             , basicTypeLinkSearch
-             , categoryLinkSearch
              , dquote
              )
 import Views.Record (CurrentPage(..), mainNavBar)

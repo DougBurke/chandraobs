@@ -42,6 +42,10 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (typeLinkSearch
+           , typeDLinkSearch
+           , typeDLinkURI
+           , categoryLinkSearch)
 import Types (Schedule(..), SimbadType(..)
              , SimbadTypeInfo, SimbadCode(..)
              , SIMCategory
@@ -50,10 +54,6 @@ import Types (Schedule(..), SimbadType(..)
              , _2)
 import Utils (defaultMeta, d3Meta, renderFooter
              , jsScript , cssLink
-             , typeLinkSearch
-             , typeDLinkSearch
-             , typeDLinkURI
-             , categoryLinkSearch
              , getNumObs
              , getScienceTime
              , dquote, floatableTable

@@ -48,28 +48,27 @@ import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (obsURIString
+            , linkToRecord
+            , instLinkSearch
+            , gratLinkSearch
+            , tooLinkSearch
+            , typeDLinkSearch
+            , basicTypeLinkSearch
+            , constellationLinkSearch
+            , jointLinkSearch
+            , constraintLinkSearch)
 import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , NonScienceObs(nsTarget)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
              , SimbadInfo(..), Record, TOORequest(..)
              , ConstraintKind(..)
              , Schedule(..)
-             )
-import Types (recordObsId, recordTarget, recordStartTime, recordTime
+             , recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
              , showExp, toMission)
-import Utils (obsURIString
-             , showTimeDeltaFwd, showTimeDeltaBwd
-             , linkToRecord
-             , instLinkSearch
-             , gratLinkSearch
-             , typeDLinkSearch
-             , basicTypeLinkSearch
-             , constellationLinkSearch
-             , jointLinkSearch
-             , tooLinkSearch
+import Utils (showTimeDeltaFwd, showTimeDeltaBwd
              , cleanJointName
-             , constraintLinkSearch
              , defaultMeta, skymapMeta
              , renderFooter
              , cssLink

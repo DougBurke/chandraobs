@@ -16,11 +16,11 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (constraintLinkSearch)
 import Types (Schedule, TimeKS, ConstraintKind(..)
              , showExpTime
              , csToLabel)
 import Utils (getScienceTime
-             , constraintLinkSearch
              , dquote, standardTable
              )
 import Views.Record (CurrentPage(..))

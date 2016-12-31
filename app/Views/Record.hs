@@ -37,7 +37,13 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (ScienceObs(..), NonScienceObs(..)
+import API (abstractLink, instLinkSearch, gratLinkSearch
+           , typeLinkSearch
+           , nameLinkSearch
+           , constellationLinkSearch
+           , obsURI
+           , renderLinks)
+import Types (Record, ScienceObs(..), NonScienceObs(..)
              , SimbadInfo(..)
              , Proposal(..)
              , Grating(..), TimeKS(..)
@@ -54,20 +60,13 @@ import Types (ScienceObs(..), NonScienceObs(..)
              , getConstellationName
              , similarName
              , toMission, fromMissionLongLink
+             , recordObsId, showExpTime
              )
-import Types (Record, recordObsId, showExpTime)
-import Utils ( 
-             abstractLink, defaultMeta, jsScript, cssLink
-             , obsURI, renderLinks
+import Utils (defaultMeta, jsScript, cssLink
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
              , renderFooter
-             , instLinkSearch
-             , gratLinkSearch
-             , typeLinkSearch
-             , nameLinkSearch
-             , constellationLinkSearch
              )
 
 -- The specific page for this observation. At present I have not

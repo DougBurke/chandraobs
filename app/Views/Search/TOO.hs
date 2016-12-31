@@ -17,9 +17,9 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (tooLinkSearch)
 import Types (Schedule, TimeKS, TOORequestTime(..), rtToLabel, showExpTime)
-import Utils (tooLinkSearch
-             , getScienceTime
+import Utils (getScienceTime
              , dquote, standardTable
              )
 import Views.Record (CurrentPage(..))

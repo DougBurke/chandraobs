@@ -81,7 +81,8 @@ library
 -- 'cabal build' confused
 executable webserver
   main-is:             WebServer.hs
-  other-modules:       Utils
+  other-modules:       API
+                       Utils
                        Views.Index
                        Views.NotFound
                        Views.Proposal

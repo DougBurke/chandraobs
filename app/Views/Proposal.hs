@@ -13,11 +13,12 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (abstractLink, categoryLinkSearch)
 import Types (Proposal(..)
               , ScienceObs(..)
               , Schedule
               )
-import Utils (abstractLink, categoryLinkSearch, schedToList, showInt)
+import Utils (schedToList, showInt)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage)
 

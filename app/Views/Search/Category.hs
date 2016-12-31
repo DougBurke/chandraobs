@@ -22,13 +22,13 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (abstractLink
+           , basicTypeLinkSearch
+           , categoryLinkSearch)
 import Types (Schedule, ObsIdVal(..), SimbadType
              , PropCategory
              , simbadTypeToDesc)
-import Utils (abstractLink
-             , basicTypeLinkSearch
-             , categoryLinkSearch
-             , getNumObs
+import Utils (getNumObs
              , getScienceTime
              , floatableTable
              )

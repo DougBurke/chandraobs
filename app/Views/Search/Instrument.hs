@@ -31,14 +31,17 @@ import Formatting
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (instLinkSearch
+           , gratLinkSearch
+           , igLinkSearch
+           , instLinkAbout
+           , gratLinkAbout)
 import Types (Schedule, TimeKS(..), Instrument, Grating(..)
              , showExpTime, addTimeKS
              , fromInstrument, fromGrating
              )
 import Utils (defaultMeta, d3Meta
              , renderFooter, cssLink, jsScript
-             , instLinkAbout, gratLinkAbout -- , igLinkAbout
-             , instLinkSearch, gratLinkSearch, igLinkSearch
              , getNumObs
              , getScienceTime
              , standardTable

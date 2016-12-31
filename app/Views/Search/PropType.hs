@@ -19,12 +19,12 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (propTypeLink)
 import Types (Schedule(..), PropType(..), TimeKS
              , toPropTypeLabel
              , normTimeKS
              , showExpTime)
-import Utils (propTypeLink
-             , getScienceTime
+import Utils (getScienceTime
              , getNumObs
              , dquote, standardTable
              )

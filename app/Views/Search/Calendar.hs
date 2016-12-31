@@ -9,16 +9,16 @@ import Prelude (Maybe(Just), (.), Int, fst)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as M
-import qualified Data.Text as T
 
 import Data.Aeson ((.=))
 import Data.Monoid ((<>))
-import Data.Time (Day , showGregorian)
+import Data.Time.Calendar (Day, fromGregorian)
 
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Utils (d3Meta, jsScript, toJSVarObj)
+import API (targetSearch, scheduleOnDate)
+import Utils (d3Meta, jsScript, toJSVarObj, fromDay)
 import Views.Render (extraExplorePage)
 
 indexPage ::
@@ -48,9 +48,7 @@ renderMatches cts =
         (div ! id "calendar") ""
         <> toJSVarObj "calinfo" jsonCts
 
-      fromDay = T.pack . showGregorian
       conv (d, n) = fromDay d .= n
-
       getDay = fromDay . fst
 
       -- Should this just be a date that is within the Chandra
@@ -68,6 +66,20 @@ renderMatches cts =
         , "counts" .= Aeson.object (P.map conv (M.toAscList cts))
         ]
 
+      deployLink = 
+        (a ! href "http://chandra.harvard.edu/about/deployment.html")
+        "on July 23, 1999"
+
+      arLacSearchLink =
+        let uri = targetSearch "ArLac"
+        in (a ! href uri) "Ar Lac"
+
+      arLacSchedLink =
+        let uri = scheduleOnDate day 1
+            day = fromGregorian 2015 9 26
+        in (a ! href uri)
+           "the twenty-one observations on September 26, 2015"
+      
       paraBlock = 
         p ("This page shows the number of Chandra science observations per "
            <> "day. It is " <> em "very"
@@ -76,18 +88,16 @@ renderMatches cts =
            <> "getting hold of an accurate schedule. There's also the fact "
            <> "that I only currently include a small fraction of the total "
            <> "schedule, since Chandra was launched "
-           <> (a ! href "http://chandra.harvard.edu/about/deployment.html")
-           "on July 23, 1999"
+           <> deployLink
            <> " (although observations only started about a month after "
            <> "this). The shaded regions indicate the number of science "
            <> "observations that " <> em "started"
            <>" on that day; normally there are only a handful, but "
            <> "occasionally the count can get quite high, which normally "
            <> "means a set of calibration observations of "
-           <> (a ! href "/search/name?target=ArLac") "Ar Lac"
+           <> arLacSearchLink
            <> " - for instance, "
-           <> (a ! href "/schedule/date/2015-09-26/1")
-           "the twenty-one observations on September 26, 2015"
+           <> arLacSchedLink
            <> " - but it can sometimes be something different. "
            <> "Selecting a square will bring up a schedule for that day, "
            <> "along with a few days on either side, so you can explore; "

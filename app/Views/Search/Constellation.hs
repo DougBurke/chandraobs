@@ -25,13 +25,13 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (constellationLinkSearch)
 import Types (Schedule, ConShort(..), ConLong(..), TimeKS(..)
               , getConstellationNameStr
               , constellationMap
               , getConstellationNameStr
               , showExpTime)
-import Utils (constellationLinkSearch
-             , getNumObs
+import Utils (getNumObs
              , getScienceTime
              , floatableTable
              , showInt
