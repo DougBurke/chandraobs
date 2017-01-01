@@ -21,12 +21,12 @@ import Data.Monoid ((<>))
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
+import Layout (floatableTable)
 import Types (Schedule, JointMission
              , fromMission, fromMissionLong
              , fromMissionLongLink, fromMissionAboutLink)
 import Utils (getNumObs
              , getScienceTime
-             , floatableTable
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage

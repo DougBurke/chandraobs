@@ -17,12 +17,11 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (constraintLinkSearch)
+import Layout (dquote, standardTable)
 import Types (Schedule, TimeKS, ConstraintKind(..)
              , showExpTime
              , csToLabel)
-import Utils (getScienceTime
-             , dquote, standardTable
-             )
+import Utils (getScienceTime)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage
                     , standardExplorePage)

@@ -11,6 +11,12 @@ module Layout (
   , renderLinks
   , renderFooter
   , getFact
+  , dquote
+  , standardTable
+  , floatableTable
+
+  , addClass
+
   )
        where
 
@@ -25,7 +31,19 @@ import Data.Monoid ((<>))
 
 import System.Random (Random(..), getStdRandom)
 
-import Text.Blaze.Html5 (AttributeValue, Html, textValue, toHtml)
+import Text.Blaze.Html5 (AttributeValue, Html
+                        , a
+                        , img
+                        , meta
+                        , preEscapedToHtml
+                        , table, tbody, td, tr
+                        , textValue, toHtml, toValue)
+import Text.Blaze.Html5.Attributes (alt
+                                   , checked, class_, content
+                                   , height, href, httpEquiv
+                                   , onclick
+                                   , src, type_, value, width)
+import Text.Blaze.Internal (Attributable)
 
 import API (obsURI
            , categoryLinkSearch
@@ -55,15 +73,16 @@ import Types (ChipStatus(..)
              , toMission
              , toPropType
              )
-import Utils (addClass, cleanJointName, showInt)
-  
-defaultMeta :: H.Html
-defaultMeta = H.meta H.! A.httpEquiv "Content-Type"
-                     H.! A.content "text/html; charset=UTF-8"
+import Utils (cleanJointName, showInt)
+
+       
+defaultMeta :: Html
+defaultMeta = meta H.! httpEquiv "Content-Type"
+                   H.! content "text/html; charset=UTF-8"
 
 -- | Load the JS and CSS needed to display the sky map and table info.
 --
-skymapMeta :: H.Html
+skymapMeta :: Html
 skymapMeta =
   d3Meta
   <> jsScript "/js/jquery.tablesorter.min.js"
@@ -73,7 +92,7 @@ skymapMeta =
   <> cssLink "/css/schedule.css"
 
 -- | Load D3 and JQuery.
-d3Meta :: H.Html
+d3Meta :: Html
 d3Meta =
   jqueryMeta
   <> jsScript "https://d3js.org/d3.v3.min.js"
@@ -83,34 +102,34 @@ d3Meta =
 --
 --   It is likely that this should not be used, as you probably want
 --   skymapMeta or d3Meta instead.
-jqueryMeta :: H.Html
+jqueryMeta :: Html
 jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
 
 -- | The standard footer; needs to match up with the html files in static/.
-renderFooter :: H.Html
+renderFooter :: Html
 renderFooter =
   H.p H.! A.id "banner" $
     mconcat [
       "The 'What is Chandra doing now?' web site is written "
       , "by "
-      , (H.a H.! A.href "http://twitter.com/doug_burke") "@doug_burke"
+      , (a H.! href "http://twitter.com/doug_burke") "@doug_burke"
       , ", comes with no warranty (in other words, I make no "
       , "guarantee that the information presented is correct, although "
       , "I try my best to make sure it is), and is not "
       , "an official product of the "
-      , (H.a H.! A.href "http://chandra.si.edu/") "Chandra X-ray Center"
+      , (a H.! href "http://chandra.si.edu/") "Chandra X-ray Center"
       , "."
     ]
 
 -- | Return a "random" Chandra fact. The HTML is inserted into
 --   a div with class of "fact".
 --
-getFact :: IO H.Html
+getFact :: IO Html
 getFact = do
   n <- getStdRandom (randomR (0, length facts - 1))
   return (facts !! n)
 
-facts :: [H.Html]
+facts :: [Html]
 facts = [
   "Chandra flies 200 times higher than Hubble - more than 1/3 of the way to the moon!"
   , "Chandra can observe X-rays from clouds of gas so vast that it takes light five million years to go from one side to the other!"
@@ -151,19 +170,19 @@ renderLinks ::
 renderLinks f mprop msimbad so@ScienceObs{..} =
   let optSel :: T.Text -> Bool -> Html
       optSel lbl cf = 
-        let idName = H.toValue (lbl <> "button")
-            base = H.input H.! A.type_ "radio"
+        let idName = toValue (lbl <> "button")
+            base = H.input H.! type_ "radio"
                            H.! A.name  "opttype"
-                           H.! A.value (H.toValue lbl)
+                           H.! value (toValue lbl)
                            H.! A.id idName
-                           H.! A.onclick
-                               ("switchOption('" <> H.toValue lbl <> "')")
-        in (if cf then base H.! A.checked "checked" else base)
+                           H.! onclick
+                               ("switchOption('" <> toValue lbl <> "')")
+        in (if cf then base H.! checked "checked" else base)
            <> (H.label H.! A.for idName) (toHtml lbl)
 
       wwtLink = if f
-                then (H.a H.! A.href "/wwt.html") "WWT"
-                else (H.a H.! A.href (H.toValue (obsURI soObsId) <> "/wwt")) "WWT"
+                then (a H.! href "/wwt.html") "WWT"
+                else (a H.! href (toValue (obsURI soObsId) <> "/wwt")) "WWT"
 
       form = addClass "radiobuttons" H.div $
               mconcat [ "View: "
@@ -176,22 +195,22 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
                       ]
 
       urlHead = "http://asc.harvard.edu/targets/"
-                <> H.toValue soSequence
+                <> toValue soSequence
                 <> "/"
-                <> H.toValue soSequence
+                <> toValue soSequence
                 <> "."
-                <> H.toValue soObsId
+                <> toValue soObsId
                 <> ".soe."
 
       link :: T.Text -> AttributeValue -> Bool -> Html
       link lbl frag af = 
         let uri = urlHead <> frag <> ".gif"
-        in H.img H.! A.src    uri
-                 H.! A.alt    (textValue ("The instrument field-of-view on top of the " <> lbl <> " image of the source."))
-                 H.! A.width  (H.toValue (680::Int))
-                 H.! A.height (H.toValue (680::Int))
-                 H.! A.id     (textValue lbl)
-                 H.! A.class_ (if af then "active" else "inactive")
+        in img H.! src    uri
+               H.! alt    (textValue ("The instrument field-of-view on top of the " <> lbl <> " image of the source."))
+               H.! width  (toValue (680::Int))
+               H.! height (toValue (680::Int))
+               H.! A.id   (textValue lbl)
+               H.! class_ (if af then "active" else "inactive")
 
   in form <>
      addClass "links" H.div
@@ -230,14 +249,14 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
                  then mempty
                  else ", " <> toHtml grat
 
-      left = addClass "key" H.td
-      right = addClass "value" H.td
+      left = addClass "key" td
+      right = addClass "value" td
 
-      keyVal k v = H.tr (left k <> " " <> right v)
+      keyVal k v = tr (left k <> " " <> right v)
 
-      oLink = H.a H.! A.href (obsIdLink soObsId) $ toHtml soObsId
-      sLink = H.a H.! A.href (seqLink soObsId)   $ toHtml soSequence
-      pLink = H.a H.! A.href ("/proposal/" <> H.toValue soProposal) $ toHtml soProposal
+      oLink = a H.! href (obsIdLink soObsId) $ toHtml soObsId
+      sLink = a H.! href (seqLink soObsId)   $ toHtml soSequence
+      pLink = a H.! href ("/proposal/" <> H.toValue soProposal) $ toHtml soProposal
 
        -- rely on the ToMarkup instance of TimeKS
       expLink = case soObservedTime of
@@ -273,11 +292,11 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       conLink con = 
         let uri = H.toValue ("/search/constellation/" <> fromConShort con)
         in case getConstellationName con of
-          Just ln -> Just ((H.a H.! A.href uri) (toHtml (fromConLong ln)))
+          Just ln -> Just ((a H.! href uri) (toHtml (fromConLong ln)))
           _ -> Nothing
         
       too = case soTOO of
-        Just tr -> keyVal "Turnaround time:" (tooLinkSearch (Just (trType tr)))
+        Just t  -> keyVal "Turnaround time:" (tooLinkSearch (Just (trType t)))
         Nothing -> mempty
 
       -- the "chip" display depends on whether this has been archived or
@@ -318,8 +337,8 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       simbadInfo SimbadInfo {..} =
         keyVal "SIMBAD Type:" (typeDLinkSearch smiType3 smiType)
       
-      discardRows = [ H.tr (addClass "note" H.td
-                            "Note: the observation was discarded")
+      discardRows = [ tr (addClass "note" td
+                          "Note: the observation was discarded")
                     | soStatus == "discarded" ]
 
       tblRows =
@@ -351,8 +370,24 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           ]
 
       -- ignore the thead element
-      tbl = H.table (H.tbody tblRows)
+      tbl = table (tbody tblRows)
 
   in (addClass "inactive" H.div H.! A.id "Details") 
       tbl
+
+
+ldquo, rdquo :: Html
+ldquo = preEscapedToHtml ("&ldquo;" :: T.Text)
+rdquo = preEscapedToHtml ("&rdquo;" :: T.Text)
+
+dquote :: Html -> Html
+dquote txt = ldquo <> txt <> rdquo
+
+standardTable, floatableTable :: Html -> Html
+standardTable = addClass "standard" table
+floatableTable = addClass "floatable" table
+
+-- | Try to make the code a little-bit easier to read
+addClass :: Attributable a => AttributeValue -> a -> a
+addClass cls base = base H.! class_ cls
 

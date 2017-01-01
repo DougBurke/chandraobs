@@ -15,9 +15,6 @@ module Utils (
      , getNumObs
      , getScienceExposure
      , getScienceTime
-     , dquote
-     , standardTable
-     , floatableTable
 
      , toJSVarArr
      , toJSVarObj
@@ -28,7 +25,6 @@ module Utils (
      , timeToRFC1123
 
      , fromDay
-     , addClass
        
        -- useful in conversion of String-handling code
        -- to use Text instead
@@ -45,7 +41,6 @@ import qualified Data.Text.Lazy as LT
 import qualified Formatting as F
 import qualified Formatting.Time as FT
 
-import qualified Text.Blaze.Internal as Blaze
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -224,11 +219,6 @@ cleanJointName :: T.Text -> T.Text
 cleanJointName j = if "CXO-" `T.isPrefixOf` j then T.drop 4 j else j 
 
 
--- | Try to make the code a little-bit easier to read
-addClass :: Blaze.Attributable a => H.AttributeValue -> a -> a
-addClass cls base = base H.! A.class_ cls
-
-
 getTimes ::
   Record
   -> (ChandraTime, ChandraTime) -- start and end times
@@ -279,17 +269,6 @@ getScienceTime sched =
      then mempty
      else ", and the total science exposure time for these observations is "
           <> H.toHtml (showExpTime etime)
-
-ldquo, rdquo :: H.Html
-ldquo = H.preEscapedToHtml ("&ldquo;" :: T.Text)
-rdquo = H.preEscapedToHtml ("&rdquo;" :: T.Text)
-
-dquote :: H.Html -> H.Html
-dquote txt = ldquo <> txt <> rdquo
-
-standardTable, floatableTable :: H.Html -> H.Html
-standardTable = addClass "standard" H.table
-floatableTable = addClass "floatable" H.table
 
 {- At the moment this is only used in static/about/index.html, but
    the link there is added via the configure script, so this routine

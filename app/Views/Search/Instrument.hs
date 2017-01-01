@@ -37,14 +37,15 @@ import API (instLinkSearch
            , instLinkAbout
            , gratLinkAbout
            , cssLink, jsScript)
-import Layout (defaultMeta, d3Meta, renderFooter)
+import Layout (defaultMeta, d3Meta
+              , renderFooter
+              , standardTable)
 import Types (Schedule, TimeKS(..), Instrument, Grating(..)
              , showExpTime, addTimeKS
              , fromInstrument, fromGrating
              )
 import Utils (getNumObs
              , getScienceTime
-             , standardTable
              , toJSVarObj
              )
 import Views.Record (CurrentPage(..), mainNavBar)

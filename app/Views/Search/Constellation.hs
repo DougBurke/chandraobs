@@ -26,6 +26,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (constellationLinkSearch)
+import Layout (floatableTable)
 import Types (Schedule, ConShort(..), ConLong(..), TimeKS(..)
               , getConstellationNameStr
               , constellationMap
@@ -33,7 +34,6 @@ import Types (Schedule, ConShort(..), ConLong(..), TimeKS(..)
               , showExpTime)
 import Utils (getNumObs
              , getScienceTime
-             , floatableTable
              , showInt
              -- , toJSVarObj
              )

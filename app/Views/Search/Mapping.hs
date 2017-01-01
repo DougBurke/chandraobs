@@ -23,8 +23,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import API (basicTypeLinkSearch
            , categoryLinkSearch
            , jsScript, cssLink)
-import Layout (defaultMeta, d3Meta, renderFooter)
-import Utils (dquote)
+import Layout (defaultMeta, dquote, d3Meta, renderFooter)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 indexPage :: Html

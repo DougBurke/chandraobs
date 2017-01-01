@@ -20,13 +20,13 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (propTypeLink)
+import Layout (dquote, standardTable)
 import Types (Schedule(..), PropType(..), TimeKS
              , toPropTypeLabel
              , normTimeKS
              , showExpTime)
 import Utils (getScienceTime
              , getNumObs
-             , dquote, standardTable
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (baseSchedulePage,

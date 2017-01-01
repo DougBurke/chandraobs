@@ -47,7 +47,9 @@ import API (typeLinkSearch
            , typeDLinkURI
            , categoryLinkSearch
            , jsScript , cssLink)
-import Layout (defaultMeta, d3Meta, renderFooter)
+import Layout (defaultMeta, d3Meta
+              , dquote, floatableTable
+              , renderFooter)
 import Types (Schedule(..), SimbadType(..)
              , SimbadTypeInfo, SimbadCode(..)
              , SIMCategory
@@ -56,7 +58,6 @@ import Types (Schedule(..), SimbadType(..)
              , _2)
 import Utils (getNumObs
              , getScienceTime
-             , dquote, floatableTable
              , toJSVarObj
              )
 import Views.Record (CurrentPage(..), mainNavBar)

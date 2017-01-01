@@ -314,6 +314,8 @@ categoryLinkSearch cat lbl =
 --
 targetSearch :: TargetName -> AttributeValue
 targetSearch name =
+  -- since the target name could contain any character, ensure this
+  -- is encoded
   let qry = queryTextToQuery [("target", Just name)]
       uriBS = "/search/name" <> renderQuery True qry
   in H.unsafeByteStringValue uriBS

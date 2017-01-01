@@ -25,12 +25,12 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import API (abstractLink
            , basicTypeLinkSearch
            , categoryLinkSearch)
+import Layout (floatableTable)
 import Types (Schedule, ObsIdVal(..), SimbadType
              , PropCategory
              , simbadTypeToDesc)
 import Utils (getNumObs
              , getScienceTime
-             , floatableTable
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage
