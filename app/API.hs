@@ -126,29 +126,36 @@ linkToRecord :: Record -> Html
 linkToRecord = linkToRecordA recordTarget
 
 
+data ViewerOption =
+  ViewDetails | ViewAbstract | ViewSequence
+  deriving Eq
+
+vToValue :: ViewerOption -> T.Text
+vToValue ViewDetails = "details"
+vToValue ViewAbstract = "propAbstract"
+vToValue ViewSequence = "sequenceSummary"
+
 -- TODO:
 -- Ideally we would link to something a bit more readable than the
 -- archive page (ie its use of frames), and also present the link
 -- in a more-friendly manner than as a link from the obsid or
 -- sequence number.
 --
--- options should be typed
---
--- TODO: use query encoding
-viewerURI :: T.Text -> ObsIdVal -> AttributeValue
-viewerURI opts ObsIdVal{..} =
+viewerURI :: ViewerOption -> ObsIdVal -> AttributeValue
+viewerURI opt ObsIdVal{..} =
   let base = "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem="
-  in textValue (base <> opts <> "&obsid=" <> showInt fromObsId)
+      optVal = vToValue opt
+  in textValue (base <> optVal <> "&obsid=" <> showInt fromObsId)
 
 obsIdLink :: ObsIdVal -> AttributeValue
-obsIdLink = viewerURI "details"
+obsIdLink = viewerURI ViewDetails
 
 detailsLink, abstractLink :: ObsIdVal -> AttributeValue
 detailsLink = obsIdLink
-abstractLink = viewerURI "propAbstract"
+abstractLink = viewerURI ViewAbstract
 
 seqLink :: ObsIdVal -> AttributeValue
-seqLink = viewerURI "sequenceSummary"
+seqLink = viewerURI ViewSequence
      
 -- | Link to a proposal type.
 propTypeLink :: PropType -> Maybe T.Text -> Html
