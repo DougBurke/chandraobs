@@ -174,7 +174,6 @@ proposalLink Proposal{..} mlbl =
      
 -- | Link to the TOO category. See also `tooLinkSearchLong`.
 --
---   It is assumed that the input argument is valid.
 tooLinkSearch :: Maybe TOORequestTime -> Html
 tooLinkSearch too =
   let lbl = maybe "None" rtToLabel too
@@ -182,12 +181,11 @@ tooLinkSearch too =
 
 -- | Link to the TOO category. See also `tooLinkSearch`.
 --
---   It is assumed that the input argument is valid.
 tooLinkSearchLong :: Maybe TOORequestTime -> T.Text -> Html
 tooLinkSearchLong too lbl =
   let ttype = maybe "none" (T.toLower . rtToLabel) too
-      uri = encodePathSegments ["search", "turnaround", ttype]
-      uriVal = H.unsafeByteStringValue (toByteString uri)
+      uri = "/search/turnaround/" <> ttype
+      uriVal = textValue uri
   in (a H.! href uriVal) (toHtml lbl)
 
 
@@ -250,16 +248,24 @@ constellationLinkSearch con lbl =
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
   in (a H.! href iLink) (toHtml lbl)
 
-toTypeLinkURI :: T.Text -> SimbadType -> B.ByteString
-toTypeLinkURI t st = 
-  let uri = ["search", t, fromSimbadType st]
+data TypeOption = TypeLink | TypeDLink deriving Eq
+
+tToValue :: TypeOption -> T.Text
+tToValue TypeLink = "type"
+tToValue TypeDLink = "dtype"
+  
+toTypeLinkURI :: TypeOption -> SimbadType -> B.ByteString
+toTypeLinkURI t st =
+  -- as the SIMBAD type includes items like "Y*?", ensure the
+  -- URI is encoded
+  let uri = ["search", tToValue t, fromSimbadType st]
   in toByteString (encodePathSegments uri)
      
 typeLinkURI :: SimbadType -> B.ByteString
-typeLinkURI = toTypeLinkURI "type"
+typeLinkURI = toTypeLinkURI TypeLink
 
 typeDLinkURI :: SimbadType -> B.ByteString
-typeDLinkURI = toTypeLinkURI "dtype"
+typeDLinkURI = toTypeLinkURI TypeDLink
   
 -- | Add in a link to the object-type search page.
 --
