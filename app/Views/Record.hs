@@ -226,7 +226,7 @@ mainNavBar cp =
 --   mean that the observation is discarded or unscheduled -
 --   then add nothing.
 --
-obsNavBar :: 
+obsNavBar ::
   Maybe Record   -- the current observation
   -> ObsInfo 
   -> Html
@@ -240,14 +240,16 @@ obsNavBar mObs ObsInfo{..} =
 
       entry ::
         AttributeValue  -- class
-        -> Html -- label
         -> Record -- observation being pointed to
         -> Html
-      entry cls lbl rs =
-        li ! class_ cls $ a ! href (getUri rs) $ lbl
+      entry cls rs =
+        let lbl = case rs of
+              Left NonScienceObs{..} -> "CAL-ER (" <> toHtml nsObsId <> ")"
+              Right ScienceObs{..} -> toHtml soTarget
+        in (li ! class_ cls) ((a ! href (getUri rs)) lbl)
 
-      navPrev = entry "prevLink" "Previous observation"
-      navNext = entry "nextLink" "Next observation"
+      navPrev = entry "prevLink"
+      navNext = entry "nextLink"
 
       bar = nav ! id "obslinks" $ ul $
               fromMaybe mempty (navPrev <$> prevObs) <>

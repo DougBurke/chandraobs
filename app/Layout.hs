@@ -121,8 +121,8 @@ renderFooter =
       , "."
     ]
 
--- | Return a "random" Chandra fact. The HTML is inserted into
---   a div with class of "fact".
+-- | Return a "random" Chandra fact, which is a string of
+--   text (i.e. not div or p container).
 --
 getFact :: IO Html
 getFact = do
