@@ -244,7 +244,7 @@ obsNavBar mObs ObsInfo{..} =
         -> Html
       entry cls rs =
         let lbl = case rs of
-              Left NonScienceObs{..} -> "CAL-ER (" <> toHtml nsObsId <> ")"
+              Left NonScienceObs{..} -> "Calibration (" <> toHtml nsObsId <> ")"
               Right ScienceObs{..} -> toHtml soTarget
         in (li ! class_ cls) ((a ! href (getUri rs)) lbl)
 
