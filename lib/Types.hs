@@ -121,7 +121,7 @@ inRange lo hi v = (lo <= v) && (v <= hi)
 --   For the current use case I do not think that this
 --   abstraction is actually useful, but leave as is for now.
 --
-data SortedList f a = SL { _unSL :: [a] }
+newtype SortedList f a = SL { _unSL :: [a] }
 
 {- want something like the following, but ideally without
    having to carry the projection function around, so that
