@@ -5,7 +5,8 @@
 -- | general routines
 
 module Utils (
-     fromBlaze
+     HtmlContext(..)
+     , fromBlaze
      , standardResponse
      , showTimeDeltaFwd
      , showTimeDeltaBwd
@@ -77,6 +78,12 @@ import Types (ScienceObs(..)
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
 
+-- | Should HTML be generated for the static or dynamic version
+--   of a page.
+--
+data HtmlContext = StaticHtml | DynamicHtml deriving Eq
+
+-- | Convert Blaze's HTML to a HTML page.
 fromBlaze :: H.Html -> ActionM ()
 fromBlaze = html . renderHtml
 

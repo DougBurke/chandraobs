@@ -160,7 +160,7 @@ facts = [
 -- This is modified somewhat for discarded observations (not sure the best way to
 -- do this at this time).
 --
-renderLinks :: 
+renderLinks ::
   Bool -- True if current obs
   -> Maybe Proposal
   -> Maybe SimbadInfo
@@ -234,6 +234,10 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
 --   Note: for discarded observations, a "header" is added
 --   to point this out, but the details are still included
 --   "for fun".
+--
+--   Note: this does not need to be sent in the HTML context
+--   (i.e. static or dynamic) since the obsid link here is
+--   to the CDA site, not a page on our site).
 --
 renderObsIdDetails ::
   Maybe Proposal

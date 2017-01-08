@@ -82,64 +82,67 @@ import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
 
+import Text.Blaze.Html.Renderer.Text (renderHtml)
+
 import Web.Heroku (dbConnParams)
 import Web.Scotty
 
 import Database (NumObs, NumSrc, SIMKey
-                 , getCurrentObs, getRecord, getObsInfo
-                 , getObsId
-                 , getSchedule
-                 , getScheduleDate
-                 , makeSchedule
-                 , getProposalInfo
-                 , getProposalFromNumber
-                 , getRelatedObs
-                 , getObsFromProposal
-                 , getSimbadInfo
-                 , getTimeline
-                 -- , findObsId
-                 , fetchSIMBADType
-                 , fetchNoSIMBADType
-                 , fetchSIMBADDescendentTypes
-                 , fetchObjectTypes 
-                 , fetchConstellation
-                 , fetchConstellationTypes
-                 , fetchCategory
-                 , fetchCategorySubType
-                 , fetchCategoryTypes
-                 , fetchJointMission
-                 , fetchMissionInfo
-                 , fetchProposal
-                 , fetchInstrument
-                 , fetchGrating
-                 , fetchIG
-                 , fetchInstrumentTypes
-                 , fetchGratingTypes
-                 , fetchIGTypes
-                 , fetchTOOs
-                 , fetchTOO
-                 , fetchConstraints
-                 , fetchConstraint
+                , findRecord
+                , getCurrentObs, getRecord, getObsInfo
+                , getObsId
+                , getSchedule
+                , getScheduleDate
+                , makeSchedule
+                , getProposalInfo
+                , getProposalFromNumber
+                , getRelatedObs
+                , getObsFromProposal
+                , getSimbadInfo
+                , getTimeline
+                  -- , findObsId
+                , fetchSIMBADType
+                , fetchNoSIMBADType
+                , fetchSIMBADDescendentTypes
+                , fetchObjectTypes 
+                , fetchConstellation
+                , fetchConstellationTypes
+                , fetchCategory
+                , fetchCategorySubType
+                , fetchCategoryTypes
+                , fetchJointMission
+                , fetchMissionInfo
+                , fetchProposal
+                , fetchInstrument
+                , fetchGrating
+                , fetchIG
+                , fetchInstrumentTypes
+                , fetchGratingTypes
+                , fetchIGTypes
+                , fetchTOOs
+                , fetchTOO
+                , fetchConstraints
+                , fetchConstraint
+                  
+                , findNameMatch
+                , findProposalNameMatch
+                , findTarget
+                  
+                , getProposalObjectMapping
+                , keyToPair
+                  
+                , getNumObsPerDay
+                , getExposureBreakdown
+                , getProposalTypeBreakdown
+                , getProposalType
+                  
+                , getExposureValues
                    
-                 , findNameMatch
-                 , findProposalNameMatch
-                 , findTarget
-
-                 , getProposalObjectMapping
-                 , keyToPair
-                   
-                 , getNumObsPerDay
-                 , getExposureBreakdown
-                 , getProposalTypeBreakdown
-                 , getProposalType
-
-                 , getExposureValues
-                   
-                 , dbConnStr
-                 )
+                , dbConnStr
+                )
 -- import Git (gitCommitId)
 
-import Layout (getFact)
+import Layout (getFact, renderLinks)
 import Types (Record, SimbadInfo(..), Proposal(..)
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
@@ -164,8 +167,10 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , getConstellationNameStr
              , fromInstrument
              , fromGrating
+             , recordObsId
              )
-import Utils (fromBlaze, standardResponse
+import Utils (HtmlContext(..)
+             , fromBlaze, standardResponse
              , timeToRFC1123
              , getTimes
              , showInt
@@ -304,6 +309,57 @@ webapp cm mgr scache = do
     --
     get "/api/current" (apiCurrent (liftSQL getCurrentObs))
 
+    -- TODO: this is completely experimental
+    --
+    get "/api/page/:obsid" $ do
+      obsid <- param "obsid"
+
+      cTime <- liftIO getCurrentTime
+      dbans <- liftSQL (do
+                           a <- getObsId obsid
+                           -- do I need all of findRecord
+                           b <- findRecord cTime
+                           c <- case a of
+                             Just o -> Just <$> getDBInfo (oiCurrentObs o)
+                             Nothing -> return Nothing
+                           return (a, b, c))
+
+      let (mobs, mCurrent, mDbInfo) = dbans
+          mCurrentObsId = recordObsId <$> mCurrent
+      
+      jsobj <- case (mobs, mDbInfo) of
+        (Just obs, Just dbInfo) -> do
+          let thisObs = oiCurrentObs obs
+              -- oiCurrentObs is badly named; it is really the
+              -- "focus" observation.
+              --
+              obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
+              (msimbad, (mprop, _)) = dbInfo
+
+              -- TODO: need to know what flag to use for renderLinks
+              --       first argument
+              imgLinks = either
+                         (const mempty)
+                         (renderLinks True mprop msimbad)
+                         thisObs
+
+              navBar = Record.obsNavBar DynamicHtml (Just thisObs) obs
+
+          return (object ["status" .= ("success" :: T.Text)
+                         , "observation" .= renderHtml obshtml
+                         , "imglinks" .= renderHtml imgLinks
+                         , "navbar" .= renderHtml navBar
+                         , "isCurrent" .= (mCurrentObsId == Just obsid)
+                         ])
+      
+        _  -> do
+          fact <- liftIO getFact
+          let nohtml = Index.noDataDiv fact
+          return (object ["status" .= ("error" :: T.Text)
+                         , "error" .= renderHtml nohtml])
+
+      json jsobj
+      
     get "/api/obsid/:obsid" (apiObsId queryObsidParam)
 
     -- break down the monolithic queries into separate ones, which may or may not

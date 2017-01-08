@@ -52,7 +52,8 @@ module Database ( getCurrentObs
                 , findNameMatch
                 , findProposalNameMatch
                 , findTarget
-
+                , findRecord
+                  
                 , getProposalObjectMapping
 
                 , getExposureBreakdown

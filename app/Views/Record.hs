@@ -66,7 +66,8 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , toMission, fromMissionLongLink
              , recordObsId, showExpTime
              )
-import Utils (showTimeDeltaFwd
+import Utils (HtmlContext(..)
+             , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
              )
@@ -99,9 +100,9 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
     <>
     (body ! onload initialize)
      (mainNavBar CPOther
-      <> obsNavBar mObs oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime thisObs dbInfo
+         (obsNavBar StaticHtml mObs oi
+          <> renderStuff StaticHtml cTime thisObs dbInfo
           <> imgLinks)
       <> twitterDiv)
       <> renderFooter
@@ -113,16 +114,19 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
 --   http://css-tricks.com/flexbox-bar-navigation/
 --   but it may not be present on all web browsers.
 --
-renderStuff :: 
-  UTCTime           -- Current time
+renderStuff ::
+  HtmlContext
+  -> UTCTime
+  -- ^ Current time
   -> Record
-  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
+  -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
+  -- ^ other observations in the proposal
   -> Html
-renderStuff cTime rs dbInfo = 
+renderStuff ctx cTime rs dbInfo = 
   (div ! id "observation")
     (case rs of
       Left ns -> otherInfo cTime ns
-      Right so -> targetInfo cTime so dbInfo)
+      Right so -> targetInfo ctx cTime so dbInfo)
 
 {-
 
@@ -227,33 +231,50 @@ mainNavBar cp =
 --   then add nothing.
 --
 obsNavBar ::
-  Maybe Record   -- the current observation
+  HtmlContext
+  -> Maybe Record   -- the current observation
   -> ObsInfo 
   -> Html
-obsNavBar mObs ObsInfo{..} = 
+obsNavBar ctx mObs ObsInfo{..} = 
   let prevObs = oiPrevObs
       nextObs = oiNextObs
 
-      getUri o = if Just o == mObs
-                 then "/index.html"
-                 else toValue (obsURI (recordObsId o))
+      mkNavLink rs =
+        let lbl = case rs of
+              Left NonScienceObs{..} -> "Calibration ("
+                                        <> toHtml nsObsId <> ")"
+              Right ScienceObs{..} -> toHtml soTarget
+
+            alink = case ctx of
+              StaticHtml -> a ! href (getStaticUri rs)
+              DynamicHtml -> a ! href (getDynamicUri rs)
+
+        in alink lbl
+          
+      getStaticUri o = if Just o == mObs
+                       then "/index.html"
+                       else toValue (obsURI (recordObsId o))
+
+      getDynamicUri _ = "#"
 
       entry ::
         AttributeValue  -- class
         -> Record -- observation being pointed to
         -> Html
       entry cls rs =
-        let lbl = case rs of
-              Left NonScienceObs{..} -> "Calibration (" <> toHtml nsObsId <> ")"
-              Right ScienceObs{..} -> toHtml soTarget
-        in (li ! class_ cls) ((a ! href (getUri rs)) lbl)
+        let ll = li ! class_ cls
+                    ! dataAttribute "obsid" obsid
+            obsid = toValue (recordObsId rs)
+        in ll (mkNavLink rs)
 
       navPrev = entry "prevLink"
       navNext = entry "nextLink"
 
-      bar = nav ! id "obslinks" $ ul $
-              fromMaybe mempty (navPrev <$> prevObs) <>
-              fromMaybe mempty (navNext <$> nextObs)
+      barContents = 
+        fromMaybe mempty (navPrev <$> prevObs) <>
+        fromMaybe mempty (navNext <$> nextObs)
+        
+      bar = (nav ! id "obslinks") (ul barContents)
 
   in if isJust prevObs P.|| isJust nextObs then bar else mempty
 
@@ -262,15 +283,24 @@ obsNavBar mObs ObsInfo{..} =
 --   There is a special case if they all have the same name as the supplied
 --   target name.
 groupProposal ::
-  TargetName
+  HtmlContext
+  -> TargetName
   -> SortedList StartTimeOrder ScienceObs
   -> Html
-groupProposal tName matches =
+groupProposal ctx tName matches =
   let obs = P.map (soTarget &&& soObsId) (fromSL matches)
       sobs = sortOn fst obs
       grps = groupBy ((==) `on` fst) sobs
 
-      toLink o = (a ! href (obsURI o)) (toHtml o)
+      toLink o =
+        let uri = case ctx of
+              StaticHtml -> obsURI o
+              DynamicHtml -> "#"
+            lbl = toHtml o
+        in (a ! href uri
+              ! class_ "obsidlink"
+              ! dataAttribute "obsid" (toValue o))
+           lbl
 
       addCommas xs = mconcat (intersperse ", " (P.map (toLink . snd) xs))
                      
@@ -303,13 +333,15 @@ vowels = "aeiou"
 
 -- | Display information for a \"science\" observation.
 --
-targetInfo :: 
-  UTCTime    -- current time
+-- TODO: send HtmlContext to details display
+targetInfo ::
+  HtmlContext
+  -> UTCTime    -- current time
   -> ScienceObs
   -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
   -- other observations in the proposal
   -> Html
-targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
+targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let (sTime, eTime) = getTimes (Right so)
       obsStatus = getObsStatus (sTime, eTime) cTime 
       targetName = nameLinkSearch soTarget Nothing
@@ -454,7 +486,7 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
                    | otherwise = " See related observation"
                                  <> suffix
                                  <> ": "
-                                 <> groupProposal soTarget matches
+                                 <> groupProposal ctx soTarget matches
                                  <> "."
 
       sciencePara = p (cts obsStatus

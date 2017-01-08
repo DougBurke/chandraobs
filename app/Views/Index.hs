@@ -2,7 +2,9 @@
 
 -- | The index page.
 
-module Views.Index (introPage, noDataPage, noObsIdPage) where
+module Views.Index (introPage, noDataPage, noObsIdPage
+                   , noDataDiv)
+       where
 
 -- import qualified Prelude as P
 import Prelude (($), Bool(..), Maybe(..), const, either)
@@ -20,6 +22,7 @@ import API (jsScript, cssLink)
 import Layout (defaultMeta, jqueryMeta, renderLinks, renderFooter)
 import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..)
              , SortedList, StartTimeOrder)
+import Utils (HtmlContext(..))       
 import Views.Record (CurrentPage(..), renderStuff, twitterDiv
                     , mainNavBar, obsNavBar
                     , noObsIdParas)
@@ -104,9 +107,9 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
     <>
     (body ! onload initialize)
      (mainNavBar CPIndex
-      <> obsNavBar (Just currentObs) oi
       <> (div ! id "mainBar") 
-         (renderStuff cTime currentObs dbInfo
+         (obsNavBar StaticHtml (Just currentObs) oi
+          <> renderStuff StaticHtml cTime currentObs dbInfo
           <> imgLinks)
       <> twitterDiv)
       <> renderFooter

@@ -97,7 +97,10 @@ nav > ul > li:hover > a {
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
 }
 
-/* From: http://www.adam-bray.com/blog/91/Easy+HTML+5+%26+CSS+3+Navigation+Menu/ */
+/*
+ * From:
+ * http://www.adam-bray.com/blog/91/Easy+HTML+5+%26+CSS+3+Navigation+Menu/
+ */
 nav#obslinks {
   background-color: #fff;
   border: 1px solid #dedede;
@@ -108,7 +111,7 @@ nav#obslinks {
   margin: 0.5em 1em 0.5em 1em;
   padding: 0;
   overflow: hidden;
-  width: 90%; 
+  /* width: 90%;  need to center this for it to be worthwhile */
 }
 
 nav#obslinks ul li {
@@ -123,15 +126,24 @@ nav#obslinks ul li {
   /* remove main nav bar override */
   float: none;
   margin-right: 0;
+
+  /* when highlighted, one side (the "outer" one) is rounded,
+     due to the radius used for nav#obslinks, and the other side
+     is flat. Try and fix this */
+  border-radius: 4px;
 }
 
-nav#obslinks ul li.prevLink { float: left; }
-nav#obslinks ul li.nextLink { float: right; }
+nav#obslinks ul li.prevLink {
+    float: left;
+    padding-right: 0.2em;
+}
+nav#obslinks ul li.nextLink {
+    float: right;
+    padding-left: 0.2em;
+}
 
 /* Draw arrows.
- * I am not happy with the spacing between the arrow and the text,
- * nor with the fact I keep on clicking on the arrow and it is
- * not recognized as a link.
+ * I am not happy with the spacing between the arrow and the text.
  */
 nav#obslinks ul li:before , nav#obslinks ul li:after {
   content: "";
@@ -167,11 +179,20 @@ nav#obslinks > ul > li > a {
   color: #666; -- #aaa; --
   line-height: 2em;
   text-decoration: none;
-  */
+ */
+    color: #666;
   padding: 0 0.2em;
 
   border-bottom: 0;
 }
+/*
+ * There are too many styles that interact here, so be explicit
+ */
+nav#obslinks > ul > li > a:hover {
+    text-decoration: none;
+}
+
+
 nav#obslinks > ul > li:hover {
   background-color: rgb(0,131,179); /* rgb(40, 44, 47);*/
 }

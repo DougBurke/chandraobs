@@ -24,41 +24,7 @@
    </ul>
   </nav>
 
-  <nav id='obslinks'>
-    <ul>
-      <li style='display: none' class='prevLink'><a href='#'>Previous observation</a></li>
-      <li style='display: none' class='nextLink'><a href='#'>Next observation</a></li>
-    </ul>
-  </nav>
-
-  <div id='mainBar'>
-    <div id='observation'>
-      <!-- content goes here -->
-    </div>
-    <div style='display: none' class='radiobuttons'>
-      View:
-      <input type='radio' name='opttype' value='DSS' id='DSSbutton' onclick="switchOption('DSS')"></input>
-      <label for='DSSbutton'>DSS</label>
-      <input type='radio' name='opttype' value='RASS' id='RASSbutton' onclick="switchOption('RASS')"></input>
-      <label for='RASSbutton'>RASS</label>
-      <input type='radio' name='opttype' value='PSPC' id='PSPCbutton' onclick="switchOption('PSPC')"></input>
-      <label for='PSPCbutton'>PSPC</label>
-      <input type='radio' name='opttype' value='Details' id='Detailsbutton' onclick="switchOption('Details')"></input>
-      <label for='Detailsbutton'>Details</label>
-      or in
-      <a id='WWTbutton'>WWT</a>
-    </div>
-    <div style='display: none' class='links'>
-      <img alt='The instrument field-of-view on top of the DSS image of the source.' width=680 height=680 id='DSS'
-	   class='inactive'/>
-      <img alt='The instrument field-of-view on top of the RASS image of the source.' width=680 height=680 id='RASS'
-	   class='inactive'/>
-      <img alt='The instrument field-of-view on top of the PSPC image of the source.' width=680 height=680 id='PSPC'
-	   class='inactive'/>
-      <div class='inactive' id='Details'>
-      </div>
-    </div>
-  </div>
+  <div id='mainBar'></div>
   <div id='otherBar'>
     <div class='tweetstream'>
       <a class='twitter-timeline'
