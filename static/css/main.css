@@ -151,6 +151,7 @@ li.prevLink:before {
   border-top: 0.5em solid transparent;
   border-bottom: 0.5em solid transparent; 
   margin-left: 0.5em;
+  margin-right: 0.2em;
 }
 
 li.nextLink:after { 
@@ -158,6 +159,7 @@ li.nextLink:after {
   border-top: 0.5em solid transparent;
   border-bottom: 0.5em solid transparent; 
   margin-right: 0.5em;
+  margin-left: 0.2em;
 }
 
 nav#obslinks > ul > li > a {
