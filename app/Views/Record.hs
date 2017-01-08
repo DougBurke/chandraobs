@@ -29,7 +29,7 @@ import Control.Arrow ((&&&))
 
 import Data.Char (toLower)
 import Data.Function (on)
-import Data.List (groupBy, intersperse)
+import Data.List (groupBy, intersperse, sortOn)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
@@ -267,9 +267,10 @@ groupProposal ::
   -> Html
 groupProposal tName matches =
   let obs = P.map (soTarget &&& soObsId) (fromSL matches)
-      grps = groupBy ((==) `on` fst) obs
+      sobs = sortOn fst obs
+      grps = groupBy ((==) `on` fst) sobs
 
-      toLink o = a ! href (obsURI o) $ toHtml o
+      toLink o = (a ! href (obsURI o)) (toHtml o)
 
       addCommas xs = mconcat (intersperse ", " (P.map (toLink . snd) xs))
                      
@@ -418,56 +419,49 @@ targetInfo cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       tooPara = fromMaybe mempty (tooTxt obsStatus <$> soTOO)
 
       cts Unscheduled =
-        mconcat [ "The target - "
-                , targetName
-                , " - will be observed ", instInfo
-                , " for ", lenVal, ", but there is currently "
-                , "no scheduled date for the observation "
-                , "(it is likely that it was scheduled but for some "
-                , "reason it was not observed and so has been "
-                , "removed from the schedule). "
-                , reason
-                ]
+        "The target - " <> targetName
+        <> " - will be observed " <> instInfo
+        <> " for " <> lenVal <> ", but there is currently "
+        <> "no scheduled date for the observation "
+        <> "(it is likely that it was scheduled but for some "
+        <> "reason it was not observed and so has been "
+        <> "removed from the schedule). "
+        <> reason
       cts Todo =
-        mconcat [ "The target - "
-                , targetName
-                , " - will be observed ", instInfo
-                , " for ", lenVal, ". "
-                , "It will start "
-                , toHtml (showTimeDeltaFwd cTime sTime)
-                , reason
-                ]
-      cts Doing = 
-        mconcat [ "The target - "
-                , targetName
-                , " - is being observed ", instInfo
-                , " for ", lenVal, ". "
-                , "The observation started "
-                , toHtml (showTimeDeltaBwd sTime cTime)
-                , " and ends "
-                , toHtml (showTimeDeltaFwd cTime eTime)
-                , reason
-                ]
+        "The target - " <> targetName
+        <> " - will be observed " <> instInfo
+        <>  " for " <> lenVal <> ". It will start "
+        <> toHtml (showTimeDeltaFwd cTime sTime)
+        <> reason
+      cts Doing =
+        "The target - " <> targetName
+        <> " - is being observed " <> instInfo
+        <> " for " <> lenVal <> ". The observation started "
+        <> toHtml (showTimeDeltaBwd sTime cTime)
+        <> " and ends "
+        <> toHtml (showTimeDeltaFwd cTime eTime)
+        <> reason
       cts Done = 
-        mconcat [ "The target - "
-                , targetName
-                , " - was observed ", instInfo
-                , " for ", lenVal, ", ended "
-                , toHtml (showTimeDeltaBwd eTime cTime)
-                , reason
-                ]
+        "The target - " <> targetName
+        <> " - was observed " <> instInfo
+        <> " for " <> lenVal <> ", ended "
+        <> toHtml (showTimeDeltaBwd eTime cTime)
+        <> reason
 
       nmatches = lengthSL matches
       suffix = if nmatches == 1 then "" else "s"
       otherMatches | nmatches == 0 = mempty
-                   | otherwise = mconcat
-                                 [" See related observation", suffix, ": ", groupProposal soTarget matches, "."]
+                   | otherwise = " See related observation"
+                                 <> suffix
+                                 <> ": "
+                                 <> groupProposal soTarget matches
+                                 <> "."
 
-      sciencePara = p $ cts obsStatus
-                        <> " "
-                        <> constellationTxt
-                        <> maybe (". " <> subArrayTxt) simbadTxt msimbad
-                        <> otherMatches
+      sciencePara = p (cts obsStatus
+                       <> " "
+                       <> constellationTxt
+                       <> maybe (". " <> subArrayTxt) simbadTxt msimbad
+                       <> otherMatches)
 
       addList [] = ""
       addList [x] = x
