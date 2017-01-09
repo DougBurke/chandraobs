@@ -58,7 +58,6 @@ function setupImageBlock(obsdata, sobs, mprop) {
     switchOption();
 }
 
-var dummy;
 function showObsId(obsid) {
     $.ajax({
 	url: "/api/page/" + obsid,
@@ -104,17 +103,25 @@ function showCurrent() {
         url: "/api/current",
         dataType: "json"
     }).done(function(rsp) {
+        /* TODO: validate that rsp[0] can be used */
         if (rsp[0] === 'Success') {
             showObsId(rsp[1]);
         } else {
-            /***
-             *** WHAT TO DO ON ERROR HERE
-             ***/
+            var $mainBar = $( '#mainBar' );
+            $mainBar.html('<p>There has been an error somewhere ' +
+                          'and I do not know what to do :-(</p>');
         }
     });
 }
 
 function initialize() {
+
+    /* set up the 'What is Chandra doing now?' link */
+    $( 'a#currentLink' ).attr('href', '#');
+    $( 'a#currentLink' ).click(function (e) {
+        showCurrent();
+    });
+
     showCurrent();
 }
 
