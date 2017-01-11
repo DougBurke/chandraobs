@@ -58,6 +58,33 @@ function setupImageBlock(obsdata, sobs, mprop) {
     switchOption();
 }
 
+/*
+ * Show or hide the graphical elements that indicate whether
+ * this is the current observation or not.
+ */
+function changeCurrentStatus(isCurrent) {
+    if (isCurrent) {
+        $( '#currentLink' ).addClass('chosen');
+    } else {
+        $( '#currentLink' ).removeClass('chosen');
+    }
+}
+
+var noServerPara =
+    '<p class="noserver">' +
+    'It looks like the web server has shut ' +
+    'down. Try re-loading the page, as it ' +
+    'may be due to the Heroku application ' +
+    'shutting down. If this is the case it ' +
+    'could take a short time for things to come ' +
+    'back on-line.' +
+    '</p>';
+
+function serverGoneByBy() {
+    changeCurrentStatus(false);
+    $( '#mainBar' ).html(noServerPara);
+}
+
 function showObsId(obsid) {
     $.ajax({
 	url: "/api/page/" + obsid,
@@ -69,11 +96,7 @@ function showObsId(obsid) {
             var h = rsp['navbar'] + rsp['observation'] + rsp['imglinks'];
             $mainBar.html(h);
 
-            if (rsp['isCurrent']) {
-                $( '#currentLink' ).addClass('chosen');
-            } else {
-                $( '#currentLink' ).removeClass('chosen');
-            }
+            changeCurrentStatus(rsp['isCurrent']);
             
             var $nav = $( '#obslinks' );
             var $p = $nav.find( 'li.prevLink' );
@@ -91,10 +114,11 @@ function showObsId(obsid) {
             });
                
         } else {
-            /* TODO: more here? */
+            changeCurrentStatus(false);
             $mainBar.html(rsp['error']);
-            $( '#currentLink' ).removeClass('chosen');
         }
+    }).fail(function(xhr, status, e) {
+        serverGoneByBy();
     });
 }
 
@@ -103,14 +127,17 @@ function showCurrent() {
         url: "/api/current",
         dataType: "json"
     }).done(function(rsp) {
-        /* TODO: validate that rsp[0] can be used */
         if (rsp[0] === 'Success') {
             showObsId(rsp[1]);
         } else {
-            var $mainBar = $( '#mainBar' );
-            $mainBar.html('<p>There has been an error somewhere ' +
-                          'and I do not know what to do :-(</p>');
+            changeCurrentStatus(false);
+            $( '#mainBar' ).html('<p class="unknownerror">' +
+                                 'There has been an error somewhere ' +
+                                 'and I do not know what to do :-(' +
+                                 '</p>');
         }
+    }).fail(function(xhr, status, e) {
+        serverGoneByBy();
     });
 }
 
