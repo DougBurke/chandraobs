@@ -616,7 +616,7 @@ makeSchedule rs = do
 getSimbadList ::
   PersistBackend m
   => [Record]  -- ^ records; assumed to be filtered
-  -> m (M.Map T.Text SimbadInfo)
+  -> m (M.Map TargetName SimbadInfo)
 getSimbadList rs = do
   let getName = either (const Nothing) (Just . soTarget)
       tnames = nub (mapMaybe getName rs)
@@ -641,7 +641,7 @@ getSimbadList rs = do
 --
 getSimbadInfo :: 
   PersistBackend m
-  => T.Text   -- ^ target name (not the actual SIMBAD search term)
+  => TargetName   -- ^ target name (not the actual SIMBAD search term)
   -> m (Maybe SimbadInfo)
 getSimbadInfo target = do
   keys <- project SmmInfoField ((SmmTargetField ==. target) `limitTo` 1)
@@ -1257,9 +1257,9 @@ findObsStatusTypes = do
   return (countUp statuses)
 
 
--- | Try supporting "name matching". This is complicated by the fact that there
---   are both the target names (soTarget) and the SIMBAD-matched names (smmTarget)
---   that could be searched. 
+-- | Try supporting "name matching". This is complicated by the fact
+--   that there are both the target names (soTarget) and the
+--   SIMBAD-matched names (smmTarget) that could be searched. 
 --
 --   TODO: SIMBAD names can have multiple spaces (e.g. NGC family, so a query of
 --         'NGC 3' should probably map to '%NGC% %3%' - but then this matches
@@ -1272,13 +1272,15 @@ findNameMatch ::
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
-  -> m ([T.Text], [T.Text])
+  -> m ([TargetName], [T.Text])
   -- ^ object names - first the target names, then the "also known as" from SIMBAD
   --   - names in the database.
 findNameMatch instr = do
   let matchStr = '%' : map toUpper instr ++ "%"
-  targets <- project SoTargetField (distinct (upper SoTargetField `like` matchStr))
-  simbads <- project SmiNameField (distinct (upper SmiNameField `like` matchStr))
+  targets <- project SoTargetField
+             (distinct (upper SoTargetField `like` matchStr))
+  simbads <- project SmiNameField
+             (distinct (upper SmiNameField `like` matchStr))
   return (targets, simbads)
 
 -- | Find proposals whose titles match the given string
@@ -1308,7 +1310,7 @@ findProposalNameMatch instr =
 --
 findTarget ::
   (PersistBackend m, SqlDb (PhantomDb m))
-  => T.Text
+  => TargetName
   -> m (SortedList StartTimeOrder ScienceObs, [TargetName])
   -- ^ Returns a list of matching observations and the list of
   --   "SIMBAD" names, that is, the names that are considered
