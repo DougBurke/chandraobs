@@ -463,3 +463,17 @@ table.standard tbody tr:nth-child(2n+1) {
 .term .label {
     margin-left: -0.5em;
 }
+
+/*
+ * Style the main text elements of an observation
+ */
+
+div#observation {
+    /* Choose color to match .floatable tbody tr */
+    background-color: rgba(0, 131, 179, 0.1);
+    border-radius: 4px;
+    padding: 0.2em 1em;
+
+    /* Choose color to match .floatable thead */
+    border-left: 1em solid rgba(0, 131, 179, 0.2);
+}
