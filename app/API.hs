@@ -77,7 +77,7 @@ import Types (ConShort(..)
              , PropType
              , Record
              , SimbadType(..)
-             , TargetName
+             , TargetName(..)
              , TOORequestTime
              , recordTarget, recordObsId
              , fromMission
@@ -313,10 +313,10 @@ categoryLinkSearch cat lbl =
 --   search.
 --
 targetSearch :: TargetName -> AttributeValue
-targetSearch name =
+targetSearch TN{..} =
   -- since the target name could contain any character, ensure this
   -- is encoded
-  let qry = queryTextToQuery [("target", Just name)]
+  let qry = queryTextToQuery [("target", Just fromTargetName)]
       uriBS = "/search/name" <> renderQuery True qry
   in H.unsafeByteStringValue uriBS
      
@@ -327,9 +327,9 @@ nameLinkSearch ::
   -- ^ The text to use for the link; if Nothing then use the
   --   target name.
   -> Html
-nameLinkSearch name mlbl =
-  let lbl = fromMaybe name mlbl
-  in (a H.! href (targetSearch name)) (toHtml lbl)
+nameLinkSearch tgt mlbl =
+  let lbl = fromMaybe (fromTargetName tgt) mlbl
+  in (a H.! href (targetSearch tgt)) (toHtml lbl)
     
 jointLink :: JointMission -> AttributeValue
 jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)

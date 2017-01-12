@@ -153,7 +153,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , SIMCategory
              , SimbadTypeInfo
              , SortedList, StartTimeOrder, ExposureTimeOrder
-             , TargetName
+             , TargetName(..)
              , TimeKS(..)
              , ChandraTime(..)
              , Instrument(..)
@@ -748,7 +748,7 @@ apiObsId getData = do
     _ -> json ("Unknown ObsId" :: T.Text, obsid)
 
 
-apiSimbadName :: ActionM (T.Text, Maybe SimbadInfo) -> ActionM ()
+apiSimbadName :: ActionM (TargetName, Maybe SimbadInfo) -> ActionM ()
 apiSimbadName getData = do
   (name, msim) <- getData
   case msim of
@@ -791,7 +791,7 @@ apiSearchDtype getData = do
 
 
 apiSearchName ::
-  ActionM (String, ([T.Text], [T.Text]))
+  ActionM (String, ([TargetName], [TargetName]))
   -> ActionM ()
 apiSearchName getData = do
   (_, (exact, other)) <- getData
@@ -1237,7 +1237,7 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
     objs = [
       "type" .= ("Science" :: T.Text),
       -- need a unique label
-      "label" .= (soTarget <> " - ObsId " <> showInt obsid),
+      "label" .= (fromTargetName soTarget <> " - ObsId " <> showInt obsid),
       "object" .= soTarget,
       "obsid" .= obsid,
       "start" .= _toUTCTime startTime,

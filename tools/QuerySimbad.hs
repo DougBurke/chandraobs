@@ -106,8 +106,9 @@ cleanupName s =
 --   that potentially could be a valid identifier.
 --
 cleanTargetName :: TargetName -> TargetName
-cleanTargetName tgt =
-  let lc = T.toLower
+cleanTargetName tgtName =
+  let tgt = fromTargetName tgtName
+      lc = T.toLower
   in case T.words tgt of
     [] -> ""
     -- special case names used by CAL
@@ -131,8 +132,8 @@ cleanTargetName tgt =
 
                 cleanName = T.unwords toks4
             in if "E0102-72" `T.isPrefixOf` cleanName 
-               then "1E 0102.2-7219"
-               else cleanName
+               then TN "1E 0102.2-7219"
+               else TN cleanName
 
 -- | Compass directions to remove (in lower case).
 compassDirs :: [T.Text]
@@ -156,7 +157,7 @@ compassDirs = ["ne", "se", "sw", "nw"
 -- object name, search term, and time of search; used to 
 -- create the SimbadMatch/NoMatch fields, since SimbadMatch
 -- requires the database key to create
-type SearchResults = (TargetName, T.Text, UTCTime)
+type SearchResults = (TargetName, TargetName, UTCTime)
 
 querySIMBAD ::
   SimbadLoc
@@ -164,11 +165,11 @@ querySIMBAD ::
   -> TargetName  -- ^ object name
   -> IO (SearchResults, Maybe SimbadInfo)
 querySIMBAD sloc f objname = do
-  T.putStrLn ("Querying SIMBAD for " <> objname)
+  T.putStrLn ("Querying SIMBAD for " <> fromTargetName objname)
   let -- we POST the script to SIMBAD
       script = "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
                <> "query id "
-               <> encodeUtf8 searchTerm
+               <> encodeUtf8 (fromTargetName searchTerm)
                <> "\n"
 
       uri = simbadBase sloc <> "sim-script"
@@ -227,7 +228,7 @@ parseObject txt =
               (toSimbadType s)
   in case toks of
     [name, otype3, otype, _] ->
-      Just (cleanupName name, toT otype3, otype)
+      Just (TN (cleanupName name), toT otype3, otype)
     _ -> Nothing
 
 slen :: [a] -> T.Text
@@ -352,13 +353,14 @@ updateDB sloc mndays f = withSocketsDo $ do
     \tgt -> do
       (searchRes, minfo) <- querySIMBAD sloc f tgt
       let tname = _2 searchRes
+          tnameT = fromTargetName tname
       runDb $ do
       case minfo of
         Just si -> do
-          blag f (">> inserting SimbadInfo for " <> smiName si)
+          blag f (">> inserting SimbadInfo for " <> fromTargetName (smiName si))
           (key, cleanFlag) <- insertSimbadInfo si
 
-          blag f (">> and SimbadMatch with target=" <> tname)
+          blag f (">> and SimbadMatch with target=" <> tnameT)
           void (insertSimbadMatch (toM searchRes key))
 
           -- If a SimbadInfo structure already exists (and
@@ -385,7 +387,7 @@ updateDB sloc mndays f = withSocketsDo $ do
             delete (SmnTargetField ==. smiName si)
       
         _ -> do
-          blag f (">> Inserting SimbadNoMatch for target=" <> tname)
+          blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
           void (insertSimbadNoMatch (toNM searchRes))
 
       -- Update the last-modified date after each transaction;
@@ -445,8 +447,8 @@ updateOldRecords sloc (Just ndays) f = do
       -- searched could be combined, but I leave that for the
       -- compiler at the moment.
       --
-      isChanged SimbadNoMatch{..} = cleanTargetName smnTarget /=
-                                    smnSearchTerm
+      isChanged SimbadNoMatch{..} =
+        fromTargetName (cleanTargetName smnTarget) /= smnSearchTerm
       changed = filter isChanged (dropWhile isOld noMatchFields)
 
   T.putStrLn ("# Old queries to be redone: " <> (slen old))
@@ -457,21 +459,22 @@ updateOldRecords sloc (Just ndays) f = do
     \SimbadNoMatch{..} -> do
       (searchRes, minfo) <- querySIMBAD sloc f smnTarget
       let tname = _2 searchRes
+          tnameT = fromTargetName tname
       runDb $ do
       -- delete the old result; it could be updated but easiest
       -- at the moment just to create a new one.
       delete (SmnTargetField ==. smnTarget)
       case minfo of
         Just si -> do
-          blag f (">> Adding SimbadInfo for " <> smiName si)
+          blag f (">> Adding SimbadInfo for " <> fromTargetName (smiName si))
           (key, cleanFlag) <- insertSimbadInfo si
           when cleanFlag
             (liftIO (T.putStrLn "&&&&&&& errr, need to delete something"))
-          blag f (">> and SimbadMatch with target=" <> tname)
+          blag f (">> and SimbadMatch with target=" <> tnameT)
           void (insertSimbadMatch (toM searchRes key))
 
         _ -> do
-          blag f (">> Updating SimbadNoMatch for target=" <> tname)
+          blag f (">> Updating SimbadNoMatch for target=" <> tnameT)
           void (insertSimbadNoMatch (toNM searchRes))
 
       -- Update the last-modified date after each transaction;
@@ -485,14 +488,14 @@ updateOldRecords sloc (Just ndays) f = do
 toNM :: SearchResults -> SimbadNoMatch
 toNM (a,b,c) = SimbadNoMatch {
                  smnTarget = a 
-               , smnSearchTerm = b
+               , smnSearchTerm = fromTargetName b
                , smnLastChecked = c
                }
 
 toM :: SearchResults -> DefaultKey SimbadInfo -> SimbadMatch
 toM (a,b,c) k = SimbadMatch {
                   smmTarget = a
-                , smmSearchTerm = b
+                , smmSearchTerm = fromTargetName b
                 , smmInfo = k
                 , smmLastChecked = c
                 }

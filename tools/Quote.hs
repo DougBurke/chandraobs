@@ -74,9 +74,12 @@ instance Lift DiffTime where
 
 instance Lift T.Text where
   lift t = [| T.pack $(lift (T.unpack t)) |]
-  
--- Looks like there is a problem with the Lift instances, since it seems to cause
--- an infinte loop.
+
+instance Lift TargetName where
+  lift TN{..} = [| TN fromTargetName |]
+    
+-- Looks like there is a problem with the Lift instances, since it
+-- seems to cause an infinte loop.
 --
 -- parseSTS :: String -> Either ParseError [STS]
 -- STS = (ScheduleItem, Maybe NonScienceObs)

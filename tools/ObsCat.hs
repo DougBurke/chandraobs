@@ -625,7 +625,7 @@ toSOE m = do
     , soProposal = pNum
     , soStatus = status
     , soObsId = obsid
-    , soTarget = target
+    , soTarget = TN target
     , soStartTime = sTime
     , soApprovedTime = appExp
     , soObservedTime = obsExp
@@ -714,7 +714,7 @@ toNSE m = do
   return NonScienceObs {
     nsName = name
     , nsObsId = obsid
-    , nsTarget = target
+    , nsTarget = TN target
     , nsStartTime = sTime
     , nsTime = rTime
     , nsRa = ra
@@ -1065,7 +1065,7 @@ dump ScienceObs{..} = do
   print (_unSequence soSequence)
   T.putStrLn soStatus
   print (fromObsId soObsId)
-  T.putStrLn soTarget
+  T.putStrLn (fromTargetName soTarget)
   -- discardedTime is only used for non-science obs
   T.putStrLn (if soStartTime == futureTime
               then "** Observation has no scheduled observation date"

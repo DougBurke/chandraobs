@@ -1272,7 +1272,7 @@ findNameMatch ::
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
-  -> m ([TargetName], [T.Text])
+  -> m ([TargetName], [TargetName])
   -- ^ object names - first the target names, then the "also known as" from SIMBAD
   --   - names in the database.
 findNameMatch instr = do
@@ -1324,7 +1324,11 @@ findTarget target = do
   --
   -- TODO: need a better story with spaces - would like to ignore
   --       them completely
-  let searchTerm = T.toUpper target
+  --
+  -- Switching to a newtype for TargetName makes this a bit
+  -- more awkward than I'd like.
+  --
+  let searchTerm = TN (T.toUpper (fromTargetName target))
   direct <- select ((upper SoTargetField ==. searchTerm)
                     `orderBy` [Asc SoStartTimeField])
 

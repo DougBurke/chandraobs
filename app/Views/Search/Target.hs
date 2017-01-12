@@ -5,7 +5,7 @@
 module Views.Search.Target (targetPage, noMatchPage) where
 
 -- import qualified Prelude as P
-import Prelude (Maybe(Nothing))
+import Prelude (Maybe(Nothing), fmap)
 
 import qualified Text.Blaze.Html5 as H
 
@@ -15,7 +15,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule, TargetName)
+import Types (Schedule, TargetName(..))
 import Utils (getNumObs)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage,
@@ -34,10 +34,11 @@ targetPage ::
   -> Html
 targetPage targetName fullNames sched =
   let hdrTitle = "Chandra observations of " <> H.toHtml officialName
-      
+
+      -- not ideal with the mapping to/from TargetName
       officialName = case fullNames of
         [] -> targetName
-        _ -> mconcat (intersperse ", " fullNames)
+        _ -> TN (mconcat (intersperse ", " (fmap fromTargetName fullNames)))
 
       pageTitle = toHtml officialName
       mainBlock = renderMatches officialName sched

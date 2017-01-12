@@ -66,6 +66,7 @@ import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
              , SimbadInfo(..), Record, TOORequest(..)
              , ConstraintKind(..)
              , Schedule(..)
+             , TargetName(..)
              , recordObsId, recordTarget, recordStartTime, recordTime
              , recordInstrument, recordGrating, recordRa, recordDec
              , showExp, toMission)
@@ -198,10 +199,10 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
       makeTargetRow r =
         let row = td (linkToRecord r)
             sname = case r of
-              Left ns -> "_" <> nsTarget ns
+              Left ns -> "_" <> fromTargetName (nsTarget ns)
               Right so -> case M.lookup (soTarget so) simbad of
-                Just si -> smiName si
-                Nothing -> soTarget so
+                Just si -> fromTargetName (smiName si)
+                Nothing -> fromTargetName (soTarget so)
 
             -- Spaces should not be a problem, but remove them just in case.
             cname = T.filter (not . isSpace) sname

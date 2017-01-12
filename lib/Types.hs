@@ -347,8 +347,24 @@ instance H.ToValue ObsIdVal where
 --
 type Record = Either NonScienceObs ScienceObs
 
-type TargetName = T.Text
+newtype TargetName = TN { fromTargetName :: T.Text }
+                   deriving (Eq, Ord)
 
+instance IsString TargetName where
+  fromString = TN . T.pack
+
+instance Parsable TargetName where
+  parseParam = helpParse "TargetName" (Just . TN)
+
+instance ToJSON TargetName where
+  toJSON TN {..} = toJSON fromTargetName
+
+instance H.ToMarkup TargetName where
+  toMarkup TN {..} = H.toMarkup fromTargetName
+
+instance H.ToValue TargetName where
+  toValue TN {..} = H.toValue fromTargetName
+  
 -- hacks for quickly converting old code
 
 recordSequence :: Record -> Maybe Sequence
@@ -1358,7 +1374,7 @@ getJointObs ScienceObs{..} =
 instance Show ScienceObs where
   show ScienceObs{..} = 
     "Science: " <> show (fromObsId soObsId)
-    <> " " <> T.unpack soTarget
+    <> " " <> T.unpack (fromTargetName soTarget)
     <> " with "
     <> show soInstrument
     <> "+"
@@ -1509,11 +1525,14 @@ noSimbadLabel = "Unidentified"
 --   `SimbadMatch`.
 --
 data SimbadInfo = SimbadInfo {
-   smiName :: T.Text         -- ^ the primary identifier for the object
-   , smiType3 :: SimbadType  -- ^ short form identifier for siType
-   , smiType :: SIMCategory  -- ^ the primary type of the object (long form)
+  smiName :: TargetName
+    -- ^ the primary identifier for the object
+  , smiType3 :: SimbadType
+    -- ^ short form identifier for siType
+  , smiType :: SIMCategory
+    -- ^ the primary type of the object (long form)
   }
-  deriving Eq
+                deriving Eq
 
 -- | Indicates that there is a SIMBAD match for the
 --   target name.
@@ -1548,9 +1567,9 @@ type SimbadSearch = Either SimbadNoMatch SimbadMatch
 --   We do not use a simple edit distance comparison here
 --   since we do not want to equate 3C292 and 3C232.
 --
-similarName :: SimbadInfo -> T.Text -> Bool
+similarName :: SimbadInfo -> TargetName -> Bool
 similarName SimbadInfo{..} target =
-  let conv = T.filter (not . isSpace) . T.toLower
+  let conv = T.filter (not . isSpace) . T.toLower . fromTargetName
   in ((==) `on` conv) target smiName
 
 -- | The short and long forms of the type information from SIMBAD.
@@ -2219,7 +2238,7 @@ simbadBase SimbadCfA = "http://simbad.harvard.edu/simbad/"
 -- TODO: need to protect the link
 toSIMBADLink :: SimbadLoc -> TargetName -> T.Text
 toSIMBADLink sloc name =
-  let qry = [ ("Ident", encodeUtf8 name)
+  let qry = [ ("Ident", encodeUtf8 (fromTargetName name))
             -- , ("NbIdent", "1")
             -- , ("Radius", "2")
             -- , ("Radius.unit", "arcmin")
@@ -2522,6 +2541,17 @@ instance PrimitivePersistField TOORequest where
   fromPrimitivePersistValue _ (PersistString s) =
     fromMaybe (error ("Unexpected TOO value: " <> s)) (toTOORequest (T.pack s))
   fromPrimitivePersistValue _ x = error ("Expected TOO value (String), received: " <> show x)
+
+instance PersistField TargetName where
+  persistName _ = "TargetName"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType = _pType stringType
+
+instance PrimitivePersistField TargetName where
+  toPrimitivePersistValue _ = PersistString . T.unpack . fromTargetName
+  fromPrimitivePersistValue _ (PersistString s) = TN (T.pack s)
+  fromPrimitivePersistValue _ x = error ("Expected TargetName value (String), received: " <> show x)
 
 -- needed for persistent integer types
 
