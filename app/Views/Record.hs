@@ -239,8 +239,10 @@ obsNavBar ctx mObs ObsInfo{..} =
   let prevObs = oiPrevObs
       nextObs = oiNextObs
 
-      mkNavLink rs =
-        let lbl = case rs of
+      mkNavLink ty rs =
+        let lbl1 = (H.span ! class_ "directionLabel")
+                   (toHtml (ty <> " observation:"))
+            lbl2 = case rs of
               Left NonScienceObs{..} -> "Calibration ("
                                         <> toHtml nsObsId <> ")"
               Right ScienceObs{..} -> toHtml soTarget
@@ -249,7 +251,7 @@ obsNavBar ctx mObs ObsInfo{..} =
               StaticHtml -> a ! href (getStaticUri rs)
               DynamicHtml -> a ! href (getDynamicUri rs)
 
-        in alink lbl
+        in alink (lbl1 <> " " <> lbl2)
           
       getStaticUri o = if Just o == mObs
                        then "/index.html"
@@ -258,17 +260,19 @@ obsNavBar ctx mObs ObsInfo{..} =
       getDynamicUri _ = "#"
 
       entry ::
-        AttributeValue  -- class
+        T.Text
+        -- ^ Previous or Next (not worth creating a type for just yet) 
+        -> AttributeValue  -- class
         -> Record -- observation being pointed to
         -> Html
-      entry cls rs =
+      entry ty cls rs =
         let ll = li ! class_ cls
                     ! dataAttribute "obsid" obsid
             obsid = toValue (recordObsId rs)
-        in ll (mkNavLink rs)
+        in ll (mkNavLink ty rs)
 
-      navPrev = entry "prevLink"
-      navNext = entry "nextLink"
+      navPrev = entry "Previous" "prevLink"
+      navNext = entry "Next"     "nextLink"
 
       barContents = 
         fromMaybe mempty (navPrev <$> prevObs) <>

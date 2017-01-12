@@ -142,6 +142,11 @@ nav#obslinks ul li.nextLink {
     padding-left: 0.2em;
 }
 
+/* This span is intended for non-CSS agents, so hide */
+span.directionLabel {
+    display: none;
+}
+
 /* Draw arrows.
  * I am not happy with the spacing between the arrow and the text.
  */
