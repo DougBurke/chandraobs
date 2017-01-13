@@ -110,6 +110,10 @@ function showObsId(obsid) {
             $p.click(function (e) { showObsId($p.data('obsid')); });
             $n.click(function (e) { showObsId($n.data('obsid')); });
 
+            /* indicate that these are clickable */
+            $p.css('cursor', 'pointer');
+            $n.css('cursor', 'pointer');
+
             /* 
              * add click handlers to the obsid links in the
              * rsp['observation'] section
