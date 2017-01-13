@@ -1,11 +1,16 @@
 //
+// TODO: should it be #obsid rather than use data-obsid attribute?
+//
+// This would then make it easier to link to from other pages,
+// such as the timeline or schedule views
+//
+
+// *** setupImageBlock is not used, but left in for now ***
+//
 // As the image links are now re-created I no longer need to use a
 // proxy for them (or, rather, some of the fun involving the
 // proxies), but I'm not sure whether this is an improvement
 // UI wise.
-//
-
-// *** this is not used, but left in for now ***
 //
 // Set up the links/images/text for the image block and show it.
 //
@@ -64,9 +69,9 @@ function setupImageBlock(obsdata, sobs, mprop) {
  */
 function changeCurrentStatus(isCurrent) {
     if (isCurrent) {
-        $( '#currentLink' ).addClass('chosen');
+        $( '#home' ).addClass('chosen');
     } else {
-        $( '#currentLink' ).removeClass('chosen');
+        $( '#home' ).removeClass('chosen');
     }
 }
 
@@ -144,8 +149,8 @@ function showCurrent() {
 function initialize() {
 
     /* set up the 'What is Chandra doing now?' link */
-    $( 'a#currentLink' ).attr('href', '#');
-    $( 'a#currentLink' ).click(function (e) {
+    $( 'a#home' ).attr('href', '#');
+    $( 'a#home' ).click(function (e) {
         showCurrent();
     });
 

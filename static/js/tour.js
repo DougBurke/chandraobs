@@ -14,6 +14,8 @@ var tour = new Tour({
     title: "Welcome to the 'What is Chandra doing now?' Site",
     content: "This tour will briefly highlight the main parts of this page."
   },
+      // I think the two #observation should be combined, but
+      // using two paragraphs.
   {
     element: "#observation",
     title: "What is Chandra doing now?",
