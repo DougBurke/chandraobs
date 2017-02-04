@@ -51,6 +51,11 @@ schedDatePage date sched =
 --   no current schedule, but let's just have a simple display
 --   for now.
 --
+--   TODO:
+--     want to make the description of the SVG image be added to
+--     the page via JS, so that it is not displayed when there is
+--     no JS support. This means breaking things up a bit.
+--
 renderSchedule :: 
   Schedule
   -> (Html, Html)
@@ -70,12 +75,16 @@ renderSchedule sched =
         p ("There seems to be a problem, in that I do not know what the "
            <> "current observation is!")
 
-      bodyBlock = p (
+      welcome = 
         "This page shows "
         <> hdays
         <> " of the Chandra schedule, either side of today"
         <> scienceTime
-        <> ". The size of the circles indicate the exposure time, and "
+        <> "."
+
+      bodyBlock = p (
+        welcome
+        <> " The size of the circles indicate the exposure time, and "
         <> "the color shows whether the observation has been done, "
         <> "is running now, or is in the future; the same colors "
         <> "are used in the table below. For repeated observations "
@@ -97,7 +106,8 @@ renderSchedule sched =
         <> " for more information."
         )
       
-  in (toHtml title, if isJust (scDoing sched) then bodyBlock else missingBlock)
+  in (toHtml title,
+      if isJust (scDoing sched) then bodyBlock else missingBlock)
   
 
 renderDateSchedule :: 

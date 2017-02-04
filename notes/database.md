@@ -335,6 +335,24 @@ and locally with
 
     % psql --username=postgres --password --host=127.0.0.1 --dbname=chandraobs < drop-all.sql
 
+To remove the database entirely (locally)
+
+  % psql --username=postgres --password --host=127.0.0.1
+Password for user postgres: 
+psql (9.5.5, server 9.4.7)
+SSL connection (protocol: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384, bits: 256, compression: off)
+Type "help" for help.
+
+postgres=# drop database chandraobs
+postgres-# \q
+
+or use dropdb
+
+% dropdb -e --username=postgres --password --host=127.0.0.1 chandraobs
+Password: 
+DROP DATABASE chandraobs;
+% 
+
 ### On OS-X
 
 WIth a homebrew postgres installation
