@@ -383,8 +383,21 @@ updateDB sloc mndays f = withSocketsDo $ do
           -- that it's doing what I want.
           --
           when cleanFlag $ do
-            liftIO (T.putStrLn "&&&&& deleting something")
-            delete (SmnTargetField ==. smiName si)
+            -- display what we are deleting, as a check
+            mans <- select ((SmnTargetField ==. smiName si)
+                            `limitTo` 1)
+            case mans of
+              (SimbadNoMatch {..}:_) -> do
+                let stxt = "Target: <"
+                           <> fromTargetName smnTarget
+                           <> "> search term: <"
+                           <> smnSearchTerm
+                           <> "> at "
+                           <> T.pack (show smnLastChecked)
+                liftIO (T.putStrLn ("&&&&& deleting " <> stxt))
+                delete (SmnTargetField ==. smiName si)
+
+              _ -> return ()
       
         _ -> do
           blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
