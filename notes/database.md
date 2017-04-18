@@ -384,7 +384,8 @@ heroku-cli: Pushing chandraobs ---> sailing-quietly-1739
  ▸    Remote database is not empty. Please create a new database or use
  ▸    heroku pg:reset
 
-to the following, which no-longer seems to ask for passwords
+to the following, which no-longer seems to ask for passwords (pghost
+environment variable added to fix a problem whereby the push would fail)
 
-% heroku pg:reset DATABASE_URL --confirm chandraobs-devel --app chandraobs-devel; PGUSER=postgres PGPASSWORD=postgres heroku pg:push chandraobs DATABASE_URL --app chandraobs-devel
+% heroku pg:reset DATABASE_URL --confirm chandraobs-devel --app chandraobs-devel; PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push chandraobs DATABASE_URL --app chandraobs-devel
 
