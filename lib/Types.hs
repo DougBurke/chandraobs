@@ -20,7 +20,7 @@
 --   to catch cases where I was relying on them for serialization
 --   when I should not have been.
 --
---   Gien the way the code has ended up below, perhaps I should be
+--   Given the way the code has ended up below, perhaps I should be
 --   using some form of a lens library.
 --
 module Types where
@@ -38,7 +38,8 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Arrow (first)
-import Control.Monad.Logger (NoLoggingT)
+import Control.Monad ((>=>))
+import Control.Monad.IO.Class (MonadIO)
 
 #if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 import Data.Bits (Bits(..), FiniteBits(..))
@@ -499,19 +500,36 @@ instance H.ToMarkup ChandraTime where
 instance H.ToValue ChandraTime where
   toValue = H.toValue . showCTime
 
+-- TODO: convert checks on discarded/futureTime fields to use
+--       a range rather than equality (ie <= rather than =).
+--       It's not guaranteed that this will avoid numeric issues
+--       
+
 -- | This is used for non-science observations that appear to have
 --   been discarded. It is only needed because I refuse to update
 --   the NonScienceObs data type (and hence update the database).
 --
+--   Note that this used to be "1999:000:00:00:00.000"
+--   which the time library prior to 1.6 accepted, but is
+--   now an error. Fortunately it looks like the daynum=0
+--   value was decoded as if it was daynum-1.
+--
 discardedTime :: ChandraTime
-discardedTime = toCTime "1999:000:00:00:00.000"
+discardedTime = toCTime "1999:001:00:00:00.000"
+
+-- TODO: need to hack times in the database
 
 -- | Used for science observations with no start date (and that
 --   are not discarded). The intention is to support observations
 --   that were scheduled but have been removed for some reason.
 --
+--   Note that this used to be "2100:000:00:00:00.000"
+--   which the time library prior to 1.6 accepted, but is
+--   now an error. Fortunately it looks like the daynum=0
+--   value was decoded as if it was daynum-1.
+--
 futureTime :: ChandraTime
-futureTime = toCTime "2100:000:00:00:00.000"
+futureTime = toCTime "2100:001:00:00:00.000"
 
 data ObsStatus = Done | Doing | Todo | Unscheduled deriving Eq
 
@@ -2257,6 +2275,7 @@ toSIMBADLink sloc name =
 readHelper :: Read a => PersistValue -> String -> a
 readHelper s errMessage = case s of
   PersistString str -> readHelper' str
+  PersistText str -> readHelper' (T.unpack str)
   PersistByteString str -> readHelper' (B8.unpack str)
   _ -> error ("readHelper: " <> errMessage)
   where
@@ -2264,6 +2283,24 @@ readHelper s errMessage = case s of
       (a, _):_ -> a
       _        -> error ("readHelper: " <> errMessage)
 
+-- | Helper function for converting string/text values.
+--
+--   Groundhog version 0.8 seems to have introduced the PersistText
+--   constructor which is now being used rather than PersistString.
+--
+--   This could include PersistByteString but so far it doesn't seem
+--   worth it (and PersistString support could probably be dropped).
+--
+textValueHelper :: String -> (T.Text -> Maybe b) -> PersistValue -> b
+textValueHelper lbl f p =
+  let (sval, mv) = case p of
+        PersistString s -> (s, f (T.pack s))
+        PersistText t -> (T.unpack t, f t)
+        _ -> (show p, Nothing)
+        
+      errVal = error ("Unexpected " <> lbl <> ": " <> sval)
+  in fromMaybe errVal mv
+  
 instance NeverNull ChandraTime
 instance NeverNull RA
 instance NeverNull Dec
@@ -2278,17 +2315,8 @@ instance NeverNull SimbadType
 
 -- times
 
--- Wrapper to handle different groundhog versions (use an underscore
--- since this symbol is exported as I have not written an explicit
--- export list).
---
-#if MIN_VERSION_groundhog(0,6,0)
 _pType :: DbType -> a -> b -> DbType
 _pType a _ _ = a
-#else
-_pType :: DbType -> a -> DbType
-_pType a _ = a
-#endif
 
 instance PersistField ChandraTime where
   persistName _ = "ChandraTime"
@@ -2297,10 +2325,10 @@ instance PersistField ChandraTime where
   dbType = _pType (DbTypePrimitive DbDayTime False Nothing Nothing)
 
 instance PrimitivePersistField ChandraTime where
-  toPrimitivePersistValue _ = PersistUTCTime . _toUTCTime
-  fromPrimitivePersistValue _ (PersistUTCTime a) = ChandraTime a
-  -- fromPrimitivePersistValue _ (PersistZonedTime (ZT a)) = zonedTimeToUTC a
-  fromPrimitivePersistValue _ x = readHelper x ("Expected ChandraTime (UTCTime), received: " ++ show x)
+  toPrimitivePersistValue = PersistUTCTime . _toUTCTime
+  fromPrimitivePersistValue (PersistUTCTime a) = ChandraTime a
+  -- fromPrimitivePersistValue (PersistZonedTime (ZT a)) = zonedTimeToUTC a
+  fromPrimitivePersistValue x = readHelper x ("Expected ChandraTime (UTCTime), received: " ++ show x)
 
 -- double values
 
@@ -2326,22 +2354,22 @@ instance PersistField TimeKS where
   dbType = _pType doubleType
 
 instance PrimitivePersistField RA where
-  toPrimitivePersistValue _ = PersistDouble . _unRA
-  fromPrimitivePersistValue _ (PersistDouble a) = RA a
-  fromPrimitivePersistValue _ (PersistInt64 a) = RA (fromIntegral a)
-  fromPrimitivePersistValue _ x = readHelper x ("Expected RA (double), received: " ++ show x)
+  toPrimitivePersistValue = PersistDouble . _unRA
+  fromPrimitivePersistValue (PersistDouble a) = RA a
+  fromPrimitivePersistValue (PersistInt64 a) = RA (fromIntegral a)
+  fromPrimitivePersistValue x = readHelper x ("Expected RA (double), received: " ++ show x)
 
 instance PrimitivePersistField Dec where
-  toPrimitivePersistValue _ = PersistDouble . _unDec
-  fromPrimitivePersistValue _ (PersistDouble a) = Dec a
-  fromPrimitivePersistValue _ (PersistInt64 a) = Dec (fromIntegral a)
-  fromPrimitivePersistValue _ x = readHelper x ("Expected Dec (double), received: " ++ show x)
+  toPrimitivePersistValue = PersistDouble . _unDec
+  fromPrimitivePersistValue (PersistDouble a) = Dec a
+  fromPrimitivePersistValue (PersistInt64 a) = Dec (fromIntegral a)
+  fromPrimitivePersistValue x = readHelper x ("Expected Dec (double), received: " ++ show x)
 
 instance PrimitivePersistField TimeKS where
-  toPrimitivePersistValue _ = PersistDouble . _toKS
-  fromPrimitivePersistValue _ (PersistDouble a) = TimeKS a
-  fromPrimitivePersistValue _ (PersistInt64 a) = TimeKS (fromIntegral a)
-  fromPrimitivePersistValue _ x = readHelper x ("Expected TimeKS (double), received: " ++ show x)
+  toPrimitivePersistValue = PersistDouble . _toKS
+  fromPrimitivePersistValue (PersistDouble a) = TimeKS a
+  fromPrimitivePersistValue (PersistInt64 a) = TimeKS (fromIntegral a)
+  fromPrimitivePersistValue x = readHelper x ("Expected TimeKS (double), received: " ++ show x)
 
 -- integer values
 
@@ -2351,26 +2379,12 @@ instance PrimitivePersistField TimeKS where
 -- since this is exported, as I'm too lazy to set up an export list,
 -- use an underscore to indicate it's "special"
 --
-#if defined(MIN_VERSION_groundhog) && MIN_VERSION_groundhog(0,6,0)
-
 #if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 _iType :: FiniteBits b => a -> b -> DbType
 _iType _ a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
 #else
 _iType :: Bits b => a -> b -> DbType
 _iType _ a = DbTypePrimitive (if bitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
-#endif
-
-#else
-
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
-_iType :: FiniteBits b => b -> DbType
-_iType a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
-#else
-_iType :: Bits b => b -> DbType
-_iType a = DbTypePrimitive (if bitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
-#endif
-
 #endif
 
 instance PersistField ObsIdVal where
@@ -2392,22 +2406,22 @@ instance PersistField Sequence where
   dbType = _iType
 
 instance PrimitivePersistField PropNum where
-  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unPropNum
-  fromPrimitivePersistValue _ (PersistInt64 a) = PropNum (fromIntegral a)
-  fromPrimitivePersistValue _ (PersistDouble a) = PropNum (truncate a)
-  fromPrimitivePersistValue _ x = readHelper x ("Expected PropNum (Integer), received: " ++ show x)
+  toPrimitivePersistValue = PersistInt64 . fromIntegral . _unPropNum
+  fromPrimitivePersistValue (PersistInt64 a) = PropNum (fromIntegral a)
+  fromPrimitivePersistValue (PersistDouble a) = PropNum (truncate a)
+  fromPrimitivePersistValue x = readHelper x ("Expected PropNum (Integer), received: " ++ show x)
 
 instance PrimitivePersistField Sequence where
-  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . _unSequence
-  fromPrimitivePersistValue _ (PersistInt64 a) = Sequence (fromIntegral a)
-  fromPrimitivePersistValue _ (PersistDouble a) = Sequence (truncate a)
-  fromPrimitivePersistValue _ x = readHelper x ("Expected Sequence (Integer), received: " ++ show x)
+  toPrimitivePersistValue = PersistInt64 . fromIntegral . _unSequence
+  fromPrimitivePersistValue (PersistInt64 a) = Sequence (fromIntegral a)
+  fromPrimitivePersistValue (PersistDouble a) = Sequence (truncate a)
+  fromPrimitivePersistValue x = readHelper x ("Expected Sequence (Integer), received: " ++ show x)
 
 instance PrimitivePersistField ObsIdVal where
-  toPrimitivePersistValue _ = PersistInt64 . fromIntegral . fromObsId
-  fromPrimitivePersistValue _ (PersistInt64 a) = ObsIdVal (fromIntegral a)
-  fromPrimitivePersistValue _ (PersistDouble a) = ObsIdVal (truncate a)
-  fromPrimitivePersistValue _ x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
+  toPrimitivePersistValue = PersistInt64 . fromIntegral . fromObsId
+  fromPrimitivePersistValue (PersistInt64 a) = ObsIdVal (fromIntegral a)
+  fromPrimitivePersistValue (PersistDouble a) = ObsIdVal (truncate a)
+  fromPrimitivePersistValue x = readHelper x ("Expected ObsIdVal (Integer), received: " ++ show x)
 
 -- enumeration/string-like types
 
@@ -2458,90 +2472,42 @@ instance PersistField TOORequest where
   fromPersistValues = primFromPersistValue
   dbType = _pType stringType
 
+-- TODO: should this be changed to use PersistText instead of PersistString
+--       when marshalling to a primitive value?
+--
 instance PrimitivePersistField Instrument where
-  {- The Groundhog tutorial [1] had the following, but this fails to
-     compile with
-         Could not deduce (PrimitivePersistField String)
-           arising from a use of ‘toPrimitivePersistValue’
-
-     so trying something a bit different
-
-     [1] https://www.fpcomplete.com/user/lykahb/groundhog
-
-  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
-  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
-  -}
-  toPrimitivePersistValue _ = PersistString . show
-  fromPrimitivePersistValue _ (PersistString s) = read s
-  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " <> show x)
-
+  toPrimitivePersistValue = PersistString . show
+  fromPrimitivePersistValue = textValueHelper "Instrument" toInstrument
+  
 instance PrimitivePersistField Grating where
-  {-
-  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
-  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
-  -}
-  toPrimitivePersistValue _ = PersistString . show
-  fromPrimitivePersistValue _ (PersistString s) = read s
-  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = readHelper x ("Expected Instrument (String), received: " <> show x)
+  toPrimitivePersistValue = PersistString . show
+  fromPrimitivePersistValue = textValueHelper "Grating" toGrating
 
 instance PrimitivePersistField ChipStatus where
-  {-
-  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
-  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
-  -}
-  toPrimitivePersistValue _ = PersistString . T.unpack . fromChipStatus
-  fromPrimitivePersistValue _ (PersistString s) =
-    fromMaybe (error ("Unexpected chip status: " <> s)) (toChipStatus (T.pack s))
-  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error ("Expected ChipStatus (String), received: " <> show x)
-
+  toPrimitivePersistValue = PersistString . T.unpack . fromChipStatus
+  fromPrimitivePersistValue = textValueHelper "chips status" toChipStatus
+  
 instance PrimitivePersistField SimbadType where
-  {-
-  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
-  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
-  -}
-  toPrimitivePersistValue _ = PersistString . T.unpack . fromSimbadType
-  fromPrimitivePersistValue _ (PersistString s) =
-    fromMaybe (error ("Unexpected Simbad Type: " <> s)) (toSimbadType (T.pack s))
-  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error ("Expected SimbadType (String), received: " <> show x)
-
+  toPrimitivePersistValue = PersistString . T.unpack . fromSimbadType
+  fromPrimitivePersistValue = textValueHelper "Simbad Type" toSimbadType
+  
 instance PrimitivePersistField Constraint where
-  {-
-  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
-  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
-  -}
-  toPrimitivePersistValue _ a = PersistString [fromConstraint a]
-
-  fromPrimitivePersistValue _ (PersistString s) = case s of
-    [c] -> fromMaybe (error ("Unexpected constraint value: " <> s)) (toConstraint c)
-    _ -> error ("Unexpected constraint value: " <> s)
-
-  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error ("Expected Constraint (1 character String), received: " <> show x)
+  toPrimitivePersistValue a = PersistString [fromConstraint a]
+  fromPrimitivePersistValue =
+    textValueHelper "constraint" (T.uncons >=> (toConstraint . fst))
 
 instance PrimitivePersistField ConShort where
-  {-
-  toPrimitivePersistValue p a = toPrimitivePersistValue p $ show a
-  fromPrimitivePersistValue p x = read $ fromPrimitivePersistValue p x
-  -}
-  toPrimitivePersistValue _ = PersistString . T.unpack . fromConShort
-  fromPrimitivePersistValue _ (PersistString s) =
-    fromMaybe (error ("Unexpected Constellation type: " <> s)) (toConShort (T.pack s))
-  -- fromPrimitivePersistValue _ (PersistByteString bs) = read $ B8.unpack bs
-  fromPrimitivePersistValue _ x = error ("Expected ConShort (String), received: " <> show x)
-
--- | Note that the actual value is stored, rather than the enumeration. This could
---   lead to problems if the mapping rules change and are not checked against the
---   values stored in the database.
+  toPrimitivePersistValue = PersistString . T.unpack . fromConShort
+  fromPrimitivePersistValue = textValueHelper "ConShort" toConShort
+  
+-- | Note that the actual value is stored, rather than the enumeration.
+--   This could lead to problems if the mapping rules change and are not
+--   checked against the values stored in the database.
+--
 instance PrimitivePersistField TOORequest where
-  toPrimitivePersistValue _ = PersistString . T.unpack . trValue
-  fromPrimitivePersistValue _ (PersistString s) =
-    fromMaybe (error ("Unexpected TOO value: " <> s)) (toTOORequest (T.pack s))
-  fromPrimitivePersistValue _ x = error ("Expected TOO value (String), received: " <> show x)
-
+  toPrimitivePersistValue = PersistString . T.unpack . trValue
+  fromPrimitivePersistValue = textValueHelper "TOO" toTOORequest
+  
 instance PersistField TargetName where
   persistName _ = "TargetName"
   toPersistValues = primToPersistValue
@@ -2549,10 +2515,9 @@ instance PersistField TargetName where
   dbType = _pType stringType
 
 instance PrimitivePersistField TargetName where
-  toPrimitivePersistValue _ = PersistString . T.unpack . fromTargetName
-  fromPrimitivePersistValue _ (PersistString s) = TN (T.pack s)
-  fromPrimitivePersistValue _ x = error ("Expected TargetName value (String), received: " <> show x)
-
+  toPrimitivePersistValue = PersistString . T.unpack . fromTargetName
+  fromPrimitivePersistValue = textValueHelper "TargetName" (Just . TN)
+  
 -- needed for persistent integer types
 
 instance Bits PropNum where
@@ -2704,13 +2669,10 @@ missionSelectorField Swift = SoJointSWIFTField
 missionSelectorField NuSTAR = SoJointNUSTARField
 -}
 
-handleMigration :: DbPersist Postgresql (NoLoggingT IO) ()
+handleMigration ::
+  (PersistBackend m, MonadIO m) => m ()
 handleMigration =
-  let doM = runMigration
-#if !MIN_VERSION_groundhog(0,7,0)
-              defaultMigrationLogger
-#endif
-  in doM $ do
+  runMigration $ do
     migrate (undefined :: ScheduleItem)
     migrate (undefined :: ScienceObs)
     migrate (undefined :: NonScienceObs)

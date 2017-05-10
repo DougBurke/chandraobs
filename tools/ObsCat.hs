@@ -186,13 +186,13 @@ import Control.Applicative ((<$>))
 
 import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Logger (NoLoggingT)
 
 import Data.Either (isLeft, partitionEithers, rights)
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8')
 
+import Database.Groundhog.Core (Action)
 import Database.Groundhog.Postgresql
 
 import Network (withSocketsDo)
@@ -910,14 +910,14 @@ addResults missing unarchived nsmissing = do
   
   let props = S.toList (S.fromList (map fst missing ++ map fst unarchived))
 
-      lprint :: Show a => a -> DbPersist Postgresql (NoLoggingT IO) ()
+      lprint :: Show a => a -> Action Postgresql ()
       lprint = liftIO . print
 
       disp ::
         Show a
-        => (a -> DbPersist Postgresql (NoLoggingT IO) Bool)
+        => (a -> Action Postgresql Bool)
         -> a
-        -> DbPersist Postgresql (NoLoggingT IO) ()
+        -> Action Postgresql ()
       disp act val = do
         flag <- act val
         when flag (lprint val)

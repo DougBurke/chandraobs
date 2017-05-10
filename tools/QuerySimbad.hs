@@ -464,8 +464,8 @@ updateOldRecords sloc (Just ndays) f = do
         fromTargetName (cleanTargetName smnTarget) /= smnSearchTerm
       changed = filter isChanged (dropWhile isOld noMatchFields)
 
-  T.putStrLn ("# Old queries to be redone: " <> (slen old))
-  T.putStrLn ("# Changed queries: "          <> (slen changed))
+  T.putStrLn ("# Old queries to be redone: " <> slen old)
+  T.putStrLn ("# Changed queries: "          <> slen changed)
 
   -- This is *very* similar to the previous version
   forM_ (old ++ changed) $ 

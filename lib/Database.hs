@@ -133,7 +133,7 @@ import qualified Data.Text.IO as T
 import Control.Arrow (first, second)
 import Control.Monad (filterM, forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Logger (NoLoggingT)
+import Control.Monad.Trans.Control (MonadBaseControl)
 
 import Data.Char (toUpper)
 import Data.Either (partitionEithers)
@@ -143,7 +143,7 @@ import Data.Maybe (catMaybes, fromJust, fromMaybe, isNothing, listToMaybe, mapMa
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
-import Database.Groundhog.Core (PersistEntity, EntityConstr,
+import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
                                 DbDescriptor, RestrictionHolder)
 import Database.Groundhog.Core (distinct)
 import Database.Groundhog.Postgresql
@@ -234,7 +234,8 @@ isDiscardedOrUnscheduled ::
   -> m Bool  -- True is only returned if this is a discarded or unscheduled obs.
 isDiscardedOrUnscheduled oid = do
   n1 <- count ((SoObsIdField ==. oid) &&.
-               ((SoStatusField ==. discarded) ||. (SoStartTimeField ==. futureTime)))
+               ((SoStatusField ==. discarded) ||.
+                (SoStartTimeField ==. futureTime)))
   n2 <- count ((NsObsIdField ==. oid) &&.
                (NsNameField ==. discarded))
   return ((n1 /= 0) || (n2 /= 0))
@@ -904,7 +905,7 @@ fetchCategory cat = do
 --   the given SIMBAD type (which can also be unidentified).
 --
 fetchCategorySubType ::
-  (Functor m, PersistBackend m, SqlDb (PhantomDb m)) -- ghc 7.8 needs Functor
+  (Functor m, PersistBackend m, SqlDb (Conn m)) -- ghc 7.8 needs Functor
   => PropCategory  -- ^ proposal category
   -> Maybe SimbadType
   -- ^ If Nothing, use the Unidentified type
@@ -1268,7 +1269,7 @@ findObsStatusTypes = do
 --         Also, should protect/remove the search-specific terms.
 --
 findNameMatch ::
-  (PersistBackend m, SqlDb (PhantomDb m))
+  (PersistBackend m, SqlDb (Conn m))
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
@@ -1285,7 +1286,7 @@ findNameMatch instr = do
 
 -- | Find proposals whose titles match the given string
 findProposalNameMatch ::
-  (PersistBackend m, SqlDb (PhantomDb m))
+  (PersistBackend m, SqlDb (Conn m))
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
@@ -1309,7 +1310,7 @@ findProposalNameMatch instr =
 --     filter out % and _ ?
 --
 findTarget ::
-  (PersistBackend m, SqlDb (PhantomDb m))
+  (PersistBackend m, SqlDb (Conn m))
   => TargetName
   -> m (SortedList StartTimeOrder ScienceObs, [TargetName])
   -- ^ Returns a list of matching observations and the list of
@@ -1708,7 +1709,7 @@ getProposalTypeBreakdown = do
 
 -- | This does not include discarded observatons.  
 getProposalType ::
-  (PersistBackend m, SqlDb (PhantomDb m))
+  (PersistBackend m, SqlDb (Conn m))
   => PropType
   -> m (SortedList StartTimeOrder ScienceObs)
 getProposalType ptype = do
@@ -1920,7 +1921,7 @@ insertSimbadNoMatch sm = insertIfUnknown sm (SmnTargetField ==. smnTarget sm)
 insertIfUnknown ::
   (PersistEntity v, PersistBackend m, EntityConstr v c)
   => v
-  -> Cond (PhantomDb m) (RestrictionHolder v c)
+  -> Cond (Conn m) (RestrictionHolder v c)
   -> m Bool
 insertIfUnknown o cond = do
   n <- count cond
@@ -1942,7 +1943,7 @@ insertIfUnknown o cond = do
 --
 insertOrReplace ::
   (PersistBackend m, PersistEntity v, Eq v, EntityConstr v c)
-  => Cond (PhantomDb m) (RestrictionHolder v c)
+  => Cond (Conn m) (RestrictionHolder v c)
   -> v
   -> m ()
 insertOrReplace cond newVal = do
@@ -2052,6 +2053,8 @@ dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
 -- | Run an action against the database. This includes a call to
 --   `handleMigration` before the action is run.
 --
-runDb :: DbPersist Postgresql (NoLoggingT IO) a -> IO a
+runDb ::
+  (MonadBaseControl IO m, MonadIO m)
+  => Action Postgresql a -> m a
 runDb act =
   withPostgresqlConn dbConnStr (runDbConn (handleMigration >> act))

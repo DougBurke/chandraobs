@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# Language RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
 
 -- TODO:
 --   provide cache information for JSON responses; could have a last-updated

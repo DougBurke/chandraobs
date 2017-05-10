@@ -97,7 +97,7 @@ hackCoordMap gType k ov =
              A.String "Point" -> changeCoords0
              A.String "Polygon" -> changeCoords2
              A.String "MultiPolygon" -> changeCoords3
-             _ -> error ("Unsupported geometry type: " ++ show (gType))
+             _ -> error ("Unsupported geometry type: " ++ show gType)
        in startFunc ov
   else ov
 
