@@ -37,6 +37,19 @@ example
 801396    16143 0  Ophiuchus Cluster 2014:194:14:45:29.404  15.0 ACIS-I NONE 258.1023 -23.3778 266.99 148.14 111.91 dss pspc rass
 401562    16637 0         4U 1626-67 2014:194:19:25:46.038  45.5  HRC-S LETG 248.0058 -67.4569 309.94 126.49  66.50 dss pspc rass
 
+Note that mid 2017 CAL-ER runs started being labelled using a different
+scheme; the number and id have been swapped:
+
+ ----     P5402       CAL-ER (50082) 2017:134:17:33:39.022   0.3   --    --  246.0000  19.0000 158.47 139.67  15.88   
+
+compared to
+
+ ----     50081       CAL-ER (P5403) 2017:134:20:02:30.587   1.0   --    --  240.0000   4.0000 160.21 155.78  16.11   
+703131    20079 0 Cygnus A - Nucleus 2017:141:17:30:58.135  24.0 ACIS-I NONE 299.8909  40.7272 125.98  96.57  84.38 dss pspc rass
+
+
+
+
 -}
 
 module Parser (parseSTS, testParser) where
@@ -44,7 +57,7 @@ module Parser (parseSTS, testParser) where
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Data.Char (digitToInt, isSpace)
+import Data.Char (digitToInt, isDigit, isSpace)
 import Data.Functor (void)
 import Data.List (intercalate)
 import Data.Monoid ((<>))
@@ -94,11 +107,14 @@ lexeme p = p >>= \a -> spaces >> return a
 toInt :: [Int] -> Int
 toInt = foldl (\c i -> c * 10 + i) 0
 
+strToInt :: String -> Int
+strToInt = toInt . map digitToInt
+
 -- for now I do not check for overflow
 parseInt :: Parser Int
 parseInt = do
   is <- lexeme (many1 digit)
-  return (toInt (map digitToInt is))
+  return (strToInt is)
 
 -- parse a single integer value
 parseInt1 :: Parser Int
@@ -196,12 +212,18 @@ sep2, sep4 :: Parser ()
 sep2 = void (lexeme (string "--"))
 sep4 = void (lexeme (string "----"))
 
+-- Calibration observations used to be
+--  ----     P5402       CAL-ER (50082) 2017:134:17:33:39.022   0.3   --    --  246.0000  19.0000 158.47 139.67  15.88   
+-- and appear to have switched over, mid 2017, to
+--  ----     50081       CAL-ER (P5403) 2017:134:20:02:30.587   1.0   --    --  240.0000   4.0000 160.21 155.78  16.11
+--
 calLine :: Parser STS
 calLine = do
   sep4
-  name <- lexeme (count 5 anyChar)
+  nameOrObsId <- lexeme (count 5 anyChar)
   void (string "CAL-ER (")
-  obsid <- parseInt
+  -- obsid <- parseInt
+  obsidOrName <- count 5 anyChar
   lexeme (void (string ")"))  -- err, why not void (lexeme (string))
   start <- parseTime
   texp <- parseDouble
@@ -214,9 +236,20 @@ calLine = do
   void parseDouble -- slew
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
-      
+
   let (tks, t1, t2) = handleTime start texp
 
+      -- Not sure of the rules for obsidOrName; at the moment it
+      -- appears that starting with a non-numeric character indicates
+      -- it's the name. Although not encoded in the type, the strings
+      -- should not be empty (due to both being created via
+      -- 'take 5' above).
+      --
+      (name, obsid) =
+        if isDigit (head obsidOrName)
+        then (nameOrObsId, strToInt obsidOrName)
+        else (obsidOrName, strToInt nameOrObsId)
+  
       si = ScheduleItem {
         siObsId = ObsIdVal obsid
         , siScienceObs = False

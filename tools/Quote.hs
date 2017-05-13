@@ -24,7 +24,10 @@ import Types
 import Parser (parseSTS)
 
 stsParse :: QuasiQuoter
-stsParse = QuasiQuoter stsExpr (error "quotePat STS") (error "quoteType STS") (error "QuoteDec STS")
+stsParse = QuasiQuoter stsExpr
+           (error "quotePat STS")
+           (error "quoteType STS")
+           (error "QuoteDec STS")
 
 stsParseFile :: QuasiQuoter
 stsParseFile = quoteFile stsParse
