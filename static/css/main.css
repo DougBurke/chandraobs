@@ -212,6 +212,9 @@ div.links {
   width: 680px;
   height: 680px;
   overflow: hidden;
+
+  /* border-left: 1em solid rgba(0, 131, 179, 0.2); */
+
 }
 
 /* support Chandra images; let them fill the width of the box but
@@ -226,6 +229,12 @@ div.links img#Chandra {
      * think.
      */
     background-color: rgba(0, 131, 179, 0.1);
+    /*
+     * I wanted some way to indicate that an image was here, by
+     * drawing a border, but with the current set up it is not
+     * working well (not all edges are displayed)
+     border: 1px solid black;
+     */
 }
 
 /* Selected view (DSS/RASS/PSPC/Details) */
@@ -245,6 +254,9 @@ div.links img#Chandra {
 
 div.radiobuttons {
   padding: 0.5em 1em;
+
+  /* border-left: 1em solid white; */
+
 }
 
 div.radiobuttons input[type='radio'] {
@@ -259,6 +271,10 @@ div.radiobuttons input[type='radio']:checked + label {
 div.radiobuttons label {
   display: inline-block;
   /* background-color: #eee; */
+
+  background-color: rgba(0, 131, 179, 0.1);
+  border-radius: 4px;
+
   padding: 0.1em 0.5em;
   margin-left: 0.1em;
   margin-right: 0.1em;
@@ -316,6 +332,9 @@ div#mainBar {
   float: left;
   width: 680px; /* width of images */
   margin-right: 1em;
+
+  /* border-left: 1em solid rgba(0, 131, 179, 0.2); */
+
 }
 
 /* WWT pages */
