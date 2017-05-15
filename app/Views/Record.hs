@@ -88,7 +88,8 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
       obsId = recordObsId thisObs
 
       (msimbad, (mprop, _)) = dbInfo
-      imgLinks = either (const mempty) (renderLinks False mprop msimbad) thisObs
+      imgLinks = either (const mempty)
+                 (renderLinks cTime False mprop msimbad) thisObs
 
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>

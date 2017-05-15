@@ -28,6 +28,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Data.Char (intToDigit)
 import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>))
+import Data.Time (UTCTime)
 
 import System.Random (Random(..), getStdRandom)
 
@@ -73,7 +74,10 @@ import Types (ChipStatus(..)
              , toMission
              , toPropType
              )
-import Utils (cleanJointName, showInt)
+import Utils (cleanJointName
+             , isChandraImageViewable
+             , publicImageURL
+             , showInt)
 
        
 defaultMeta :: Html
@@ -154,6 +158,9 @@ facts = [
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.rass.gif
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.pspc.gif
 --
+-- The public image is taken from the Chandra archive, and follows
+-- the rules encoded in Utils.publicImageURL
+--
 -- We also display the observational details - in \"raw\" form - as a text box
 -- as part of this section.
 --
@@ -161,13 +168,14 @@ facts = [
 -- way to do this at this time).
 --
 renderLinks ::
-  Bool -- True if current obs
+  UTCTime -- the current time
+  -> Bool -- True if current obs
   -> Maybe Proposal
   -> Maybe SimbadInfo
   -- ^ assumed to be for the observation
   -> ScienceObs
   -> Html
-renderLinks f mprop msimbad so@ScienceObs{..} =
+renderLinks tNow f mprop msimbad so@ScienceObs{..} =
   let optSel :: T.Text -> Bool -> Html
       optSel lbl cf = 
         let idName = toValue (lbl <> "button")
@@ -184,15 +192,19 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
                 then (a H.! href "/wwt.html") "WWT"
                 else (a H.! href (toValue (obsURI soObsId) <> "/wwt")) "WWT"
 
-      form = addClass "radiobuttons" H.div $
-              mconcat [ "View: "
-                      , optSel "DSS" True
-                      , optSel "RASS" False
-                      , optSel "PSPC" False
-                      , optSel "Details" False
-                      , " or in "
-                      , wwtLink
-                      ]
+      showChandraImage = isChandraImageViewable soPublicRelease soDataMode
+                         soInstrument tNow
+      buttons =  [ "View: " ] ++
+                 [ optSel "Chandra" True | showChandraImage ] ++
+                 [ optSel "DSS" (not showChandraImage)
+                 , optSel "RASS" False
+                 , optSel "PSPC" False
+                 , optSel "Details" False
+                 , " or in "
+                 , wwtLink
+                 ]
+
+      form = addClass "radiobuttons" H.div (mconcat buttons)
 
       urlHead = "http://asc.harvard.edu/targets/"
                 <> toValue soSequence
@@ -202,22 +214,43 @@ renderLinks f mprop msimbad so@ScienceObs{..} =
                 <> toValue soObsId
                 <> ".soe."
 
+      boxSize = toValue (680::Int)
+
       link :: T.Text -> AttributeValue -> Bool -> Html
       link lbl frag af = 
         let uri = urlHead <> frag <> ".gif"
         in img H.! src    uri
                H.! alt    (textValue ("The instrument field-of-view on top of the " <> lbl <> " image of the source."))
-               H.! width  (toValue (680::Int))
-               H.! height (toValue (680::Int))
+               H.! width  boxSize
+               H.! height boxSize
                H.! A.id   (textValue lbl)
                H.! class_ (if af then "active" else "inactive")
 
-  in form <>
-     addClass "links" H.div
-     (link "DSS" "dss" True <>
-      link "PSPC" "pspc" False <>
-      link "RASS" "rass" False <>
-      renderObsIdDetails mprop msimbad so)
+      defaultLinks =
+        link "DSS" "dss" (not showChandraImage) <>
+        link "PSPC" "pspc" False <>
+        link "RASS" "rass" False <>
+        renderObsIdDetails mprop msimbad so
+
+      -- The Chandra images are not guaranteed to be square, so
+      -- forcing a size on them here leads to a stretched
+      -- display for the rectangular images. This is not
+      -- ideal.
+      --
+      chandraLink =
+        let uri = publicImageURL soObsId soInstrument
+        in img H.! src    (textValue uri)
+               H.! alt    (textValue "The Chandra image of this observation.")
+               -- H.! width  boxSize
+               -- H.! height boxSize
+               H.! A.id   (textValue "Chandra")
+               H.! class_ "active"
+
+      firstLink = if showChandraImage then chandraLink else mempty
+      allLinks = firstLink <> defaultLinks
+
+  in form <> addClass "links" H.div allLinks
+
 
 -- | Display detailed information about a science observation,
 --   for those that just need to know the details.

@@ -211,6 +211,21 @@ nav#obslinks > ul > li:hover > a {
 div.links {
   width: 680px;
   height: 680px;
+  overflow: hidden;
+}
+
+/* support Chandra images; let them fill the width of the box but
+   not the height (there's no obvious best choice here) */
+
+div.links img#Chandra {
+    width: 680px;
+    height: auto;
+    background-color: white;
+    /* Choosen to match div#observation, but at present this should
+     * never be seen (as there's scaling and overflow=hidden), I
+     * think.
+     */
+    background-color: rgba(0, 131, 179, 0.1);
 }
 
 /* Selected view (DSS/RASS/PSPC/Details) */

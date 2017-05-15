@@ -94,7 +94,8 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
   let initialize = "initialize(); addTour();"
 
       (msimbad, (mprop, _)) = dbInfo
-      imgLinks = either (const mempty) (renderLinks True mprop msimbad) currentObs
+      imgLinks = either (const mempty)
+                 (renderLinks cTime True mprop msimbad) currentObs
 
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>

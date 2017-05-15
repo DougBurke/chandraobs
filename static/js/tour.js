@@ -29,7 +29,7 @@ var tour = new Tour({
   {
     element: ".radiobuttons",
     title: "Science Observations",
-    content: "For science observations, views of the object are given in optical (DSS and with the World Wide Telescope) and X-ray (from ROSAT)."
+    content: "For science observations, views of the object are given in optical (DSS and with the World Wide Telescope) and X-ray (from ROSAT, in the RASS and PSPC views). If the observation is publically available then the Chandra data will be shown by default (unfortunately it isn't always as visually impressive as data from other telescopes, such as the Hubble Space Telescope :-)."
   },
   {
     element: "#obslinks",

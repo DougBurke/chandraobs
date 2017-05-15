@@ -17,6 +17,7 @@ module Utils (
      , getScienceExposure
      , getScienceTime
 
+     , isChandraImageViewable
      , publicImageURL
        
      , toJSVarArr
@@ -282,6 +283,33 @@ getScienceTime sched =
      then mempty
      else ", and the total science exposure time for these observations is "
           <> H.toHtml (showExpTime etime)
+
+
+-- | This handles both wheter the image is publically available as well
+--   as "is this worth showing to users" (at present CC-mode data is not
+--   shown).
+--
+isChandraImageViewable ::
+  Maybe UTCTime    -- ^ soPublicRelease field
+  -> Maybe T.Text  -- ^ soDataMode field
+  -> Instrument    -- ^ soInstrument field
+  -> UTCTime       -- ^ current time
+  -> Bool          -- ^ is the image "viewable"
+isChandraImageViewable relDate dataMode inst tNow =
+  let -- Isn't this the logic of the Ord typeclass for Maybe?
+      isPublic = case relDate of
+        Just pDate -> pDate < tNow
+        Nothing -> False
+
+      -- If it is HRC the soDataMode will be Nothing. This is okay.
+      -- I am not sure if we can have ACIS data with soDataMode equal to
+      -- Nothing, so add a check here, just in case.
+      --
+      notCC = case dataMode of
+        Just mode -> not ("CC" `T.isPrefixOf` mode)
+        Nothing -> inst `elem` [HRCI, HRCS]
+
+  in isPublic && notCC
 
 
 -- TODO: how to find the correct version number (i.e.
