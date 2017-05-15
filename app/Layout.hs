@@ -157,8 +157,8 @@ facts = [
 -- We also display the observational details - in \"raw\" form - as a text box
 -- as part of this section.
 --
--- This is modified somewhat for discarded observations (not sure the best way to
--- do this at this time).
+-- This is modified somewhat for discarded observations (not sure the best
+-- way to do this at this time).
 --
 renderLinks ::
   Bool -- True if current obs

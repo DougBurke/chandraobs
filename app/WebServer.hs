@@ -65,8 +65,6 @@ import Database.Groundhog.Postgresql (Postgresql(..)
                                      , runDbConn
                                      , withPostgresqlPool)
 
-import Formatting hiding (now)
-
 -- import Network.HTTP.Date (HTTPDate, epochTimeToHTTPDate, formatHTTPDate)
 import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
@@ -173,6 +171,7 @@ import Utils (HtmlContext(..)
              , timeToRFC1123
              , getTimes
              , showInt
+             , publicImageURL
              -- , makeETag
              )
 
@@ -1174,7 +1173,6 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
   where
     (startTime, endTime) = getTimes (Right so)
     obsid = fromObsId soObsId
-    obsidTxt = sformat (left 5 '0' %. int) obsid
     
     -- The SIMBAD info could be stored separately, and use cross-linking,
     -- but for now just encode all the infomation we want in the science
@@ -1209,23 +1207,7 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
     -- without help from here. I guess could have a "label-ified"
     -- version of the obsid field
     --
-    -- TODO: how to find the correct version number (i.e.
-    -- 'N00x' value)? One option would be to provide an
-    -- endpoint (e.g. /api/image/:obsid) which would
-    -- do the navigation, but leave that for the (possible)
-    -- future.
-    --
-    imgURL :: T.Text
-    imgURL = "http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
-             <> obsidTxt <> "&filename=" <> instTxt
-             <> "f" <> obsidTxt
-             <> "N001_full_img2.jpg&filetype=loresimg_jpg"
-
-    instTxt = case soInstrument of
-      ACISI -> "acis"
-      ACISS -> "acis"
-      HRCI -> "hrc"
-      HRCS -> "hrc"
+    imgURL = publicImageURL soObsId soInstrument
 
     -- TODO: do not include the item if the value is
     --       not known

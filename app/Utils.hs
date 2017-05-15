@@ -17,6 +17,8 @@ module Utils (
      , getScienceExposure
      , getScienceTime
 
+     , publicImageURL
+       
      , toJSVarArr
      , toJSVarObj
        
@@ -63,6 +65,8 @@ import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day, NominalDiffTime, UTCTime
                  , addUTCTime, diffUTCTime, showGregorian)
 
+import Formatting ((%.))
+
 import Text.Blaze.Html.Renderer.Text
 
 import Web.Scotty
@@ -70,6 +74,8 @@ import Web.Scotty
 import Git (CommitId, fromCommitId)
 import Types (ScienceObs(..)
              , ChandraTime(..)
+             , Instrument(..)
+             , ObsIdVal(..)
              , TimeKS(..)
              , Record
              , Schedule(..)
@@ -276,6 +282,29 @@ getScienceTime sched =
      then mempty
      else ", and the total science exposure time for these observations is "
           <> H.toHtml (showExpTime etime)
+
+
+-- TODO: how to find the correct version number (i.e.
+-- 'N00x' value)? One option would be to provide an
+-- endpoint (e.g. /api/image/:obsid) which would
+-- do the navigation, but leave that for the (possible)
+-- future.
+--
+publicImageURL :: ObsIdVal -> Instrument -> T.Text
+publicImageURL obsid inst =
+  let obsidTxt = F.sformat (F.left 5 '0' %. F.int) (fromObsId obsid)
+      instTxt = case inst of
+        ACISI -> "acis"
+        ACISS -> "acis"
+        HRCI -> "hrc"
+        HRCS -> "hrc"
+
+  in "http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
+     <> obsidTxt <> "&filename=" <> instTxt
+     <> "f" <> obsidTxt
+     <> "N001_full_img2.jpg&filetype=loresimg_jpg"
+
+
 
 {- At the moment this is only used in static/about/index.html, but
    the link there is added via the configure script, so this routine
