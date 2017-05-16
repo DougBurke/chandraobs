@@ -272,8 +272,13 @@ div.radiobuttons label {
   display: inline-block;
   /* background-color: #eee; */
 
-  background-color: rgba(0, 131, 179, 0.1);
-  border-radius: 4px;
+  /* background-color: rgba(0, 131, 179, 0.1); blue */
+  background-color: rgba(153,153,153,0.2);  /* gray */
+
+  /* border-radius: 4px; */
+  /* want the bottom to be flat as the bar is drawn there when selected */
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
 
   padding: 0.1em 0.5em;
   margin-left: 0.1em;
@@ -365,7 +370,7 @@ p.fact , p.noserver , p.unknownerror {
   /* display: inline; */
   background-color: rgba(153,153,153,0.2);  /* gray */
 }
-
+<
 /* other stuff */
 
 p.footnote {
