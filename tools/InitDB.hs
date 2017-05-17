@@ -3,6 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
+module Main where
+
 --
 -- Initialize the database using the manually-curated information
 -- stored in HackData. At present this is to the local Postgres

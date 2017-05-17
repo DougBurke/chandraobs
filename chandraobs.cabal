@@ -19,8 +19,15 @@ description:
 -- homepage:            https://github.com/yourName/repoName
 
 build-type:          Configure
+
+-- does this version need bumping?
 cabal-version:       >=1.8
 
+-- stack 1.4.0 complains about a missing custom-setup, but still
+-- works; see 
+-- https://github.com/commercialhaskell/stack/issues/3115
+-- which I assume will be in the next stack release
+                     
 flag tools
   description: build the command-line tools
   default: False
@@ -67,8 +74,9 @@ library
      , transformers >= 0.3 && < 0.6
      -- see if we can avoid a failing build (i.e. don't pull in a recent
      -- version of zlib); argh - why didn't I note down what the
-     -- the failure actually was (I think it was building on heroku)
-     , zlib < 0.6.1.2
+     -- the failure actually was (I think it was building on heroku);
+     -- as trying with stack/docker, let's relax this
+     , zlib == 0.6.*
 
   if flag(old-locale)
      build-depends:
@@ -178,7 +186,9 @@ executable initdb
   main-is:             InitDB.hs
   hs-source-dirs:      tools/
   other-modules:       HackData
-
+                       Parser
+                       Quote
+                                
   ghc-options: -Wall
 
   if flag(tools)
