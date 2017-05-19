@@ -69,9 +69,43 @@ run not as root):
     Web URL:        https://chandraobs-devel-cedar-14.herokuapp.com/
 
 
-The following should build/push the docker image:
+The following should build/push the docker image, but unfortunately
+we need to send in the SOURCE_VERSION value, so need to build the
+image and then it will be used; but do we need to set the name?
 
     % heroku container:push web --remote heroku-cedar-14
+
+Using
+
+    % sudo heroku container:push web --remote heroku-cedar-14 -v
+    > docker build -t registry.heroku.com/chandraobs-devel-cedar-14/web /home/djburke/chandraobs/chandraobs
+    Sending build context to Docker daemon 112.1 MB
+    Step 1/30 : FROM heroku/heroku:16
+    ...
+
+We can see the name it uses, so can build it manually with
+
+    % sudo docker build -t registry.heroku.com/chandraobs-devel-cedar-14/web --build-arg SOURCE_VERSION=$(git rev-parse HEAD) .
+
+argh; trying
+
+    % sudo heroku container:push web --remote heroku-cedar-14 -v
+
+causes it to re-use the existing stack layers, but rebuilds the code, which
+means it doesn't get the SOURCE_VERSION.
+
+From https://devcenter.heroku.com/articles/container-registry-and-runtime#pushing-an-image
+
+    % docker tag <image> registry.heroku.com/<app>/<process-type>
+    % docker push registry.heroku.com/<app>/<process-type>
+
+So
+
+    % sudo docker build -t registry.heroku.com/chandraobs-devel-cedar-14/web --build-arg SOURCE_VERSION=$(git rev-parse HEAD) .
+    % sudo docker push registry.heroku.com/chandraobs-devel-cedar-14/web
+
+That took a long time - definitely need to reduce the size of the docker
+image!
 
 ## Using the buildpack
 

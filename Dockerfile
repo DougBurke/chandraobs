@@ -12,22 +12,22 @@ ARG SOURCE_VERSION
 
 ENV LANG C.UTF-8
 
-RUN apt-get update
-RUN apt-get upgrade -y --assume-yes
-
-# Stack
+# Remove some packages we do not need (an incomplete list)
 #
-# An alternative approach is to use the FP complete repository and install
-# from there, but it's not clear that is really any "better" - for example
+# Also includes packages needed to install Stack. An alternative approach
+# is to use the FP complete ubuntu repository and install from there, but
+# it's not clear that is really any "better"
+#
+# Final installation is for Postgres
+#
+RUN apt-get remove -y --assume-yes ghostscript imagemagick geoip-database ruby rake && apt-get autoremove -y --assume-yes && apt-get update && apt-get upgrade -y --assume-yes && apt-get install -y --assume-yes g++ gcc libc6-dev libffi-dev libgmp-dev make xz-utils zlib1g-dev git gnupg && apt-get install -y --assume-yes libpq-dev
+
+# Alternative approach to installing Stack
+# (not tried)
 #
 #   RUN wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | apt-key add -
 #   RUN echo 'deb http://download.fpcomplete.com/ubuntu trusty main' | tee /etc/apt/sources.list.d/fpco.list
 #   RUN apt-get update && apt-get install stack -y
-#
-RUN apt-get install -y --assume-yes g++ gcc libc6-dev libffi-dev libgmp-dev make xz-utils zlib1g-dev git gnupg
-
-# Postgres is needed
-RUN apt-get install -y --assume-yes libpq-dev
 
 # Remove apt caches to reduce the size of our container.
 RUN rm -rf /var/lib/apt/lists/*
@@ -64,7 +64,13 @@ RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install
 
 # Remove unneeded files
 RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
-RUN rm -rf /opt/chandraobs/src
+RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
+
+# do not remove gnupg just yet as used by apt; also adding in packages
+# it looks like we should not need. This was done by reviewing the
+# 'apt list' output and is not a particularly sensible way to do this.
+#
+RUN apt-get remove -y --assume-yes g++ gcc libc6-dev libffi-dev libgmp-dev make xz-utils zlib1g-dev git telnet ed wget curl unzip zip bzip2  perl python2.7 python3.5 mysql-common openssh-client openssh-server fonts-dejavu-core sgml-base && apt-get autoremove -y --assume-yes && apt-get purge -y --assume-yes && apt-get clean && apt-get autoclean
 
 RUN useradd -ms /bin/bash webserver
 RUN chown -R webserver:webserver /opt/chandraobs
