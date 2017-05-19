@@ -39,6 +39,42 @@ Information on the status and memory usage:
     Stack:         cedar
     Web URL:       http://chandraobs-devel.herokuapp.com/
 
+## Setting up for docker
+
+    % heroku container
+     !    `container` is not a heroku command.
+     !    See `heroku help` for a list of available commands.
+    % heroku plugins:install heroku-container-registry
+    Installing plugin heroku-container-registry... done
+    % heroku container
+    4.1.3
+
+The following needs to be run as sudo (unless docker has been set up to
+run not as root):
+
+    % sudo heroku container:login
+    Login Succeeded
+
+    % heroku apps:info chandraobs-devel-cedar-14
+    === chandraobs-devel-cedar-14
+    Addons:         heroku-postgresql:hobby-dev
+    Auto Cert Mgmt: false
+    Dynos:          web: 1
+    Git URL:        https://git.heroku.com/chandraobs-devel-cedar-14.git
+    Owner:          dburke.gw@gmail.com
+    Region:         us
+    Repo Size:      9 MB
+    Slug Size:      196 MB
+    Stack:          cedar-14
+    Web URL:        https://chandraobs-devel-cedar-14.herokuapp.com/
+
+
+The following should build/push the docker image:
+
+    % heroku container:push web --remote heroku-cedar-14
+
+## Using the buildpack
+
 Push to Heroku
 
     % git push heroku master

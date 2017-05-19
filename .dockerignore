@@ -1,0 +1,14 @@
+# Files to not send to docker in the COPY or ADD commands.
+
+Dockerfile
+.dockerignore
+
+notes/
+
+.git/
+
+.stack-work/
+dist/
+dist-newstyle/
+
+**/*~

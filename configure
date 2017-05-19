@@ -6,10 +6,13 @@
 # the autogen/ files without manual intervention (e.g. manually
 # running `sh configure`).
 #
-# On heroku, the git setup has already been removed by the time
-# this is run, but fortunately it is available as the
+# On heroku, using the buildpack/slug, the git setup has already been
+# removed by the time this is run, but fortunately it is available as the
 # SOURCE_VERSION environment variable - see
 # https://devcenter.heroku.com/changelog-items/630
+#
+# When building under docker we ensure the git revision is sent in
+# using the same environment variable.
 #
 if [ -z "$SOURCE_VERSION" ]; then
     commit=$(git rev-parse HEAD)
