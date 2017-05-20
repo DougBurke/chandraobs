@@ -70,7 +70,7 @@ RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
 # it looks like we should not need. This was done by reviewing the
 # 'apt list' output and is not a particularly sensible way to do this.
 #
-RUN apt-get remove -y --assume-yes g++ gcc libc6-dev libffi-dev libgmp-dev make xz-utils zlib1g-dev git telnet ed wget curl unzip zip bzip2  perl python2.7 python3.5 mysql-common openssh-client openssh-server fonts-dejavu-core sgml-base && apt-get autoremove -y --assume-yes && apt-get purge -y --assume-yes && apt-get clean && apt-get autoclean
+RUN apt-get remove -y --assume-yes g++ gcc libc6-dev libffi-dev libgmp-dev make xz-utils zlib1g-dev git telnet ed wget curl unzip zip bzip2  perl python2.7 python3.5 mysql-common openssh-client openssh-server fonts-dejavu-core sgml-base tcpd && apt-get autoremove -y --assume-yes && apt-get purge -y --assume-yes && apt-get clean && apt-get autoclean
 
 RUN useradd -ms /bin/bash webserver
 RUN chown -R webserver:webserver /opt/chandraobs

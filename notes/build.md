@@ -1,5 +1,10 @@
 # Build notes
 
+I originally had documentation for the Heroku build in heroku.md, but
+let's put them here as it should be simpler. Note that heroku.md does contain
+other useful information (i.e. I have not really synthesised all the
+information into a single document).
+
 ## Using Docker
 
 ### Using Stack locally
@@ -17,13 +22,42 @@ version 1.4.0 of the Stack tooling:
     % stack build --flag chandraobs:tools
     % stack exec getcurrent
 
+### Building with Docker locally
+
+The --build-arg option is needed to pass in the git revision number. The
+name of the image is set to match that expected by Heroku.
+
+    % sudo docker build -t registry.heroku.com/chandraobs-devel/web --build-arg SOURCE_VERSION=$(git rev-parse HEAD) .
+
+### Testing out the Docker image
+
+This will run the web server:
+
+    % sudo docker run -it --network host registry.heroku.com/chandraobs-devel/web
+
+To get access to the running container (e.g. to see if extra packages
+can be removed):
+
+    % sudo docker run -u 0 -it --network host registry.heroku.com/chandraobs-devel/web /bin/bash
+
 ### Using Docker to push to Heroku
 
-I originally had documentation for the Heroku build in heroku.md, but
-let's put them here as it should be simpler. Note that heroku.md does contain
-other useful information.
+From https://devcenter.heroku.com/articles/container-registry-and-runtime#pushing-an-image
 
-TODO: not implemented yet!
+    % docker tag <image> registry.heroku.com/<app>/<process-type>
+    % docker push registry.heroku.com/<app>/<process-type>
+
+means that, after building the image, we can push it directly with
+
+    % sudo docker push registry.heroku.com/chandraobs-devel/web
+
+We can not use the simple container:push option to heroku - i.e.
+
+    % sudo heroku container:push web --remote heroku
+
+since it does not support the --build-arg support; even if the image
+has been built, calling this will just try to re-build it without the
+SOURCE_VERSION setting.
 
 ## Using a Heroku buildpack
 

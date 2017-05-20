@@ -68,7 +68,6 @@ run not as root):
     Stack:          cedar-14
     Web URL:        https://chandraobs-devel-cedar-14.herokuapp.com/
 
-
 The following should build/push the docker image, but unfortunately
 we need to send in the SOURCE_VERSION value, so need to build the
 image and then it will be used; but do we need to set the name?
