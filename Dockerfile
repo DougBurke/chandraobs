@@ -73,7 +73,7 @@ RUN apt-get remove -y --assume-yes g++ gcc libc6-dev libffi-dev libgmp-dev make 
 RUN useradd -ms /bin/bash webserver
 RUN chown -R webserver:webserver /opt/chandraobs
 USER webserver
-ENV PATH "$PATH:/opt/stack/bin:/opt/chandraobs/bin"
+# ENV PATH "$PATH:/opt/chandraobs/bin"
 
 WORKDIR /opt/chandraobs
 
