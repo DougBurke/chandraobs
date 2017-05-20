@@ -6,10 +6,6 @@
 
 FROM heroku/heroku:16
 
-# Use this to pass in the GIT commit id; it is named this to match the
-# heroku slug set up.
-ARG SOURCE_VERSION
-
 ENV LANG C.UTF-8
 
 # Remove some packages we do not need (an incomplete list)
@@ -54,7 +50,9 @@ COPY ./chandraobs.cabal /opt/chandraobs/src/chandraobs.cabal
 # Install dependencies and check they are okay
 RUN stack --no-terminal test --only-dependencies
 
-# Set up the commit variable
+# Use this to pass in the GIT commit id; it is named this to match the
+# heroku slug set up.
+ARG SOURCE_VERSION
 ENV SOURCE_VERSION ${SOURCE_VERSION}
 
 COPY . /opt/chandraobs/src
