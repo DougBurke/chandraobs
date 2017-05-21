@@ -55,7 +55,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson(Value, (.=), object)
 import Data.Default (def)
 import Data.List (nub)
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
@@ -1143,8 +1143,48 @@ proxy = proxy2
 --
 
 -- | Convert to hours.
+--
+--   Perhaps should return (number of hours, number of minutes)?
+--   The problem is that this is used to generate the "duration"
+--   filter in the timeline view, and this needs a number.
+--   So, can the conversion be done in js (I'd rather not send
+--   both a number and a text label in the JSON if I can help it).
+--
 toHours :: TimeKS -> Double
 toHours ks = _toKS ks / 3.6
+
+{-
+toHours ks =
+  let h = _toKS ks / 3.6
+      h10 = round (h * 10)
+  in fromInteger h10 / 10
+-}     
+
+-- | Assumes TimeKS >= 0.
+--
+toHoursLabel :: TimeKS -> T.Text
+toHoursLabel ks =
+  let th = toHours ks
+      nd, nh, nm :: Int
+      nd = (floor th) `div` 24
+      nh = floor (th - fromIntegral (nd * 24))
+
+      -- don't need this much gymnastics
+      nm = round (60 * (th - fromIntegral (floor th :: Int)))
+
+      plural x = if x > 1 then "s" else ""
+      u x unit = if x > 0
+                 then Just (showInt x <> " " <> unit <> plural x)
+                 else Nothing
+
+      lbls = catMaybes [u nd "day", u nh "hour", u nm "minute"]
+      
+  in case lbls of
+    [t1, t2, t3] -> t1 <> ", " <> t2 <> ", and " <> t3
+    [t1, t2] -> t1 <> " and " <> t2
+    [t1] -> t1
+    _ -> "unknown"
+  
 
 -- | Convert a science observation into a JSON dictionary,
 --   using the "Science" schema for the Exhibit timeline.
@@ -1214,6 +1254,8 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
     fromProp f = fromMaybe "unknown"
                  (f <$> M.lookup soProposal propMap)
 
+    obsLen = fromMaybe soApprovedTime soObservedTime
+    
     objs = [
       "type" .= ("Science" :: T.Text),
       -- need a unique label
@@ -1231,8 +1273,11 @@ fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
       -- date
       "isPublic" .= isBool isPublic,
     
-      -- observation length, in hours
-      "length" .= toHours (fromMaybe soApprovedTime soObservedTime),
+      -- observation length, in hours; since I can't work out a simple
+      -- way to get exhibit to do the time calculation (when creating
+      -- a lens), do it here (which is wasteful).
+      "length" .= toHours obsLen,
+      "lengthLabel" .= toHoursLabel obsLen,
       
       "instrument" .= fromInstrument soInstrument,
       "grating" .= fromGrating soGrating,

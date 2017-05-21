@@ -378,6 +378,11 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
                           "Note: the observation was discarded")
                     | soStatus == "discarded" ]
 
+      -- I do not think we need more precision for the roll than an integer
+      roll :: Int
+      roll = round soRoll
+      degSymbol = "\176" -- aka \u00b0, the degree symbol
+
       tblRows =
         mconcat discardRows
         <>
@@ -400,8 +405,9 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           , keyVal "Right Ascension:" (toHtml soRA)
           -- rely on the ToMarkup instance of Dec
           , keyVal "Declination:" (toHtml soDec)
-          , keyVal "Roll:" (toHtml soRoll <> "\176") -- aka \u00b0, the degree symbol
-          , fromMaybe mempty $ keyVal "Constellation:" <$> conLink soConstellation
+          , keyVal "Roll:" (toHtml roll <> degSymbol)
+          , fromMaybe mempty
+            (keyVal "Constellation:" <$> conLink soConstellation)
           , jointElems
           , constraintElems
           ]
@@ -409,8 +415,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       -- ignore the thead element
       tbl = table (tbody tblRows)
 
-  in (addClass "inactive" H.div H.! A.id "Details") 
-      tbl
+  in (addClass "inactive" H.div H.! A.id "Details") tbl
 
 
 ldquo, rdquo :: Html
