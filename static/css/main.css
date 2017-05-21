@@ -521,3 +521,11 @@ div#observation {
     /* Choose color to match .floatable thead */
     border-left: 1em solid rgba(0, 131, 179, 0.2);
 }
+
+/*
+ * view of the sky; this needs to match the code that generates the SVG
+ */
+div#map {
+    width: 960px;
+    height: 500px;
+}
