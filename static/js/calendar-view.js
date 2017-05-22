@@ -62,9 +62,15 @@ function createCalendar(cal) {
         .range(d3.range(9).map(function(d) { return "q" + d + "-9"; }));
 
     addColorbar(0);
+
+    // What order do we want the years displayed in (increasing or
+    // decreasing)?
+    //
+    // var years = d3.range(startYear, endYear + 1);
+    var years = d3.range(endYear, startYear - 1, -1);
     
     svg = d3.select("div#calendar").selectAll(".year")
-        .data(d3.range(startYear, endYear + 1))
+        .data(years)
         .enter().append("svg")
         .attr("class", "year")
         .attr("width", width)
