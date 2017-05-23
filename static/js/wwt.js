@@ -136,7 +136,7 @@ function wwtReadyFunc(ra, dec, roll, instrument, name) {
     wwt.hideUI(true);
     addFOV(raPos, decPos, roll, instrument, name);
     wwt.gotoRaDecZoom(raPos, decPos, startFOV, false);
-  }
+  };
 }
 
 function hide_class(className) {

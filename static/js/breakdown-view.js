@@ -1,6 +1,6 @@
 /*
  * Based on the code presented in http://bl.ocks.org/mbostock/1166403
- * after significant modification.
+ * after significant modification. All bugs are mine.
  */
 
 var margin = {top: 30, right: 20, bottom: 40, left: 80},
@@ -17,7 +17,6 @@ var xAxis = d3.svg.axis()
     .scale(x)
 // .tickSize(-height)
     .ticks(6);
-    ;
 
 var yAxis = d3.svg.axis()
     .scale(y)
@@ -68,25 +67,29 @@ function createBreakdown(seriesData) {
      * Is there a neater way to do this?
      */
 
+    var getData = function(i) {
+        return plotData.map(function(d) {
+            var keys = d3.keys(d.values).filter(function(k) {
+                return k.startsWith(labels[i]);
+            });
+            var ys = keys.reduce(function(s, k) {
+                return s + d.values[k];
+            }, 0);
+            return { x: d.date,
+                     y0: 0,
+                     y: ys * tnorm
+                   };
+        });
+    };
+    
     // var labels = ["ACIS-I+NONE", "ACIS-S+NONE"];
     var labels = ["ACIS-I", "ACIS-S", "HRC-I", "HRC-S"];
     var toplot = new Array(labels.length);
     for (var i = 0; i < labels.length; i++) {
         toplot[i] = {
             'label': labels[i],
-            'data': plotData.map(function(d) {
-                var keys = d3.keys(d.values).filter(function(k) {
-                    return k.startsWith(labels[i]);
-                });
-                var ys = keys.reduce(function(s, k) {
-                    return s + d.values[k];
-                }, 0);
-                return { x: d.date,
-                         y0: 0,
-                         y: ys * tnorm
-                       };
-            })
-        }
+            'data': getData(i)
+        };
     }
     
     // Update the scale domains.

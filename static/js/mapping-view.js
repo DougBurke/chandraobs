@@ -35,6 +35,9 @@ function getTimeString(thours) {
     var nhours = Math.round(thours);
     var ndays = Math.floor(nhours / 24.0);
     var nweeks = Math.floor(ndays / 7);
+
+    var tleft;
+
     if (nhours < 1) {
         str = "< 1 hour";
     } else if (nhours < 2) {
@@ -46,7 +49,7 @@ function getTimeString(thours) {
         if (ndays > 1) {
             str += "s";
         }
-        var tleft = nhours - ndays * 24;
+        tleft = nhours - ndays * 24;
         if (tleft > 0) {
             str += " and " + tleft + " hour";
             if (tleft > 1) { str += "s"; }
@@ -55,7 +58,7 @@ function getTimeString(thours) {
         str = nweeks + " week";
         if (nweeks > 1) { str += "s"; }
 
-        var tleft = ndays - nweeks * 7;
+        tleft = ndays - nweeks * 7;
         if (tleft > 0) {
             str += " and " + tleft + " day";
             if (tleft > 1) { str += "s"; }
@@ -148,7 +151,9 @@ function makePlot(mapInfo) {
   node.append("rect")
       .attr("height", function(d) { return d.dy; })
       .attr("width", sankey.nodeWidth())
-      .style("fill", function(d) { return d.color = color(d.name.replace(/ .*/, "")); })
+        .style("fill", function(d) {
+            d.color = color(d.name.replace(/ .*/, ""));
+            return d.color; })
       .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
     .append("title")
         .text(function(d) {

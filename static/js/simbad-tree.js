@@ -164,12 +164,12 @@ function update(source) {
 
 function createTree(json) {
 
-    if (!json || json.length == 0) { console.log("No tree data!"); return; }
+    if (!json || json.length === 0) { console.log("No tree data!"); return; }
 
     // filter out all nodes with a size of zero; assume that the
     // top-level element is not empty.
     function removeEmpty(d) {
-        if (d.size == 0) { return 0; }
+        if (d.size === 0) { return 0; }
         if (d.children) {
             d.children = d.children.filter(removeEmpty);
         }
@@ -209,5 +209,5 @@ function createTree(json) {
     update(root);
 
     // d3.select(self.frameElement).style("height", "800px");
-    d3.select("#tree").style("height", height0 + "px");
+    d3.select("#tree").style("height", height + "px");
 }

@@ -14,8 +14,6 @@ var transitionTime = 600;
 // var frameTransitionTime = 2000;
 var frameTransitionTime = 800;
 
-var foo;
-
 // coords is an array of objects with
 // ra/dec attributes in degrees (0-360 and -90 to 90)
 // as well as other attributes useful for labelling
@@ -49,7 +47,7 @@ function createMap(coords, conInfo) {
   var projection = d3.geo.aitoff()
       .scale(150)
       .translate([width / 2, height / 2])
-      .precision(.1);
+      .precision(0.1);
 
   var path = d3.geo.path()
       .projection(projection);
@@ -155,7 +153,7 @@ function createMap(coords, conInfo) {
     .on('mouseout', function(d) { deselectObs(d.idname); })
     .append("title")
         .text(function(d) {
-            if (!d.simbadType) { return d.label }
+            if (!d.simbadType) { return d.label; }
             else { return d.label + " - " + d.simbadType; }
         });  
 
@@ -202,8 +200,8 @@ function addConstellation (svg, path, conInfo) {
           return console.warn("Unable to load " + fname);
       }
 
-      var conName = conInfo['shortName'];
-      var conFullName = conInfo['longName'];
+      var conName = conInfo.shortName;
+      var conFullName = conInfo.longName;
 
       // all constellations
       var allcon = svg.select("#baseplane").selectAll(".constellations")
@@ -215,7 +213,7 @@ function addConstellation (svg, path, conInfo) {
           .attr("d", path);
 
       // selected constellation
-      var features = con.features.filter(function(d) { return d['id'] == conName; });
+      var features = con.features.filter(function(d) { return d.id === conName; });
 
       var selcon = svg.select("#baseplane").selectAll(".constellation")
           .data(features);

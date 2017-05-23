@@ -41,7 +41,7 @@ function makeLabel(plotInfo, cycle) {
 function makePlot(plotInfo) {
     dummy = plotInfo;
 
-    var allInfo = plotInfo['all']
+    var allInfo = plotInfo.all;
 
     /* Since the X axis (time) is plotted using a log scale,
        use the first non-zero value (ideally all the times
@@ -101,7 +101,7 @@ function makePlot(plotInfo) {
     
     var yax = svg.append("g")
       .attr("class", "y axis")
-      .call(yAxis)
+      .call(yAxis);
 
     yax.append("text")
         .attr("class", "axis")
@@ -135,7 +135,7 @@ function makePlot(plotInfo) {
     var colors = d3.scale.category10()
         .domain(d3.keys(plotInfo));
     
-    for (cycle in plotInfo) {
+    for (var cycle in plotInfo) {
         var lbl;
         if (cycle === "all") {
             lbl = "All cycles";
@@ -228,14 +228,14 @@ function makeBoxPlot(plotInfo) {
 
     // Note: want to display in hours, not ks
     
-    var allInfo = plotInfo['all'];
+    var allInfo = plotInfo.all;
     // var minTime = d3.min(allInfo.times);
     var maxTime = d3.max(allInfo.times);
 
     // At the moment this is in the order we want
     var data = [];
     var cycles = d3.keys(plotInfo);
-    for (cycle in plotInfo) {
+    for (var cycle in plotInfo) {
         data.push(plotInfo[cycle].times.map(toHours));
     }
 

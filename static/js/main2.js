@@ -57,7 +57,7 @@ function setupImageBlock(obsdata, sobs, mprop) {
 	});
 
     // TODO: could this instead be included on this page?
-    $( '#WWTbutton' ).prop('href', '/obsid/' + obsdata.obsid + '/wwt')
+    $( '#WWTbutton' ).prop('href', '/obsid/' + obsdata.obsid + '/wwt');
 
     renderObsIdDetails(obsdata, sobs, mprop);
     switchOption();
@@ -96,12 +96,12 @@ function showObsId(obsid) {
 	dataType: "json"
     }).done(function (rsp) {
         var $mainBar = $( '#mainBar' );
-        if (rsp['status'] === 'success') {
+        if (rsp.status === 'success') {
 
-            var h = rsp['navbar'] + rsp['observation'] + rsp['imglinks'];
+            var h = rsp.navbar + rsp.observation + rsp.imglinks;
             $mainBar.html(h);
 
-            changeCurrentStatus(rsp['isCurrent']);
+            changeCurrentStatus(rsp.isCurrent);
             
             var $nav = $( '#obslinks' );
             var $p = $nav.find( 'li.prevLink' );
@@ -124,7 +124,7 @@ function showObsId(obsid) {
                
         } else {
             changeCurrentStatus(false);
-            $mainBar.html(rsp['error']);
+            $mainBar.html(rsp.error);
         }
     }).fail(function(xhr, status, e) {
         serverGoneByBy();

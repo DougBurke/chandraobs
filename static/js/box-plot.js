@@ -193,8 +193,8 @@ d3.box = function() {
       boxTick.enter().append("text")
           .attr("class", "box")
           .attr("dy", ".3em")
-          .attr("dx", function(d, i) { return i & 1 ? 6 : -6 })
-          .attr("x", function(d, i) { return i & 1 ? width : 0 })
+          .attr("dx", function(d, i) { return i & 1 ? 6 : -6; })
+          .attr("x", function(d, i) { return i & 1 ? width : 0; })
           .attr("y", x0)
           .attr("text-anchor", function(d, i) { return i & 1 ? "start" : "end"; })
           .text(format)
@@ -267,7 +267,7 @@ d3.box = function() {
 
   box.domain = function(x) {
     if (!arguments.length) return domain;
-    domain = x == null ? x : d3.functor(x);
+    domain = x === null ? x : d3.functor(x);
     return box;
   };
 
@@ -298,9 +298,9 @@ function boxWhiskers(d) {
 
 function boxQuartiles(d) {
   return [
-    d3.quantile(d, .25),
-    d3.quantile(d, .5),
-    d3.quantile(d, .75)
+    d3.quantile(d, 0.25),
+    d3.quantile(d, 0.5),
+    d3.quantile(d, 0.75)
   ];
 }
 
