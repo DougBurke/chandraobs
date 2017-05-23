@@ -9,7 +9,7 @@ var root;
 var duration = 750;
 
 var totWidth = 1200;
-var totHeight = 1000;
+var totHeight = 3500;
 
 var margin = {top: 20, right: 120, bottom: 20, left: 120},
     width = totWidth - margin.right - margin.left,
@@ -209,5 +209,5 @@ function createTree(json) {
     update(root);
 
     // d3.select(self.frameElement).style("height", "800px");
-    d3.select("#tree").style("height", height + "px");
+    d3.select("#tree").style("height", totHeight + "px");
 }

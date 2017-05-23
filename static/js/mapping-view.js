@@ -1,7 +1,7 @@
 
 var margin = {top: 1, right: 1, bottom: 6, left: 1},
     width = 960 - margin.left - margin.right,
-    height = 2000 - margin.top - margin.bottom;
+    height = 3000 - margin.top - margin.bottom;
 
 var totWidth = width + margin.left + margin.right;
 var totHeight = height + margin.top + margin.bottom;
