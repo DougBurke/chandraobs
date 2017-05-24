@@ -7,6 +7,8 @@
  * note that wwt.goto() is actually wwt.gotoRaDecZoom()
  */
 
+var initialize = (function () {
+    
 var wwt;
 var displayCrosshairs = true;
 var displayConstellations = true;
@@ -161,3 +163,6 @@ function initialize(ra, dec, roll, instrument, name) {
     wwt.endInit();
 }
 
+    return initialize;
+    
+})();

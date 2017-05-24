@@ -3,6 +3,9 @@
  * after significant modification. All bugs are mine.
  */
 
+
+var createBreakdown = (function () {
+    
 var margin = {top: 30, right: 20, bottom: 40, left: 80},
     width = 960 - margin.left - margin.right,
     height = 160 - margin.top - margin.bottom;
@@ -147,4 +150,5 @@ function createBreakdown(seriesData) {
         .text(function(d) { return d.label; });
 }
 
-
+    return createBreakdown;
+})();

@@ -66,7 +66,7 @@ matchPage con sched =
                 ]
 
       jsTxt = "conInfo = " <> Aeson.encode conInfo
-              <> "; createMap(obsinfo, conInfo);"
+              <> "; projection.createMap(obsinfo, conInfo);"
       jsLoad = toValue (LB8.unpack jsTxt)
 
       (pageTitle, mainBlock) = renderMatches lbl sched

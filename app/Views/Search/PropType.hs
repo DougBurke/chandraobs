@@ -49,7 +49,7 @@ matchPage ::
   -> Html
 matchPage pType sched =
   let hdrTitle = "Chandra observations: " <> pageTitle <> " proposals"
-      jsLoad = "createMap(obsinfo);"
+      jsLoad = "projection.createMap(obsinfo);"
       cssPage = Just "/css/mission.css"
 
       pageTitle = toHtml (toPropTypeLabel pType)

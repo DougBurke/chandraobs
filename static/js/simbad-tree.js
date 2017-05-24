@@ -5,6 +5,8 @@
  * https://bl.ocks.org/mbostock/4339083
  */
 
+var createTree = (function () {
+    
 var root;
 var duration = 750;
 
@@ -211,3 +213,7 @@ function createTree(json) {
     // d3.select(self.frameElement).style("height", "800px");
     d3.select("#tree").style("height", totHeight + "px");
 }
+
+    return createTree;
+
+})();

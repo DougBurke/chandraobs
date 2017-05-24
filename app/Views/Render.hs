@@ -139,8 +139,8 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
 
       hover r = let lbl = toValue $ idLabel r
                 in tr ! id (toValue lbl)
-                      ! onmouseover ("selectObs('" <> lbl <> "');")
-                      ! onmouseout  ("deselectObs('" <> lbl <> "');")
+                      ! onmouseover ("projection.selectObs('" <> lbl <> "');")
+                      ! onmouseout  ("projection.deselectObs('" <> lbl <> "');")
       
       showJoint (Left _) = "n/a"
       showJoint (Right so) = maybe "n/a" makeJointLinks (soJointWith so)
@@ -305,7 +305,7 @@ standardSchedulePage ::
   -- ^ explanation block; displayed below the SVG display
   -> Html
 standardSchedulePage sched navLoc hdrTitle pageTitle explain =
-  let jsLoad = "createMap(obsinfo);"
+  let jsLoad = "projection.createMap(obsinfo);"
   in extraSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad
 
 -- | Pages which include a schedule block.

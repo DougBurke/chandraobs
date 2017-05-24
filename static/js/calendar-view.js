@@ -10,6 +10,8 @@
 //   Or, only draw cells for which we have data!
 //
 
+var createCalendar = (function () {
+    
 var width = 960,
     height = 136,
     cellSize = 17; // cell size
@@ -267,3 +269,6 @@ function monthPath(t0) {
       + "H" + (w0 + 1) * cellSize + "Z";
 }
 
+    return createCalendar;
+    
+})();

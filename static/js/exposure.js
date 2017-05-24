@@ -1,4 +1,6 @@
 
+var createPlot = (function () {
+    
 var totWidth = 960;
 var totHeight = 700;
 
@@ -196,6 +198,7 @@ function removeHighlightCycle(plotInfo, cycle) {
 
 // See https://bl.ocks.org/mbostock/4061502
 //
+
 var totBoxWidth = 120;
 var totBoxHeight = 500;
 
@@ -281,3 +284,7 @@ function createPlot() {
         .done(makePlot)
         .done(makeBoxPlot);
 }
+
+    return createPlot;
+
+})();

@@ -2,6 +2,8 @@
  * plot up data using the Aitoff projection
  */
 
+var projection = (function () {
+
 var baseOpacity = 0.6;
 var unselOpacity = 0.3;
 var selOpacity = 0.8;
@@ -415,3 +417,9 @@ function showConstellations(con) {
     
 }
 ***/
+
+    return {createMap: createMap,
+            selectObs: selectObs,
+            deselectObs: deselectObs};
+    
+})();
