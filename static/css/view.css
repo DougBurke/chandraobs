@@ -3,6 +3,7 @@
 dt {
   clear: both;
   color: blue;
+  font-size: larger;
 }
 
 /*
@@ -12,3 +13,6 @@ div.fov {
 }
 */
 
+div.fov img {
+    height: 340px;
+}
