@@ -1,10 +1,13 @@
 #
 # This is only for running commands. It is not intended to handle
-# dependency resolution - e.g. avoid a push or build if not needed.
+# dependency resolution - e.g. to avoid a push or build if not needed.
 #
 
 APP=chandraobs-devel
 DBGAPP=chandraobs-devel-cedar-14
+
+# How portable is this?
+SOURCE_VERSION:=$(shell git rev-parse HEAD)
 
 help:
 	@echo "Targets are:"
@@ -42,11 +45,11 @@ builddocker:
 	@echo "##"
 	@echo "## ${DBGAPP}"
 	@echo "##"
-	@sudo docker build -t registry.heroku.com/${DBGAPP}/web --build-arg SOURCE_VERSION=$(git rev-parse HEAD) .
+	@sudo docker build -t registry.heroku.com/${DBGAPP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=$(git rev-parse HEAD) .
+	@sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
 
 rundocker:
 	@echo "### Running ${APP} docker image locally"
