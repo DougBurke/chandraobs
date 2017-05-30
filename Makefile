@@ -10,8 +10,9 @@ help:
 	@echo "Targets are:"
 	@echo "   help        - this page"
 	@echo "   pushdb      - push databases to Heroku"
-	@echo "   pushdocker  - push docker images to Heroku"
 	@echo "   builddocker - push docker images to Heroku"
+	@echo "   rundocker   - run docker image"
+	@echo "   pushdocker  - push docker images to Heroku"
 	@echo "   stack       - stack build (incl. tools)"
 
 pushdb:
@@ -46,6 +47,11 @@ builddocker:
 	@echo "## ${APP}"
 	@echo "##"
 	@sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=$(git rev-parse HEAD) .
+
+rundocker:
+	@echo "### Running ${APP} docker image locally"
+	@echo "##"
+	@sudo docker run -it --network host registry.heroku.com/${APP}/web
 
 stack:
 	@echo "### Building chandraobs via stack"
