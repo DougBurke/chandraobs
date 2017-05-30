@@ -42,7 +42,7 @@ import Text.Blaze.Html5 (AttributeValue, Html
 import Text.Blaze.Html5.Attributes (alt
                                    , checked, class_, content
                                    , height, href, httpEquiv
-                                   , onclick
+                                   , onclick, rel
                                    , src, type_, value, width)
 import Text.Blaze.Internal (Attributable)
 
@@ -79,10 +79,17 @@ import Utils (cleanJointName
              , publicImageURL
              , showInt)
 
-       
+
+-- | This includes a favicon link.
 defaultMeta :: Html
 defaultMeta = meta H.! httpEquiv "Content-Type"
                    H.! content "text/html; charset=UTF-8"
+              <> icoLink
+
+icoLink :: Html
+icoLink = H.link H.! rel "icon"
+                 H.! type_ "image/gif"
+                 H.! href "/img/cxc.gif"
 
 -- | Load the JS and CSS needed to display the sky map and table info.
 --
