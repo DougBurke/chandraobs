@@ -489,6 +489,8 @@ table.standard tbody tr:nth-child(2n+1) {
  * Support a dl-style list of explanations which begin with a label.
  * This is currently only used in /search/proptype/ but the CSS is
  * placed here in case it is useful elsewhere.
+ *
+ * It is now also being used for some dd blocks (about/views.html)
  */
 .term {
     padding-left: 1em;
@@ -497,8 +499,11 @@ table.standard tbody tr:nth-child(2n+1) {
     padding-right: 0.5em;
     
     margin-top: 0.2em;
-    margin-bottom: 0.5em;
-    border-left: 0.4em solid rgba(0, 131, 179, 0.4);
+    margin-bottom: 1em;
+
+    /* match div#observation */
+    border-left: 1em solid rgba(0, 131, 179, 0.2);
+    border-radius: 4px;
     
     background: rgba(0, 131, 179, 0.1);
 }
