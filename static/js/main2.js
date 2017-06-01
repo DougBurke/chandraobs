@@ -5,6 +5,8 @@
 // such as the timeline or schedule views
 //
 
+var main2 = (function() {
+
 // *** setupImageBlock is not used, but left in for now ***
 //
 // As the image links are now re-created I no longer need to use a
@@ -60,7 +62,8 @@ function setupImageBlock(obsdata, sobs, mprop) {
     $( '#WWTbutton' ).prop('href', '/obsid/' + obsdata.obsid + '/wwt');
 
     renderObsIdDetails(obsdata, sobs, mprop);
-    switchOption();
+    imageSwitch.switchOption(); // should be sent name, but as not using
+                                // this we'll leave it for now
 }
 
 /*
@@ -121,7 +124,7 @@ function showObsId(obsid) {
             $mainBar.find( 'a.obsidlink' ).click(function (e) {
                 showObsId(this.getAttribute('data-obsid'));
             });
-               
+
         } else {
             changeCurrentStatus(false);
             $mainBar.html(rsp.error);
@@ -160,5 +163,9 @@ function initialize() {
 
     showCurrent();
 }
+
+    return {initialize: initialize};
+
+})();
 
 // end

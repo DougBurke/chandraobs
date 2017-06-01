@@ -191,7 +191,7 @@ renderLinks tNow f mprop msimbad so@ScienceObs{..} =
                            H.! value (toValue lbl)
                            H.! A.id idName
                            H.! onclick
-                               ("switchOption('" <> toValue lbl <> "')")
+                               ("imageSwitch.switchOption('" <> toValue lbl <> "')")
         in (if cf then base H.! checked "checked" else base)
            <> (H.label H.! A.for idName) (toHtml lbl)
 
@@ -256,7 +256,9 @@ renderLinks tNow f mprop msimbad so@ScienceObs{..} =
       firstLink = if showChandraImage then chandraLink else mempty
       allLinks = firstLink <> defaultLinks
 
-  in form <> addClass "links" H.div allLinks
+      showLinks = addClass "links" H.div allLinks
+
+  in form <> showLinks
 
 
 -- | Display detailed information about a science observation,
