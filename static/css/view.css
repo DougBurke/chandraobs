@@ -1,9 +1,32 @@
 /* styling for the views page */
 
+/* use the styling of main.css:div.radiobuttons label */
 dt {
-  clear: both;
-  color: blue;
+  /* clear: both; */
+  display: inline-block;
   font-size: larger;
+
+  background-color: rgba(153,153,153,0.2);  /* gray */
+
+  /* border-radius: 4px; */
+  /* want the bottom to be flat as the bar is drawn there when selected */
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+
+  padding: 0.1em 0.5em;
+  margin-left: 0.1em;
+  margin-right: 0.1em;
+  font-size: larger;
+  /* font-family: serif; */
+  color: #666; /* #aaa; */
+
+  border-bottom: 4px solid rgba(0,0,0,0);
+  /* border-bottom: 4px solid inherit; */
+}
+
+dd.term {
+    /* try and reduce the clutter of the list */
+    margin-bottom: 2em;
 }
 
 /*
@@ -14,5 +37,11 @@ div.fov {
 */
 
 div.fov img {
+    /* try and standardize the image heights */
     height: 340px;
+}
+
+img + img {
+    /* match .term.padding-left */
+    margin-left: 1em;
 }

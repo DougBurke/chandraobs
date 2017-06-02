@@ -23,28 +23,44 @@
    <h1>Viewing the observation</h1>
 
    <p>
-     We provide five or six views of the science observations
+     For science observations, there are either
+     five or six "views" provided
      (the number depends on whether the Chandra data has been made
-     available to the public):
+     available to the public yet).
+     In the following we use two observations -
+     <a href="/obsid/14609">14609 (ACIS-S of M22)</a>
+     and
+     <a href="/obsid/16294">16294 (ACIS-I of M31)</a>
+     - as our primary examples;
+     <a href="http://en.wikipedia.org/wiki/Messier_22">M22</a>
+     is a
+     <a href="http://en.wikipedia.org/wiki/Globular_cluster">Globular
+       Cluster</a>
+     and M31 is also known as the
+     <a href="http://en.wikipedia.org/wiki/Messier_31">Andromeda
+       Galaxy</a>.
+     The following sections explain the various views:
+     <a href="#Chandra">Chandra</a>,
+     <a href="#DSS">DSS</a>,
+     <a href="#RASS">RASS</a>,
+     <a href="#PSPC">PSPC</a>,
+     <a href="#Details">Details</a>,
+     and <a href="#WWT">WWT</a>.
    </p>
-
-   <img alt="The labels used to select the different views"
-        src="views-6.png">
    
    <dl>
     <dt id="Chandra">Chandra</dt>
     <dd class="term">
       <p>
         This view is only shown when the Chandra data for the observation
-        has been made publically available. This generally means that the
+        has been made publically available and the observation created
+        an image (a few specialized data modes are available on Chandra
+        that do not provide images). This generally means that the
         observation was taken long-enough ago that the embargo period
         has passed (this is a one-year period after the observation was
         taken that the data is only available to the proposing Scientist,
         so that they can analyze the results and write up one or more
         papers), although some observations become public immediately.
-      </p>
-
-      <p>
         The Chandra images are created to provide a "quick look" at the
         data for the observers, and is not going to look as visually stunning
         as those released on the
@@ -60,13 +76,127 @@
         <a href="http://www.spitzer.caltech.edu/">Spitzer</a>).
       </p>
 
+      <div class="fov">
+        <img alt="Chandra ACIS-S observation of M22."
+             src="http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid=14609&filename=acisf14609N001_full_img2.jpg&filetype=loresimg_jpg">
+        <img alt="Chandra ACIS-I observation of M31."
+             src="http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid=16294&filename=acisf16294N002_e2_full_img2.jpg&filetype=loresimg_jpg">
+      </div>
+
       <p>
-        The images are designed as a quick-look aid for scientists, and
-        so often show a number of instrumental features, such as
-        the edges of the
-        <a href="/about/instruments.html#ACIS">ACIS detectors</a>,
+        These images shown are "count" images - a dot is shown for each
+        X-ray photon
+        that is measured by the
+        <a href="instruments.html#ACIS">CCD detectors (ACIS)</a>
+        or
+        <a href="instruments.html#HRC">micro-channel plates (HRC)</a>
+        detectors - and a grey-scale is used to display the data,
+        so a darker color means more photons were detected.
+        The shape and size of the image depends on the instrument used
+        and - for ACIS - the chips selected by the proposer.
+        The left image is
+        <a href="instruments.html#ACIS-S">ACIS-S</a>, which is the
+        linear array of 6 chips (although only 4 were used in this
+        particular observation) and on the right we can see the four
+        <a href="instruments.html#ACIS-I">ACIS-I</a> chips arranged
+        in a two-by-two square, with two of the ACIS-S chips also
+        turned on. The images have been forced to have the same height,
+        which is why the chips on the left look smaller than those
+        on the right (they are the same size). The rotation angle of
+        the telescope at the time of the observation (referred to
+        as the roll angle) determines the orientation of the instrument
+        (i.e. what part of the sky is observed).
+      </p>
+
+      <p>
+        The M22 image does not look like it has detected
+        anything, but this is in part
+        because the high spatial resolution of the mirror and detectors
+        mean that many sources appear as a few pixels, and so are hard
+        to make out in these quick-look images (the background signal
+        has also not been filtered out as much as it could, which can also
+        hide some features). The M31 observation shows many point sources,
+        and some faint extended emission (if you know what to look for!).
+      </p>
+
+      <p>
+        Many press-release style images use color to highlight features
+        in the data, or to give some indication of the X-ray "color"
+        of the object, which is possible with ACIS observations as the
+        detector has the ability to not-only detect X-ray photons,
+        but also to measure their energy (and hence wavelength).
+        The following image is such a
+        "<a
+          href='http://chandra.harvard.edu/edu/formal/age_snr/3color_ds9.html'>three-color</a>"
+        of M31, from an earlier (and much longer; six and a half
+        hours as apposed to the 1 hour exposure shown above)
+        ACIS-I observation,
+        as part of a
+        <a
+          href="http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=7064">program
+          to study Black Hole X-ray Nova</a>.
+      </p>
+
+      <div class="fov">
+        <img alt="The center of M31 consists of a red diffuse glow and a large number of point sources, with a range of colors." src="acisi-m31.png">
+      </div>
+
+      <p>
+        The green squares show the
+        location of the four ACIS-I and two ACIS-S chips that were
+        turned on for the observation (the roll angle of the satellite
+        was different from that of the M31 observation shown above;
+        in fact it's almost 180° different, which is why the ACIS-S
+        chips are on the other side of ACIS-I).
+        When compared to the <a href="#PSPC">PSPC view</a>
+        shown below, we can see many more point sources in the
+        Chandra data, due to a combination of the
+        significantly-greater spatial resolution of Chandra,
+        and the wider pass band (roughly 0.5 to 7 keV rather than 0.5
+        to 2.5 keV).
+        The colors in this image refer to how much emission is
+        detected in a particular energy (and so wavelength) range,
+        and so give a grude indication of the spectrum of the source
+        emission:
+        red sources are "soft", with most of their emission below about
+        1.2 keV (the hot gas created by supernovae and the formation of
+        the galaxy is predominantly red);
+        green sources have most of their emission between 1.2
+        and 2 keV;
+        blue sources are "hard", with most of their emission
+        above 2 keV. Other colors are due to mixtures of these.
+        M31 has been observed many times by Chandra - since it is a
+        nearby galaxy - leading to many
+        <a href="http://chandra.harvard.edu/photo/2013/m31/">exciting
+          discoveries about its black-hole population</a>.
+      </p>
+
+      <p>
+        The instrumental artifacts - such as the gaps between the
+        CCD detectors - seen in the basic Chandra
+        image of M31 are not so obvious in this three-color
+        version. This is down to the fact that this image
+        has been heavily processed to reduce the background level,
+        use of a larger pixel size and smoothing (to make the
+        emission stand out above the background), include
+        an exposure correction (to account for
+        different detector sensitivity across the image),
+        and the scaling of the image has been judiciously chosen
+        to de-emphasize some of these features (programs like
+        PhotoShop are not often used directly in research, but will
+        be used to create images for press releases or other
+        public-outreach work).
+      </p>
+
+      <p>
+        Further examples of the instrumental features that can show
+        up in the "quick-look" plots include the chip edges,
         as shown in this
-        <a href="/obsid/20044">observation of the Cygnus A galaxy cluster:</a>
+        <a href="/obsid/20044">observation of the Cygnus A galaxy cluster</a>
+        (it's more noticeable than in the previous data since the
+        <a href="https://en.wikipedia.org/wiki/Galaxy_cluster">galaxy
+          cluster</a>
+        extends across where the gaps in the image are):
       </p>
 
       <div class="fov">
@@ -87,6 +217,14 @@
         <img alt="The Chandra grating observation of SMC X-3 which shows the signal from the two diffraction gratings in the HETG"
              src="http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid=19786&filename=acisf19786N001_full_img2.jpg&filetype=loresimg_jpg">
       </div>
+
+      <p>
+        The SMC-X3 observation also shows an instrumental feature
+        known as the read-out streak, which is the short line going from
+        bottom-left to top-right of the chip where the two grating
+        lines would cross (if they had signal). This is a feature
+        of the CCD device and how they are operated on Chandra.
+      </p>
 
       <p>
         The spatial resolution of Chandra is so high that sometimes it
@@ -129,13 +267,14 @@
      </div>
 
      <p>
-       Here we show two
+       Here we show the
        <abbr title="Digitized Sky Survey">DSS</abbr>
-       images: the first is an ACIS-S imaging-mode
-       observation of the
-       <a href="http://en.wikipedia.org/wiki/Globular_cluster">Globular Cluster</a>
-       <a href="http://en.wikipedia.org/wiki/Messier_22">M22</a>.
-       The aim point of the telescope is shown by the red cross and the
+       images for the two observations.
+     </p>
+
+     <p>
+       On the left we have the observation details for M22:
+       the aim point of the telescope is shown by the red cross and the
        six squares labelled 0 to 5 show the locations of the
        <a href="instruments.html#ACIS-S">ACIS-S chips</a>
        during the observation (the orientation is determined by the choice of
@@ -152,9 +291,7 @@
      </p>
 
      <p>
-       The second is an ACIS-I imaging-mode observation of the
-       <a href="http://en.wikipedia.org/wiki/Messier_31">Andromeda
-       Galaxy (also known as M31)</a>. In this case the aim point is
+       On the right we have M31: in this case the aim point is
        on the <a href="instruments.html#ACIS-I">ACIS-I array</a> and
        two of the ACIS-S array chips (ACIS-S2 and ACIS-S3) may also
        be turned on.
@@ -280,42 +417,6 @@
        Galactic Nuclei (AGN)</a>.
      </p>
 
-     <div class="fov">
-       <img alt="The center of M31 consists of a red diffuse glow and a large number of point sources, with a range of colors." src="acisi-m31.png">
-     </div>
-
-     <p>
-       This is a
-       <a
-       href='http://chandra.harvard.edu/edu/formal/age_snr/3color_ds9.html'>three-color
-       image</a>
-       of M31 from a single six and a half
-       hour ACIS-I observation, taken by Chandra in December 2006,
-       as part of a
-       <a
-       href="http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=propAbstract&obsid=7064">program
-       to study Black Hole X-ray Nova</a>. The green squares show the
-       location of the four ACIS-I and two ACIS-S chips that were
-       turned on for the observation (the roll angle of the satellite
-       was different from that of the M31 observation shown above).
-       Many more point sources are seen than in the PSPC data, due
-       to the significantly greater spatial resolution of Chandra, 
-       and the wider pass band (roughly 0.5 to 7 keV rather than 0.5
-       to 2.5 keV) means that we have some information on the spectra
-       of these sources, shown by the colors in this image:
-       red sources are "soft", with most of their emission below about
-       1.2 keV (the hot gas created by supernovae and the formation of
-       the galaxy is predominantly red);
-       green sources have most of their emission between 1.2
-       and 2 keV;
-       blue sources are "hard", with most of their emission
-       above 2 keV; and other colors are due to mixtures of these.
-       M31 has been observed many times by Chandra - since it is a
-       nearby galaxy - leading to many
-       <a href='http://chandra.harvard.edu/photo/2013/m31/'>exciting
-       discoveries about its black-hole population</a>.
-     </p>
-     
     </dd>
 
     <dt id="Details">Details</dt>
