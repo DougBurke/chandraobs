@@ -7,7 +7,7 @@ module Views.Index (introPage, noDataPage, noObsIdPage
        where
 
 -- import qualified Prelude as P
-import Prelude (($), Bool(..), Maybe(..), const, either)
+import Prelude (($), Maybe(..), const, either)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -83,6 +83,9 @@ tourElements =
       ! A.title  "Default")
   <> jsScript "/js/tour.js"
 
+wwtLoc :: AttributeValue
+wwtLoc = "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"
+
 -- | TODO: this should be merged with Views.Record.recordPage
 introPage :: 
   UTCTime     -- current time
@@ -91,11 +94,16 @@ introPage ::
   -- other observations in the proposal
   -> Html
 introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
-  let initialize = "initialize(); addTour();"
+  let initialize = "main.initialize(); addTour();"
 
       (msimbad, (mprop, _)) = dbInfo
       imgLinks = either (const mempty)
-                 (renderLinks cTime True mprop msimbad) currentObs
+                 (renderLinks cTime mprop msimbad) currentObs
+
+      -- only need WWT JS for science observations
+      wwtJS = either (const mempty)
+              (const (jsScript wwtLoc <> jsScript "/js/wwt.js"))
+              currentObs
 
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>
@@ -103,6 +111,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
           tourElements <>
           jsScript "/js/image-switch.js" <>
           jsScript "/js/main.js" <>
+          wwtJS <>
           (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>

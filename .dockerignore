@@ -3,6 +3,8 @@
 Dockerfile
 .dockerignore
 
+Makefile
+
 notes/
 
 .git/

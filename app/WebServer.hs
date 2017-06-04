@@ -43,7 +43,6 @@ import qualified Views.Search.Target as Target
 import qualified Views.Search.TOO as TOO
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
-import qualified Views.WWT as WWT
 
 #if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
 import Control.Applicative ((<$>))
@@ -86,7 +85,7 @@ import Web.Scotty
 
 import Database (NumObs, NumSrc, SIMKey
                 , findRecord
-                , getCurrentObs, getRecord, getObsInfo
+                , getCurrentObs, getObsInfo
                 , getObsId
                 , getSchedule
                 , getScheduleDate
@@ -295,9 +294,6 @@ webapp cm mgr scache = do
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
         queryObsidParam = dbQuery "obsid" (getObsId . ObsIdVal)
 
-        -- queryRecord :: ActionM (Maybe (Either NonScienceObs ScienceObs))
-        queryRecord = snd <$> dbQuery "obsid" (getRecord . ObsIdVal)
-
     -- for now always return JSON; need a better success/failure
     -- set up.
     --
@@ -334,11 +330,9 @@ webapp cm mgr scache = do
               obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
               (msimbad, (mprop, _)) = dbInfo
 
-              -- TODO: need to know what flag to use for renderLinks
-              --       first argument
               imgLinks = either
                          (const mempty)
-                         (renderLinks cTime True mprop msimbad)
+                         (renderLinks cTime mprop msimbad)
                          thisObs
 
               navBar = Record.obsNavBar DynamicHtml (Just thisObs) obs
@@ -415,6 +409,21 @@ webapp cm mgr scache = do
     get "/about.html" (redirect "/about/index.html")
     get "/about" (redirect "/about/index.html")
 
+    -- WWT redirects: I could mark these as 410, moved permenantly,
+    -- but for now leave as 304's.
+    --
+    let redirectObsid = do
+          -- note: this is treating obsid as a string and not an
+          -- integer; we can let the redirected handler deal with
+          -- invalid values rather than convert to a number and
+          -- then back to text.
+          --
+          obsid <- param "obsid"
+          redirect ("/obsid/" <> obsid)
+                    
+    get "/wwt.html" (redirect "/index.html")
+    get "/obsid/:obsid/wwt" redirectObsid
+
     get "/index.html" $ do
       mobs <- liftSQL getObsInfo
       cTime <- liftIO getCurrentTime
@@ -424,17 +433,11 @@ webapp cm mgr scache = do
           fromBlaze (Index.introPage cTime obs dbInfo)
         _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
 
-    -- TODO: send in proposal details
-    get "/wwt.html" (wwt (liftSQL getCurrentObs))
-        
     get "/obsid/:obsid" (obsidOnly
                          (snd <$> queryObsidParam)
                          (liftSQL getCurrentObs)
                          (liftSQL . getDBInfo . oiCurrentObs)
                         )
-
-    -- TODO: send in proposal details
-    get "/obsid/:obsid/wwt" (obsidWWT queryRecord)
 
     -- TODO: head requests
     get "/proposal/:propnum" (proposal
@@ -671,14 +674,14 @@ webapp cm mgr scache = do
 
     -- TODO: also need a HEAD request version
     get "/search/" (redirect "/search/index.html")
-                
+
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
     --       set the redirect header?
     addroute HEAD "/" (standardResponse >> redirect "/index.html")
     addroute HEAD "/index.html" standardResponse
 
-    addroute HEAD "/wwt.html" standardResponse
+    addroute HEAD "/wwt.html" (standardResponse >> redirect "/index.html")
 
     addroute HEAD "/about" (standardResponse >> redirect "/about/index.html")
 
@@ -693,11 +696,8 @@ webapp cm mgr scache = do
         Just _ -> standardResponse
         _      -> next -- status status404
 
-    addroute HEAD "/obsid/:obsid/wwt" $ do
-      mobs <- queryRecord
-      case mobs of
-        Just (Right _) -> standardResponse
-        _              -> next -- status status404
+    -- TODO: is this actually correct?
+    addroute HEAD "/obsid/:obsid/wwt" (redirectObsid)
 
     {-
     get "/404" $ redirect "/404.html"
@@ -935,14 +935,6 @@ apiExposures getData = do
   json out
 
 
-wwt :: ActionM (Maybe Record) -> ActionM ()
-wwt getData = do
-  mobs <- getData
-  case mobs of 
-    Just (Right so) -> fromBlaze (WWT.wwtPage True so)
-    _ -> liftIO getFact >>= fromBlaze . Index.noDataPage
-
-
 obsidOnly ::
   ActionM (Maybe ObsInfo)
   -> ActionM (Maybe Record)
@@ -959,14 +951,6 @@ obsidOnly getData getObs getDB = do
       dbInfo <- getDB obs
       fromBlaze (Record.recordPage cTime mCurrent obs dbInfo)
     _ -> liftIO getFact >>= fromBlaze . Index.noObsIdPage
-
-
-obsidWWT :: ActionM (Maybe Record) -> ActionM ()
-obsidWWT getData = do
-  mobs <- getData
-  case mobs of
-    Just (Right so) -> fromBlaze (WWT.wwtPage False so)
-    _               -> next -- status status404
 
 
 proposal ::

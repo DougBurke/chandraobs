@@ -1,4 +1,9 @@
 
 // document onload
-function initialize() {
-}
+var main = (function () {
+
+    function initialize() {}
+
+    return {initialize: initialize};
+    
+})();

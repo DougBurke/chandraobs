@@ -1,5 +1,5 @@
 name:                chandraobs
-version:             0.0.7
+version:             0.0.8
 stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
 license:             PublicDomain
@@ -110,7 +110,6 @@ executable webserver
                        Views.Search.Target
                        Views.Search.Types
                        Views.Search.TOO
-                       Views.WWT
   hs-source-dirs:      app/
 
   ghc-options: -Wall

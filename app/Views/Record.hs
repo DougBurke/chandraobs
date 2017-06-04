@@ -15,7 +15,7 @@ module Views.Record (CurrentPage(..)
 
 import qualified Prelude as P
 import Prelude ((.), (-), ($), (>), (==), (/=), (&&)
-               , Eq, Bool(..), Either(..), Maybe(..), String
+               , Eq, Either(..), Maybe(..), String
                , const, either, elem, filter, fst, length, map
                , maybe, null, otherwise, snd, splitAt, uncurry
                , zip)
@@ -72,6 +72,9 @@ import Utils (HtmlContext(..)
              , getTimes
              )
 
+wwtLoc :: AttributeValue
+wwtLoc = "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"
+
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
 -- the current observation (i.e. should the current observation
@@ -84,18 +87,24 @@ recordPage ::
   -> (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))  -- other observations in the proposal
   -> Html
 recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
-  let initialize = "initialize()"
+  let initialize = "main.initialize()"
       obsId = recordObsId thisObs
 
       (msimbad, (mprop, _)) = dbInfo
       imgLinks = either (const mempty)
-                 (renderLinks cTime False mprop msimbad) thisObs
+                 (renderLinks cTime mprop msimbad) thisObs
 
+      -- only need WWT JS for science observations
+      wwtJS = either (const mempty)
+              (const (jsScript wwtLoc <> jsScript "/js/wwt.js"))
+              thisObs
+              
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
             jsScript "/js/image-switch.js" <>
             jsScript "/js/main.js" <>
+            wwtJS <>
             (cssLink "/css/main.css" ! A.title  "Default")
             )
     <>

@@ -46,8 +46,7 @@ import Text.Blaze.Html5.Attributes (alt
                                    , src, type_, value, width)
 import Text.Blaze.Internal (Attributable)
 
-import API (obsURI
-           , categoryLinkSearch
+import API (categoryLinkSearch
            , instLinkSearch
            , nameLinkSearch
            , obsIdLink
@@ -68,6 +67,7 @@ import Types (ChipStatus(..)
              , SimbadInfo(..)
              , TimeKS(..)
              , TOORequest(..)
+             , RA(..), Dec(..) -- only needed for WWT experiments
              , fromMissionLongLink
              , getConstellationName
              , getJointObs
@@ -155,6 +155,24 @@ facts = [
   ]
 
 
+-- | This is used so that the WWT widget can know where to look.
+--
+setupLocation :: ScienceObs -> Html
+setupLocation ScienceObs{..} =
+  let -- TODO: what is the best way of specifying the location?
+      jsSettings = mconcat [
+        -- note; do not want RA/Dec HTML conversion here; treat as
+        -- plain numbers!
+        "var scienceObs = {ra: ", toHtml (_unRA soRA),
+        ", dec: ", toHtml (_unDec soDec),
+        ", roll: ", toHtml soRoll,
+        ", instrument: '", toHtml soInstrument, "'",
+        ", name: '", toHtml soTarget, "'};"
+        ]
+
+  in H.script jsSettings
+
+
 -- | Display the DSS/RASS/PSPC/WWT images and the observational
 --   details (so the name is a slight mis-nomer).
 --
@@ -176,13 +194,12 @@ facts = [
 --
 renderLinks ::
   UTCTime -- the current time
-  -> Bool -- True if current obs
   -> Maybe Proposal
   -> Maybe SimbadInfo
   -- ^ assumed to be for the observation
   -> ScienceObs
   -> Html
-renderLinks tNow f mprop msimbad so@ScienceObs{..} =
+renderLinks tNow mprop msimbad so@ScienceObs{..} =
   let optSel :: T.Text -> Bool -> Html
       optSel lbl cf = 
         let idName = toValue (lbl <> "button")
@@ -195,10 +212,6 @@ renderLinks tNow f mprop msimbad so@ScienceObs{..} =
         in (if cf then base H.! checked "checked" else base)
            <> (H.label H.! A.for idName) (toHtml lbl)
 
-      wwtLink = if f
-                then (a H.! href "/wwt.html") "WWT"
-                else (a H.! href (toValue (obsURI soObsId) <> "/wwt")) "WWT"
-
       showChandraImage = isChandraImageViewable soPublicRelease soDataMode
                          soInstrument tNow
       buttons =  [ "View: " ] ++
@@ -207,8 +220,7 @@ renderLinks tNow f mprop msimbad so@ScienceObs{..} =
                  , optSel "RASS" False
                  , optSel "PSPC" False
                  , optSel "Details" False
-                 , " or in "
-                 , wwtLink
+                 , optSel "WWT" False
                  ]
 
       form = addClass "radiobuttons" H.div (mconcat buttons)
@@ -237,7 +249,8 @@ renderLinks tNow f mprop msimbad so@ScienceObs{..} =
         link "DSS" "dss" (not showChandraImage) <>
         link "PSPC" "pspc" False <>
         link "RASS" "rass" False <>
-        renderObsIdDetails mprop msimbad so
+        renderObsIdDetails mprop msimbad so <>
+        renderWWT so
 
       -- The Chandra images are not guaranteed to be square, so
       -- forcing a size on them here leads to a stretched
@@ -258,7 +271,7 @@ renderLinks tNow f mprop msimbad so@ScienceObs{..} =
 
       showLinks = addClass "links" H.div allLinks
 
-  in form <> showLinks
+  in setupLocation so <> form <> showLinks
 
 
 -- | Display detailed information about a science observation,
@@ -425,6 +438,37 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       tbl = table (tbody tblRows)
 
   in (addClass "inactive" H.div H.! A.id "Details") tbl
+
+
+-- | Create the div to contain the WWT view.
+--
+--   *VERY EXPERIMENTAL*
+--
+renderWWT ::
+  ScienceObs
+  -> Html
+renderWWT ScienceObs{..} =
+  let hostDiv = let innerDiv =
+                      (H.div
+                       -- Pick the size to match the DSS/RASS/PSPC size
+                       H.! A.style "width: 680px; height: 680px;"
+                       H.! A.id "WWTCanvas") ""
+                in (H.div H.! A.id "WorldWideTelescopeControlHost") innerDiv
+
+      noJSPara =
+        (H.p H.! class_ "nojavascript")
+        ("This page requires JavaScript and it appears that it is " <>
+         "not available.")
+
+      warningDiv =
+        (H.p H.! class_ "nowwt")
+        ("It appears that the javascript needed to display the " <>
+         "World Wide Telescope has not loaded.")
+
+      cts = noJSPara <> warningDiv <> hostDiv
+      
+  in (addClass "inactive" H.div H.! A.id "WWT") cts
+
 
 
 ldquo, rdquo :: Html
