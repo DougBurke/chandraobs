@@ -98,6 +98,7 @@ parseSTS = parse p "<STS parsing>"
     p = do
       spaces
       sts <- many stsLine
+      skipMany comments
       eof
       return sts
 
