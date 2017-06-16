@@ -50,6 +50,7 @@ import API (categoryLinkSearch
            , instLinkSearch
            , nameLinkSearch
            , obsIdLink
+           , obsURI
            , propTypeLink
            , tooLinkSearch
            , typeDLinkSearch
@@ -460,10 +461,17 @@ renderWWT ScienceObs{..} =
         ("This page requires JavaScript and it appears that it is " <>
          "not available.")
 
+      -- NOTE: this hard-codes the URL of the site, which is not ideal
+      httpHref = "http://chandraobservatory.herokuapp.com" <>
+                 obsURI (soObsId)
+
       warningDiv =
         (H.p H.! class_ "nowwt")
         ("It appears that the javascript needed to display the " <>
-         "World Wide Telescope has not loaded.")
+         "World Wide Telescope has not loaded. If you are using the " <>
+         "https version of the site, please try visiting the " <>
+         (a H.! href httpHref) "http version of this page " <>
+         "to see if that works.")
 
       cts = noJSPara <> warningDiv <> hostDiv
       
