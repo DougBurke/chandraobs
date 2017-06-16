@@ -585,3 +585,60 @@ Can now push the repository (which should contain the script
 heroky-compile-post-script.sh)
 
 % git push heroku master
+
+
+## Moving to the chandraobservatory domain
+
+% heroku apps:info --app chandraobservatory
+=== chandraobservatory
+Addons:         heroku-postgresql:hobby-dev
+Auto Cert Mgmt: false
+Dynos:          
+Git URL:        https://git.heroku.com/chandraobservatory.git
+Owner:          dburke.gw@gmail.com
+Region:         us
+Repo Size:      0 B
+Slug Size:      0 B
+Stack:          cedar-14
+Web URL:        https://chandraobservatory.herokuapp.com/
+
+First, change the stack to heroku-16, although how important this is
+given I'm using Dockerfiles is unclear:
+
+% heroku stack:set heroku-16 --app chandraobservatory
+Stack set. Next release on ⬢ chandraobservatory will use heroku-16.
+Run git push heroku master to create a new release on ⬢ chandraobservatory.
+
+Create a docker image for chandraobservatory and push it
+
+
+heroku pg:reset DATABASE_URL --confirm chandraobservatory --app chandraobservatory; PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push chandraobs DATABASE_URL --app chandraobservatory
+
+
+upgrading the database: https://devcenter.heroku.com/articles/upgrading-heroku-postgres-databases
+
+use pg:copy for now
+
+% heroku addons:create heroku-postgresql:hobby-basic --app chandraobservatory
+Creating heroku-postgresql:hobby-basic on ⬢ chandraobservatory... $9/month
+Database has been created and is available
+ ! This database is empty. If upgrading, you can transfer
+ ! data from another database with pg:copy
+Created postgresql-tapered-36909 as HEROKU_POSTGRESQL_AMBER_URL
+Use heroku addons:docs heroku-postgresql to view documentation
+% heroku pg:wait --app chandraobservatory
+
+% heroku maintenance:on --app chandraobservatory
+Enabling maintenance mode for ⬢ chandraobservatory... done
+
+% heroku pg:copy DATABASE_URL HEROKU_POSTGRESQL_AMBER_URL --app chandraobservatory --confirm chandraobservatory
+Starting copy of BROWN to AMBER... done
+Copying... done
+
+% heroku pg:promote HEROKU_POSTGRESQL_AMBER_URL --app chandraobservatory
+Ensuring an alternate alias for existing DATABASE_URL... done
+Promoting postgresql-tapered-36909 to DATABASE_URL on ⬢ chandraobservatory... done
+
+% heroku maintenance:off --app chandraobservatory
+Disabling maintenance mode for ⬢ chandraobservatory... done
+
