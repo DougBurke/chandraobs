@@ -642,3 +642,20 @@ Promoting postgresql-tapered-36909 to DATABASE_URL on ⬢ chandraobservatory... 
 % heroku maintenance:off --app chandraobservatory
 Disabling maintenance mode for ⬢ chandraobservatory... done
 
+# Logging
+
+One of
+
+heroku addons:create papertrail:choklad --app chandraobservatory
+heroku addons:create logentries:le_tryit --app chandraobservatory
+
+Let's try logentries as seems a bit more "generous" for its free tier;
+searches for 7 days rather than 2 (but haven't looked in detail)
+
+% heroku addons:create logentries:le_tryit --app chandraobservatory
+Creating logentries:le_tryit on ⬢ chandraobservatory... free
+Logentries setup complete. Please log in to activate automatic alerts.
+Created logentries-globular-25685
+Use heroku addons:docs logentries to view documentation
+
+and https://devcenter.heroku.com/articles/logentries#setup

@@ -389,3 +389,14 @@ environment variable added to fix a problem whereby the push would fail)
 
 % heroku pg:reset DATABASE_URL --confirm chandraobs-devel --app chandraobs-devel; PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push chandraobs DATABASE_URL --app chandraobs-devel
 
+Notes
+
+% psql --username=postgres --password --host=127.0.0.1 --dbname=chandraobs
+
+chandraobs=# select count(*) from "SimbadMatch";
+ count 
+-------
+  1290
+(1 row)
+
+chandraobs=# \d+ "SimbadMatch"
