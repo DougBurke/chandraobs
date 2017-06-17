@@ -22,12 +22,13 @@
    <h1>What is the 'What is Chandra doing now?' site?</h1>
 
    <p class="caveat">
-     This web site is <em>not</em> an official product of
-     the Chandra X-ray Center. The information provided here
-     is provided for educational purposes but should not be
-     relied on.
-     It is also <strong>not complete</strong> at this time,
-     since this is a <em>test</em> site.
+     The information provided here
+     is provided for educational, <em>not</em> scientific,
+     purposes. It is kept as up-to-date as possible, but
+     due to the way Chandra is controlled - is it
+     semi-autonomous and we are not in constant contact
+     with it - there is no way to guarantee the
+     current status of Chandra.
    </p>
 
    <p>
@@ -118,18 +119,18 @@
     The tour functionality provided on the
     <a href="/index.html">main page</a> is provided by the
     <a href="http://bootstraptour.com/">Bootstrap Tour</a>
-    JavaScript library, and I took "inspiration" for this
-    feature from the
-    <a href="http://adslabs.org/adsabs/">ADS Labs search page</a>.
+    JavaScript library; this was inspired by  the
+    <a href="http://adslabs.org/adsabs/">ADS Labs search page</a>
+    (which has since changed and no-longer provides a tour).
    </p>
 
    <p>
     The table sorting on the <a href="/schedule/index.html">Schedule page</a>
     is done by the 
     <a href="http://tablesorter.com/docs/">TableSorter jQuery plugin</a>
-    and I used
+    and
     <a href="http://d3js.org/">D3</a>
-    to display the scheduled observations on the sky, 
+    is used to display the scheduled observations on the sky, 
     following the approach used for the
     <a href="http://xrtpub.harvard.edu/photo/map/">Chandra Sky Map</a>.
    </p>
@@ -151,10 +152,13 @@
      along with its faceted browsing, would not be possible
      without the
      <a href="https://github.com/simile-widgets/exhibit/">Exhibit
-       widget framework</a>. I am quite pleased to be able to use
+       widget framework</a>.
+     <!-- 
+          I am quite pleased to be able to use
      this again, since my initial experiments for this project -
      <em>many, many</em> moons ago - were based on an earlier
      version of this framework.
+     -->
    </p>
 
    <p>
@@ -163,33 +167,31 @@
     is available on bitbucket</a>,
     is coded in
     <a href="http://www.haskell.org/">Haskell</a>,
-    and runs thanks to
-    one of the
-    <a href="https://www.heroku.com/">free plans on Heroku</a>.
+    and runs on the 
+    <a href="https://www.heroku.com/">Heroku platform</a>.
     The version of the code used to create this site can
     be found on bitbucket at:
     <a href="https://bitbucket.org/doug_burke/chandraobs/commits/@@GITHASH@@">@@GITHASH@@</a>.
    </p>    
 
    <p>
-    If you need to contact me, try my Twitter account - 
-    <a href="http://twitter.com/doug_burke">@doug_burke</a> -
-    or via the
-    <a href="https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open">issues
-      page</a>
-    for the project.
+     For questions on this site try either
+     <a href="http://twitter.com/doug_burke">@doug_burke</a>
+     (Twitter) or the
+     <a href="https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open">issues
+       page</a>
+     for the project.
    </p>
                    
   </div>
 
   <p id="banner">
-    The 'What is Chandra doing now?' web site is written
-    by <a href="http://twitter.com/doug_burke">@doug_burke</a>,
-    comes with no warranty (in other words, I make no
-    guarantee that the information presented is correct, although
-    I try my best to make sure it is), and is not
-    an official product of the 
+    The 'What is Chandra doing now?' web site is developed by
+    the Science Data Systems group of the
     <a href="http://chandra.si.edu/">Chandra X-ray Center</a>.
+    The information on this site is intended for
+    educational purposes and should not be relied on for
+    scientific use.
   </p>
  </body>
 </html>

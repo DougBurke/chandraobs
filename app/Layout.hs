@@ -122,15 +122,12 @@ renderFooter :: Html
 renderFooter =
   H.p H.! A.id "banner" $
     mconcat [
-      "The 'What is Chandra doing now?' web site is written "
-      , "by "
-      , (a H.! href "http://twitter.com/doug_burke") "@doug_burke"
-      , ", comes with no warranty (in other words, I make no "
-      , "guarantee that the information presented is correct, although "
-      , "I try my best to make sure it is), and is not "
-      , "an official product of the "
+      "The 'What is Chandra doing now?' web site is developed by "
+      , "the Science Data Systems group of the "
       , (a H.! href "http://chandra.si.edu/") "Chandra X-ray Center"
-      , "."
+      , ". The information on this site is intended for "
+      , "educational purposes and should not be relied on for "
+      , "scientific use."
     ]
 
 -- | Return a "random" Chandra fact, which is a string of
