@@ -58,13 +58,59 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
-import Database (insertSimbadInfo
-                , insertSimbadMatch
-                , insertSimbadNoMatch
-                , updateLastModified
+import Database (updateLastModified
+                , insertIfUnknown
                 , putIO
                 , runDb)
 import Types
+
+-- Database code was in lib/Database.hs, but it's very specialised
+-- so has been moved here.
+
+-- | Checks that the data is not known about before inserting it.
+--
+--   Returns the key for the item and a flag indicating whether
+--   the key already exists (so previous SimbadNoMatch may need
+--   to be deleted).
+--
+--   This will update the existing SimbadInfo record if it has
+--   changed (i.e. the designation has changed). The flag
+--   will be True in this case.
+--
+--   TODO: There's no reason to return a flag, as the action
+--         needed should be done here.
+--
+insertSimbadInfo ::
+  PersistBackend m
+  => SimbadInfo
+  -> m (AutoKey SimbadInfo, Bool)
+insertSimbadInfo sm = do
+  -- There's only one constraint on SimbadInfo
+  ems <- insertByAll sm
+  case ems of
+    Right newkey -> return (newkey, False)
+    Left oldkey -> do
+             Just oldsm <- get oldkey
+
+             -- do we need to update the existing SimbadInfo
+             -- structure?
+             --
+             -- I am assuming that oldkey is still valid after
+             -- the replacement.
+             --
+             when (oldsm /= sm) (replace oldkey sm)
+
+             return (oldkey, True)
+
+
+-- | Returns True if the database was updated.
+insertSimbadMatch :: PersistBackend m => SimbadMatch -> m Bool
+insertSimbadMatch sm = insertIfUnknown sm (SmmTargetField ==. smmTarget sm)
+
+-- | Returns True if the database was updated.
+insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m Bool
+insertSimbadNoMatch sm = insertIfUnknown sm (SmnTargetField ==. smnTarget sm)
+
 
 -- | Try and clean up SIMBAD identifiers:
 --

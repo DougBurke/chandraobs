@@ -74,13 +74,11 @@ module Database ( getCurrentObs
                 , replaceScienceObs
                 , replaceNonScienceObs
                 , insertProposal
-                , insertSimbadInfo
-                , insertSimbadMatch
-                , insertSimbadNoMatch
 
                 , cleanDataBase
                 , cleanupDiscarded
                 , insertOrReplace
+                , insertIfUnknown
                 , addScheduleItem
 
                 , updateLastModified
@@ -1892,33 +1890,6 @@ insertProposal ::
   => Proposal
   -> m Bool  -- ^ True if the proposal was added to the database
 insertProposal p = insertIfUnknown p (PropNumField ==. propNum p)
-
--- | Checks that the data is not known about before inserting it.
---
---   Returns the key for the item and a flag indicating whether
---   the key already exists (so previous SimbadNoMatch may need
---   to be deleted).
---
-insertSimbadInfo ::
-  PersistBackend m
-  => SimbadInfo
-  -> m (AutoKey SimbadInfo, Bool)
-insertSimbadInfo sm = do
-  ems <- insertByAll sm
-  case ems of
-    Right newkey -> return (newkey, False)
-    Left oldkey -> do
-             Just oldsm <- get oldkey
-             when (oldsm /= sm) $ error "!!! SimbadInfo does not match !!!" -- TODO: what now?
-             return (oldkey, True)
-
--- | Returns True if the database was updated.
-insertSimbadMatch :: PersistBackend m => SimbadMatch -> m Bool
-insertSimbadMatch sm = insertIfUnknown sm (SmmTargetField ==. smmTarget sm)
-
--- | Returns True if the database was updated.
-insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m Bool
-insertSimbadNoMatch sm = insertIfUnknown sm (SmnTargetField ==. smnTarget sm)
 
 -- | If there is no entity that matches the condition then
 --   insert the item.
