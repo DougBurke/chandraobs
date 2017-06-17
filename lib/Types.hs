@@ -205,6 +205,18 @@ data ExposureTimeOrder
 data MetaData = MetaData { mdLastModified :: UTCTime }
      deriving Eq
 
+-- | Some ObsIDs seem to not have an OCAT record, or we can
+--   not parse the response; hopefully these are all non-science
+--   observations.
+--
+--   We want a record so we can stop trying to get information on
+--   them.
+--
+data InvalidObsId = InvalidObsId {
+  ioObsId :: ObsIdVal     -- ^ The ObsId in question
+  , ioChecked :: UTCTime  -- ^ The approximate time this was checked
+  } deriving Eq
+
 {-
 This is based on 'Read Color' instance of RWH, page 142, chapter 6
 but hacked to allow a list of strings that map to the same token.
@@ -2648,6 +2660,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: MetaDataLastModifiedConstraint
           fields: [mdLastModified]
+- entity: InvalidObsId
+  constructors:
+    - name: InvalidObsId
+      uniques:
+        - name: InvalidObsIdConstraint
+          fields: [ioObsId]
 |]
 
 
@@ -2682,6 +2700,7 @@ handleMigration =
     migrate (undefined :: SimbadMatch)
     migrate (undefined :: SimbadNoMatch)
     migrate (undefined :: MetaData)
+    migrate (undefined :: InvalidObsId)
 
 -- Use Template Haskell to derive the necessary To/FromJSON
 -- instances (seeing as we use TH already for GroundHog)

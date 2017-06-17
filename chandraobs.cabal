@@ -218,6 +218,7 @@ executable obscat
      , bytestring
      , chandraobs
      , containers
+     , formatting
      , groundhog
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.3

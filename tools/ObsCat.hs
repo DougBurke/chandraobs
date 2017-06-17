@@ -195,6 +195,8 @@ import Data.Text.Encoding (decodeUtf8')
 import Database.Groundhog.Core (Action)
 import Database.Groundhog.Postgresql
 
+import Formatting (int, sformat)
+
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
 
@@ -221,6 +223,8 @@ import Database (insertScienceObs
                 , cleanupDiscarded
                 , cleanDataBase
                 , updateLastModified
+                , getInvalidObsIds
+                , addInvalidObsId
                 , putIO
                 , runDb
                 , discarded
@@ -863,14 +867,26 @@ queryNonScience flag oid = do
 --       For now, remove discarded obsids (the assumption being that they
 --       are not going to get recycled).
 --
+--     - exclude those obsids for which we can not parse/handle the OCAT
+--       data (the entries in the InvalidObsId table)
+--
 -- Should this be in the PersistBackend monad rather than making
 -- it a transaction? Probably not, because want the updates to
 -- be incremental so that they can be redone.
 --
-findMissingObsIds :: IO ([ObsIdVal], [ObsIdVal], [ObsIdVal])
+findMissingObsIds ::
+  IO ([ObsIdVal], [ObsIdVal], [ObsIdVal], Int)
+  -- ^ The last argument is the number of "invalid" ObsIds we have
 findMissingObsIds = do
   now <- getCurrentTime
   runDb $ do
+
+    -- assume this list is small so a simple check for being a
+    -- member is all that is needed, rather than going to a
+    -- more-complicated structure.
+    --
+    invalids <- (fmap ioObsId) <$> getInvalidObsIds
+
     -- the SiScienceObsField check is technically not needed,
     -- as I believe there should only be science obs in the
     -- table now, but leave in as this constraint may change,
@@ -886,9 +902,19 @@ findMissingObsIds = do
     unarchived <- project SoObsIdField (notArchived &&. notDiscarded)
     notpublic <- project SoObsIdField ((SoStatusField ==. ("observed"::T.Text))
                                        &&. (SoPublicReleaseField >=. Just now))
-  
-    let tosearch = S.fromList unarchived `S.difference` S.fromList notpublic
-    return (swants, nswants, S.toList tosearch)
+
+    let filterList a b = S.toList (S.fromList a `S.difference` S.fromList b)
+
+        -- For now assume that none of these are in the invalidSet, so we
+        -- do not need to include them in the search. This could turn out
+        -- to be wrong.
+        tosearch = filterList unarchived notpublic
+
+        invalidSet = S.fromList invalids
+        filterObsId a = S.toList (S.fromList a `S.difference` invalidSet)
+        
+    return (filterObsId swants, filterObsId nswants, tosearch,
+            S.size invalidSet)
 
 slen :: [a] -> T.Text
 slen = T.pack . show . length
@@ -901,12 +927,15 @@ addResults ::
   [(Proposal, ScienceObs)]
   -> [(Proposal, ScienceObs)]
   -> [NonScienceObs]  -- ^ no longer "missing" but "not from obscat"
+  -> [ObsIdVal]  -- ^ treat these as invalid
   -> IO ()
-addResults [] [] [] = T.putStrLn "# No data needs to be added to the database."
-addResults missing unarchived nsmissing = do
+addResults [] [] [] [] =
+  T.putStrLn "# No data needs to be added to the database."
+addResults missing unarchived nsmissing invalid = do
   T.putStrLn ("# Adding " <> slen missing <> " missing results")
   T.putStrLn ("# Adding " <> slen unarchived <> " unarchived results")
   T.putStrLn ("# Adding " <> slen nsmissing <> " missing non-science")
+  T.putStrLn ("# Adding " <> slen invalid <> " invalid obsids")
   
   let props = S.toList (S.fromList (map fst missing ++ map fst unarchived))
 
@@ -921,6 +950,10 @@ addResults missing unarchived nsmissing = do
       disp act val = do
         flag <- act val
         when flag (lprint val)
+
+  tNow <- getCurrentTime
+  let invalidRec = map toInvalid invalid
+      toInvalid o = InvalidObsId { ioObsId = o, ioChecked = tNow }
   
   runDb $ do
       putIO "## missing"
@@ -933,6 +966,8 @@ addResults missing unarchived nsmissing = do
       putIO "## non-science"
       forM_ nsmissing replaceNonScienceObs
 
+      forM_ invalidRec addInvalidObsId
+      
       -- ensure that any discarded observations are removed from the
       -- schedule, and any observations for which we now have an obscat
       -- value are removed (this latter should be handled by some
@@ -940,6 +975,7 @@ addResults missing unarchived nsmissing = do
       cleanupDiscarded
       cleanDataBase
 
+      -- could use tNow
       ctime <- liftIO getCurrentTime
       updateLastModified ctime
 
@@ -986,7 +1022,8 @@ addOverlaps f os = do
 check ::
   [Either b a]  -- ^ result
   -> [ObsIdVal]      -- ^ the obsid goes with the result
-  -> IO [a]          -- ^ results that are not missing
+  -> IO ([a], [ObsIdVal])  -- ^ results that are not missing and those
+                           --   that are
 check ms os = do
   let missing = map snd (filter (isLeft . fst) (zip ms os))
   unless (null missing) $ do
@@ -994,7 +1031,11 @@ check ms os = do
                 <> slen missing
                 <> " ObsIds with no OCAT data:")
     forM_ missing (print . fromObsId)
-  return (rights ms)
+
+  return ((rights ms), missing)
+
+showInt :: Int -> T.Text
+showInt = sformat int
 
 -- | The flag is @True@ to get debug output from the query calls.
 --
@@ -1004,24 +1045,26 @@ check ms os = do
 updateDB :: Bool -> IO ()
 updateDB f = withSocketsDo $ do
   T.putStrLn "# Querying the database"
-  (missing, nsmissing, unarchived) <- findMissingObsIds
+  (missing, nsmissing, unarchived, nbad) <- findMissingObsIds
   T.putStrLn ("# Found " <> slen missing <> " missing and " <>
               slen unarchived <> " science ObsIds needing to be queried")
   T.putStrLn ("# Found " <> slen nsmissing <> " missing non-science ObsIds")
+  T.putStrLn ("# There are " <> showInt nbad <> " invalid ObsIds")
 
   unless (null missing) (T.putStrLn "# Processing missing science")
   res1 <- mapM (queryScience f) missing
-  mres <- check res1 missing
+  (mres, invalid1) <- check res1 missing
 
   unless (null unarchived) (T.putStrLn "# Processing 'missing' science obs")
   res2 <- mapM (queryScience f) unarchived
-  ures <- check res2 unarchived
+  (ures, invalid2) <- check res2 unarchived
 
   unless (null nsmissing) (T.putStrLn "# Processing missing non-science")
   res3 <- mapM (queryNonScience f) nsmissing
-  nsres <- check res3 nsmissing
+  (nsres, invalid3) <- check res3 nsmissing
 
-  addResults mres ures nsres
+  let invalid = concat [invalid1, invalid2, invalid3]
+  addResults mres ures nsres invalid
 
   {-
   -- add in the overlaps; commented out for now
@@ -1031,7 +1074,7 @@ updateDB f = withSocketsDo $ do
   addOverlaps f $ concat overlaps
   -}
 
-  (missing1, nsmissing1, unarchived1) <- findMissingObsIds
+  (missing1, nsmissing1, unarchived1, nbad1) <- findMissingObsIds
   when (missing /= missing1)
     (T.putStrLn ("# Number missing: " <> slen missing <>
                  " -> " <> slen missing1))
@@ -1041,6 +1084,9 @@ updateDB f = withSocketsDo $ do
   when (nsmissing /= nsmissing1)
     (T.putStrLn ("# Number Non-sci: " <> slen nsmissing <>
                  " -> " <> slen nsmissing1))
+  when (nbad1 /= nbad)
+    (T.putStrLn ("# Number invalid Obsids: " <> showInt nbad <>
+                 " -> " <> showInt nbad1))
 
 -- Note: I may have given a non-science observation, so really should
 --       look for both cases. In which case the debug flag might be

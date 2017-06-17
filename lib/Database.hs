@@ -85,6 +85,9 @@ module Database ( getCurrentObs
 
                 , updateLastModified
                 , getLastModified
+
+                , getInvalidObsIds
+                , addInvalidObsId
                   
                 , putIO
                 , runDb
@@ -1791,6 +1794,8 @@ reportSize = do
   n7 <- showSize "SIMBAD info      " (undefined :: SimbadInfo)
   n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
 
+  nbad <- showSize "invalid obsids   " (undefined :: InvalidObsId)
+
   -- break down the status field of the scheduled observations
   putIO ""
   ns <- findObsStatusTypes
@@ -1810,7 +1815,7 @@ reportSize = do
   putIO (sformat ("  non-science (not from obscat) = " % int) ns1)
   putIO (sformat ("  non-science discarded         = " % int) ns2)
   
-  let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8]
+  let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8, nbad]
   putIO ""
   putIO (sformat ("Number of rows              : " % int) ntot)
   return ntot
@@ -2045,7 +2050,25 @@ getLastModified = do
                                         `orderBy` [Desc MdLastModifiedField]
                                         `limitTo` 1)
   return (listToMaybe lmods)
-  
+
+
+-- | What ObsIds should we not bother querying OCAT about?
+--
+--   At some point an OCAT query for an obsid lead it to be added
+--   to this table.
+--
+--   The return list could be sorted on time (or ObsId) but let's
+--   not bother with that.
+--
+getInvalidObsIds :: PersistBackend m => m [InvalidObsId]
+getInvalidObsIds = map snd <$> selectAll
+
+-- | Add an invalid ObsId. The ObsId must not already be marked
+--   as invalid.
+--
+addInvalidObsId :: PersistBackend m => InvalidObsId -> m ()
+addInvalidObsId = insert_
+
 -- | Hard-coded connection string for the database connection.
 dbConnStr :: String
 dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
