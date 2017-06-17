@@ -885,7 +885,7 @@ findMissingObsIds = do
     -- member is all that is needed, rather than going to a
     -- more-complicated structure.
     --
-    invalids <- (fmap ioObsId) <$> getInvalidObsIds
+    invalids <- fmap ioObsId <$> getInvalidObsIds
 
     -- the SiScienceObsField check is technically not needed,
     -- as I believe there should only be science obs in the
@@ -1032,7 +1032,7 @@ check ms os = do
                 <> " ObsIds with no OCAT data:")
     forM_ missing (print . fromObsId)
 
-  return ((rights ms), missing)
+  return (rights ms, missing)
 
 showInt :: Int -> T.Text
 showInt = sformat int
