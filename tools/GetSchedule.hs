@@ -35,6 +35,8 @@ import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import qualified Text.Parsec.Error as PE
+import qualified Text.Parsec.Pos as PP
 
 import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class (liftIO)
@@ -64,7 +66,6 @@ import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
 import Text.HTML.TagSoup (Tag(..), (~==), innerText, parseTags, partitions)
-import Text.Parsec.Error (ParseError)
 import Text.Read (readMaybe)
 
 import Database (runDb, getInvalidObsIds, updateLastModified
@@ -173,8 +174,25 @@ wanted n proj1 known proj2 =
 --   format is fixed, at least for the time range covered
 --   here).
 --
-toSchedule :: T.Text -> Either ParseError [ScheduleItem]
-toSchedule = parseSTS . removeHeader . T.unpack . innerText . parseTags
+--   Argh:
+--     http://cxc.harvard.edu/target_lists/stscheds/stschedAPR1311A.html
+--   uses a HTML table; later versions used the simpler structure
+--   that the code handles.
+--
+--   The parse error is not guaranteed to contain a useful
+--   position.
+--
+toSchedule :: T.Text -> Either PE.ParseError [ScheduleItem]
+toSchedule txt =
+  let clean = removeHeader . T.unpack . innerText . parseTags
+
+      emsg = PE.Message "Unable to remove the header"
+      epos = PP.initialPos "from-file"
+      pe = PE.newErrorMessage emsg epos
+  in case clean txt of
+    Just t -> parseSTS t
+    Nothing -> Left pe
+
 
 --   The parser does not quite match the on-file format,
 --   in that the "header" line (e.g. AUG2916A) is assumed
@@ -183,15 +201,19 @@ toSchedule = parseSTS . removeHeader . T.unpack . innerText . parseTags
 --   the first non new-line characters. Actually, also need
 --   to skip the other header lines (strip out 
 --
-removeHeader :: String -> String
+removeHeader :: String -> Maybe String
 removeHeader txt =
   let ls = lines txt
       -- make sure have more consecutive '-' than expect
       -- for the sequence column (although those start with
       -- a space), and then we want to drop this header
       -- line
-      (_:nls) = dropWhile (\l -> not ("--------" `isPrefixOf` l)) ls
-  in unlines nls
+
+      noHeaders = dropWhile (\l -> not ("--------" `isPrefixOf` l)) ls
+
+  in case noHeaders of
+    (_:nls) -> Just (unlines nls)
+    [] -> Nothing
 
 
 showInt :: Int -> T.Text
