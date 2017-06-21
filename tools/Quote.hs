@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -32,9 +31,6 @@ stsParse = QuasiQuoter stsExpr
 stsParseFile :: QuasiQuoter
 stsParseFile = quoteFile stsParse
 
-instance Lift NonScienceObs where
-  lift NonScienceObs{..} = [| NonScienceObs nsName nsObsId nsTarget nsStartTime nsTime nsRa nsDec nsRoll |]
-
 instance Lift ScheduleItem where
   lift ScheduleItem{..} = [| ScheduleItem siObsId siScienceObs siStart siEnd siDuration |]
 
@@ -52,12 +48,6 @@ instance Lift RA where
 
 instance Lift Dec where
   lift Dec{..} = [| Dec _unDec |]
-
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-instance Lift Double where
-  -- lift d = return $ SigE (LitE (RationalL (toRational d))) (ConT GHC.Types.Double)
-  lift d = return (LitE (RationalL (toRational d))) -- do I need the explicit typing? probably so
-#endif
 
 -- UTCTime, Day, DiffTime have Data instances
 

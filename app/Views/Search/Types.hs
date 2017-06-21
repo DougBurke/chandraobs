@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Search on SIMBAD object type, including "no SIMBAD info was identified".
@@ -16,12 +15,8 @@ module Views.Search.Types (indexPage, dependencyPage
 
 import qualified Prelude as P
 import Prelude ((.), ($), (==), (+), Int, Maybe(Just)
-               , compare, error, fst, lookup, mapM_, maybe
+               , compare, error, fst, lookup, mapM_, maybe, mconcat
                , null, snd, sum, uncurry, unzip)
-
-#if (defined(__GLASGOW_HASKELL__)) && (__GLASGOW_HASKELL__ >= 710)
-import Prelude (mconcat)
-#endif
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Char8 as B8
@@ -33,11 +28,7 @@ import Data.Aeson ((.=))
 import Data.Function (on)
 import Data.List (groupBy, intersperse, sortBy)
 
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Data.Monoid ((<>), mconcat)
-#else
 import Data.Monoid ((<>))
-#endif
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)

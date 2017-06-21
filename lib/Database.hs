@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -75,11 +74,8 @@ module Database ( getCurrentObs
                 , replaceNonScienceObs
                 , insertProposal
 
-                , cleanDataBase
-                , cleanupDiscarded
                 , insertOrReplace
                 , insertIfUnknown
-                , addScheduleItem
 
                 , updateLastModified
                 , getLastModified
@@ -90,12 +86,12 @@ module Database ( getCurrentObs
                 , putIO
                 , runDb
                 , dbConnStr
-                , discarded
-                , archived
-                , notDiscarded
-                , notArchived
-                , notCancelled
-                , isScheduled
+                -- , discarded
+                -- , archived
+                  
+                -- , notDiscarded
+                -- , notArchived
+                -- , notCanceled
 
                   -- do we really want to expose these?
                 , NumSrc
@@ -116,15 +112,11 @@ module Database ( getCurrentObs
                   -- ObsCat, otherwise it's from the ScheduleItem table
                   -- (where the field value is taken from the column).
                   --
-                  , nsInObsCatName
+                  -- , nsInObsCatName
                   , notNsDiscarded
-                  , notFromObsCat
+                  -- , notFromObsCat
                     
                 ) where
-
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Control.Applicative ((<$>))
-#endif
 
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
@@ -132,7 +124,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import Control.Arrow (first, second)
-import Control.Monad (filterM, forM, forM_, unless, when)
+import Control.Monad (filterM, forM, forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
@@ -140,20 +132,24 @@ import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (foldl', group, groupBy, nub, sortBy)
-import Data.Maybe (catMaybes, fromJust, fromMaybe, isNothing, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromJust, fromMaybe,
+                   isJust, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
-                                DbDescriptor, RestrictionHolder)
-import Database.Groundhog.Core (distinct)
+                                DbDescriptor, RestrictionHolder,
+                                distinct)
 import Database.Groundhog.Postgresql
 
 import Formatting hiding (now)
 
 import Types
 
+-- DbSql is a terrible name; need to change it
 type DbIO m = (MonadIO m, PersistBackend m)
+type DbSql m = (PersistBackend m, SqlDb (Conn m))
+type DbFull m = (PersistBackend m, SqlDb (Conn m), MonadIO m)
 
 -- | The time used when no last-modified date can be accessed from
 --   the database. Ideally would use the current time, as this seems
@@ -163,18 +159,8 @@ type DbIO m = (MonadIO m, PersistBackend m)
 dummyLastMod :: UTCTime
 dummyLastMod = UTCTime (ModifiedJulianDay 0) 0
 
-archived :: T.Text
-archived = "archived"
-
-discarded :: T.Text
-discarded = "discarded"
-
--- | Bah, the archive goes with US spelling...
-cancelled :: T.Text
-cancelled = "canceled"
-
-nsInObsCatName :: T.Text
-nsInObsCatName = "unknown"
+-- nsInObsCatName :: T.Text
+-- nsInObsCatName = "unknown"
 
 -- | What is the logic to the status fields, in particular
 --   unobserved versus scheduled, and does cancelled (or, rather
@@ -183,29 +169,39 @@ nsInObsCatName = "unknown"
 --   Question: should unobserved observations be removed from
 --             (most) queries?
 --
+--   Should these conditions not be exported (i.e. get away from
+--   letting callers rely on them) rather than is isValidScienceObs?
+--
+{-
 notArchived ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-notArchived = SoStatusField /=. archived
+notArchived = SoStatusField /=. Archived
 
 notDiscarded ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-notDiscarded = SoStatusField /=. discarded
+notDiscarded = SoStatusField /=. Discarded
 
-notCancelled ::
+notCanceled ::
   DbDescriptor db
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-notCancelled = SoStatusField /=. cancelled
+notCanceled = SoStatusField /=. Canceled
+-}
 
--- | Reject those observations which have no scheduled time
---   *or* that are labelled as being cancelled.
+-- | A valid science observation is one which has a start time.
+--   There should be no observations which have no start time
+--   and are not either discarded or canceled, but do not
+--   rely on that for now.
 --
-isScheduled ::
-  DbDescriptor db
+isValidScienceObs ::
+  (DbDescriptor db, SqlDb db)
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-isScheduled = (SoStartTimeField <. futureTime) &&. notCancelled
-
+isValidScienceObs =
+  Not (isFieldNothing SoStartTimeField) &&.
+  Not (SoStatusField `in_` [Discarded, Canceled])
+  
+{-
 -- | Identify non-science observations that are not from the
 --   ObsCat (i.e. ones that could be queried to see if there
 --   is data now). This excludes "discarded" observations
@@ -215,32 +211,16 @@ notFromObsCat ::
   DbDescriptor db
   => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
 notFromObsCat = (NsNameField /=. nsInObsCatName) &&. notNsDiscarded
+-}
 
--- | Non-science observations that have not been "discarded",
---   that is, the ObsCat field does not have a start date field
---   (have to be careful, since the ObsCat field appears to have
---    no start date when the object hasn't been observed yet as
---    well).
+-- | Non-science observations that have not been "discarded".
 --
+--   TODO: replace with isValidNonScienceObs, but not clear yet what
+--         that is
 notNsDiscarded ::
   DbDescriptor db
   => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
-notNsDiscarded = NsNameField /=. discarded
-
--- | Is this ObsId discarded (either science or non-science) or
---   unscheduled?
-isDiscardedOrUnscheduled ::
-  PersistBackend m
-  => ObsIdVal
-  -> m Bool  -- True is only returned if this is a discarded or unscheduled obs.
-isDiscardedOrUnscheduled oid = do
-  n1 <- count ((SoObsIdField ==. oid) &&.
-               ((SoStatusField ==. discarded) ||.
-                (SoStartTimeField ==. futureTime)))
-  n2 <- count ((NsObsIdField ==. oid) &&.
-               (NsNameField ==. discarded))
-  return ((n1 /= 0) || (n2 /= 0))
-
+notNsDiscarded = NsStatusField /=. Discarded
 
 -- | Given two lists of observations, which are assumed to have 0 or 1
 --   elements in, identify which is the latest (has the largest start
@@ -248,9 +228,7 @@ isDiscardedOrUnscheduled oid = do
 --
 --   These should be consolidated (earliest and latest versions).
 --
---   At present, neither variant rejects those science obs with a
---   start date == futureTime. It is assumed that the caller has
---   done any such filtering.
+--   If there are no valid observations, return Nothing.
 --
 identifyLatestRecord ::
   [ScienceObs]
@@ -288,17 +266,18 @@ identifyHelper px py ord xs ys =
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
 --   finished or running. It will not be a discarded observation,
---   one with no scheduled time, or labelled as cancelled.
+--   one with no scheduled time, or labelled as canceled.
 --
-findRecord :: (PersistBackend m) => UTCTime -> m (Maybe Record)
+findRecord ::
+  DbSql m
+  => UTCTime -> m (Maybe Record)
 findRecord t = do
   let tval = ChandraTime t
-  xs <- select (((SoStartTimeField <=. tval)
-                 &&. notDiscarded
-                 &&. isScheduled)
+  xs <- select (((SoStartTimeField <=. Just tval)
+                 &&. isValidScienceObs)
                 `orderBy` [Desc SoStartTimeField]
                 `limitTo` 1)
-  ys <- select (((NsStartTimeField <=. tval) &&. notNsDiscarded)
+  ys <- select (((NsStartTimeField <=. Just tval) &&. notNsDiscarded)
                 `orderBy` [Desc NsStartTimeField]
                 `limitTo` 1)
 
@@ -335,69 +314,61 @@ findScience oi = do
 --   updated with the discard information in time, or unscheduled
 --   observations).
 --
-getCurrentObs :: DbIO m => m (Maybe Record)
+getCurrentObs :: DbFull m => m (Maybe Record)
 getCurrentObs = liftIO getCurrentTime >>= findRecord
 
 -- | Return the first observation to start after the given time,
---   excluding discarded and unscheduled observations. If the input observation
---   is discarded then nothing is returned.
+--   excluding discarded and unscheduled observations. The input observation
+--   is assumed NOT to be discarded.
 --
 --   It is not clear whether the obsid value is really needed, but
 --   left in in case other parts of the system rely on this
 --   explicit check.
 --
 getNextObs ::
-  PersistBackend m
+  DbSql m
   => ObsIdVal
-  -> ChandraTime
+  -> Maybe ChandraTime
   -> m (Maybe Record)
-getNextObs oid t = do
-  flag <- isDiscardedOrUnscheduled oid
-  if flag
-    then return Nothing
-    else do
-    xs <- select (((SoStartTimeField >. t)
-                   &&. (SoObsIdField /=. oid)
-                   &&. notDiscarded
-                   &&. isScheduled)
-                  `orderBy` [Asc SoStartTimeField]
-                  `limitTo` 1)
-    ys <- select (((NsStartTimeField >. t)
-                   &&. (NsObsIdField /=. oid)
-                   &&. notNsDiscarded)
-                  `orderBy` [Asc NsStartTimeField]
-                  `limitTo` 1)
-    return (identifyEarliestRecord xs ys)
+getNextObs _ Nothing = return Nothing  
+getNextObs oid (Just t) = do
+  xs <- select (((SoStartTimeField >. Just t)
+                 &&. (SoObsIdField /=. oid)
+                 &&. isValidScienceObs)
+                `orderBy` [Asc SoStartTimeField]
+                `limitTo` 1)
+  ys <- select (((NsStartTimeField >. Just t)
+                 &&. (NsObsIdField /=. oid)
+                 &&. notNsDiscarded)
+                `orderBy` [Asc NsStartTimeField]
+                `limitTo` 1)
+  return (identifyEarliestRecord xs ys)
 
 
 -- | Return the last observation to have started before the given time,
---   excluding discarded and unscheduled observations. If the input observation
---   is discarded then nothing is returned.
+--   excluding discarded and unscheduled observations. The input observation
+--   is assumed NOT to be discarded.
 --
 --   See the discussion for `getNextObs`.
 --
 getPrevObs ::
-  PersistBackend m
+  DbSql m
   => ObsIdVal
-  -> ChandraTime
+  -> Maybe ChandraTime
   -> m (Maybe Record)
-getPrevObs oid t = do
-  flag <- isDiscardedOrUnscheduled oid
-  if flag
-    then return Nothing
-    else do
-    xs <- select (((SoStartTimeField <. t)
-                   &&. (SoObsIdField /=. oid)
-                   &&. notDiscarded
-                   &&. isScheduled)  -- at present isscheduled adds nothing
-                  `orderBy` [Desc SoStartTimeField]
-                  `limitTo` 1)
-    ys <- select (((NsStartTimeField <. t)
-                   &&. (NsObsIdField /=. oid)
-                   &&. notNsDiscarded)
-                  `orderBy` [Desc NsStartTimeField]
-                  `limitTo` 1)
-    return (identifyLatestRecord xs ys)
+getPrevObs _ Nothing = return Nothing  
+getPrevObs oid (Just t) = do
+  xs <- select (((SoStartTimeField <. Just t)
+                 &&. (SoObsIdField /=. oid)
+                 &&. isValidScienceObs)
+                `orderBy` [Desc SoStartTimeField]
+                `limitTo` 1)
+  ys <- select (((NsStartTimeField <. Just t)
+                 &&. (NsObsIdField /=. oid)
+                 &&. notNsDiscarded)
+                `orderBy` [Desc NsStartTimeField]
+                `limitTo` 1)
+  return (identifyLatestRecord xs ys)
 
 
 -- | Find the current observation and the previous/next ones.
@@ -416,7 +387,7 @@ getPrevObs oid t = do
 --         code could be running, but need to think about it.
 --
 getObsInfo ::
-  (Functor m, DbIO m)  -- Functor needed before ghc 7.10
+  DbFull m
   => m (Maybe ObsInfo)
 getObsInfo = do
   mobs <- getCurrentObs
@@ -426,17 +397,31 @@ getObsInfo = do
 
 -- | Given an observation, extract the previous and next observations.
 --
-extractObsInfo :: PersistBackend m => Record -> m ObsInfo
+extractObsInfo :: DbSql m => Record -> m ObsInfo
 extractObsInfo obs = do
-  mprev <- getPrevObs (recordObsId obs) (recordStartTime obs)
-  mnext <- getNextObs (recordObsId obs) (recordStartTime obs)
-  return (ObsInfo obs mprev mnext)
+  let obsid = recordObsId obs
+      startTime = recordStartTime obs
+
+  -- is this an "invalid" observation, in which case it doesn't
+  -- have next/previous fields?
+  --
+  n <- case obs of
+    Right _ -> count (SoObsIdField ==. obsid &&. Not isValidScienceObs)
+    Left _ -> count (NsObsIdField ==. obsid &&.
+                     NsStatusField ==. Discarded)
+  
+  if n /= 0
+    then return (ObsInfo obs Nothing Nothing)
+    else do
+      mprev <- getPrevObs obsid startTime
+      mnext <- getNextObs obsid startTime
+      return (ObsInfo obs mprev mnext)
 
 -- | Return information on the given observation, including
 --   preceeding and following observations.
 --
 findObsInfo ::
-  (Functor m, PersistBackend m) -- Functor needed before ghc 7.10
+  DbSql m
   => ObsIdVal
   -> m (Maybe ObsInfo)
 findObsInfo oi = do
@@ -451,7 +436,7 @@ findObsInfo oi = do
 --   TODO: note that this actually also returns non-science
 --         observations, so either the comment or code should change.
 getObsId ::
-  (Functor m, PersistBackend m)  -- Functor needed for ghc < 7.10
+  DbSql m
   => ObsIdVal
   -> m (Maybe ObsInfo)
 getObsId = findObsInfo 
@@ -471,28 +456,34 @@ getRecord = findObsId
 -- TODO: not sure this is a good idea any more
 --
 getObsInRange ::
-  DbIO m
+  DbSql m
   => ChandraTime
   -> ChandraTime
   -> m [Record]
+  -- ^ All records reurned are guaranteed to have a start time
 getObsInRange tStart tEnd = do
-  xs1 <- select (((SoStartTimeField <. tEnd)
-                  &&. notDiscarded
-                  &&. isScheduled) -- the isScheduled check is unlikely to restrict anything
+  xs1 <- select (((SoStartTimeField <. Just tEnd)
+                  &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
-  ys1 <- select (((NsStartTimeField <. tEnd) &&.
+  ys1 <- select (((NsStartTimeField <. Just tEnd) &&.
                   notNsDiscarded)
                  `orderBy` [Asc NsStartTimeField])
 
   -- should filter by the actual run-time, but the following is
   -- easier
+  --
   let filtEnd proj_start proj_runtime o =
-        let stime = proj_start o
-            rtime = proj_runtime o
-            etime = endCTime stime rtime
-        in etime < tStart
-      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs1)
-      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys1)
+        case proj_start o of
+          Just stime -> let rtime = proj_runtime o
+                            etime = endCTime stime rtime
+                        in etime < tStart
+          Nothing -> True -- should never happen
+
+      xs2 = filter (isJust . soStartTime) xs1
+      ys2 = filter (isJust . nsStartTime) ys1
+      
+      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs2)
+      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys2)
 
       res = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
 
@@ -503,7 +494,7 @@ getObsInRange tStart tEnd = do
 --   just started, has an exposure time > ndays.
 --
 getSchedule ::
-  DbIO m
+  DbFull m
   => Int    -- ^ Number of days to go back/forward
   -> m Schedule
 getSchedule ndays = do
@@ -527,8 +518,12 @@ getSchedule ndays = do
   
   -- I used siStart r <= cnow, so keep with that logic for now
   -- (could use siEnd r < cnow)
+  --
+  -- Note that getObsInRange guarantees that we have a startTime
+  -- field
+  --
   let cnow = ChandraTime now
-      (aprevs, todo) = span ((<= cnow) . recordStartTime) res
+      (aprevs, todo) = span ((<= cnow) . recordStartTimeUnsafe) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
@@ -540,7 +535,7 @@ getSchedule ndays = do
 --   just started, has an exposure time > ndays.
 --
 getScheduleDate ::
-  DbIO m
+  DbFull m
   => Day    -- ^ center the schedule on this day
   -> Int    -- ^ Number of days to go back/forward
   -> m Schedule
@@ -566,6 +561,9 @@ getScheduleDate day ndays = do
   --       (unless not updated the database), whereas here
   --       it is less clear how to match that logic cleanly
   --
+  -- Note that getObsInRange guarantees that we have a startTime
+  -- field
+  --
   now <- liftIO getCurrentTime
   let cnow = ChandraTime now
 
@@ -574,7 +572,7 @@ getScheduleDate day ndays = do
         | tEnd < cnow   = Schedule now ndays res Nothing [] simbad
         | otherwise     = Schedule now ndays done mdoing todo simbad
 
-      (aprevs, todo) = span ((<= cnow) . recordStartTime) res
+      (aprevs, todo) = span ((<= cnow) . recordStartTimeUnsafe) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
@@ -586,11 +584,10 @@ getScheduleDate day ndays = do
 --   The number-of-days field in the structure is set to 0; this
 --   is not ideal!
 --
---   Note that any discarded observations are removed.
---   Unscheduled ones are left in
+--   Note that this removes any observation without a start time.
 --
 makeSchedule ::
-  DbIO m
+  DbFull m
   => SortedList StartTimeOrder Record -- ^ no duplicates
   -> m Schedule
 makeSchedule rs = do
@@ -598,16 +595,23 @@ makeSchedule rs = do
   mrec <- findRecord now
   
   let cleanrs = filter keep (fromSL rs)
-      keep (Left NonScienceObs{..}) = nsName /= discarded
-      keep (Right ScienceObs{..}) = soStatus /= discarded
-                                    -- && (soStartTime < futureTime)
 
+      {- 
+      want = (`notElem` [Discarded, Canceled])
+      keep (Left NonScienceObs{..}) = want nsStatus 
+      keep (Right ScienceObs{..}) = want soStatus
+      -}
+
+      want = (`notElem` [Discarded, Canceled])
+      keep (Left NonScienceObs{..}) = want nsStatus && isJust nsStartTime
+      keep (Right ScienceObs{..}) = want soStatus && isJust soStartTime
+      
       mobsid = recordObsId <$> mrec
       findNow r = if Just (recordObsId r) == mobsid then Right r else Left r
       (others, nows) = partitionEithers (map findNow cleanrs)
 
       cnow = ChandraTime now
-      (done, todo) = span ((<= cnow) . recordStartTime) others
+      (done, todo) = span ((<= cnow) . recordStartTimeUnsafe) others
 
   simbad <- getSimbadList cleanrs
   return (Schedule now 0 done (listToMaybe nows) todo simbad)
@@ -656,8 +660,8 @@ getSimbadInfo target = do
 --
 --   There is NO special-case handling to support listing those objects
 --   with no SIMBAD info (i.e. if stype == noSimbadType).
-fetchSIMBADType :: 
-  PersistBackend m
+fetchSIMBADType ::
+  DbSql m
   => SimbadType 
   -> m (Maybe (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs))
 fetchSIMBADType stype = do
@@ -673,8 +677,7 @@ fetchSIMBADType stype = do
                           targets <- project SmmTargetField (SmmInfoField ==. key)
                           obs <- forM targets $
                                  \t -> select ((SoTargetField ==. t
-                                                &&. notDiscarded
-                                                -- &&. isScheduled
+                                                &&. isValidScienceObs
                                                )
                                                `orderBy` [Asc SoStartTimeField])
 
@@ -689,15 +692,16 @@ fetchSIMBADType stype = do
     _ -> return Nothing
 
 -- | Identify those observations with no SIMBAD mapping.
+--
 fetchNoSIMBADType :: 
-  PersistBackend m
+  DbSql m
   => m (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs)
 fetchNoSIMBADType = do
 
   -- TODO: perhaps should just query SmnTargetField and then
   --       do a reverse lookup to get the sources?
   --
-  sobs <- select (CondEmpty `orderBy` [Asc SoStartTimeField])
+  sobs <- select (isValidScienceObs `orderBy` [Asc SoStartTimeField])
   sinfo <- project SmmTargetField (distinct CondEmpty)
 
   let inSimbad = S.fromList sinfo
@@ -716,14 +720,17 @@ TODO: support "parent" queries
 -}
 
 -- | Return all observations of the given SIMBAD type and any
---   'children' of this type (excluding discarded observations).
+--   'children' of this type (excluding "invalid" observations).
+--
+--   Should this pass through cancelled or unscheduled observations?
+--   For now easiest if it does not.
 --
 --   TODO: perhaps this should be sent in a list of types to return
 --         so that the caller can decide (and let them easily
 --         check if they got all the types they asked for).
 --
 fetchSIMBADDescendentTypes :: 
-  PersistBackend m
+  DbSql m
   => SimbadType 
   -> m ([SimbadTypeInfo], SortedList StartTimeOrder ScienceObs)
   -- ^ SymbadTypeInfo list is ordered by SimbadCode setting, and
@@ -750,7 +757,7 @@ fetchSIMBADDescendentTypes parent = do
       let targcons = map (SoTargetField ==.) targets
           targconstraint = foldl1 (||.) targcons
 
-      obs <- select ((targconstraint &&. notDiscarded)
+      obs <- select ((targconstraint &&. isValidScienceObs)
                      `orderBy` [Asc SoStartTimeField])
 
       let addCode sinfo =
@@ -769,7 +776,7 @@ fetchSIMBADDescendentTypes parent = do
 
 -- | Return all observations that are joint with the given mission.
 fetchJointMission :: 
-  PersistBackend m
+  DbSql m
   => JointMission
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchJointMission jm = do
@@ -796,7 +803,7 @@ fetchJointMission jm = do
   -}
 
   sobs <- select ((Not (isFieldNothing SoJointWithField)
-                   &&. notDiscarded)
+                   &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
 
   let hasMission ScienceObs{..} = case soJointWith of
@@ -812,14 +819,14 @@ fetchJointMission jm = do
 --   Would be nice perhaps to have number of targets.
 --
 fetchMissionInfo ::
-  (Functor m, PersistBackend m) -- Functor needed before ghc 7.10
+  DbSql m
   => m [(JointMission, Int)]
   -- ^ Number of observations for each mission
 fetchMissionInfo = do
   jws <- map fromJust <$>
          project SoJointWithField
          (Not (isFieldNothing SoJointWithField)
-          &&. notDiscarded)
+          &&. isValidScienceObs)
 
   let toks = map (,1) (concatMap splitToMission jws)
   return (M.toList (M.fromListWith (+) toks))
@@ -828,6 +835,9 @@ fetchMissionInfo = do
 --
 --   The return value includes the number of objects that 
 --   have the given type.
+--
+--   This can include objects which are only related to
+--   discarded or canceled observations.
 --
 fetchObjectTypes :: 
   PersistBackend m
@@ -844,14 +854,12 @@ fetchObjectTypes = do
 --   discarded observations.
 --
 fetchConstellation ::
-  PersistBackend m
+  DbSql m
   => ConShort
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchConstellation con = do
   ans <- select ((SoConstellationField ==. con
-                  &&. notDiscarded
-                  -- &&. isScheduled
-                 )
+                  &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -873,14 +881,14 @@ countUp xs =
 --   Discarded observations are excluded.
 --
 fetchConstellationTypes ::
-  PersistBackend m
+  DbSql m
   => m [(ConShort, TimeKS)]
   -- ^ returns the total exposure time spent on targets
   --   in the constellation.
 fetchConstellationTypes = do
   res <- project (SoConstellationField
                  , (SoApprovedTimeField, SoObservedTimeField))
-         (notDiscarded -- &&. isScheduled
+         (isValidScienceObs
           `orderBy` [Asc SoConstellationField])
 
   let ms = map (second (uncurry fromMaybe)) res
@@ -891,14 +899,14 @@ fetchConstellationTypes = do
 --   excluding discarded observations.
 --
 fetchCategory ::
-  PersistBackend m
+  DbSql m
   => PropCategory
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   -- TODO: could use in_?
   sos <- forM propNums $ \pn ->
-    select (SoProposalField ==. pn &&. notDiscarded) --  &&. isScheduled)
+    select (SoProposalField ==. pn &&. isValidScienceObs)
   let xs = concat sos
   return (toSL soStartTime xs)
 
@@ -906,7 +914,7 @@ fetchCategory cat = do
 --   the given SIMBAD type (which can also be unidentified).
 --
 fetchCategorySubType ::
-  (Functor m, PersistBackend m, SqlDb (Conn m)) -- ghc 7.8 needs Functor
+  DbSql m
   => PropCategory  -- ^ proposal category
   -> Maybe SimbadType
   -- ^ If Nothing, use the Unidentified type
@@ -915,7 +923,7 @@ fetchCategorySubType cat mtype = do
 
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sobs <- select (((SoProposalField `in_` propNums)
-                   &&. notDiscarded)
+                   &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
 
   -- How much of this logic is in fetchSIMBADType and
@@ -953,12 +961,12 @@ fetchCategoryTypes = do
 --
 --   See also `getProposal` and `getProposalObs`
 fetchProposal ::
-  PersistBackend m
+  DbSql m
   => PropNum
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
 fetchProposal pn = do
   mprop <- select ((PropNumField ==. pn) `limitTo` 1)
-  ms <- select ((SoProposalField ==. pn &&. notDiscarded)
+  ms <- select ((SoProposalField ==. pn &&. isValidScienceObs)
                 `orderBy` [Asc SoStartTimeField])
   return (listToMaybe mprop, unsafeToSL ms)
 
@@ -966,11 +974,11 @@ fetchProposal pn = do
 --   excluding discarded.
 --
 fetchInstrument ::
-  PersistBackend m
+  DbSql m
   => Instrument
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchInstrument inst = do
-  ans <- select $ (SoInstrumentField ==. inst &&. notDiscarded) --  &&. isScheduled)
+  ans <- select $ (SoInstrumentField ==. inst &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
@@ -978,11 +986,11 @@ fetchInstrument inst = do
 --   excluding discarded.
 --
 fetchGrating ::
-  PersistBackend m
+  DbSql m
   => Grating
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchGrating grat = do
-  ans <- select $ (SoGratingField ==. grat &&. notDiscarded) --  &&. isScheduled)
+  ans <- select $ (SoGratingField ==. grat &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
@@ -990,27 +998,28 @@ fetchGrating grat = do
 --   excluding discarded.
 --
 fetchIG ::
-  PersistBackend m
+  DbSql m
   => (Instrument, Grating)
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchIG (inst, grat) = do
   ans <- select $ ((SoInstrumentField ==. inst)
                    &&. (SoGratingField ==. grat)
-                   &&. notDiscarded) --  &&. isScheduled)
+                   &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
 
 -- | This counts up the individual observations; should it try and group by
 --   "proposal", or at least "object per proposal"?
 --
---   Discarded observations are excluded.
+--   Discarded/not-scheduled observations are excluded.
 --
 fetchInstrumentTypes ::
-  PersistBackend m
+  DbSql m
   => m [(Instrument, Int)]
   -- ^ instrument and the number of observations that match
 fetchInstrumentTypes = do
-  insts <- project SoInstrumentField (notDiscarded `orderBy`
+  insts <- project SoInstrumentField (isValidScienceObs
+                                      `orderBy`
                                       [Asc SoInstrumentField])
   return (countUp insts)
 
@@ -1019,11 +1028,11 @@ fetchInstrumentTypes = do
 --   Discarded observations are excluded.
 --
 fetchGratingTypes ::
-  PersistBackend m
+  DbSql m
   => m [(Grating, Int)]
   -- ^ grating and the number of observations that match
 fetchGratingTypes = do
-  grats <- project SoGratingField (notDiscarded `orderBy`
+  grats <- project SoGratingField (isValidScienceObs `orderBy`
                                    [Asc SoGratingField])
   return (countUp grats)
 
@@ -1032,12 +1041,12 @@ fetchGratingTypes = do
 --   Discarded observations are excluded.
 --
 fetchIGTypes ::
-  PersistBackend m
+  DbSql m
   => m [((Instrument, Grating), Int)]
   -- ^ instrument + grating combo and the number of observations that match
 fetchIGTypes = do
   igs <- project (SoInstrumentField, SoGratingField)
-         (notDiscarded `orderBy`
+         (isValidScienceObs `orderBy`
           [Asc SoInstrumentField, Asc SoGratingField])
   return (countUp igs)
 
@@ -1049,7 +1058,7 @@ fetchIGTypes = do
 --         a fraction?
 --
 fetchTOOs ::
-  PersistBackend m
+  DbSql m
   => m ([(TOORequestTime, TimeKS)], TimeKS)
   -- ^ The TOO period and the associated time; the
   --   second component is the time for those observations
@@ -1057,7 +1066,7 @@ fetchTOOs ::
 fetchTOOs = do
   res <- project (SoTOOField,
                   (SoApprovedTimeField, SoObservedTimeField))
-         (notDiscarded `orderBy` [Asc SoTOOField])
+         (isValidScienceObs `orderBy` [Asc SoTOOField])
   let (nones, toos) = partitionEithers (map convField res)
 
       getTExp = uncurry fromMaybe
@@ -1071,30 +1080,16 @@ fetchTOOs = do
       
   return (M.toAscList ts, noneTime)
 
-{-
--- | The set of TOO labels in the database. This
---   does not include "none".
---
-getTOOLabels :: PersistBackend m => m [TOORequestTime]
-getTOOLabels = do
-  ans <- catMaybes <$> project SoTOOField (distinct CondEmpty)
-  -- have to remove duplicates since the distinct check above
-  -- is not going to consolidate multiple time ranges within a
-  -- period
-  return (map trType (nub ans))
--}
-
-
 -- | Return the schedule for a given TOO period.
 --
 fetchTOO ::
-  PersistBackend m
+  DbSql m
   => Maybe TOORequestTime
   -- Nothing means "no TOO"
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchTOO Nothing = do
   ans <- select ((isFieldNothing SoTOOField
-                  &&. notDiscarded)
+                  &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
   
@@ -1110,7 +1105,7 @@ fetchTOO too = do
   -- too to the string representation, as that is fragile.
   --
   allAns <- select ((Not (isFieldNothing SoTOOField)
-                     &&. notDiscarded)
+                     &&. isValidScienceObs)
                     `orderBy` [Asc SoStartTimeField])
   let ans = filter isTOO allAns
       isTOO ScienceObs{..} = trType `fmap` soTOO == too
@@ -1120,7 +1115,7 @@ fetchTOO too = do
 -- | What is the breakdown of the constraints?
 --
 fetchConstraints ::
-  PersistBackend m
+  DbSql m
   => m ([(ConstraintKind, TimeKS)], TimeKS)
   -- ^ The constraint type period and the associated time; the
   --   second component is the time for those observations
@@ -1130,7 +1125,7 @@ fetchConstraints ::
 fetchConstraints = do
   res <- project ((SoTimeCriticalField, SoMonitorField, SoConstrainedField),
                   (SoApprovedTimeField, SoObservedTimeField))
-         notDiscarded
+         isValidScienceObs
   let (nones, cs) = partitionEithers (concatMap convField res)
 
       getTExp = uncurry fromMaybe
@@ -1166,13 +1161,13 @@ getCon (Just Constrained) = SoConstrainedField /=. NoConstraint
 -- | Return the schedule for a given constraint.
 --
 fetchConstraint ::
-  PersistBackend m
+  DbSql m
   => Maybe ConstraintKind
   -- Nothing means "no constraint"
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchConstraint mcs = do
   ans <- select ((getCon mcs
-                  &&. notDiscarded)
+                  &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -1198,14 +1193,14 @@ getProposalFromNumber propNum = do
 --   was discarded. It will return unscheduled observations.
 --
 getProposalObs ::
-  PersistBackend m
+  DbSql m
   => ScienceObs
   -> m (SortedList StartTimeOrder ScienceObs)
 getProposalObs ScienceObs{..} = do
   -- time sorting probably not needed here
   ans <- select (((SoProposalField ==. soProposal)
                   &&. (SoObsIdField /=. soObsId)
-                  &&. notDiscarded)
+                  &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -1213,14 +1208,14 @@ getProposalObs ScienceObs{..} = do
 --   are in the database (including unscheduled observations).
 --
 getRelatedObs ::
-  PersistBackend m
+  DbSql m
   => PropNum
   -> ObsIdVal
   -> m (SortedList StartTimeOrder ScienceObs)
 getRelatedObs propNum obsId = do
   ans <- select (((SoProposalField ==. propNum)
                   &&. (SoObsIdField /=. obsId)
-                  &&. notDiscarded)
+                  &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
@@ -1231,14 +1226,15 @@ getObsFromProposal ::
   => PropNum
   -> m (SortedList StartTimeOrder ScienceObs)
 getObsFromProposal propNum = do
-  ans <- select ((SoProposalField ==. propNum &&. notDiscarded)
+  ans <- select ((SoProposalField ==. propNum &&.
+                  SoStatusField /=. Discarded)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
 -- | A combination of `getProposal` and `getProposalObs`.
 --
 getProposalInfo ::
-  PersistBackend m
+  DbSql m
   => Record
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
 getProposalInfo (Left _) = return (Nothing, emptySL)
@@ -1253,7 +1249,7 @@ getProposalInfo (Right so) = do
 --
 --   This INCLUDES discarded and unscheduled observations.
 --
-findObsStatusTypes :: PersistBackend m => m [(T.Text, Int)]
+findObsStatusTypes :: PersistBackend m => m [(ObsIdStatus, Int)]
 findObsStatusTypes = do
   statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
   return (countUp statuses)
@@ -1270,7 +1266,7 @@ findObsStatusTypes = do
 --         Also, should protect/remove the search-specific terms.
 --
 findNameMatch ::
-  (PersistBackend m, SqlDb (Conn m))
+  DbSql m
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
@@ -1287,7 +1283,7 @@ findNameMatch instr = do
 
 -- | Find proposals whose titles match the given string
 findProposalNameMatch ::
-  (PersistBackend m, SqlDb (Conn m))
+  DbSql m
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
@@ -1311,7 +1307,7 @@ findProposalNameMatch instr =
 --     filter out % and _ ?
 --
 findTarget ::
-  (PersistBackend m, SqlDb (Conn m))
+  DbSql m
   => TargetName
   -> m (SortedList StartTimeOrder ScienceObs, [TargetName])
   -- ^ Returns a list of matching observations and the list of
@@ -1381,7 +1377,7 @@ unidentifiedKey = SK (noSimbadLabel, noSimbadType)
 --         probably be improved)
 --
 getProposalObjectMapping ::
-  (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
+  DbSql m
   => m (M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs),
         UTCTime)
   -- ^ The keys are the proposal category and SIMBAD type.
@@ -1439,7 +1435,7 @@ getProposalObjectMapping = do
   --
   obsDb <- project (SoTargetField, SoProposalField
                    , SoApprovedTimeField, SoObservedTimeField)
-           (notDiscarded &&. isScheduled)
+           isValidScienceObs
   let convert (a, b, aTime, oTime) = do
         let scat = fromMaybe unidentifiedKey (M.lookup a simMap)
         pcat <- M.lookup b propMap
@@ -1487,7 +1483,7 @@ getProposalObjectMapping = do
 -- | Work out a timeline of the data.
 --
 --   It looks like there are some non-science observations that
---   have been cancelled or removed, but are still in the system.
+--   have been canceled or removed, but are still in the system.
 --   These can be identified as having nsName /= "unknown" but
 --   in the past. A query like
 --   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52472
@@ -1500,29 +1496,22 @@ getProposalObjectMapping = do
 --   Should be cleaned up *in* the database.
 --
 getTimeline ::
-  PersistBackend m
+  DbSql m
   => m (SortedList StartTimeOrder ScienceObs,
         SortedList StartTimeOrder NonScienceObs,
         M.Map TargetName SimbadInfo,
         [Proposal])
-{-  
-  => m ((SortedList StartTimeOrder ScienceObs,
-         SortedList StartTimeOrder NonScienceObs,
-         [Proposal]), UTCTime)
--}
 getTimeline = do
 
   lastMod <- (ChandraTime . fromMaybe dummyLastMod) <$> getLastModified
   
-  obs <- select ((notDiscarded &&. isScheduled)
+  obs <- select (isValidScienceObs
                  `orderBy` [Asc SoStartTimeField])
 
-  let unknown :: T.Text
-      unknown = "unknown"
-      
-  ns <- select ((NsStartTimeField >. discardedTime &&.
-                 (NsNameField ==. unknown ||.
-                  NsStartTimeField >. lastMod))
+  ns <- select ((Not (isFieldNothing NsStartTimeField) &&.
+                 (NsStatusField /=. Discarded) &&.
+                 (NsStatusField /=. Canceled) &&.
+                 (NsStartTimeField >. Just lastMod))
                 `orderBy` [Asc NsStartTimeField])
 
   -- SIMBAD info: the returned information is enough to create
@@ -1573,11 +1562,10 @@ addLastMod out = do
 --   midnight.
 --
 getExposureBreakdown ::
-  PersistBackend m
+  DbSql m
   => Day
   -- ^ The upper limit for when to search; this is so that items
   --   in the long-term schedule do not "show up" in the output.
-  --   It is assumed that this is before `futureTime`.
   -> m (M.Map (Instrument, Grating) TimeKS
        , M.Map Day (M.Map (Instrument, Grating) TimeKS))
 getExposureBreakdown maxDay = do
@@ -1585,16 +1573,17 @@ getExposureBreakdown maxDay = do
   ans <- project (SoStartTimeField, SoApprovedTimeField
                  , SoObservedTimeField, SoInstrumentField
                  , SoGratingField)
-         (((SoStartTimeField <=. maxTime) &&. notDiscarded)
+         (((SoStartTimeField <=. Just maxTime) &&. isValidScienceObs)
           `orderBy` [Asc SoStartTimeField])
 
-  let conv (startTime, approvTime, observTime, inst, grat) =
+  let conv (Just startTime, approvTime, observTime, inst, grat) =
         let expTime = fromMaybe approvTime observTime
             key = utctDay (_toUTCTime startTime)
             val = M.singleton (inst,grat) expTime
-        in (key, val)
-
-      days = map conv ans
+        in Just (key, val)
+      conv (Nothing, _, _, _, _) = Nothing
+      
+      days = mapMaybe conv ans
       
       -- the second element is guaranteed to be a singleton, so
       -- the following could probably be more efficient, but this
@@ -1613,11 +1602,10 @@ getExposureBreakdown maxDay = do
 --   to get the database to do this with Groundhog.
 --
 getNumObsPerDay ::
-  PersistBackend m
+  DbSql m
   => Day
   -- ^ The upper limit for when to search; this is so that items
   --   in the long-term schedule do not "show up" in the output.
-  --   It is assumed that this is before `futureTime`.
   -> m (M.Map Day Int)
   -- ^ The return value is the number of science observations
   --   in each day. For dates in the future it uses the planned
@@ -1625,10 +1613,11 @@ getNumObsPerDay ::
 getNumObsPerDay maxDay = do
   let maxTime = ChandraTime (UTCTime maxDay 0)
   times <- project SoStartTimeField
-           (((SoStartTimeField <=. maxTime) &&. notDiscarded)
+           ((isValidScienceObs &&. (SoStartTimeField <=. Just maxTime))
             `orderBy` [Asc SoStartTimeField])
 
-  let days = map (\t -> ((utctDay . _toUTCTime) t, 1)) times
+  let ctimes = catMaybes times
+      days = map (\t -> ((utctDay . _toUTCTime) t, 1)) ctimes
   return (M.fromAscListWith (+) days)
 
 {-
@@ -1651,7 +1640,7 @@ getProposalCategoryBreakdown = do
 
 
 getProposalTypeBreakdown ::
-  PersistBackend m
+  DbSql m
   => m (M.Map PropType (Int, Int, TimeKS))
   -- ^ Return the number of proposals, number of targets
   --   in this proposal (if the same target is observed in
@@ -1673,7 +1662,7 @@ getProposalTypeBreakdown = do
   -- likely less memory)
   obsInfo <- project (SoProposalField,
                       (SoApprovedTimeField, SoObservedTimeField))
-             (notDiscarded `orderBy` [Asc SoProposalField])
+             (isValidScienceObs `orderBy` [Asc SoProposalField])
 
   let getTexp = uncurry fromMaybe
 
@@ -1710,14 +1699,14 @@ getProposalTypeBreakdown = do
 
 -- | This does not include discarded observatons.  
 getProposalType ::
-  (PersistBackend m, SqlDb (Conn m))
+  DbSql m
   => PropType
   -> m (SortedList StartTimeOrder ScienceObs)
 getProposalType ptype = do
   let ptypeStr = fromPropType ptype
   pnums <- project PropNumField (PropTypeField ==. ptypeStr)
   sobs <- select (((SoProposalField `in_` pnums)
-                   &&. notDiscarded)
+                   &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL sobs)
 
@@ -1728,7 +1717,7 @@ getProposalType ptype = do
 --   work to create.
 --
 getExposureValues ::
-  PersistBackend m
+  DbSql m
   => m [(T.Text, SortedList ExposureTimeOrder TimeKS)]
   -- ^ Return the lists for each cycle, with cycle=="all"
   --   for all data.
@@ -1740,7 +1729,7 @@ getExposureValues = do
   -- ordering, but is it worth it?
   sobs <- project (SoProposalField,
                    (SoApprovedTimeField, SoObservedTimeField))
-          (notDiscarded &&. isScheduled)
+          isValidScienceObs
 
   -- Is it best to insert into an ordered list (so changing the
   -- list structure each iteration) or sort at the end?
@@ -1781,36 +1770,38 @@ showSize l t = do
   return n
 
 -- | Quick on-screen summary of the database size.
+--
+--   THIS HAS NOT BEEN FULLY UPDATED
 reportSize :: DbIO m => m Int
 reportSize = do
-  n1 <- showSize "scheduled items  " (undefined :: ScheduleItem)
+  -- n1 <- showSize "scheduled items  " (undefined :: ScheduleItem)
   n2 <- showSize "science obs      " (undefined :: ScienceObs)
   n3 <- showSize "non-science obs  " (undefined :: NonScienceObs)
   n4 <- showSize "proposals        " (undefined :: Proposal)
   n5 <- showSize "SIMBAD match     " (undefined :: SimbadMatch)
   n6 <- showSize "SIMBAD no match  " (undefined :: SimbadNoMatch)
   n7 <- showSize "SIMBAD info      " (undefined :: SimbadInfo)
-  n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
+  -- n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
 
+  let n1 = 0 -- TODO: remove this
+      n8 = 0
+      
   nbad <- showSize "invalid obsids   " (undefined :: InvalidObsId)
 
-  -- break down the status field of the scheduled observations
+  -- break down the status field of the observations
   putIO ""
   ns <- findObsStatusTypes
   let field = right 10 ' '
   forM_ ns (\(status, n) ->
-             putIO (sformat ("  status=" % field % "  : " % int) status n))
+             let txt = fromObsIdStatus status
+             in putIO (sformat ("  status=" % field % "  : " % int) txt n))
   putIO (sformat (" -> total = " % int) (sum (map snd ns)))
   putIO ""
 
-  -- unscheduled observations
-  nuns <- count (SoStartTimeField ==. futureTime)
-  putIO (sformat ("  un-scheduled science obs      = " % int) nuns)
-  
   -- non-science breakdown
-  ns1 <- count notFromObsCat
+  -- ns1 <- count notFromObsCat
+  -- putIO (sformat ("  non-science (not from obscat) = " % int) ns1)
   ns2 <- count (Not notNsDiscarded)
-  putIO (sformat ("  non-science (not from obscat) = " % int) ns1)
   putIO (sformat ("  non-science discarded         = " % int) ns2)
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8, nbad]
@@ -1930,79 +1921,6 @@ insertOrReplace cond newVal = do
                                 insert_ newVal
     _ -> insert_ newVal
 
--- | Add a schedule item to the database if there is no known
---   observation for this ObsId. If the obsid already exists
---   then nothing is done (note that there is *no* check that
---   the information is valid).
---
---   For Non-Science observations *only*, a NonScienceObs
---   item is also added if it does not already exist. This
---   item has the nsName field set to the value from the
---   input item. This lets down-stream determine that it
---   needs to be updated with the obscat record, once it
---   is available.
---
-addScheduleItem ::
-  (Functor m, PersistBackend m) -- ghc 7.8 needs Functor
-  => (ScheduleItem, Maybe NonScienceObs)
-  -> m Bool  -- ^ True if the item was added to the database
-addScheduleItem (si, mns) = do
-  let obsid = siObsId si
-  noRecord1 <- isNothing <$> getRecord obsid
-
-  -- although there are constraints on the obsid field,
-  -- let's do an explicit check.
-  noRecord <- if noRecord1
-              then do
-                n <- count (SiObsIdField ==. obsid)
-                return (n == 0)
-              else return False
-
-  -- by this point we know there's no NonScienceObs
-  -- version of the data.
-  when noRecord $ do
-    insert_ si
-    case mns of
-      Just ns -> do
-        when (nsName ns == nsInObsCatName)
-          (fail ("*** Internal invariant not maintained: " ++ show ns))
-        insert_ ns
-      _ -> return ()
-    
-  return noRecord
-
-
--- | Remove unwanted information in the database. At present this is:
---
---   1. ScheduleItem entries for which there is a record (science or non-science).
---
---   Should cleanupDiscarded be rolled into this?
-cleanDataBase :: PersistBackend m => m ()
-cleanDataBase = do
-  -- TODO: get the primary key to make deletion easier?
-  obsids <- project SiObsIdField CondEmpty
-  forM_ obsids $ \obsid -> do
-    -- be lazy and make both requests even though could avoid
-    -- an extra look-up if the first succeeds
-    n1 <- count (SoObsIdField ==. obsid)
-    n2 <- count (NsObsIdField ==. obsid)
-    unless (n1 == 0 && n2 == 0) (delete (SiObsIdField ==. obsid))
-
--- | Ensure that any discarded science observations are removed from the
---   ScheduleItem table. It is just easier for me to do this in one place
---   rather than add a check in `insertScienceObs` and `replaceScienceObs`.
---   Do the same for the non-science observations.
---
---   Should this be moved into `cleanDataBase`?
---
-cleanupDiscarded :: PersistBackend m => m ()
-cleanupDiscarded = do
-  sobsids <- project SoObsIdField (Not notDiscarded)
-  forM_ sobsids (\obsid -> delete (SiObsIdField ==. obsid))
-  
-  nsobsids <- project NsObsIdField (Not notNsDiscarded)
-  forM_ nsobsids (\obsid -> delete (SiObsIdField ==. obsid))
-
 -- | Update the last-modified field with the time.
 --
 --   Some would say that this should be done by Postgres itself, with
@@ -2042,7 +1960,8 @@ addInvalidObsId = insert_
 
 -- | Hard-coded connection string for the database connection.
 dbConnStr :: String
-dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
+-- dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
+dbConnStr = "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
 
 -- | Run an action against the database. This includes a call to
 --   `handleMigration` before the action is run.

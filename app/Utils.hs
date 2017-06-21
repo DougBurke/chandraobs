@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -48,19 +47,11 @@ import qualified Formatting.Time as FT
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Control.Applicative ((<$>))
-#endif
-
 import Data.Either (rights)
 import Data.List (foldl')
 import Data.Maybe (fromMaybe)
 
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Data.Monoid ((<>), mconcat, mempty)
-#else
 import Data.Monoid ((<>))
-#endif
 
 import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day, NominalDiffTime, UTCTime
@@ -81,7 +72,7 @@ import Types (ScienceObs(..)
              , Record
              , Schedule(..)
              , recordStartTime
-             , recordTime, futureTime
+             , recordTime
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
 
@@ -152,15 +143,12 @@ getTimeLabels f nm nh nd t =
 --   prefix (here, "in"), in most cases. So, this is to be
 --   used for time differences in the future.
 --
---   Unlike the other "show time difference" routines, this
---   one special cases a value where time2 == futureTime,
---   which means that it is unscheduled.
---
 showTimeDeltaFwd ::
   UTCTime     -- time 1
-  -> ChandraTime  -- time 2, >= time 1
+  -> Maybe ChandraTime  -- time 2, >= time 1
   -> T.Text   -- time1 relative to time2
-showTimeDeltaFwd t1 c2@(ChandraTime t2) = 
+showTimeDeltaFwd _ Nothing = "observation is not scheduled"
+showTimeDeltaFwd t1 (Just (ChandraTime t2)) = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       -- TODO: look at F.plural
@@ -177,26 +165,26 @@ showTimeDeltaFwd t1 c2@(ChandraTime t2) =
       other = showTime t2
       -}
       
-  in if c2 == futureTime
-     then "observation is not scheduled"
-     else if delta < 60
-          then "now"
-          else if m < 60
-               then mins
-               else if h < 24
-                    then hours
-                    else if d < 7
-                         then days
-                         else "on " <> other
+  in if delta < 60
+     then "now"
+     else if m < 60
+          then mins
+          else if h < 24
+               then hours
+               else if d < 7
+                    then days
+                    else "on " <> other
 
 -- | Come up with a string representing the time difference.  This is
 --   to be used for time differences in the future; see also
---   showTimeDeltaBwd.
+--   showTimeDeltaFwd.
+--
 showTimeDeltaBwd ::
-  ChandraTime     -- time 1
+  Maybe ChandraTime     -- time 1
   -> UTCTime  -- time 2, >= time 1
   -> T.Text   -- time1 relative to time2
-showTimeDeltaBwd (ChandraTime t1) t2 = 
+showTimeDeltaBwd Nothing _ = "observation is not scheduled"  
+showTimeDeltaBwd (Just (ChandraTime t1)) t2 = 
   let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       -- TODO: look at F.plural
@@ -235,12 +223,15 @@ cleanJointName j = if "CXO-" `T.isPrefixOf` j then T.drop 4 j else j
 
 getTimes ::
   Record
-  -> (ChandraTime, ChandraTime) -- start and end times
+  -> Maybe (ChandraTime, ChandraTime) -- start and end times
 getTimes rs =
-  let sTime = _toUTCTime (recordStartTime rs)
-      expTime = fromInteger . ceiling $ 1000 * _toKS (recordTime rs)
-      eTime = addUTCTime expTime sTime
-  in (ChandraTime sTime, ChandraTime eTime)
+  case recordStartTime rs of
+    Just t -> let sTime = _toUTCTime t
+                  expTime = fromInteger . ceiling $ 1000 * _toKS (recordTime rs)
+                  eTime = addUTCTime expTime sTime
+              in Just (ChandraTime sTime, ChandraTime eTime)
+    Nothing -> Nothing
+
 
 maybeToList :: Maybe a -> [a]
 maybeToList Nothing = []

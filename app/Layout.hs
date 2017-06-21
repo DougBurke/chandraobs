@@ -63,6 +63,7 @@ import Types (ChipStatus(..)
              , ConShort(..)
              , Grating(..)
              , Instrument(..)
+             , ObsIdStatus(Discarded)
              , Proposal(..)
              , ScienceObs(..)
              , SimbadInfo(..)
@@ -396,7 +397,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       
       discardRows = [ tr (addClass "note" td
                           "Note: the observation was discarded")
-                    | soStatus == "discarded" ]
+                    | soStatus == Discarded ]
 
       -- I do not think we need more precision for the roll than an integer
       roll :: Int
@@ -419,7 +420,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           , fromMaybe mempty subArray
           , fromMaybe mempty (keyVal "Data Mode:" . toHtml <$> soDataMode)
           -- rely on the ToMarkup instance of ChandraTime
-          , keyVal "Date:" (toHtml soStartTime)
+          , fromMaybe mempty (keyVal "Date:" . toHtml <$> soStartTime)
           , expLink
           -- rely on the ToMarkup instance of RA
           , keyVal "Right Ascension:" (toHtml soRA)

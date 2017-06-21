@@ -1,14 +1,9 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Report the currently running observation.
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Control.Applicative ((<$>))
-#endif
 
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -16,9 +15,7 @@ import Prelude ((.), ($), (==), (-), (+)
                , Int, Integer, Either(..), Maybe(..)
                , fmap, map, mapM_, maybe, not, return, snd, truncate)
 
-#if (defined(__GLASGOW_HASKELL__)) && (__GLASGOW_HASKELL__ >= 710)
 import Prelude ((<$>), mconcat, mempty)
-#endif
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as M
@@ -27,21 +24,13 @@ import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Control.Applicative ((<$>))
-#endif
-
 import Data.Aeson ((.=))
 import Data.Bits (shiftL)
 import Data.Char (isSpace)
 import Data.List (foldl', intersperse)
 import Data.Maybe (fromMaybe, mapMaybe)
 
-#if (!defined(__GLASGOW_HASKELL__)) || (__GLASGOW_HASKELL__ < 710)
-import Data.Monoid ((<>), mconcat, mempty)
-#else
 import Data.Monoid ((<>))
-#endif
 
 import Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
 
@@ -129,13 +118,17 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
         Just si -> typeDLinkSearch (smiType3 si) (smiType si)
         Nothing -> basicTypeLinkSearch Nothing
 
-      -- convert UTCTime to an integer; this does not have to
-      -- special case unscheduled records where the time is set
-      -- to futureTime, as that is a value intentionally set
-      -- to "the future".
+      -- convert UTCTime to an integer. If there's no time then replace
+      -- with 0.
       --
+      getT :: ChandraTime -> Integer
+      getT = (truncate :: POSIXTime -> Integer) .
+             utcTimeToPOSIXSeconds . _toUTCTime
+               
       aTime :: Record -> AttributeValue
-      aTime = toValue . (truncate :: POSIXTime -> Integer) . utcTimeToPOSIXSeconds . _toUTCTime . recordStartTime
+      aTime r = toValue (case recordStartTime r of
+                          Just t -> getT t
+                          Nothing -> 0)
 
       hover r = let lbl = toValue $ idLabel r
                 in tr ! id (toValue lbl)
@@ -208,7 +201,7 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
             cname = T.filter (not . isSpace) sname
         in sortRow cname row
 
-      toRow :: (ChandraTime -> T.Text) -> Record -> Html
+      toRow :: (Maybe ChandraTime -> T.Text) -> Record -> Html
       toRow ct r = hover r $ do
          makeTargetRow r
          td (linkToSimbad r)
@@ -227,7 +220,10 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
          sortRow dec (td (toHtml dec))
          td (showConstellation r)
 
-      cRow r = toRow (showTimeDeltaBwd (ChandraTime cTime) . _toUTCTime) r ! A.class_ "current"
+      tNow = ChandraTime cTime
+      curTime Nothing = "observation is not scheduled"
+      curTime (Just t) = showTimeDeltaBwd (Just tNow) (_toUTCTime t)
+      cRow r = toRow curTime r ! A.class_ "current"
       pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
       nRow r = toRow (showTimeDeltaFwd cTime) r ! A.class_ "next"
 

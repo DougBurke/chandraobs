@@ -54,6 +54,7 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , ObsInfo(..), ObsStatus(..)
              , ChandraTime(..), Constraint(..)
              , ConLong(..)
+             , ObsIdStatus(Discarded)
              , SimbadLoc(SimbadCfA)
              , SortedList, StartTimeOrder
              , TargetName, SIMCategory
@@ -356,8 +357,8 @@ targetInfo ::
   -- other observations in the proposal
   -> Html
 targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
-  let (sTime, eTime) = getTimes (Right so)
-      obsStatus = getObsStatus (sTime, eTime) cTime 
+  let mTimes = getTimes (Right so)
+      obsStatus = getObsStatus mTimes cTime 
       targetName = nameLinkSearch soTarget Nothing
       lenVal = toHtml (showExpTime (fromMaybe soApprovedTime soObservedTime))
 
@@ -464,6 +465,9 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       tooPara = fromMaybe mempty (tooTxt obsStatus <$> soTOO)
 
+      sTime = fst <$> mTimes
+      eTime = snd <$> mTimes
+      
       cts Unscheduled =
         "The target - " <> targetName
         <> " - will be observed " <> instInfo
@@ -589,7 +593,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         let c = jointObs <> constrainedObs
         in if isNothing soJointWith && null copts  then mempty else p c
 
-  in if soStatus == "discarded"
+  in if soStatus == Discarded
      then discardedPara
      else sciencePara <> constraintsPara <> tooPara
 
@@ -610,20 +614,20 @@ otherInfo ::
   -> NonScienceObs
   -> Html
 otherInfo cTime ns = 
-  let (sTime, eTime) = getTimes (Left ns)
-      obsStatus = getObsStatus (sTime, eTime) cTime 
-  in nonSciencePara (sTime, eTime, cTime) ns obsStatus
+  let mTimes = getTimes (Left ns)
+      obsStatus = getObsStatus mTimes cTime 
+  in nonSciencePara (mTimes, cTime) ns obsStatus
 
 -- | Create the paragraph describing the observing status -
 --   i.e. if it has been, will be, or is being, observed.
 --
 nonSciencePara ::
-  (ChandraTime, ChandraTime, UTCTime)
+  (Maybe (ChandraTime, ChandraTime), UTCTime)
   -- ^ start time, end time, current time
   -> NonScienceObs
   -> ObsStatus     -- ^ status of observation
   -> Html
-nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
+nonSciencePara (mTimes, cTime) NonScienceObs{..} obsStatus =
   -- should not have Unscheduled observations here, but support just in case
   let showLen Unscheduled =
         if nsTime > nullTime
@@ -650,6 +654,9 @@ nonSciencePara (sTime, eTime, cTime) NonScienceObs{..} obsStatus =
                 ]
         else " - finished "
 
+      sTime = fst <$> mTimes
+      eTime = snd <$> mTimes
+      
       cts Unscheduled = 
         mconcat [ "The calibration observation - "
                 , targetName

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -228,11 +227,7 @@ querySIMBAD sloc f objname = do
 
   cTime <- getCurrentTime
 
-#if defined(MIN_VERSION_http_client) && MIN_VERSION_http_client(0,4,31)
   req <- parseRequest uri
-#else
-  req <- parseUrl uri
-#endif
 
   let hdrs = ("User-Agent", "chandraobs-obscat") : requestHeaders req
       req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }

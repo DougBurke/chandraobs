@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -41,18 +40,14 @@ import Control.Arrow (first)
 import Control.Monad ((>=>))
 import Control.Monad.IO.Class (MonadIO)
 
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 import Data.Bits (Bits(..), FiniteBits(..))
-#else
-import Data.Bits (Bits(..))
-#endif
 
 import Data.Aeson (ToJSON(..))
 import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
 import Data.Function (on)
 import Data.List (sortBy)
-import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (fromJust, fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -70,18 +65,12 @@ import Network.HTTP.Types.URI (renderSimpleQuery)
 
 import Web.Scotty (Parsable(..))
 
-#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
-import Data.Time (UTCTime, TimeLocale, addUTCTime, defaultTimeLocale, parseTimeOrError)
-#else
-import Data.Time (UTCTime, addUTCTime, readTime)
-import System.Locale (defaultTimeLocale)
-#endif
+import Data.Time (UTCTime, TimeLocale
+                 , addUTCTime, defaultTimeLocale, parseTimeOrError)
 
-#if defined(MIN_VERSION_time) && MIN_VERSION_time(1,5,0)
 -- make it easy to compile on different systems for now
 readTime :: TimeLocale -> String -> String -> UTCTime
 readTime = parseTimeOrError True
-#endif
 
 -- | Isn't this in base now?
 maybeRead :: Read a => String -> Maybe a
@@ -215,6 +204,7 @@ data MetaData = MetaData { mdLastModified :: UTCTime }
 data InvalidObsId = InvalidObsId {
   ioObsId :: ObsIdVal     -- ^ The ObsId in question
   , ioChecked :: UTCTime  -- ^ The approximate time this was checked
+  , ioMessage :: T.Text   -- ^ reason it's "bad"
   } deriving Eq
 
 {-
@@ -378,7 +368,8 @@ instance H.ToMarkup TargetName where
 instance H.ToValue TargetName where
   toValue TN {..} = H.toValue fromTargetName
   
--- hacks for quickly converting old code
+-- hacks for quickly converting old code; however, the idea of
+-- a Record has stuck around for a while, so it may need to stay
 
 recordSequence :: Record -> Maybe Sequence
 recordSequence = either (const Nothing) (Just . soSequence)
@@ -389,8 +380,11 @@ recordObsId = either nsObsId soObsId
 recordTarget :: Record -> TargetName
 recordTarget = either nsTarget soTarget
 
-recordStartTime :: Record -> ChandraTime
+recordStartTime :: Record -> Maybe ChandraTime
 recordStartTime = either nsStartTime soStartTime
+
+recordStartTimeUnsafe :: Record -> ChandraTime
+recordStartTimeUnsafe = fromJust . recordStartTime
 
 -- Use the actual time if we have it, otherwise the approved time
 recordTime :: Record -> TimeKS
@@ -512,48 +506,17 @@ instance H.ToMarkup ChandraTime where
 instance H.ToValue ChandraTime where
   toValue = H.toValue . showCTime
 
--- TODO: convert checks on discarded/futureTime fields to use
---       a range rather than equality (ie <= rather than =).
---       It's not guaranteed that this will avoid numeric issues
---       
-
--- | This is used for non-science observations that appear to have
---   been discarded. It is only needed because I refuse to update
---   the NonScienceObs data type (and hence update the database).
---
---   Note that this used to be "1999:000:00:00:00.000"
---   which the time library prior to 1.6 accepted, but is
---   now an error. Fortunately it looks like the daynum=0
---   value was decoded as if it was daynum-1.
---
-discardedTime :: ChandraTime
-discardedTime = toCTime "1999:001:00:00:00.000"
-
--- TODO: need to hack times in the database
-
--- | Used for science observations with no start date (and that
---   are not discarded). The intention is to support observations
---   that were scheduled but have been removed for some reason.
---
---   Note that this used to be "2100:000:00:00:00.000"
---   which the time library prior to 1.6 accepted, but is
---   now an error. Fortunately it looks like the daynum=0
---   value was decoded as if it was daynum-1.
---
-futureTime :: ChandraTime
-futureTime = toCTime "2100:001:00:00:00.000"
-
 data ObsStatus = Done | Doing | Todo | Unscheduled deriving Eq
 
 getObsStatus :: 
-  (ChandraTime, ChandraTime) -- observation start and end times
+  Maybe (ChandraTime, ChandraTime) -- observation start and end times
   -> UTCTime        -- current time
   -> ObsStatus
-getObsStatus (ChandraTime sTime, ChandraTime eTime) cTime
-  | sTime >= _toUTCTime futureTime = Unscheduled
+getObsStatus (Just (ChandraTime sTime, ChandraTime eTime)) cTime
   | cTime < sTime       = Todo
   | cTime <= eTime      = Doing
   | otherwise           = Done
+getObsStatus _ _  = Unscheduled  
 
 -- | Represent a Chandra sequence number.
 newtype Sequence = Sequence { _unSequence :: Int } 
@@ -769,30 +732,64 @@ instance H.ToMarkup TimeKS where
 instance H.ToValue TimeKS where
   toValue = H.toValue . _toKS
 
+-- | A short-term schedule is identified by a tag - e.g.
+--   "DEC2312A".
+--
+--   There is no validation on the value used as the tag
+--   since the format has changed over time; the following
+--   have all been used "06AUG16A", "APR2002A", "FEB0402".
+--
+newtype ShortTermTag = ShortTermTag { fromShortTermTag :: T.Text }
+                     deriving (Eq, Ord)
+
+-- | This strips out leading and trailing white space, which
+--   appears to be unnescessary but left in, just in case.
+--
+toShortTermTag :: T.Text -> ShortTermTag
+toShortTermTag = ShortTermTag . T.toUpper . T.strip
+
+
+-- | The short-term schedules for which we have data.
+--
+data ShortTermSchedule = ShortTermSchedule {
+  stsTag :: ShortTermTag
+  -- ^ The identifier for the schedule.
+  , stsChecked :: UTCTime
+  -- ^ The time the schedule was queried
+  , stsErrorOnParse :: Maybe T.Text
+  -- ^ Was there a problem parsing data.? The intention is to
+  --   have a way to say "don't re-try this schedule", although
+  --   it is not yet clear if it is really needed.
+  }
+
 -- | A scheduled observation (may be in the past, present, or future).
 --
 --   The information is taken from <http://cxc.cfa.harvard.edu/target_lists/stscheds/>,
 --   and contains information we store elsewhere.
+--
+--   We use this to represent the data we get from the Short-Term
+--   schedule pages, but it no longer goes into the database.
+--
 data ScheduleItem = ScheduleItem {
     siObsId :: ObsIdVal
     , siScienceObs :: Bool
     , siStart :: ChandraTime
-    , siEnd :: ChandraTime     -- approx end time
+    -- , siEnd :: ChandraTime     -- approx end time
     , siDuration :: TimeKS
+    , siRA :: RA
+    , siDec :: Dec
+    , siRoll :: Double
     }
   -- deriving (Eq, Show)
   deriving Eq
 
+-- | Helper function for displaying start times.
+--
+showStartTime :: Maybe ChandraTime -> T.Text
+showStartTime (Just ct) = "at " <> showCTime ct
+showStartTime Nothing   = "unscheduled"
+
 -- | Represent a non-science/cal observation.
---
---   Note that now I am querying the ObsCat for this information,
---   could store more. Could maybe just have an Obs type with
---   an easy way to determine whether science or "non science"
---   (although likely not, since that is likely better done with
---   a sum type and I don't want to encode that into the database
---   schema at this time).
---
---   TODO: really needs a status field.
 --
 --   There appear to be obsids - e.g. 52323
 --   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52323
@@ -801,13 +798,14 @@ data ScheduleItem = ScheduleItem {
 --   but that the OCAT isn't updated.
 --
 data NonScienceObs = NonScienceObs {
-  nsName :: T.Text
+  nsStatus :: ObsIdStatus
+  -- , nsName :: T.Text
   -- the STS has a string identifier; where does this come from?
   -- It looks like these names may be removed once the "observation"
   -- is finished.
   , nsObsId :: ObsIdVal
   , nsTarget :: TargetName
-  , nsStartTime :: ChandraTime
+  , nsStartTime :: Maybe ChandraTime
   , nsTime :: TimeKS
   , nsRa :: RA
   , nsDec :: Dec
@@ -820,8 +818,9 @@ data NonScienceObs = NonScienceObs {
 instance Show NonScienceObs where
   show NonScienceObs{..} = 
     "CAL: " <> show (fromObsId nsObsId)
-    <> " for " <> show (_toKS nsTime)
-    <> " ks at " <> T.unpack (showCTime nsStartTime)
+    <> "(" <> T.unpack (fromObsIdStatus nsStatus)
+    <> ") for " <> show (_toKS nsTime)
+    <> " ks " <> T.unpack (showStartTime nsStartTime)
 
 -- | Is a chip on, off, or optional.
 --
@@ -896,12 +895,12 @@ getConstraintKinds ScienceObs {..} =
 --
 --   This is a case-insensitive conversion
 labelToCS :: T.Text -> Maybe ConstraintKind
-labelToCS lbl =
+labelToCS =
   let go "timecritical" = Just TimeCritical
       go "monitor" = Just Monitor
       go "constrained" = Just Constrained
       go _ = Nothing
-  in go (T.toLower lbl)
+  in go . T.toLower
 
 csToLC :: ConstraintKind -> T.Text
 csToLC TimeCritical = "timecritical"
@@ -912,6 +911,38 @@ csToLabel :: ConstraintKind -> T.Text
 csToLabel TimeCritical = "Time Critical"
 csToLabel Monitor = "Monitoring"
 csToLabel Constrained = "Constrained"
+
+-- | The status field of an observation. Hopefully this is
+--   all the states it could be.
+--
+data ObsIdStatus =
+  Discarded | Canceled | Unobserved | Scheduled | Observed | Archived
+   deriving Eq
+
+-- | The conversion is case sensitive.            
+toObsIdStatus :: T.Text -> Maybe ObsIdStatus
+toObsIdStatus "discarded" = Just Discarded
+toObsIdStatus "canceled" = Just Canceled
+toObsIdStatus "unobserved" = Just Unobserved
+toObsIdStatus "scheduled" = Just Scheduled
+toObsIdStatus "observed" = Just Observed
+toObsIdStatus "archived" = Just Archived
+toObsIdStatus _ = Nothing
+
+fromObsIdStatus :: ObsIdStatus -> T.Text
+fromObsIdStatus Discarded = "discarded"
+fromObsIdStatus Canceled = "canceled"
+fromObsIdStatus Unobserved = "unobserved"
+fromObsIdStatus Scheduled = "scheduled"
+fromObsIdStatus Observed = "observed"
+fromObsIdStatus Archived = "archived"
+
+-- | It would be good to use an enumeration here, but new telescopes
+--   could be added, and I do not have a good list of the current
+--   choices.
+--
+newtype Telescope = Telescope { fromTelescope :: T.Text }
+                  deriving Eq
 
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
@@ -930,10 +961,16 @@ csToLabel Constrained = "Constrained"
 data ScienceObs = ScienceObs {
   soSequence :: Sequence -- TODO: DefaultKey Proposal ?
   , soProposal :: PropNum -- the proposal number
-  , soStatus :: T.Text    -- use an enumeration
+  , soStatus :: ObsIdStatus
   , soObsId :: ObsIdVal
   , soTarget :: TargetName
-  , soStartTime :: ChandraTime
+    
+    -- there are times when an observation has no start time; I have
+    -- previously used a marked to indicate this (e.g. a value before
+    -- Chandra launched), but it complicates things, so let's model
+    -- the data properly).
+    --
+  , soStartTime :: Maybe ChandraTime
   , soApprovedTime :: TimeKS
   , soObservedTime :: Maybe TimeKS
   , soPublicRelease :: Maybe UTCTime -- ^ release date
@@ -947,7 +984,9 @@ data ScienceObs = ScienceObs {
   , soDetector :: Maybe T.Text   -- this is only available for archived obs
   , soDataMode :: Maybe T.Text -- use an enumeration; not available for HRC
 
-  -- these are meaningless for HRC observations; in this case ChipStatus is set to ?
+    -- these are meaningless for HRC observations; in this case ChipStatus
+    -- is set to ChipOff
+    
   , soACISI0 :: ChipStatus  
   , soACISI1 :: ChipStatus  
   , soACISI2 :: ChipStatus  
@@ -959,14 +998,6 @@ data ScienceObs = ScienceObs {
   , soACISS4 :: ChipStatus  
   , soACISS5 :: ChipStatus  
 
-    -- TODO: need to review to see if any new elements have been added
-    -- TODO: some observations have information like (e.g. obsid 17393)
-    --   ("MULTITEL","Y")
-    --   ("MULTITEL_INT","0.5")
-    --   ("MULTITEL_OBS","XMM-Newton, Suzaku, NuStar")
-    --       which is not encoded in the joint-with data. Does this tell
-    --       us about simultaneous observations?
-    --
   , soJointWith :: Maybe T.Text
   , soJointHST :: Maybe TimeKS
   , soJointNOAO :: Maybe TimeKS
@@ -978,18 +1009,20 @@ data ScienceObs = ScienceObs {
   , soJointSWIFT :: Maybe TimeKS
   , soJointNUSTAR :: Maybe TimeKS
 
-  -- , soTOO :: Maybe T.Text -- contains values like "0-4" "4-15"; presumably #days for turn around
+  , soMultiTel :: Bool
+  , soMultiTelInt :: Double
+  , soMultiTelObs :: [Telescope]
+    
   , soTOO :: Maybe TOORequest
   , soRA :: RA
   , soDec :: Dec
-  , soConstellation :: ConShort -- name of the constellation the observation is in  
+  , soConstellation :: ConShort
   , soRoll :: Double
   , soSubArrayStart :: Maybe Int
   , soSubArraySize :: Maybe Int
   } 
-  -- deriving (Eq, Show)
   deriving Eq
-    -- deriving instance Show ScienceObs
+
 
 -- | Bundle up the TOO periods into something a bit more user-friendly.
 --   The idea is that the database keeps the original field, but
@@ -1011,7 +1044,7 @@ data ScienceObs = ScienceObs {
 --   be serialized to the database as a string, to avoid schema changes)?
 --   Hmmm, might try this, as then have the "nice" TOO handling everywhere.
 --
---   I am beginning to thinkg that I should include None in TOORequestTime,
+--   I am beginning to think that I should include None in TOORequestTime,
 --   which would remove the need for a Maybe for the field, which would
 --   then be a schema change.
 data TOORequestTime =
@@ -1410,14 +1443,14 @@ instance Show ScienceObs where
     <> "+"
     <> show soGrating
     <> " approved for " <> show (_toKS soApprovedTime)
-    <> " ks at " <> T.unpack (showCTime soStartTime)
+    <> " ks " <> T.unpack (showStartTime soStartTime)
 
 -- | Has the observation been archived? If so, we assume that the observational
 --   parameters we care about are not going to change. This may turn out to be
 --   a bad idea.
 --
 isArchived :: ScienceObs -> Bool
-isArchived ScienceObs{..} = soStatus == "archived"
+isArchived ScienceObs{..} = soStatus == Archived
 
 -- | This could be an enumeration, but there's always the possibility
 --   that the set of values could change, so leave as is for now.
@@ -2324,6 +2357,7 @@ instance NeverNull Instrument
 instance NeverNull Grating
 instance NeverNull ChipStatus
 instance NeverNull SimbadType
+instance NeverNull ObsIdStatus
 
 -- times
 
@@ -2385,19 +2419,11 @@ instance PrimitivePersistField TimeKS where
 
 -- integer values
 
--- would like to clean up the CPP here; not sure what I really want the code to do if the
--- defined macro is not set up
---
 -- since this is exported, as I'm too lazy to set up an export list,
 -- use an underscore to indicate it's "special"
 --
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 _iType :: FiniteBits b => a -> b -> DbType
 _iType _ a = DbTypePrimitive (if finiteBitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
-#else
-_iType :: Bits b => a -> b -> DbType
-_iType _ a = DbTypePrimitive (if bitSize a == 32 then DbInt32 else DbInt64) False Nothing Nothing
-#endif
 
 instance PersistField ObsIdVal where
   persistName _ = "ObsIdVal"
@@ -2484,32 +2510,51 @@ instance PersistField TOORequest where
   fromPersistValues = primFromPersistValue
   dbType = _pType stringType
 
--- TODO: should this be changed to use PersistText instead of PersistString
---       when marshalling to a primitive value?
---
+instance PersistField ShortTermTag where
+  persistName _ = "ShortTermTag"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType = _pType stringType
+
+instance PrimitivePersistField ShortTermTag where
+  toPrimitivePersistValue = PersistText . fromShortTermTag
+  fromPrimitivePersistValue = textValueHelper "ShortTermTag"
+                              (Just . ShortTermTag)
+
+instance PersistField ObsIdStatus where
+  persistName _ = "ObsIdStatus"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType = _pType stringType
+
+instance PrimitivePersistField ObsIdStatus where
+  toPrimitivePersistValue = PersistText . fromObsIdStatus
+  fromPrimitivePersistValue = textValueHelper "ObsIdStatus" toObsIdStatus
+  
+
 instance PrimitivePersistField Instrument where
-  toPrimitivePersistValue = PersistString . show
+  toPrimitivePersistValue = PersistText . fromInstrument
   fromPrimitivePersistValue = textValueHelper "Instrument" toInstrument
   
 instance PrimitivePersistField Grating where
-  toPrimitivePersistValue = PersistString . show
+  toPrimitivePersistValue = PersistText . fromGrating
   fromPrimitivePersistValue = textValueHelper "Grating" toGrating
 
 instance PrimitivePersistField ChipStatus where
-  toPrimitivePersistValue = PersistString . T.unpack . fromChipStatus
+  toPrimitivePersistValue = PersistText . fromChipStatus
   fromPrimitivePersistValue = textValueHelper "chips status" toChipStatus
   
 instance PrimitivePersistField SimbadType where
-  toPrimitivePersistValue = PersistString . T.unpack . fromSimbadType
+  toPrimitivePersistValue = PersistText . fromSimbadType
   fromPrimitivePersistValue = textValueHelper "Simbad Type" toSimbadType
   
 instance PrimitivePersistField Constraint where
-  toPrimitivePersistValue a = PersistString [fromConstraint a]
+  toPrimitivePersistValue = PersistText . T.singleton . fromConstraint
   fromPrimitivePersistValue =
     textValueHelper "constraint" (T.uncons >=> (toConstraint . fst))
 
 instance PrimitivePersistField ConShort where
-  toPrimitivePersistValue = PersistString . T.unpack . fromConShort
+  toPrimitivePersistValue = PersistText . fromConShort
   fromPrimitivePersistValue = textValueHelper "ConShort" toConShort
   
 -- | Note that the actual value is stored, rather than the enumeration.
@@ -2517,7 +2562,7 @@ instance PrimitivePersistField ConShort where
 --   checked against the values stored in the database.
 --
 instance PrimitivePersistField TOORequest where
-  toPrimitivePersistValue = PersistString . T.unpack . trValue
+  toPrimitivePersistValue = PersistText . trValue
   fromPrimitivePersistValue = textValueHelper "TOO" toTOORequest
   
 instance PersistField TargetName where
@@ -2527,8 +2572,18 @@ instance PersistField TargetName where
   dbType = _pType stringType
 
 instance PrimitivePersistField TargetName where
-  toPrimitivePersistValue = PersistString . T.unpack . fromTargetName
+  toPrimitivePersistValue = PersistText . fromTargetName
   fromPrimitivePersistValue = textValueHelper "TargetName" (Just . TN)
+  
+instance PersistField Telescope where
+  persistName _ = "Telescope"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType = _pType stringType
+
+instance PrimitivePersistField Telescope where
+  toPrimitivePersistValue = PersistText . fromTelescope
+  fromPrimitivePersistValue = textValueHelper "Telescope" (Just . Telescope)
   
 -- needed for persistent integer types
 
@@ -2539,12 +2594,8 @@ instance Bits PropNum where
   complement = PropNum . complement . _unPropNum
   shift a i = PropNum $ shift (_unPropNum a) i
   rotate a i = PropNum $ rotate (_unPropNum a) i
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . _unPropNum
-#else
-  bitSize = bitSize . _unPropNum
-#endif
   isSigned = isSigned . _unPropNum
   testBit a = testBit (_unPropNum a)
   bit = PropNum . bit
@@ -2557,12 +2608,8 @@ instance Bits Sequence where
   complement = Sequence . complement . _unSequence
   shift a i = Sequence $ shift (_unSequence a) i
   rotate a i = Sequence $ rotate (_unSequence a) i
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . _unSequence
-#else
-  bitSize = bitSize . _unSequence
-#endif
   isSigned = isSigned . _unSequence
   testBit a = testBit (_unSequence a)
   bit = Sequence . bit
@@ -2575,18 +2622,13 @@ instance Bits ObsIdVal where
   complement = ObsIdVal . complement . fromObsId
   shift a i = ObsIdVal $ shift (fromObsId a) i
   rotate a i = ObsIdVal $ rotate (fromObsId a) i
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
   bitSize = fromMaybe (error "invalid bitsize") . bitSizeMaybe
   bitSizeMaybe = bitSizeMaybe . fromObsId
-#else
-  bitSize = bitSize . fromObsId
-#endif
   isSigned = isSigned . fromObsId
   testBit a = testBit (fromObsId a)
   bit = ObsIdVal . bit
   popCount = popCount . fromObsId
 
-#if defined(MIN_VERSION_base) && MIN_VERSION_base(4, 7, 0)
 instance FiniteBits PropNum where
   finiteBitSize = finiteBitSize . _unPropNum
 
@@ -2595,7 +2637,6 @@ instance FiniteBits Sequence where
 
 instance FiniteBits ObsIdVal where
   finiteBitSize = finiteBitSize . fromObsId
-#endif
 
 -- We do not take advantage of the database here (eg unique fields,
 -- or relations between entities).
@@ -2605,13 +2646,8 @@ instance FiniteBits ObsIdVal where
 --
 -- does the name field on the uniques entry need to be unique?
 --
+
 mkPersist defaultCodegenConfig [groundhog|
-- entity: ScheduleItem
-  constructors:
-    - name: ScheduleItem
-      uniques:
-        - name: ScheduleitemObsIdConstraint
-          fields: [siObsId]
 - entity: ScienceObs
   constructors:
     - name: ScienceObs
@@ -2624,12 +2660,6 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: NonScienceObsIdConstraint
           fields: [nsObsId]
-- entity: OverlapObs
-  constructors:
-    - name: OverlapObs
-      uniques:
-        - name: OverlapObsConstraint
-          fields: [ovObsId, ovOverlapId]
 - entity: Proposal
   constructors:
     - name: Proposal
@@ -2666,6 +2696,13 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: InvalidObsIdConstraint
           fields: [ioObsId]
+- entity: ShortTermSchedule
+  constructors:
+    - name: ShortTermSchedule
+      uniques:
+        - name: ShortTermScheduleTagConstraint
+          fields: [stsTag]
+
 |]
 
 
@@ -2691,16 +2728,16 @@ handleMigration ::
   (PersistBackend m, MonadIO m) => m ()
 handleMigration =
   runMigration $ do
-    migrate (undefined :: ScheduleItem)
     migrate (undefined :: ScienceObs)
     migrate (undefined :: NonScienceObs)
-    migrate (undefined :: OverlapObs)
+    -- migrate (undefined :: OverlapObs)  do we use this yet?
     migrate (undefined :: Proposal)
     migrate (undefined :: SimbadInfo)
     migrate (undefined :: SimbadMatch)
     migrate (undefined :: SimbadNoMatch)
     migrate (undefined :: MetaData)
     migrate (undefined :: InvalidObsId)
+    migrate (undefined :: ShortTermSchedule)
 
 -- Use Template Haskell to derive the necessary To/FromJSON
 -- instances (seeing as we use TH already for GroundHog)
@@ -2736,3 +2773,7 @@ $(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifie
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''SimbadInfo)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''SimbadType)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''Proposal)
+
+-- TODO: is the drop correct?
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ObsIdStatus)
+$(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''Telescope)

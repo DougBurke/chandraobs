@@ -1,0 +1,8 @@
+:set -XOverloadedStrings
+
+import Database.Groundhog
+import Database.Groundhog.Postgresql
+import Types
+import Database
+
+:set prompt "chandra: "

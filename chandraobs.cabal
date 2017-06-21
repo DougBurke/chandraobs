@@ -1,5 +1,5 @@
 name:                chandraobs
-version:             0.0.8
+version:             0.1.0
 stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
 license:             PublicDomain
@@ -7,6 +7,8 @@ author:              Doug Burke
 maintainer:          dburke.gw@gmail.com
 category:            Web
 
+-- picking ghc 8.0 as a minimum
+                        
 description:
   Eventually I want a web page describing what the Chandra
   X-Ray observatory is currently doing, including links to
@@ -36,11 +38,6 @@ flag hackgeo
   description: build the command-line hackgeo tool
   default: False
 
--- based on https://github.com/bos/aeson/commit/730a8c42b75f38e241da39933b03735a7c905538
-flag old-locale
-  description: depend on old-locale (and hence time<1.5)
-  default: False
-
 library 
   hs-source-dirs: lib/
 
@@ -57,8 +54,7 @@ library
      -- for aeson 0.11 before .1.4, so exclude them just in case.
      --
      aeson >= 0.11.1.4 && < 1.3
-     -- require ghc 7.8 (base 4.7.0.0) or higher
-     , base >= 4.7 && < 5.0
+     , base >= 4.9 && < 5.0
      , blaze-html >= 0.7 && < 0.10
      , bytestring == 0.10.*
      , containers >= 0.4 && < 0.6
@@ -71,20 +67,13 @@ library
      , scotty >= 0.7 && < 0.12
      , split == 0.2.*
      , text >= 1.0 && < 1.3
+     , time >= 1.5 && < 1.7
      , transformers >= 0.3 && < 0.6
      -- see if we can avoid a failing build (i.e. don't pull in a recent
      -- version of zlib); argh - why didn't I note down what the
      -- the failure actually was (I think it was building on heroku);
      -- as trying with stack/docker, let's relax this
      , zlib == 0.6.*
-
-  if flag(old-locale)
-     build-depends:
-       old-locale == 1.0.*
-       , time < 1.5
-  else
-     build-depends:
-       time >= 1.5 && < 1.7
 
 -- remove the flag on the webserver since it seems to be making
 -- 'cabal build' confused
@@ -136,7 +125,7 @@ executable webserver
      -- TODO: http-date is experimental
      -- , http-date == 0.0.*
      -- TODO: http-client is experimental
-     , http-client
+     , http-client >= 0.4.31 && < 0.6
      -- TODO: http-conduit is experimental
      , http-conduit
      , http-types
@@ -150,15 +139,12 @@ executable webserver
      , wai-middleware-static >= 0.5 && < 0.9
      , warp >= 2.1 && < 3.3
 
-  if flag(old-locale)
-     build-depends:
-       old-locale
-
 executable getschedule
   main-is:             GetSchedule.hs
   hs-source-dirs:      tools/
   other-modules:       Parser
-                       
+                       OCAT
+                                              
   ghc-options: -Wall
 
   if flag(tools)
@@ -167,72 +153,19 @@ executable getschedule
      , bytestring
      , chandraobs
      , containers
-     , directory >= 1.2 && < 1.4
-     , formatting
-     , http-conduit
-     , network >= 2.4 && < 2.7
-     , parsec
-     , tagsoup >= 0.13 && < 0.15
-     -- , template-haskell >= 2.8 && < 3.0
-     , text
-     -- , time
-     -- , transformers
-
-  else
-    buildable:  False
-
-executable initdb
-  main-is:             InitDB.hs
-  hs-source-dirs:      tools/
-  other-modules:       HackData
-                       Parser
-                       Quote
-                                
-  ghc-options: -Wall
-
-  if flag(tools)
-    build-depends:
-     base
-     , chandraobs
-     , containers
-     , formatting
-     , groundhog-postgresql
-     , parsec == 3.1.*
-     , template-haskell >= 2.8 && < 3.0
-     , text
-     , time
-     , transformers
-
-  else
-    buildable:  False
-
-executable obscat
-  main-is:             ObsCat.hs
-  hs-source-dirs:      tools/
-
-  ghc-options: -Wall
-
-  if flag(tools)
-    build-depends:
-     base
-     , bytestring
-     , chandraobs
-     , containers
+     -- TODO: may want to store the ocat output as files
+     -- , directory >= 1.2 && < 1.4
      , formatting
      , groundhog
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.3
-     , network
+     , network >= 2.4 && < 2.7
+     , parsec == 3.1.*
      , process >= 1.1 && < 1.5
-     , split
+     , tagsoup >= 0.13 && < 0.15
      , temporary >= 1.1 && < 1.3
      , text
      , time
-     , transformers
-
-    if flag(old-locale)
-       build-depends:
-         old-locale
 
   else
     buildable:  False

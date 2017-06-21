@@ -3,6 +3,8 @@
 --
 -- parser for the Chandra Short-Term schecule
 --
+-- there is some historical cruft here...
+--
 
 {-
 
@@ -70,8 +72,6 @@ import Types
 
 type Parser = Parsec String ()
 
-type STS = (ScheduleItem, Maybe NonScienceObs)
-
 showInt :: Int -> T.Text
 showInt = sformat int
 
@@ -92,7 +92,7 @@ eol = '\n'
 
 -- hacky way to allow comment lines; rather fragile
 -- as coded - e.g. can not end with a comment
-parseSTS :: String -> Either ParseError [STS]
+parseSTS :: String -> Either ParseError [ScheduleItem]
 parseSTS = parse p "<STS parsing>"
   where
     p = do
@@ -178,7 +178,7 @@ handleTime start texp =
   in (tks, t1, t2)
 
 
-obsLine :: Parser STS
+obsLine :: Parser ScheduleItem
 obsLine = do
   void parseInt -- seqNum
   optional $ lexeme $ char 'P' >> digit
@@ -189,25 +189,27 @@ obsLine = do
   texp <- parseDouble
   void parseInst -- inst
   void parseGrat -- grat
-  void parseDouble -- ra
-  void parseDouble -- dec
-  void parseDouble -- roll
+  ra <- parseReadable -- ra
+  dec <- parseReadable -- dec
+  roll <- parseDouble -- roll
   void parseDouble -- pitch
   void parseDouble -- slew
   lexeme (void (string "dss pspc rass"))
-  -- return $ STS (Just seqNum) (toOI obsid) (Just n) title start texp (Just inst) (Just grat) ra dec roll pitch slew
 
-  let (tks, t1, t2) = handleTime start texp
+  let (tks, t1, _) = handleTime start texp
 
       si = ScheduleItem {
         siObsId = ObsIdVal obsid
         , siScienceObs = True
         , siStart = t1
-        , siEnd = t2
+        -- , siEnd = t2
         , siDuration = tks
+        , siRA = ra
+        , siDec = dec
+        , siRoll = roll
         }
 
-  return (si, Nothing)
+  return si
 
 sep2, sep4 :: Parser ()
 sep2 = void (lexeme (string "--"))
@@ -218,7 +220,7 @@ sep4 = void (lexeme (string "----"))
 -- and appear to have switched over, mid 2017, to
 --  ----     50081       CAL-ER (P5403) 2017:134:20:02:30.587   1.0   --    --  240.0000   4.0000 160.21 155.78  16.11
 --
-calLine :: Parser STS
+calLine :: Parser ScheduleItem
 calLine = do
   sep4
   nameOrObsId <- lexeme (count 5 anyChar)
@@ -230,15 +232,15 @@ calLine = do
   texp <- parseDouble
   sep2
   sep2
-  ra <- parseDouble
-  dec <- parseDouble
+  ra <- parseReadable
+  dec <- parseReadable
   roll <- parseDouble
   void parseDouble -- pitch
   void parseDouble -- slew
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
 
-  let (tks, t1, t2) = handleTime start texp
+  let (tks, t1, _) = handleTime start texp
 
       -- Not sure of the rules for obsidOrName; at the moment it
       -- appears that starting with a non-numeric character indicates
@@ -246,33 +248,25 @@ calLine = do
       -- should not be empty (due to both being created via
       -- 'take 5' above).
       --
-      (name, obsid) =
+      obsid =
         if isDigit (head obsidOrName)
-        then (nameOrObsId, strToInt obsidOrName)
-        else (obsidOrName, strToInt nameOrObsId)
+        then strToInt obsidOrName
+        else strToInt nameOrObsId
   
       si = ScheduleItem {
         siObsId = ObsIdVal obsid
         , siScienceObs = False
         , siStart = t1
-        , siEnd = t2
+        -- , siEnd = t2
         , siDuration = tks
+        , siRA = ra
+        , siDec = dec
+        , siRoll = roll
         }
 
-      ns = NonScienceObs {
-        nsName = T.pack name
-        , nsObsId = ObsIdVal obsid
-        , nsTarget = TN (T.pack ("CAL-ER (" <> show obsid <> ")"))
-        , nsStartTime = t1
-        , nsTime = tks
-        , nsRa = RA ra
-        , nsDec = Dec dec
-        , nsRoll = roll
-        }        
-           
-  return (si, Just ns)
+  return si
   
-stsLine :: Parser STS
+stsLine :: Parser ScheduleItem
 stsLine = do
   spaces
   optional (many (commentLine >> spaces))
