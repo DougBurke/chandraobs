@@ -7,24 +7,35 @@ APP=chandraobservatory
 # APP=chandraobs-devel
 # DBGAPP=chandraobs-devel-cedar-14
 
+# HOMEDB=chandraobs
+HOMEDB=chandraobs2
+
 # How portable is this?
 SOURCE_VERSION:=$(shell git rev-parse HEAD)
 
 help:
 	@echo "Targets are:"
 	@echo "   help        - this page"
-	@echo "   pushdb      - push databases to Heroku"
+	@echo "   cleardb     - clear database on Heroku"
+	@echo "   pushdb      - push database to Heroku"
 	@echo "   builddocker - push docker images to Heroku"
 	@echo "   rundocker   - run docker image"
 	@echo "   pushdocker  - push docker images to Heroku"
 	@echo "   stack       - stack build (incl. tools)"
 
-pushdb:
-	@echo "### Pushing databases to Heroku"
+cleardb:
+	@echo "### Clearing database on Heroku"
 	@echo "##"
 	@echo "## To ${APP}"
 	@echo "##"
-	-@heroku pg:reset DATABASE_URL --confirm ${APP} --app ${APP}; PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push chandraobs DATABASE_URL --app ${APP}
+	-@heroku pg:reset DATABASE_URL --confirm ${APP} --app ${APP}
+
+pushdb:	cleardb
+	@echo "### Pushing database to Heroku"
+	@echo "##"
+	@echo "## To ${APP}"
+	@echo "##"
+	-@PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push ${HOMEDB} DATABASE_URL --app ${APP}
 
 pushdocker:
 	@echo "### Pushing docker images to Heroku"
