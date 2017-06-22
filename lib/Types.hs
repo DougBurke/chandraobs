@@ -1458,6 +1458,11 @@ isArchived ScienceObs{..} = soStatus == Archived
 type PropCategory = T.Text
 
 -- | Store information on a proposal, obtained from the OCAT.
+--
+--   This does *not* contain the abstract, as this requires a
+--   different query (e.g. to NASA/ADS or a different OCAT page).
+--   For now the abstract is stored in a separate table.
+--
 data Proposal = Proposal {
   propNum :: PropNum
   -- , propSeqNum :: Sequence
@@ -1484,6 +1489,31 @@ instance Show Proposal where
     "Proposal: " <> show (_unPropNum propNum)
     <> " " <> T.unpack propName
     <> " PI " <> T.unpack propPI
+
+-- | The abstract for a proposal. Ideally it would be included in
+--   the Proposal record, but for historical reasons it isn't.
+--
+--   Should there be something like
+--      paKey :: DefaultKey Proposal
+--   here? I haven't decided how things are going to work, so leave
+--   this for now.
+--
+--   The proposal title is assumed to be correct in the Proposal record,
+--   is not recorded here.
+--
+data ProposalAbstract = ProposalAbstract {
+  paNum :: PropNum
+  , paAbstract :: T.Text
+  } deriving Eq
+
+-- | Proposal abstracts are ordered by the proposal number.
+instance Ord ProposalAbstract where
+  compare = compare `on` paNum
+
+instance Show ProposalAbstract where
+  show ProposalAbstract{..} =
+    "Proposal Abstract: " <> show (_unPropNum paNum)
+    <> " " <> T.unpack (T.take 40 paAbstract) <> "..."
 
 -- | Enumeration for the different proposal categories.
 --   This is not currently used in the database - e.g. for
@@ -2646,7 +2676,8 @@ instance FiniteBits ObsIdVal where
 --
 -- does the name field on the uniques entry need to be unique?
 --
-
+-- How about restricting the lengths of some text fields?
+--
 mkPersist defaultCodegenConfig [groundhog|
 - entity: ScienceObs
   constructors:
@@ -2666,6 +2697,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: PropConstraint
           fields: [propNum]
+- entity: ProposalAbstract
+  constructors:
+    - name: ProposalAbstract
+      uniques:
+        - name: PropAbstractConstraint
+          fields: [paNum]
 - entity: SimbadInfo
   constructors:
     - name: SimbadInfo
@@ -2732,6 +2769,7 @@ handleMigration =
     migrate (undefined :: NonScienceObs)
     -- migrate (undefined :: OverlapObs)  do we use this yet?
     migrate (undefined :: Proposal)
+    migrate (undefined :: ProposalAbstract)
     migrate (undefined :: SimbadInfo)
     migrate (undefined :: SimbadMatch)
     migrate (undefined :: SimbadNoMatch)
@@ -2773,6 +2811,7 @@ $(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifie
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 3, constructorTagModifier = map toLower} ''SimbadInfo)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''SimbadType)
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 4, constructorTagModifier = map toLower} ''Proposal)
+-- $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ProposalAbstract)
 
 -- TODO: is the drop correct?
 $(deriveToJSON defaultOptions{fieldLabelModifier = drop 2, constructorTagModifier = map toLower} ''ObsIdStatus)
