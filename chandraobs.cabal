@@ -170,6 +170,32 @@ executable getschedule
   else
     buildable:  False
 
+executable updateschedule
+  main-is:             UpdateSchedule.hs
+  hs-source-dirs:      tools/
+  other-modules:       OCAT
+                                              
+  ghc-options: -Wall
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     , formatting
+     , groundhog
+     , groundhog-postgresql
+     , http-conduit
+     , network
+     , process
+     , temporary
+     , text
+     , time
+
+  else
+    buildable:  False
+
 executable querysimbad
   main-is:             QuerySimbad.hs
   hs-source-dirs:      tools/

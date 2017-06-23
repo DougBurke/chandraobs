@@ -28,6 +28,13 @@
 -- the information requests given that CXC and Simbad need not
 -- both be working at the same time.
 --
+-- There is a conflict between "adding the archival records" and
+-- "add new records", since the decision of what obsids you may
+-- or may not care about are not necessarily the same (since the
+-- traversal is forward or backward in time). This code is
+-- not written to address this; it probably should be. For now
+-- I am focussing on the "adding new records".
+--
 
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
@@ -50,7 +57,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Time (UTCTime, getCurrentTime)
 
 import Database.Groundhog (PersistBackend
-                            -- , (&&.)
+                          , (&&.)
                             --, (==.), (/=.), (||.), (>=.)
                           , project
                           , selectAll)
@@ -486,33 +493,23 @@ findUnknownObs todo = do
         (if siScienceObs then Right else Left) siObsId
                                   
       (ns, sc) = partitionEithers (map getInfo todo1)
-      
-  -- We are only really interested in this observation if it
-  -- is not known about. The assumption is that we are just populating
-  -- the database, so if we've already seen an ObsId then we don't
-  -- need to re-query for it.
-  --
-  -- It's up to updateschedule to validate these fields (e.g.
-  -- to check if they have changed since they were queried).
-  --
-  {-
-  The original attempt before I had my epiphany to move all the
-  complexity to updateschedule
 
-  let scField = (SoObsIdField `in_` sc) &&.
-                (SoStatusField `in_` [Archived, Observed, Discarded])
-                
-                {-
-                (NOT ((SoStatusField ==. Observed) &&.
-                      (SoPublicReleaseField >=. Just tNow)))
-                -}
-                
-      -- what status values can non-science obs have?
-      nsField = (NsObsIdField `in_` ns) &&.
-                (NsStatusField `in_` [Archived, Observed, Discarded])
-  -}
-
-  let scField = SoObsIdField `in_` sc
+  -- The logic for whether we want to re-query an obsid is unclear:
+  --
+  -- for science observations, it depends if adding a "new" schedule
+  -- or a "historical" one, since the decision to skip an obsid
+  -- depends on this AND THIS CODE DOES NOT YET IMPLEMENT THIS
+  -- DISTINCTION
+  --
+  -- for engineering/non-science observations, it is tricky because
+  -- it is not obvious when we can query OCAT, or "trust" the
+  -- results.
+  --
+  -- Note that some observations can be marked as "observed" and never
+  -- "promoted" to archived.
+  --
+  let scField = SoObsIdField `in_` sc &&.
+                SoStatusField `in_` [Archived, Observed]
       nsField = NsObsIdField `in_` ns
       
   scObs <- project SoObsIdField scField
@@ -556,8 +553,13 @@ updateScheduleFromPage tNow schedList = do
           liftIO (T.putStrLn ("# Error parsing " <> fromShortTermTag tag))
           let emsg = T.pack (show pe)
           liftIO (T.putStrLn emsg)
-          addShortTermTag tNow tag (Just emsg)
-          return (1, 0)
+          -- addShortTermTag tNow tag (Just emsg)
+          -- return (1, 0)
+          -- halt rather than mark-as-bad as I don't want to accidentally
+          -- mark pages we just can't parse yet as bad; this actually
+          -- may be a better solution that continuing.
+          liftIO (T.putStrLn "# For now, halting execution")
+          liftIO exitFailure
 
     _ ->
       -- this is a programmer error
@@ -614,6 +616,7 @@ usage = do
   
 main :: IO ()
 main = do
+
   args <- getArgs
   case args of
     [] -> runIt 2

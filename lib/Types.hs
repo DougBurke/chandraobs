@@ -556,15 +556,36 @@ instance H.ToValue PropNum where
   toValue = H.toValue . _unPropNum
 
 -- | Simple wrappers to avoid mixing up RA and Dec.
-
+--
+--   Note that equality for RA and Dec is defined
+--   with a tolerance, since it looks like there is a difference
+--   when serializing to/from the database. A simple
+--   absolute tolerance is used.
+--
 newtype RA = RA { _unRA :: Double } 
-  -- deriving (Eq, Show)  
-  deriving Eq
 
 newtype Dec = Dec { _unDec :: Double } 
-  -- deriving (Eq, Show)  
-  deriving Eq
 
+
+-- Internal routine; assumes that tol is >= 0              
+isClose :: Double -> Double -> Double -> Bool
+isClose tol a b = let adiff = abs (a - b)
+                  in adiff <= tol
+
+atol :: Double
+atol = 1e-6
+
+-- | The absolute tolerance is 1e-6, which is about 4 micro arcseconds,
+--   unless my math has deserted me.
+instance Eq RA where
+  (==) = isClose atol `on` _unRA
+
+-- | The absolute tolerance is 1e-6, which is about 4 micro arcseconds,
+--   unless my math has deserted me.
+instance Eq Dec where
+  (==) = isClose atol `on` _unDec
+
+  
 splitRA :: RA -> (Int, Int, Double)
 splitRA (RA ra) = 
     let rah = ra / 15.0
