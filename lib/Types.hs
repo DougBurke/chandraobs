@@ -1148,17 +1148,13 @@ toTOORequest too =
                   then Intermediate
                   else Slow
 
-      mlbl = case T.uncons too of
-        Just ('>', rest1) ->
-          case T.uncons rest1 of
-            Just ('=', rest2) -> ladder <$> toNat rest2
-            _ -> ladder <$> toNat rest1
-
-        Just _ -> case toksHyphen of
+      -- NOTE: assume that >x or >=x is only valid for x=30
+      mlbl =
+        if too `elem` [">30", ">=30"]
+        then Just Slow
+        else case toksHyphen of
           [Just _, Just highVal] -> Just (ladder highVal)
           _ -> Nothing
-
-        Nothing -> Nothing
 
   in case mlbl of
     Just lbl -> Just (TR lbl too)
