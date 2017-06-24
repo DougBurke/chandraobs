@@ -47,7 +47,7 @@ import Data.Aeson.TH
 import Data.Char (isSpace, toLower)
 import Data.Function (on)
 import Data.List (sortBy)
-import Data.Maybe (fromJust, fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (fromJust, fromMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
@@ -62,6 +62,9 @@ import Formatting
 import Formatting.Time
 
 import Network.HTTP.Types.URI (renderSimpleQuery)
+import Numeric.Natural
+
+import Text.Read (readMaybe)
 
 import Web.Scotty (Parsable(..))
 
@@ -71,10 +74,6 @@ import Data.Time (UTCTime, TimeLocale
 -- make it easy to compile on different systems for now
 readTime :: TimeLocale -> String -> String -> UTCTime
 readTime = parseTimeOrError True
-
--- | Isn't this in base now?
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
 
 -- | Convert text into a value, where the value is restricted
 --   by a user-specifiable predicate.
@@ -87,7 +86,7 @@ maybeFromText ::
     -> T.Text
     -> Maybe b
 maybeFromText conv p s = do
-  a <- maybeRead (T.unpack s)
+  a <- readMaybe (T.unpack s)
   if p a then return (conv a) else Nothing
 
 -- | Inclusive range.
@@ -1120,11 +1119,56 @@ instance NeverNull TOORequest
 instance ToJSON TOORequest where
   toJSON TR {..} = toJSON (rtToLabel trType)
 
+-- | Convert a TOO label.
+--
+--   The label is assumed to be of the form
+--       a-b   so use b as the limit
+--       >b
+--       >=b
+--
+--   A check is made to ensure both a and b are integers,
+--   mainly because it was easier, but also to ensure
+--   we don't have a case like "-34"
+--
+--   TODO: should this deal with the "n/a" case?
+--
+toTOORequest :: T.Text -> Maybe TOORequest
+toTOORequest too =
+  let toNat :: T.Text -> Maybe Natural
+      toNat = readMaybe . T.unpack
+
+      toksHyphen = map toNat (T.splitOn "-" too)
+
+      ladder highVal = 
+        if highVal < 7
+        then Immediate 
+        else if highVal <= 15
+             then Quick
+             else if highVal <= 30
+                  then Intermediate
+                  else Slow
+
+      mlbl = case T.uncons too of
+        Just ('>', rest1) ->
+          case T.uncons rest1 of
+            Just ('=', rest2) -> ladder <$> toNat rest2
+            _ -> ladder <$> toNat rest1
+
+        Just _ -> case toksHyphen of
+          [Just _, Just highVal] -> Just (ladder highVal)
+          _ -> Nothing
+
+        Nothing -> Nothing
+
+  in case mlbl of
+    Just lbl -> Just (TR lbl too)
+    _ -> Nothing
+
+{-
 -- | Convert a TOO label. This uses a heuristic, rather than converting
 --   the input string to a numeric value and deriving the value from
 --   those.
 --
---   TODO: should this deal with the "n/a" case?
 toTOORequest :: T.Text -> Maybe TOORequest
 toTOORequest too = ($ too) `fmap` lookup too tooMap
 
@@ -1132,12 +1176,15 @@ tooMap :: [(T.Text, T.Text -> TOORequest)]
 tooMap =
   [ ("0-4", TR Immediate)
   , ("0-5", TR Immediate)
+  , ("4-12", TR Quick)
   , ("4-15", TR Quick)
   , ("5-15", TR Quick)
   , ("15-30", TR Intermediate)
+  , ("12-30", TR Intermediate)
   , (">=30", TR Slow)
   , (">30", TR Slow)
   ]
+-}
 
 -- | What are the possible joint missions? This enumeration is for
 --   end-user code and is not to be used in the database, as there's

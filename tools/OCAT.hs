@@ -168,24 +168,8 @@ import System.Process (system)
 
 import Data.Time (TimeLocale, UTCTime, defaultTimeLocale, readSTime)
 
-{-
-import Database (insertScienceObs
-                , replaceNonScienceObs
-                , replaceScienceObs
-                , insertProposal
-                , cleanupDiscarded
-                , cleanDataBase
-                , updateLastModified
-                , getInvalidObsIds
-                , addInvalidObsId
-                , putIO
-                , runDb
-                , notArchived
-                , notDiscarded
-                -- , nsInObsCatName
-                -- , notFromObsCat
-                )
--}
+import Text.Read (readMaybe)
+
 import Types
 
 -- | Assume that TYPE=ER in the OCAT means that this is a
@@ -299,8 +283,8 @@ lbsToText :: L.ByteString -> Either T.Text T.Text
 lbsToText lbs =
   either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
   
-maybeReadText :: Read a => T.Text -> Maybe a
-maybeReadText = maybeRead . T.unpack
+readMaybeText :: Read a => T.Text -> Maybe a
+readMaybeText = readMaybe . T.unpack
 
 
 -- Would be nice to indicate the conversion type in the error message
@@ -310,10 +294,10 @@ maybeReadText = maybeRead . T.unpack
 eitherReadText :: Read a => T.Text -> Either T.Text a
 eitherReadText txt =
   let emsg = "Unable to read value from: " <> txt
-  in maybe (Left emsg) Right (maybeReadText txt)
+  in maybe (Left emsg) Right (readMaybeText txt)
 
 toWrapper :: Read a => (a -> b) -> T.Text -> OCAT -> Maybe b
-toWrapper f k m = M.lookup k m >>= fmap f . maybeReadText
+toWrapper f k m = M.lookup k m >>= fmap f . readMaybeText
 
 toWrapperE :: Read a => (a -> b) -> T.Text -> OCAT -> Either T.Text b
 toWrapperE f k m = do

@@ -54,7 +54,13 @@ compared to
 
 -}
 
-module Parser (parseSTS, testParser) where
+module Parser (parseSTS
+              , testParser
+              , parseReadable
+              , parseRAStr
+              , parseDecStr
+              , parseTime
+              , handleTime) where
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -153,6 +159,34 @@ parseReadable = do
 parseDouble :: Parser Double
 parseDouble = parseReadable
 
+-- Convert the old, HTML format RA and Dec, which uses sexagessimal
+-- notation like "6: 9:56.09" and "7: 0:14.04".
+--
+parseColonSep :: Parser Double
+parseColonSep = do
+  a <- parseInt
+  colon
+  spaces
+  b <- parseInt
+  colon
+  spaces
+  c <- parseDouble
+  let r = fromIntegral a + (fromIntegral b + (c / 60.0)) / 60.0
+  return r
+  
+parseRAStr :: Parser RA
+parseRAStr = do
+  r <- parseColonSep
+  return (RA (15 * r))
+
+parseDecStr :: Parser Dec
+parseDecStr = do
+  sign <- option 1 (char '-' >> return (-1))
+  spaces -- yes, there can be spaces after the sign!
+  r <- parseColonSep
+  return (Dec (sign * r))
+
+  
 -- parsing the title really requires parsing the time and then picking
 -- everything up until that point. The value of the title string is
 -- not needed for science obs, but is for non-science obs. However,

@@ -57,6 +57,8 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
+import Text.Read (readMaybe)
+
 import Database (updateLastModified
                 , insertIfUnknown
                 , putIO
@@ -242,9 +244,12 @@ querySIMBAD sloc f objname = do
       ls = dropWhile T.null $ dropUntilNext (("::data::" :: T.Text) `T.isPrefixOf`) (T.lines body)
 
   when f (T.putStrLn ">> Response:" >> T.putStrLn body >> T.putStrLn ">> object info:" >> print ls)
-  let rval = listToMaybe ls >>= parseObject 
+  let rval = listToMaybe ls >>= parseObject
+      
   -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) (T.putStrLn " -- no match found" >> T.putStrLn " -- response:" >> T.putStrLn body)
+  when (isNothing rval) (T.putStrLn " -- no match found"
+                         -- >> T.putStrLn " -- response:" >> T.putStrLn body
+                        )
 
   let searchRes = (objname, searchTerm, cTime)
 
@@ -577,7 +582,7 @@ parseArgs = go (SimbadCDS, Nothing, False)
       | x == "--cfa" = go (SimbadCfA, mndays, dbg) xs
       | x == "--debug" = go (sloc, mndays, True) xs
       | x == "--ndays" = case xs of
-        (y1:ys) -> case maybeRead y1 of
+        (y1:ys) -> case readMaybe y1 of
           nd@(Just _) -> go (sloc, nd, dbg) ys
           Nothing -> Nothing
         _ -> Nothing

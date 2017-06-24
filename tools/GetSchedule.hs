@@ -51,8 +51,9 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Either (partitionEithers)
 import Data.Foldable (toList)
 import Data.List (isPrefixOf)
-import Data.Maybe (fromJust)
+import Data.Maybe (catMaybes, fromJust)
 import Data.Monoid ((<>))
+import Data.Sequence ((|>))
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (UTCTime, getCurrentTime)
 
@@ -72,14 +73,25 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
-import Text.HTML.TagSoup (Tag(..), (~==), innerText, parseTags, partitions)
+import Text.HTML.TagSoup (Tag(..)
+                         , (~==)
+                         , innerText
+                         , isTagOpenName
+                         , parseTags
+                         , partitions)
+import Text.Parsec ((<?>), parse, spaces)
 import Text.Read (readMaybe)
 
 import Database (runDb, getInvalidObsIds, updateLastModified
                  , insertProposal)
 import OCAT (OCAT, isScienceObsE, noDataInOCAT
             , queryOCAT, ocatToScience, ocatToNonScience)
-import Parser (parseSTS)
+import Parser (parseSTS
+              , parseReadable
+              , parseRAStr
+              , parseDecStr
+              , parseTime
+              , handleTime)
 
 import Types (ChandraTime(..), ScheduleItem(..))
 import Types (ShortTermTag(..), ShortTermSchedule(..), toShortTermTag)
@@ -95,6 +107,9 @@ baseLoc, startPage :: String
 baseLoc = "http://cxc.harvard.edu/target_lists/stscheds/"
 startPage = "oldscheds.html"
 
+-- | TODO: Add in identifier to the request for tracking by CDA.
+--
+--   There is *no* parsing of the result
 getPage ::
   String  -- ^ page name (under baseLoc)
   -> IO T.Text
@@ -122,6 +137,8 @@ downloadScheduleList = do
 -- | Download the given schedule. The return value is the text
 --   representation of the content (so no tags have been stripped).
 --
+--   There is *no* parsing of the response.
+--
 downloadSchedulePage ::
   (ShortTermTag, T.Text)
   -> IO T.Text
@@ -140,7 +157,7 @@ extractPages = go Seq.empty
   where
     go s [] = s
     go s xs = case getLink xs of
-      (Just ans, ys) -> go (s Seq.|> ans) ys
+      (Just ans, ys) -> go (s |> ans) ys
       (Nothing, ys) -> go s ys
 
 
@@ -173,6 +190,45 @@ wanted n proj1 known proj2 =
 
   in Seq.take (fromIntegral n) . Seq.filter notSeen
 
+{-
+Formats for the short-term schedule:
+
+*)
+
+http://cxc.harvard.edu/target_lists/stscheds/stschedMAY2311A.html
+
+<H4 ALIGN=CENTER>MAY2311A</H4>
+
+<pre id="schedule">
+
+Seq #     ObsID Constr.    Target              Start        Time   SI   Grat    RA       Dec    Roll   Pitch   Slew
+----------------------------------------------------------------------------------------------------------------------------
+ ----     GG_28       CAL-ER (55418) 2011:142:10:00:07.996   0.0   --    --  212.0000 -33.0000 291.50 153.11 155.85
+...
+
+*)
+
+http://cxc.harvard.edu/target_lists/stscheds/stschedAPR1311A.html
+
+<H4 ALIGN=CENTER>APR1311A</H4>
+
+<TABLE BORDER=1 CELLSPACING=2 CELLPADDING=2>
+<TR><TH>Seq. No.</TH>
+<TH>ObsID</TH>
+<TH>Target</TH>
+<TH>Start Time</TH>
+<TH>Duration</TH>
+<TH>Inst.</TH>
+<TH>Grat.</TH>
+...
+
+-}
+
+-- | Hack up a parse error.
+parseError :: String -> PE.ParseError
+parseError emsg =
+  PE.newErrorMessage (PE.Message emsg) (PP.initialPos "from-file")
+
 
 -- | Convert a schedule to a list of records.
 --
@@ -181,25 +237,159 @@ wanted n proj1 known proj2 =
 --   format is fixed, at least for the time range covered
 --   here).
 --
---   Argh:
---     http://cxc.harvard.edu/target_lists/stscheds/stschedAPR1311A.html
---   uses a HTML table; later versions used the simpler structure
---   that the code handles.
 --
 --   The parse error is not guaranteed to contain a useful
 --   position.
 --
 toSchedule :: T.Text -> Either PE.ParseError [ScheduleItem]
 toSchedule txt =
-  let clean = removeHeader . T.unpack . innerText . parseTags
+  let isHeader t = not ((isTagOpenName "pre" t) || (isTagOpenName "TABLE" t))
 
-      emsg = PE.Message "Unable to remove the header"
-      epos = PP.initialPos "from-file"
-      pe = PE.newErrorMessage emsg epos
-  in case clean txt of
-    Just t -> parseSTS t
-    Nothing -> Left pe
+  in case dropWhile isHeader (parseTags txt) of
+    (TagOpen "pre" _:rest) -> parseScheduleFromText rest
+    (TagOpen "TABLE" _:rest) -> parseScheduleFromHTML rest
+    _ -> Left (parseError "Unable to find the start of the data")
 
+
+-- | The "new" format.
+--
+--   Why do I have removeHeader after converting back to a string,
+--   rather than removing it from the tags?
+--
+parseScheduleFromText ::
+  [Tag T.Text] ->
+  Either PE.ParseError [ScheduleItem]
+parseScheduleFromText tags =
+  case (removeHeader . T.unpack . innerText) tags of
+    Just txt -> parseSTS txt
+    Nothing -> Left (parseError "Unable to strip out the header")
+
+-- | The "old" format.
+--
+-- Split up into rows and then parse each row. It is possible
+-- to return the empty list, if the schedule happens to consist
+-- entirely of engineering observations.
+--
+parseScheduleFromHTML ::
+  [Tag T.Text] ->
+  Either PE.ParseError [ScheduleItem]
+parseScheduleFromHTML tags =
+  let findRow = isTagOpenName "TR"
+  in case partitions findRow tags of
+    (hdr:rest) -> validateHeaderRow hdr
+                  >> mapM processRow rest
+                  >>= return . catMaybes
+    _ -> Left (parseError "expected multiple table rows")
+         
+
+-- | Extract the row data, extracting only those text elements
+--   within the given tag name.
+--
+getRowText :: T.Text -> [Tag T.Text] -> [T.Text]
+getRowText tagname tags =
+  let -- Is there a better way than this? Could try and use
+      -- Text.HTML.TagSoup.Tree but it is not stable.
+      --
+      go ::
+        [Tag T.Text]
+        -- ^ The tags to process
+        -> Maybe (Seq.Seq T.Text)
+        -- ^ The contents of the current open tag; if Nothing then
+        --   the tag is not open
+        -> Seq.Seq T.Text
+        -- ^ The current store
+        -> [T.Text]
+        -- ^ The results
+      go [] Nothing store = toList store
+      go [] (Just r) store = toList (store |> flatten r)
+
+      -- Note: not sure I can be guaranteed that I will always see a
+      --       close tag, so need to deal with that possibility.
+      --
+      go ((TagOpen t _):xs) Nothing store
+        | t == tagname = go xs (Just Seq.empty) store
+        | otherwise    = go xs Nothing store
+      go ((TagOpen t _):xs) rr@(Just r) store
+        | t == tagname = go xs (Just Seq.empty) (store |> flatten r)
+        | otherwise    = go xs rr store
+                                       
+      -- go ((TagClose _):xs) Nothing store = go xs Nothing store
+      go ((TagClose t):xs) rr@(Just r) store
+        | t == tagname = go xs Nothing (store |> flatten r)
+        | otherwise    = go xs rr store
+                                       
+      -- go ((TagText _):xs) Nothing store = go xs Nothing store
+      go ((TagText t):xs) (Just r) store =
+        let nr = r |> t
+        in go xs (Just nr) store
+      
+      go (_:xs) r store = go xs r store
+
+      flatten = T.intercalate " " . toList
+      
+  in go tags Nothing Seq.empty
+
+-- | Check the order of the rows has not changed.
+--
+--   Could parse them so we return a map for further processing,
+--   but leave that for later additions, if needed.
+--
+validateHeaderRow :: [Tag T.Text] -> Either PE.ParseError ()
+validateHeaderRow tags =
+  let tnames = getRowText "TH" tags
+      tnamesL = map T.toLower tnames
+  in if tnamesL == ["seq. no.", "obsid", "target", "start time",
+                    "duration", "inst.", "grat.", "ra", "dec",
+                    "roll", "pitch", "pi"]
+     then Right ()
+     else Left (parseError
+                ("Table header does not match: " <> show tnames))
+
+
+-- Unfortunately the old records do not provide an ObsId value
+-- engineering/non-science observations, so we have to
+-- skip these.
+--
+processRow :: [Tag T.Text] -> Either PE.ParseError (Maybe ScheduleItem)
+processRow tags =
+  let cols = getRowText "TD" tags
+      ncols = length cols
+
+      [_, obsidStr, targetStr, startStr, durStr, _, _,
+       raStr, decStr, rollStr, _, _] = cols
+
+      lexeme p = spaces >> p >>= \a -> spaces >> return a
+      qparse p = parse (lexeme p) "<manual parsing>" . T.unpack
+
+      getsi = do
+       obsid <- qparse (parseReadable <?> "obsid") obsidStr
+       start <- qparse (parseTime <?> "time") startStr
+       texp <- qparse (parseReadable <?> "duration") durStr
+       ra <- qparse (parseRAStr <?> "RA") raStr
+       dec <- qparse (parseDecStr <?> "Dec") decStr
+       roll <- qparse (parseReadable <?> "Roll") rollStr
+
+       let (tks, t1, _) = handleTime start texp
+       
+       Right ScheduleItem { siObsId = ObsIdVal obsid
+                          , siScienceObs = True
+                          , siStart = t1
+                          , siDuration = tks
+                          , siRA = ra
+                          , siDec = dec
+                          , siRoll = roll
+                          }
+
+  in if ncols == 12
+     then if targetStr == "CAL-ER"
+          then Right Nothing
+          else case getsi of
+            Right si -> Right (Just si)
+            Left pe -> Left (parseError (show pe <> "\ncols: " <> show cols))
+       
+     else Left (parseError
+                ("Expected 9 columns, found " <> show ncols <> " in:\n"
+                <> show tags <> "\n->" <> show cols))
 
 --   The parser does not quite match the on-file format,
 --   in that the "header" line (e.g. AUG2916A) is assumed
@@ -256,9 +446,11 @@ addInvalidObsId ::
   -> m Bool
   -- Always returns False
 addInvalidObsId t obsid errMsg =
-  insert_ InvalidObsId { ioObsId = obsid
-                       , ioChecked = t
-                       , ioMessage = errMsg }
+  liftIO (putStrLn ("Error with " <> show (fromObsId obsid) <> ":"
+                    <> T.unpack errMsg))
+  >> insert_ InvalidObsId { ioObsId = obsid
+                          , ioChecked = t
+                          , ioMessage = errMsg }
   >> return False
 
        
@@ -326,10 +518,7 @@ addNonScienceObs ::
   -- ^ Returns False if there was an error.
 addNonScienceObs t obsid ScheduleItem{..} ocat = 
   case ocatToNonScience ocat of
-    Left emsg -> insert_ InvalidObsId { ioObsId = obsid
-                                      , ioChecked = t
-                                      , ioMessage = emsg }
-                 >> return False
+    Left emsg -> addInvalidObsId t obsid emsg
 
     Right nsObs -> do
       -- what values can we take from the short-term schedule?
@@ -574,10 +763,10 @@ updateScheduleFromPage tNow schedList = do
 --   If there's any problem downloading or parsing information
 --   then the routine will error out.
 --
-runIt ::
+run ::
   Natural  -- ^ The maximum number of schedule pages to process.
   -> IO ()
-runIt nmax = do
+run nmax = do
   schedList <- downloadScheduleList
   when (Seq.null schedList)
     (hPutStrLn stderr "No pages read in!" >> exitFailure)
@@ -616,12 +805,11 @@ usage = do
   
 main :: IO ()
 main = do
-
   args <- getArgs
   case args of
-    [] -> runIt 2
+    [] -> run 2
     [ns] -> case readMaybe ns of
-      Just n-> runIt n
+      Just n-> run n
       _ -> usage
       
     _ -> usage
