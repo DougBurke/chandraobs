@@ -265,9 +265,9 @@ renderBreakdown total perDay =
        <> "this is " <> strong "not" <> " an official product of the "
        <> "Chandra X-Ray Center, and the data is neither complete or 100% "
        <> "reliable. This should only be taken as a rough estimate of the "
-       <> "observation times, and is only for a "
-       <> calLink "small fraction"
-       <> " of the output of Chandra!"
+       <> "observation times, and does not cover "
+       <> calLink "all the observations"
+       <> " made by Chandra!"
       )
 
     p ("The plots show the total number of observing hours "

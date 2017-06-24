@@ -79,16 +79,16 @@ renderMatches cts =
         in (a ! href uri)
            "the twenty-one observations on September 26, 2015"
       
-      paraBlock = 
+      paraBlocks = 
         p ("This page shows the number of Chandra science observations per "
            <> "day. It is " <> em "very"
            <> " experimental and the results should not be taken too "
            <> "seriously as there are a lot of issues regarding "
            <> "getting hold of an accurate schedule. There's also the fact "
-           <> "that I only currently include a small fraction of the total "
-           <> "schedule, since Chandra was launched "
+           <> "that the database does not go back all the way back to "
+           <> "when Chandra was launched "
            <> deployLink
-           <> " (although observations only started about a month after "
+           <> " (note that observations only started about a month after "
            <> "this). The shaded regions indicate the number of science "
            <> "observations that " <> em "started"
            <>" on that day; normally there are only a handful, but "
@@ -101,10 +101,20 @@ renderMatches cts =
            <> "Selecting a square will bring up a schedule for that day, "
            <> "along with a few days on either side, so you can explore; "
            <> "see if you can find the Venus observations!")
-
+        <>
+        p ("Periods of missing data could be because Chandra was not "
+           <> "observing then - often because it was in its 'safe mode' "
+           <> "where it stops observing, makes sure all the instruments "
+           <> "are stowed, and ensures it is in an orientation that can "
+           <> "contact the "
+           <> (a ! href "https://eyes.nasa.gov/dsn/dsn.html")
+           "Deep-Space Network"
+           <> " - but it could also be due to missing data in the "
+           <> "database used by this web site.")
+           
       divCts = 
         h2 "Calendar"
-        <> paraBlock
+        <> paraBlocks
         <> svgBlock
                 
   in (div ! id "calendarBlock") divCts
