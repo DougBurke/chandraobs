@@ -159,6 +159,7 @@ executable getschedule
      , groundhog
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.3
+     , http-types
      , network >= 2.4 && < 2.7
      , parsec == 3.1.*
      , process >= 1.1 && < 1.5
@@ -187,6 +188,7 @@ executable updateschedule
      , groundhog
      , groundhog-postgresql
      , http-conduit
+     , http-types
      , network
      , process
      , temporary
@@ -211,6 +213,7 @@ executable querysimbad
      , formatting
      , groundhog-postgresql
      , http-conduit
+     , http-types
      , network
      , split
      , text

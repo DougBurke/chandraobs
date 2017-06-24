@@ -1051,7 +1051,8 @@ data ScienceObs = ScienceObs {
 --   The TOO fields do appear to be open ended, in that I've see
 --   "0-4" and "0-5", as well as ">30" and ">=30". So there needs to
 --   be some validation to check that we don't come across new values
---   that don't fall into the categorisation below.
+--   that don't fall into the categorisation below. At least one old
+--   TOO field is listed as "FAST" (ObsId 3803).
 --
 --   Current values include:
 --      less than a week   -> immediate / asap
@@ -1125,6 +1126,7 @@ instance ToJSON TOORequest where
 --       a-b   so use b as the limit
 --       >b
 --       >=b
+--       FAST  - which means what? Going to assume Immediate.
 --
 --   A check is made to ensure both a and b are integers,
 --   mainly because it was easier, but also to ensure
@@ -1133,6 +1135,7 @@ instance ToJSON TOORequest where
 --   TODO: should this deal with the "n/a" case?
 --
 toTOORequest :: T.Text -> Maybe TOORequest
+toTOORequest "FAST" = Just (TR Immediate "FAST")
 toTOORequest too =
   let toNat :: T.Text -> Maybe Natural
       toNat = readMaybe . T.unpack

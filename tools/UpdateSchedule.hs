@@ -110,7 +110,7 @@ updateObsIds ::
   -- ^ label used in screen messages
   -> (a -> ObsIdVal)
   -- ^ project out the ObsId from the database structure
-  -> (OCAT -> IO (Maybe a))
+  -> (ObsIdVal -> OCAT -> IO (Maybe a))
   -- ^ Convert OCAT response to structure
   -> (ObsIdVal -> Action Postgresql ())
   -- ^ forms the condition for identifying the record to delete
@@ -126,7 +126,7 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
         let obsid = getObsId old
         case lookup obsid omap of
           Just (Just ocat) -> do
-            ans <- liftIO (fromOCAT ocat)
+            ans <- liftIO (fromOCAT obsid ocat)
             case ans of
               Just new -> if old == new
                           then return 0
@@ -169,10 +169,14 @@ updateScience ::
   -> IO Int
   -- ^ The number of records changed in the database
 updateScience =
-  let fromOCAT o = do
+  let fromOCAT obsid o = do
         ans <- ocatToScience o
         case ans of
-          Left e -> T.hPutStrLn stderr e >> return Nothing
+          Left e ->
+            T.hPutStrLn stderr
+            ("Science ObsId: " <> showInt (fromObsId obsid))
+            >> T.hPutStrLn stderr e
+            >> return Nothing
           Right (_, x) -> return (Just x)
         
       del obsid = delete (SoObsIdField ==. obsid)
@@ -195,8 +199,12 @@ updateNonScience ::
   -> IO Int
   -- ^ The number of records changed in the database
 updateNonScience =
-  let fromOCAT o = case ocatToNonScience o of
-        Left e -> T.hPutStrLn stderr e >> return Nothing
+  let fromOCAT obsid o = case ocatToNonScience o of
+        Left e ->
+            T.hPutStrLn stderr
+            ("Engineering ObsId: " <> showInt (fromObsId obsid)) 
+            >> T.hPutStrLn stderr e
+            >> return Nothing
         Right x -> return (Just x)
                       
       del obsid = delete (NsObsIdField ==. obsid)

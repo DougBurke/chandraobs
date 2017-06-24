@@ -158,6 +158,7 @@ import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8')
 
 import Network.HTTP.Conduit
+import Network.HTTP.Types.Header (Header)
 
 import System.Environment (getEnv)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
@@ -171,6 +172,9 @@ import Data.Time (TimeLocale, UTCTime, defaultTimeLocale, readSTime)
 import Text.Read (readMaybe)
 
 import Types
+
+userAgent :: Header
+userAgent = ("User-Agent", "chandraobs dburke@cfa.harvard.edu")
 
 -- | Assume that TYPE=ER in the OCAT means that this is a
 --   non-science observation, otherwise it is a science one.
@@ -235,40 +239,6 @@ getConstellation ra dec = do
           T.hPutStrLn stderr merr
           exitFailure
 
-{-
-
--- | What publically-available observations overlap this one?
---
---   The overlap is found using the find_chandra_obsid script,
---   using a max radius of 10 arcminutes.
-getOverlaps :: ObsIdVal -> RA -> Dec -> IO [OverlapObs]
-getOverlaps oid ra dec = do
-
-  -- this raises an exception if ASCDS_INSTALL is not set
-  -- path <- getEnv "ASCDS_INSTALL"
-
-  let long = show (_unRA ra)
-      lat = show (_unDec dec)
-      args = [long, lat, "radius=10"]
-
-  -- do we need to set up the CIAO environment as we did above? probably
-  (rval, sout, serr) <- readProcessWithExitCode "find_chandra_obsid" args ""
-  when (rval /= ExitSuccess) $ do
-    hPutStrLn stderr ("ERROR: unable to run find_chandra_obsid on " ++ show args ++ "\n  " ++ serr ++ "\n")
-    exitFailure
-    
-  now <- getCurrentTime
-  let toO xs = 
-        -- this does not handle invalid output
-        let (idvalstr:rdiststr:_) = words xs 
-            idval = ObsIdVal (read idvalstr)
-            rdist = read rdiststr
-        in OverlapObs oid idval rdist now
-
-  return (map toO (drop 1 (lines sout)))
-
--}
-
 type OCAT = M.Map T.Text T.Text
 
 -- Could rewrite the Maybe forms as simplifications of the
@@ -279,10 +249,6 @@ lookupE k m = case M.lookup k m of
   Just ans -> return ans
   Nothing -> Left ("Missing key: " <> k)
 
-lbsToText :: L.ByteString -> Either T.Text T.Text
-lbsToText lbs =
-  either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
-  
 readMaybeText :: Read a => T.Text -> Maybe a
 readMaybeText = readMaybe . T.unpack
 
@@ -683,9 +649,22 @@ makeObsCatQuery ::
   --   of the input obsids.
   --
 makeObsCatQuery flag oids = do
-  rsplbs <- simpleHttp (getObsCatQuery oids)
+
+  req <- parseRequest (getObsCatQuery oids)
+  let hdrs = userAgent : requestHeaders req
+      req' = req { requestHeaders = hdrs }
+
+  mgr <- newManager tlsManagerSettings
+  rsp <- httpLbs req' mgr
+
+  let rsplbs = responseBody rsp
+  
+      lbsToText :: L.ByteString -> Either T.Text T.Text
+      lbsToText lbs =
+        either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
+  
   case lbsToText rsplbs of
-    Right rsp -> Right <$> processResponse flag rsp
+    Right ans -> Right <$> processResponse flag ans
         
     Left emsg -> do
       T.hPutStrLn stderr ("Unable to query OCAT: " <> emsg)
@@ -751,16 +730,6 @@ queryOCAT oids = do
 noDataInOCAT :: T.Text
 noDataInOCAT = "No OCAT information for this ObsId"
 
-{-
--- | OCAT returned too much stuff.
---
---   Could perhaps just ignore the extra info, but leave as I don't expect
---   this to happen.
---
-tooMuchDataInOCAT :: T.Text
-tooMuchDataInOCAT = "Multiple responses from OCAT for this ObsId"
--}
-
 
 ocatToScience :: 
   OCAT
@@ -781,204 +750,44 @@ ocatToScience ocat =
           Right so -> return (Right (prop, so))
 
 
-{-
--- | Query the OCat about this science observation.
---
---   The first match reported is taken; screen messages are displayed
---   if multiple matches are found or the data can not be
---   processed.
---
-queryScienceOld :: 
-  Bool         -- set @True@ for debug output 
-  -> ObsIdVal 
-  -> IO (Either T.Text (Proposal, ScienceObs))
-queryScienceOld flag oid = do
-  out <- makeObsCatQuery flag [oid]
-
-  -- this code is not nice
-  case out of
-    Left emsg -> return (Left emsg)
-    Right [] -> return (Left noDataInOCAT)
-    Right [ocat] ->
-      let vals = do
-            prop <- toProposalE ocat
-            ra <- toRAE ocat
-            dec <- toDecE ocat
-            return (prop, ra, dec)
-      in case vals of
-      Left emsg -> return (Left emsg)
-      Right (prop, ra, dec) -> do
-        con <- getConstellation ra dec
-        case toSOE ocat con of
-          Left emsg -> return (Left emsg)
-          Right so -> return (Right (prop, so))
-          
-    Right _ -> return (Left tooMuchDataInOCAT)
-
--- | Query the OCat about this non-science observation.
---
---   This function errors out most ungracefully if multiple matches
---   are found or if one/both of the output values can not be
---   created.
---
-queryNonScience :: 
-  Bool         -- set @True@ for debug output 
-  -> ObsIdVal 
-  -> IO (Either T.Text NonScienceObs)
-queryNonScience flag oid = do
-  out <- makeObsCatQuery flag [oid]
-  case out of
-    Right [ocat] -> return (ocatToNonScience ocat)
-    Right [] -> return (Left noDataInOCAT)
-    Right _ -> return (Left tooMuchDataInOCAT)
-    
-    Left emsg -> do
-      let otxt = T.pack (show (fromObsId oid))
-      T.putStrLn ("SKIP: unable to parse non-science ObsId " <> otxt)
-      when flag (T.putStrLn emsg)
-      return (Left emsg)
-
--}
-
--- | Identify:
---     - all science observations in the ScheduleItem table
---     - all non-science observations that have not been read
---       from the obscat and that are not discarded
---       (TODO: add a restriction to date
---       before now, but the number this would cut out is
---       likely small, so do not bother with)
---       [the idea is that there should be no non-science observations
---        in the ScheduleItem table any more]
---     - science observations which are not archived
---         if observed, only if soPublicRelease < now
---         (if no field, then re-check)
---       For now, remove discarded obsids (the assumption being that they
---       are not going to get recycled).
---
---     - exclude those obsids for which we can not parse/handle the OCAT
---       data (the entries in the InvalidObsId table)
---
--- Should this be in the PersistBackend monad rather than making
--- it a transaction? Probably not, because want the updates to
--- be incremental so that they can be redone.
---
-
-{- OLD CODE
-
-findMissingObsIds ::
-  IO ([ObsIdVal], [ObsIdVal], [ObsIdVal], Int)
-  -- ^ The last argument is the number of "invalid" ObsIds we have
-findMissingObsIds = do
-  now <- getCurrentTime
-  runDb $ do
-
-    -- assume this list is small so a simple check for being a
-    -- member is all that is needed, rather than going to a
-    -- more-complicated structure.
-    --
-    invalids <- fmap ioObsId <$> getInvalidObsIds
-
-    -- the SiScienceObsField check is technically not needed,
-    -- as I believe there should only be science obs in the
-    -- table now, but leave in as this constraint may change,
-    -- and I could be wrong.
-    swants <- project SiObsIdField (SiScienceObsField ==. True)
-    nswants <- project NsObsIdField notFromObsCat
-    
-    -- Could do this in the database, but split up the queries.
-    -- The idea is to reduce the number of obscat queries for observations
-    -- that are unlikely to have changed; that is, observed but not
-    -- yet in the public domain.
-    --
-    unarchived <- project SoObsIdField (notArchived &&. notDiscarded)
-    notpublic <- project SoObsIdField ((SoStatusField ==. Observed)
-                                       &&. (SoPublicReleaseField >=. Just now))
-
-    let filterList a b = S.toList (S.fromList a `S.difference` S.fromList b)
-
-        -- For now assume that none of these are in the invalidSet, so we
-        -- do not need to include them in the search. This could turn out
-        -- to be wrong.
-        tosearch = filterList unarchived notpublic
-
-        invalidSet = S.fromList invalids
-        filterObsId a = S.toList (S.fromList a `S.difference` invalidSet)
-        
-    return (filterObsId swants, filterObsId nswants, tosearch,
-            S.size invalidSet)
-
--}
-
-
 slen :: [a] -> T.Text
 slen = T.pack . show . length
 
--- | Add the "missing" results to the database and replace the
---   "unarchived" results (they may or may not have changed but
---   easiest for me is just to update the database).
---
-
-{- OLD CODE
-
-addResults ::
-  [(Proposal, ScienceObs)]
-  -> [(Proposal, ScienceObs)]
-  -> [NonScienceObs]  -- ^ no longer "missing" but "not from obscat"
-  -> [ObsIdVal]  -- ^ treat these as invalid
-  -> IO ()
-addResults [] [] [] [] =
-  T.putStrLn "# No data needs to be added to the database."
-addResults missing unarchived nsmissing invalid = do
-  T.putStrLn ("# Adding " <> slen missing <> " missing results")
-  T.putStrLn ("# Adding " <> slen unarchived <> " unarchived results")
-  T.putStrLn ("# Adding " <> slen nsmissing <> " missing non-science")
-  T.putStrLn ("# Adding " <> slen invalid <> " invalid obsids")
-  
-  let props = S.toList (S.fromList (map fst missing ++ map fst unarchived))
-
-      lprint :: Show a => a -> Action Postgresql ()
-      lprint = liftIO . print
-
-      disp ::
-        Show a
-        => (a -> Action Postgresql Bool)
-        -> a
-        -> Action Postgresql ()
-      disp act val = do
-        flag <- act val
-        when flag (lprint val)
-
-  tNow <- getCurrentTime
-  let invalidRec = map toInvalid invalid
-      toInvalid o = InvalidObsId { ioObsId = o, ioChecked = tNow }
-  
-  runDb $ do
-      putIO "## missing"
-      forM_ missing (\(_,so) -> disp insertScienceObs so)
-      putIO "## unarchived"
-      forM_ unarchived (\(_,so) -> replaceScienceObs so >> lprint so)
-      putIO "## proposals"
-      forM_ props (disp insertProposal)
-
-      putIO "## non-science"
-      forM_ nsmissing replaceNonScienceObs
-
-      forM_ invalidRec addInvalidObsId
-      
-      -- ensure that any discarded observations are removed from the
-      -- schedule, and any observations for which we now have an obscat
-      -- value are removed (this latter should be handled by some
-      -- of the above calls but leave as is for now).
-      cleanupDiscarded
-      cleanDataBase
-
-      -- could use tNow
-      ctime <- liftIO getCurrentTime
-      updateLastModified ctime
-
--}
-
 {-
+
+I have never gotten around to working on the overlap code!
+
+-- | What publically-available observations overlap this one?
+--
+--   The overlap is found using the find_chandra_obsid script,
+--   using a max radius of 10 arcminutes.
+getOverlaps :: ObsIdVal -> RA -> Dec -> IO [OverlapObs]
+getOverlaps oid ra dec = do
+
+  -- this raises an exception if ASCDS_INSTALL is not set
+  -- path <- getEnv "ASCDS_INSTALL"
+
+  let long = show (_unRA ra)
+      lat = show (_unDec dec)
+      args = [long, lat, "radius=10"]
+
+  -- do we need to set up the CIAO environment as we did above? probably
+  (rval, sout, serr) <- readProcessWithExitCode "find_chandra_obsid" args ""
+  when (rval /= ExitSuccess) $ do
+    hPutStrLn stderr ("ERROR: unable to run find_chandra_obsid on " ++ show args ++ "\n  " ++ serr ++ "\n")
+    exitFailure
+    
+  now <- getCurrentTime
+  let toO xs = 
+        -- this does not handle invalid output
+        let (idvalstr:rdiststr:_) = words xs 
+            idval = ObsIdVal (read idvalstr)
+            rdist = read rdiststr
+        in OverlapObs oid idval rdist now
+
+  return (map toO (drop 1 (lines sout)))
+
+
 -- | add in the overlap observations; that is, the table of
 --   overlaps and information about the overlap obs if it is
 --   not known about.

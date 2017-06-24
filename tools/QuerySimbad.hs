@@ -52,6 +52,7 @@ import Formatting (int, sformat)
 
 import Network (withSocketsDo)
 import Network.HTTP.Conduit
+import Network.HTTP.Types.Header (Header)
 
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
@@ -64,6 +65,9 @@ import Database (updateLastModified
                 , putIO
                 , runDb)
 import Types
+
+userAgent :: Header
+userAgent = ("User-Agent", "chandraobs dburke@cfa.harvard.edu")
 
 -- Database code was in lib/Database.hs, but it's very specialised
 -- so has been moved here.
@@ -231,7 +235,7 @@ querySIMBAD sloc f objname = do
 
   req <- parseRequest uri
 
-  let hdrs = ("User-Agent", "chandraobs-obscat") : requestHeaders req
+  let hdrs = userAgent : requestHeaders req
       req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }
 
   mgr <- newManager tlsManagerSettings
