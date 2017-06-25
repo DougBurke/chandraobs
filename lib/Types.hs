@@ -1509,8 +1509,9 @@ instance Show ScienceObs where
     <> show soInstrument
     <> "+"
     <> show soGrating
-    <> " approved for " <> show (_toKS soApprovedTime)
+    <> " for " <> show (_toKS soApprovedTime)
     <> " ks " <> T.unpack (showStartTime soStartTime)
+    <> " " <> T.unpack (fromObsIdStatus soStatus)
 
 -- | Has the observation been archived? If so, we assume that the observational
 --   parameters we care about are not going to change. This may turn out to be
