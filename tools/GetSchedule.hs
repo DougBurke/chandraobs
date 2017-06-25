@@ -224,6 +224,47 @@ http://cxc.harvard.edu/target_lists/stscheds/stschedAPR1311A.html
 <TH>Grat.</TH>
 ...
 
+*)
+
+http://cxc.harvard.edu/target_lists/stscheds/stschedDEC2704B.html
+
+<H4 ALIGN=CENTER>DEC2704B</H4>
+
+<TABLE BORDER=1 CELLSPACING=2 CELLPADDING=2>
+<TR><TH>Seq. No.</TH>
+<TH>ObsID</TH>
+<TH>Target</TH>
+<TH>Start Time</TH>
+<TH>Duration</TH>
+<TH>Inst.</TH>
+<TH>Grat.</TH>
+<TH>RA</TH>
+<TH>Dec</TH>
+<TH>Roll</TH>
+<TH>Pitch</TH>
+<TH>PI</TH>
+</TR>
+
+... but at some point we get
+
+<TR>
+<TD><A HREF="/cgi-gen/mp/target.cgi?<font"><font</A></TD>
+<TD>color="#FF0000">(nosq)</font></TD>
+<TD><a</TD>
+<TD>NONE</TD>
+<TD>68.3752</TD>
+<TD>24.3648</TD>
+<TD>275.39</TD>
+<TD> 9:29:50.40</TD>
+<TD> 29:24:0.00</TD>
+<TD>dss</TD>
+<TD>pspc</TD>
+<TD></TD>
+</TR>
+
+this row is wrong, and it's not obvious how to "fix" it. There are several
+like it on that page.
+
 -}
 
 -- | Hack up a parse error.
@@ -245,7 +286,7 @@ parseError emsg =
 --
 toSchedule :: T.Text -> Either PE.ParseError [ScheduleItem]
 toSchedule txt =
-  let isHeader t = not ((isTagOpenName "pre" t) || (isTagOpenName "TABLE" t))
+  let isHeader t = not (isTagOpenName "pre" t || isTagOpenName "TABLE" t)
 
   in case dropWhile isHeader (parseTags txt) of
     (TagOpen "pre" _:rest) -> parseScheduleFromText rest
@@ -278,9 +319,11 @@ parseScheduleFromHTML ::
 parseScheduleFromHTML tags =
   let findRow = isTagOpenName "TR"
   in case partitions findRow tags of
-    (hdr:rest) -> validateHeaderRow hdr
-                  >> mapM processRow rest
-                  >>= return . catMaybes
+    (hdr:rest) -> do
+      validateHeaderRow hdr
+      mrows <- mapM processRow rest
+      Right (catMaybes mrows)
+                     
     _ -> Left (parseError "expected multiple table rows")
          
 
@@ -308,20 +351,20 @@ getRowText tagname tags =
       -- Note: not sure I can be guaranteed that I will always see a
       --       close tag, so need to deal with that possibility.
       --
-      go ((TagOpen t _):xs) Nothing store
+      go (TagOpen t _ : xs) Nothing store
         | t == tagname = go xs (Just Seq.empty) store
         | otherwise    = go xs Nothing store
-      go ((TagOpen t _):xs) rr@(Just r) store
+      go (TagOpen t _ : xs) rr@(Just r) store
         | t == tagname = go xs (Just Seq.empty) (store |> flatten r)
         | otherwise    = go xs rr store
                                        
-      -- go ((TagClose _):xs) Nothing store = go xs Nothing store
-      go ((TagClose t):xs) rr@(Just r) store
+      -- go (TagClose _:xs) Nothing store = go xs Nothing store
+      go (TagClose t:xs) rr@(Just r) store
         | t == tagname = go xs Nothing (store |> flatten r)
         | otherwise    = go xs rr store
                                        
-      -- go ((TagText _):xs) Nothing store = go xs Nothing store
-      go ((TagText t):xs) (Just r) store =
+      -- go (TagText _ : xs) Nothing store = go xs Nothing store
+      go (TagText t : xs) (Just r) store =
         let nr = r |> t
         in go xs (Just nr) store
       
@@ -351,6 +394,11 @@ validateHeaderRow tags =
 -- Unfortunately the old records do not provide an ObsId value
 -- engineering/non-science observations, so we have to
 -- skip these.
+--
+-- We now also skip rows where the obsid element begins with
+-- 'color="#...' since this is a problem in the DEC2704B
+-- schedule, and maybe other times. I don't want to skip
+-- arbitrary errors in case there are other problem rows.
 --
 processRow :: [Tag T.Text] -> Either PE.ParseError (Maybe ScheduleItem)
 processRow tags =
@@ -383,7 +431,7 @@ processRow tags =
                           }
 
   in if ncols == 12
-     then if targetStr == "CAL-ER"
+     then if (targetStr == "CAL-ER") || ("color=\"#" `T.isPrefixOf` obsidStr)
           then Right Nothing
           else case getsi of
             Right si -> Right (Just si)
@@ -510,7 +558,7 @@ insertScience ::
   -> m ()
 insertScience obs = do
   let obsId = soObsId obs
-      match = (SoObsIdField ==. obsId)
+      match = SoObsIdField ==. obsId
 
       otxt = showInt (fromObsId obsId)
       put = liftIO . T.putStrLn
@@ -530,7 +578,7 @@ insertScience obs = do
                insert_ obs
                
     _ -> putE ("SHOULD NOT BE POSSIBLE: multiple ObsIds found for " <> otxt)
-         >> putE ("EXITING AS A PRECAUTION...")
+         >> putE "EXITING AS A PRECAUTION..."
          >> liftIO exitFailure
 
 

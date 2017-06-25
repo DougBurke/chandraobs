@@ -1052,7 +1052,7 @@ data ScienceObs = ScienceObs {
 --   "0-4" and "0-5", as well as ">30" and ">=30". So there needs to
 --   be some validation to check that we don't come across new values
 --   that don't fall into the categorisation below. At least one old
---   TOO field is listed as "FAST" (ObsId 3803).
+--   TOO field is listed as "FAST" (ObsId 3803), and some have "SLOW".
 --
 --   Current values include:
 --      less than a week   -> immediate / asap
@@ -1127,6 +1127,7 @@ instance ToJSON TOORequest where
 --       >b
 --       >=b
 --       FAST  - which means what? Going to assume Immediate.
+--       SLOW  - which means what? Going to assume Slow.
 --
 --   A check is made to ensure both a and b are integers,
 --   mainly because it was easier, but also to ensure
@@ -1136,6 +1137,7 @@ instance ToJSON TOORequest where
 --
 toTOORequest :: T.Text -> Maybe TOORequest
 toTOORequest "FAST" = Just (TR Immediate "FAST")
+toTOORequest "SLOW" = Just (TR Immediate "SLOW")
 toTOORequest too =
   let toNat :: T.Text -> Maybe Natural
       toNat = readMaybe . T.unpack
