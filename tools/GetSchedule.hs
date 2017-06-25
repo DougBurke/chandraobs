@@ -59,8 +59,10 @@ import Data.Time (UTCTime, getCurrentTime)
 
 import Database.Groundhog (PersistBackend
                           , (&&.)
-                            --, (==.), (/=.), (||.), (>=.)
+                          , (==.)  -- (/=.), (||.), (>=.)
+                          , delete
                           , project
+                          , select
                           , selectAll)
 import Database.Groundhog.Postgresql (SqlDb, Conn, in_, insert_)
 
@@ -95,7 +97,7 @@ import Parser (parseSTS
 
 import Types (ChandraTime(..), ScheduleItem(..))
 import Types (ShortTermTag(..), ShortTermSchedule(..), toShortTermTag)
-import Types (NonScienceObs(..), ObsIdVal(..))
+import Types (NonScienceObs(..), ScienceObs(..), ObsIdVal(..))
 import Types (InvalidObsId(..), Field(..))
 import Types (ObsIdStatus(..), TargetName(..))
 
@@ -490,10 +492,48 @@ addScienceObs t obsid ocat = do
   case ansE of
     Left emsg -> addInvalidObsId t obsid emsg
     Right (prop, sObs) -> insertProposal prop  -- may already exist
-                          >> insert_ sObs  -- should not exist
+                          >> insertScience sObs
                           >> return True
                  
-     
+
+-- | In most cases the obsid should not be known about, but there
+--   is some window that allows an existing obsid to be queried
+--   here. This happened with obsid 6432 which is marked as
+--   discarded. So why is it being queried again?
+--
+
+-- insertScience = insert_
+
+insertScience ::
+  PersistBackend m
+  => ScienceObs
+  -> m ()
+insertScience obs = do
+  let obsId = soObsId obs
+      match = (SoObsIdField ==. obsId)
+
+      otxt = showInt (fromObsId obsId)
+      put = liftIO . T.putStrLn
+      putE = liftIO . T.hPutStrLn stderr
+      
+  ms <- select match
+  case ms of
+    [] -> insert_ obs
+    
+    [old] -> if old == obs
+             then put ("Already know about ObsId: " <> otxt)
+             else do
+               put ("Replacing ObsId: " <> otxt)
+               put (" Old: " <> T.pack (show old))
+               put (" New: " <> T.pack (show obs))
+               delete match
+               insert_ obs
+               
+    _ -> putE ("SHOULD NOT BE POSSIBLE: multiple ObsIds found for " <> otxt)
+         >> putE ("EXITING AS A PRECAUTION...")
+         >> liftIO exitFailure
+
+
 -- | Add a non-science observation.
 --
 --   This is only for "old" non-science observations; i.e. those
