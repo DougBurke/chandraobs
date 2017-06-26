@@ -496,15 +496,23 @@ toSOE m con = do
 
   -- MULTITEL processing; assume that MULTITEL_INT is always present
   -- but MULTITEL_OBS may not be
-  multiTelVal <- toTextE m "MULTITEL"
-  multiTelInt <- toReadE m "MULTITEL_INT"
-  
-  let multiTel = multiTelVal == "Y"
+  --
+  -- turns out this is not always true; e.g. ObsId 2419
+  --
+  let multiTel = case toText m "MULTITEL" of
+        Just "Y" -> True
+        _ -> False
+
+      multiTelInt = fromMaybe 0.0 (toRead m "MULTITEL_INT")
+        
       multiTelObs = case toText m "MULTITEL_OBS" of
         Nothing -> []
         Just xs -> map Telescope (T.splitOn ", " xs)
       
-  -- NOTE: error out here in case of an invalid conversion
+  -- NOTE: error out here in case of an invalid conversion;
+  --       really should save as an "UNKNOWN" type to avoid missing
+  --       observations
+  --
   too <- case toText m "TOO_TYPE" of
     Just tooReq -> case toTOORequest tooReq of
       Nothing -> Left ("UNEXPECTED TOO_TYPE: " <> tooReq)

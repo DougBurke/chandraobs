@@ -45,6 +45,7 @@ import qualified Data.Text.IO as T
 import qualified Text.Parsec.Error as PE
 import qualified Text.Parsec.Pos as PP
 
+import Control.Applicative ((<|>))
 import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class (liftIO)
 
@@ -81,7 +82,7 @@ import Text.HTML.TagSoup (Tag(..)
                          , isTagOpenName
                          , parseTags
                          , partitions)
-import Text.Parsec ((<?>), parse, spaces)
+import Text.Parsec ((<?>), parse, spaces, try)
 import Text.Read (readMaybe)
 
 import Database (runDb, getInvalidObsIds, updateLastModified
@@ -303,6 +304,23 @@ Argh; CAL-ER is missing...
  expecting digit, white space or ":"
  cols: ["900061","02421","\160HDF-N","2001:063:17:10:11.015","62.4","ACIS-I","NONE","189.2017","62.2370","143.50","BRANDT    "]
 
+Yay; RA and Dec are back to being in decimal ...
+
+*)
+
+ # Error parsing NOV1800
+ "from-file" (line 1, column 1):
+ "<manual parsing>" (line 1, column 6):
+ unexpected end of input
+ expecting white space
+ Unable to parse as readable: TE77B
+ cols: ["NULL","TE77B","","2000:323:15:45:00.000","5.0","--","--","13.5600","-65.2500","321.99","NULL"]
+
+*)
+
+ # Error parsing MAY0700
+ "from-file" (line 1, column 1):
+ Table header does not match: ["Seq. No.","ObsID","Target","Start Time","Duration","Inst.","Grat.","RA","Dec","Roll","PI","DSS Image","PSPC Image","RASS Image"]
 
 -}
 
@@ -413,13 +431,15 @@ getRowText tagname tags =
       
   in go tags Nothing Seq.empty
 
-data NumCols = Col11 | Col12
+data NumCols = Col11 | Col12 | Col13 | Col14
   deriving Eq
 
 -- | Check the order of the rows has not changed.
 --
 --   Could parse them so we return a map for further processing,
 --   but leave that for later additions, if needed.
+--
+--   Ugly code, but it works.
 --
 validateHeaderRow :: [Tag T.Text] -> Either PE.ParseError NumCols
 validateHeaderRow tags =
@@ -433,8 +453,17 @@ validateHeaderRow tags =
                     "duration", "inst.", "grat.", "ra", "dec",
                     "roll", "pi"]
           then Right Col11
-          else Left (parseError
-                     ("Table header does not match: " <> show tnames))
+          else if tnamesL == ["seq. no.", "obsid", "target", "start time",
+                              "duration", "inst.", "grat.", "ra", "dec",
+                              "roll", "pi", "dss image", "pspc image",
+                              "rass image"]
+               then Right Col14
+               else if tnamesL == ["seq. no.", "obsid", "target", "start time",
+                                   "duration", "inst.", "grat.", "ra", "dec",
+                                   "roll", "pi", "dss image", "pspc image"]
+                    then Right Col13
+                    else Left (parseError
+                               ("Table header does not match: " <> show tnames))
 
 
 -- Unfortunately the old records do not provide an ObsId value
@@ -467,10 +496,11 @@ processRow colOpt tags =
       expCols = case colOpt of
         Col11 -> 11
         Col12 -> 12
-
-      -- Fortunately the last two columns (Cols12) or last
-      -- column (Col11) are not needed; the preceeding columns
-      -- are the same in both.
+        Col13 -> 13
+        Col14 -> 14
+        
+      -- Fortunately the first 10 columns are the same (at least for the
+      -- columns we use).
       --
       [seqStr, obsidStr, targetStr, startStr, durStr, _, _,
        raStr, decStr, rollStr] = take 10 cols
@@ -482,8 +512,12 @@ processRow colOpt tags =
        obsid <- qparse (parseReadable <?> "obsid") obsidStr
        start <- qparse (parseTime <?> "time") startStr
        texp <- qparse (parseReadable <?> "duration") durStr
-       ra <- qparse (parseRAStr <?> "RA") raStr
-       dec <- qparse (parseDecStr <?> "Dec") decStr
+       ra <- qparse (try (parseRAStr <?> "RA sexagesimal")
+                     <|>
+                     (parseReadable <?> "RA (decimal)")) raStr
+       dec <- qparse (try (parseDecStr <?> "Dec sexagesimal")
+                      <|>
+                      (parseReadable <?> "Dec (decimal)")) decStr
        roll <- qparse (parseReadable <?> "Roll") rollStr
 
        let (tks, t1, _) = handleTime start texp
@@ -497,11 +531,12 @@ processRow colOpt tags =
                           , siRoll = roll
                           }
 
-      -- at least one record is "\160CAL-ER", and one is just "\160"
-      -- (with the sequence being "NULL").
+      -- at least one record is "\160CAL-ER", one is just "\160",
+      -- and one is "". It looks like sequence==NULL is a good check
+      -- in these conditions.
       --
       isEngineering = "CAL-ER" `T.isSuffixOf` targetStr
-                      || (targetStr == "\160" && seqStr == "NULL")
+                      || seqStr == "NULL"
 
       -- Since could have multiple reaons for skipping, just match on
       -- the header, which is unique enough.
