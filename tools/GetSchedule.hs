@@ -265,6 +265,45 @@ http://cxc.harvard.edu/target_lists/stscheds/stschedDEC2704B.html
 this row is wrong, and it's not obvious how to "fix" it. There are several
 like it on that page.
 
+*)
+
+ # Error parsing NOV2502B
+ "from-file" (line 1, column 1):
+ Table header does not match: ["Seq. No.","ObsID","Target","Start Time","Duration","Inst.","Grat.","RA","Dec","Roll","PI"]
+ # For now, halting execution
+
+Missing pitch column.
+
+*)
+
+ # Error parsing NOV2501
+ "from-file" (line 1, column 1):
+ Expected 11 columns, found 0 in:
+ [TagOpen "TR" [],TagText "\n"]
+ ->[]
+
+*)
+
+ # Error parsing JUN0401
+ "from-file" (line 1, column 1):
+ "<manual parsing>" (line 1, column 6):
+ unexpected end of input
+ expecting white space
+ Unable to parse as readable: T_E52
+ cols: ["NULL","T_E52","\160","2001:155:14:18:20.300","9.2","--","--","10:36:42.00","-27:31:39.00","248.41","NULL"]
+
+Argh; CAL-ER is missing...
+
+*)
+
+ # Error parsing MAR0501
+ "from-file" (line 1, column 1):
+ "<manual parsing>" (line 1, column 4):
+ unexpected "."
+ expecting digit, white space or ":"
+ cols: ["900061","02421","\160HDF-N","2001:063:17:10:11.015","62.4","ACIS-I","NONE","189.2017","62.2370","143.50","BRANDT    "]
+
+
 -}
 
 -- | Hack up a parse error.
@@ -320,8 +359,8 @@ parseScheduleFromHTML tags =
   let findRow = isTagOpenName "TR"
   in case partitions findRow tags of
     (hdr:rest) -> do
-      validateHeaderRow hdr
-      mrows <- mapM processRow rest
+      colOption <- validateHeaderRow hdr
+      mrows <- mapM (processRow colOption) rest
       Right (catMaybes mrows)
                      
     _ -> Left (parseError "expected multiple table rows")
@@ -374,21 +413,28 @@ getRowText tagname tags =
       
   in go tags Nothing Seq.empty
 
+data NumCols = Col11 | Col12
+  deriving Eq
+
 -- | Check the order of the rows has not changed.
 --
 --   Could parse them so we return a map for further processing,
 --   but leave that for later additions, if needed.
 --
-validateHeaderRow :: [Tag T.Text] -> Either PE.ParseError ()
+validateHeaderRow :: [Tag T.Text] -> Either PE.ParseError NumCols
 validateHeaderRow tags =
   let tnames = getRowText "TH" tags
       tnamesL = map T.toLower tnames
   in if tnamesL == ["seq. no.", "obsid", "target", "start time",
                     "duration", "inst.", "grat.", "ra", "dec",
                     "roll", "pitch", "pi"]
-     then Right ()
-     else Left (parseError
-                ("Table header does not match: " <> show tnames))
+     then Right Col12
+     else if tnamesL == ["seq. no.", "obsid", "target", "start time",
+                    "duration", "inst.", "grat.", "ra", "dec",
+                    "roll", "pi"]
+          then Right Col11
+          else Left (parseError
+                     ("Table header does not match: " <> show tnames))
 
 
 -- Unfortunately the old records do not provide an ObsId value
@@ -400,13 +446,34 @@ validateHeaderRow tags =
 -- schedule, and maybe other times. I don't want to skip
 -- arbitrary errors in case there are other problem rows.
 --
-processRow :: [Tag T.Text] -> Either PE.ParseError (Maybe ScheduleItem)
-processRow tags =
+-- Similarly, if the first cell is
+-- "REMAINING SCHEDULE POSTPONED DUE TO BRIGHT STAR HOLD"
+-- then the row is skipped (e.g.
+-- http://cxc.harvard.edu/target_lists/stscheds/stschedJAN2102.html)
+-- We could stop processing this table, but for now do not
+-- bother with that complexity (since no current way to
+-- send a message back to the parser saying "stop".
+--
+-- empty rows are skipped (e.g. NOV2501)
+--
+processRow ::
+  NumCols
+  -> [Tag T.Text]
+  -> Either PE.ParseError (Maybe ScheduleItem)
+processRow colOpt tags =
   let cols = getRowText "TD" tags
       ncols = length cols
 
-      [_, obsidStr, targetStr, startStr, durStr, _, _,
-       raStr, decStr, rollStr, _, _] = cols
+      expCols = case colOpt of
+        Col11 -> 11
+        Col12 -> 12
+
+      -- Fortunately the last two columns (Cols12) or last
+      -- column (Col11) are not needed; the preceeding columns
+      -- are the same in both.
+      --
+      [seqStr, obsidStr, targetStr, startStr, durStr, _, _,
+       raStr, decStr, rollStr] = take 10 cols
 
       lexeme p = spaces >> p >>= \a -> spaces >> return a
       qparse p = parse (lexeme p) "<manual parsing>" . T.unpack
@@ -430,16 +497,36 @@ processRow tags =
                           , siRoll = roll
                           }
 
-  in if ncols == 12
-     then if (targetStr == "CAL-ER") || ("color=\"#" `T.isPrefixOf` obsidStr)
+      -- at least one record is "\160CAL-ER", and one is just "\160"
+      -- (with the sequence being "NULL").
+      --
+      isEngineering = "CAL-ER" `T.isSuffixOf` targetStr
+                      || (targetStr == "\160" && seqStr == "NULL")
+
+      -- Since could have multiple reaons for skipping, just match on
+      -- the header, which is unique enough.
+      --
+      skipRow = ("REMAINING SCHEDULE POSTPONED DUE TO "
+                `T.isPrefixOf`)
+
+      -- brightStarHold = "REMAINING SCHEDULE POSTPONED DUE TO BRIGHT STAR HOLD"
+      -- radiationTrip = "REMAINING SCHEDULE POSTPONED DUE TO RADIATION TRIP"
+
+  in if ncols == expCols
+     then if isEngineering || ("color=\"#" `T.isPrefixOf` obsidStr)
           then Right Nothing
           else case getsi of
             Right si -> Right (Just si)
             Left pe -> Left (parseError (show pe <> "\ncols: " <> show cols))
        
-     else Left (parseError
-                ("Expected 9 columns, found " <> show ncols <> " in:\n"
-                <> show tags <> "\n->" <> show cols))
+     else case cols of
+       (col:_) | skipRow col -> Right Nothing
+       _ -> if ncols == 0
+            then Right Nothing
+            else Left (parseError
+                       ("Expected " <> show expCols <>
+                        " columns, found " <> show ncols <> " in:\n"
+                        <> show tags <> "\n->" <> show cols))
 
 --   The parser does not quite match the on-file format,
 --   in that the "header" line (e.g. AUG2916A) is assumed
