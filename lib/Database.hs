@@ -115,6 +115,8 @@ module Database ( getCurrentObs
                   -- , nsInObsCatName
                   , notNsDiscarded
                   -- , notFromObsCat
+
+                  , timeDb
                     
                 ) where
 
@@ -136,6 +138,7 @@ import Data.Maybe (catMaybes, fromJust, fromMaybe,
                    isJust, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
 import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
+import Data.Time (diffUTCTime)
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
                                 DbDescriptor, RestrictionHolder,
@@ -1971,3 +1974,16 @@ runDb ::
   => Action Postgresql a -> m a
 runDb act =
   withPostgresqlConn dbConnStr (runDbConn (handleMigration >> act))
+
+-- Return the time the db call took (including migration and setting
+-- up/closing the connection) in seconds.
+--
+timeDb ::
+  (MonadBaseControl IO m, MonadIO m)
+  => Action Postgresql a -> m (a, Double)
+timeDb act = do
+  t1 <- liftIO getCurrentTime
+  ans <- withPostgresqlConn dbConnStr (runDbConn (handleMigration >> act))
+  t2 <- liftIO getCurrentTime
+  let diff = t2 `diffUTCTime` t1
+  return (ans, realToFrac diff)

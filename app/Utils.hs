@@ -280,12 +280,16 @@ getScienceTime sched =
 --   as "is this worth showing to users" (at present CC-mode data is not
 --   shown).
 --
+--   TEMPORARILY DISABLED.
+--
 isChandraImageViewable ::
   Maybe UTCTime    -- ^ soPublicRelease field
   -> Maybe T.Text  -- ^ soDataMode field
   -> Instrument    -- ^ soInstrument field
   -> UTCTime       -- ^ current time
   -> Bool          -- ^ is the image "viewable"
+isChandraImageViewable _ _ _ _ = False
+{-
 isChandraImageViewable relDate dataMode inst tNow =
   let -- Isn't this the logic of the Ord typeclass for Maybe?
       isPublic = case relDate of
@@ -301,7 +305,7 @@ isChandraImageViewable relDate dataMode inst tNow =
         Nothing -> inst `elem` [HRCI, HRCS]
 
   in isPublic && notCC
-
+-}
 
 -- TODO: how to find the correct version number (i.e.
 -- 'N00x' value)? One option would be to provide an
