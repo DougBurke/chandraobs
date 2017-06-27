@@ -77,6 +77,7 @@ import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
 
 import Text.Blaze.Html.Renderer.Text (renderHtml)
+import Text.Read (readMaybe)
 
 import Web.Heroku (dbConnParams)
 import Web.Scotty
@@ -212,8 +213,8 @@ main :: IO ()
 main = do
   mports <- lookupEnv "PORT"
   let eopts = case mports of
-        Just ports -> case reads ports of
-          [(port,[])] ->  Right (production port)
+        Just ports -> case readMaybe ports of
+          Just port ->  Right (production port)
           _ -> Left ("Invalid PORT argument: " <> T.pack ports)
 
         _ -> Right development
