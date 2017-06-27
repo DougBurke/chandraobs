@@ -54,7 +54,7 @@ import Data.Foldable (toList)
 import Data.List (isPrefixOf)
 import Data.Maybe (catMaybes, fromJust)
 import Data.Monoid ((<>))
-import Data.Sequence ((|>))
+import Data.Sequence ((|>), (><))
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (UTCTime, getCurrentTime)
 
@@ -118,9 +118,47 @@ getPage ::
   -> IO T.Text
 getPage name =
   decodeUtf8 . L.toStrict <$> simpleHttp (baseLoc <> name)
-  
--- | Find out the full list of schedule pages, in reverse
---   temporal order (so first is newest).
+
+-- This is from a manual check - June 26 2017 - of the contents.
+-- It may include pages which have been hidden/not included on
+-- purpose (e.g. discarded). We should be able to live with this.
+--
+unlistedTags :: [ShortTermTag]
+unlistedTags =
+  map toShortTermTag
+  ["122107", "APR0708A", "APR0802C", "APR1408A", "APR2103A", "APR2103B",
+   "APR2202C", "APR2808B", "APR2911B", "APR3001", "APR3003A", "AUG0408B",
+   "AUG1108A", "AUG1608A", "AUG1808D", "AUG2106C", "AUG2408A", "AUG2508B",
+   "AUG2602C", "AUG2806",
+   "DEC0108A", "DEC0301", "DEC0599",
+   "DEC0808A", "DEC1299", "DEC1508C", "DEC1808A", "DEC2107A", "DEC2203B",
+   "DEC2208B", "DEC2407B", "DEC2908B", "FEB0408B",
+   -- "FEB1102",  this has errors and is superceeded by FEB1102D
+   "FEB1108B",
+   "FEB1808B", "FEB2508A", "JAN0603C", "JAN0708A", "JAN1201", "JAN1408C",
+   "JAN2108B", "JAN2808A", "JAN3000", "JUL0708B", "JUL1408A", "JUL1600",
+   "JUL2002C", "JUL2108A", "JUL2604B", "JUL2803C", "JUL2806A", "JUL2808A",
+   "JUN1608A", "JUN2308A", "JUN3008C", "MAR0303C", "MAR1008A", "MAR1708A",
+   "MAR2403BA", "MAR2408A", "MAR3108A", "MAY0508A", "MAY1203C", "MAY1208B",
+   "MAY1608B", "MAY2404C", "MAY2608A", "MAY2702C", "NOV0308B", "NOV1008B",
+   "NOV1102B", "NOV1708A", "NOV2408C", "NOV2601", "NOV2700", "OCT0408A",
+   "OCT0702C", "OCT0708B", "OCT1308A", "OCT1910A", "OCT2008A", "OCT2102",
+   "OCT2108A", "OCT2503", "OCT2603A", "OCT2708B", "SEP0108B", "SEP0808A",
+   "SEP080A", "SEP1508B", "SEP2208B", "SEP2908B"]
+
+-- The URL name is reverse-engineered from the tag; as the tag
+-- was extracted from the file name we really should just use the
+-- file name itself, to avoid case issues.
+--
+hardcodedScheduleList :: Seq.Seq (ShortTermTag, T.Text)
+hardcodedScheduleList =
+  let toKV t = (t, "stsched" <> fromShortTermTag t <> ".html")
+  in Seq.fromList (map toKV unlistedTags)
+
+
+-- | Find out the full list of schedule pages. The order is intended
+--   to be newest first, but the last ones are from the unlisted
+--   (hardcoded) set.
 --
 --   This is not a total function, since it will error out
 --   on problems (e.g. decoding errors).
@@ -135,7 +173,10 @@ downloadScheduleList = do
       ctxt = " BEGIN LIST " :: T.Text
       ps = head (partitions (TagComment ctxt ~==) tags)
 
-  return (extractPages ps)
+      pages = extractPages ps
+      allPages = pages >< hardcodedScheduleList
+      
+  return allPages
 
 -- | Download the given schedule. The return value is the text
 --   representation of the content (so no tags have been stripped).
@@ -322,6 +363,21 @@ Yay; RA and Dec are back to being in decimal ...
  "from-file" (line 1, column 1):
  Table header does not match: ["Seq. No.","ObsID","Target","Start Time","Duration","Inst.","Grat.","RA","Dec","Roll","PI","DSS Image","PSPC Image","RASS Image"]
 
+*)
+
+ # Error parsing FEB1102
+ "from-file" (line 1, column 1):
+ "<manual parsing>" (line 2, column 1):
+ unexpected end of input
+ expecting space or obsid
+ cols: ["200153","\n","\160\&02545 00 0 M 1-16","2002:042:14:39:14.260","50.0","ACIS-S","NONE","7:37:13.54","-9:38:42.72","307.33"," KASTNER   "]
+
+Hmm, this line looks like it is corrupted. Fortunately it appears that
+this must be from a discarded/unused schedule as the obsid is already
+in the database, so I am going to just manually ignore it. Indeed,
+there's a FEB1102D page, so easiest is just to remove this schedule from
+the hardcoded list.
+
 -}
 
 -- | Hack up a parse error.
@@ -483,6 +539,8 @@ validateHeaderRow tags =
 -- bother with that complexity (since no current way to
 -- send a message back to the parser saying "stop".
 --
+-- APR1403A has a row "Radiation interrupt. SC107 trip @ 107:2036 UT"
+--
 -- empty rows are skipped (e.g. NOV2501)
 --
 processRow ::
@@ -541,8 +599,9 @@ processRow colOpt tags =
       -- Since could have multiple reaons for skipping, just match on
       -- the header, which is unique enough.
       --
-      skipRow = ("REMAINING SCHEDULE POSTPONED DUE TO "
-                `T.isPrefixOf`)
+      skipRow r = ("REMAINING SCHEDULE POSTPONED DUE TO "
+                   `T.isPrefixOf` r) ||
+                  ("Radiation interrupt. " `T.isPrefixOf` r)
 
       -- brightStarHold = "REMAINING SCHEDULE POSTPONED DUE TO BRIGHT STAR HOLD"
       -- radiationTrip = "REMAINING SCHEDULE POSTPONED DUE TO RADIATION TRIP"
