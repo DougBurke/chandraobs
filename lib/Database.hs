@@ -117,7 +117,7 @@ module Database ( getCurrentObs
                   -- , notFromObsCat
 
                   , timeDb
-                    
+
                 ) where
 
 import qualified Data.Map.Strict as M
@@ -137,8 +137,8 @@ import Data.List (foldl', group, groupBy, nub, sortBy)
 import Data.Maybe (catMaybes, fromJust, fromMaybe,
                    isJust, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
-import Data.Time (UTCTime(..), Day(..), getCurrentTime, addDays)
-import Data.Time (diffUTCTime)
+import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime)
+import Data.Time (diffUTCTime) -- debugging
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
                                 DbDescriptor, RestrictionHolder,
@@ -458,6 +458,60 @@ getRecord = findObsId
 --
 -- TODO: not sure this is a good idea any more
 --
+-- Note that we want to include observations that start before
+-- tStart but are still running. Since there is no "end time"
+-- field for an observation, this makes the query hard to do
+-- in the database (or at least not a simple query).
+--
+-- As a work around, I estimate the maximum observation time as
+-- 250 ks, so that we can use that as a pre-filter in the DB
+-- query, and then follow up with a post-processing step.
+-- A check on the data showed the maximum observation length
+-- was 190 kS.
+--
+getObsInRange ::
+  DbSql m
+  => ChandraTime
+  -> ChandraTime
+  -> m [Record]
+  -- ^ All records reurned are guaranteed to have a start time
+getObsInRange tStart tEnd = do
+
+  let t0 = _toUTCTime tStart
+      maxlen = 250 * 1000 :: Double
+      delta = (fromRational . toRational . negate) maxlen
+      minStartTime = ChandraTime (addUTCTime delta t0)
+      
+  xs1 <- select (((SoStartTimeField <. Just tEnd) &&.
+                  (SoStartTimeField >=. Just minStartTime) &&.
+                  isValidScienceObs)
+                 `orderBy` [Asc SoStartTimeField])
+  ys1 <- select (((NsStartTimeField <. Just tEnd) &&.
+                  (NsStartTimeField >=. Just minStartTime) &&.
+                  notNsDiscarded)
+                 `orderBy` [Asc NsStartTimeField])
+
+  -- should filter by the actual run-time, but the following is
+  -- easier.
+  --
+  let filtEnd proj_start proj_runtime o =
+        case proj_start o of
+          Just stime -> let rtime = proj_runtime o
+                            etime = endCTime stime rtime
+                        in etime < tStart
+          Nothing -> True -- should never happen
+
+      xs2 = filter (isJust . soStartTime) xs1
+      ys2 = filter (isJust . nsStartTime) ys1
+      
+      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs2)
+      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys2)
+
+      res = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
+
+  return (fromSL res)
+
+{-
 getObsInRange ::
   DbSql m
   => ChandraTime
@@ -491,7 +545,7 @@ getObsInRange tStart tEnd = do
       res = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
 
   return (fromSL res)
-
+-}
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
@@ -533,6 +587,7 @@ getSchedule ndays = do
 
   simbad <- getSimbadList res
   return (Schedule now ndays done mdoing todo simbad)
+
 
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
