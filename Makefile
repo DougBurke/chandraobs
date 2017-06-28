@@ -34,7 +34,9 @@ help:
 stack:
 	@echo "### Building chandraobs via stack"
 	@echo "##"
-	@stack build --flag chandraobs:tools --flag chandraobs:server --flag chandraobs:redirectserver
+	@echo "## Note: redirectserver is not built"
+	@echo "##"
+	@stack build --flag chandraobs:tools --flag chandraobs:server --flag chandraobs:-redirectserver
 
 cleardb:
 	@echo "### Clearing database on Heroku"
