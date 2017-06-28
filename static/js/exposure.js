@@ -7,20 +7,13 @@
 
 var createPlot = (function () {
     
-    var totWidth = 1200;
+    var totWidth = 960;
     var totHeight = 700;
 
     var margin = {top: 10, right: 10, bottom: 60, left: 80 },
         width = totWidth - margin.left - margin.right,
         height = totHeight - margin.top - margin.bottom;
 
-    /*
-     * The cumulative plots are now to the side of the labels, which 
-     * means there are "two" widths.
-     */    
-    var cumulativeWidth = width * 0.7;
-    /* var labelWidth = width - cumulativeWidth; */
-    
     var svg;
 
     /*
@@ -29,7 +22,7 @@ var createPlot = (function () {
     */
 
     var xrange = d3.scale.log()
-        .range([0, cumulativeWidth]);
+        .range([0, width]);
     var yrange = d3.scale.linear()
         .range([height, 0]);
 
@@ -42,13 +35,6 @@ var createPlot = (function () {
         } else {
             lbl = "Cycle " + cycle;
         }
-        lbl += ": ";
-        if (plotInfo[cycle].length == 1) {
-            lbl += "one observation";
-        } else {
-            lbl += plotInfo[cycle].length + " observations";
-        }
-        lbl += ", " + plotInfo[cycle].totalTime;
         return lbl;
     }
 
@@ -115,7 +101,7 @@ var createPlot = (function () {
     
         xax.append("text")
             .attr("class", "axis")
-            .attr("x", cumulativeWidth)
+            .attr("x", width)
             .attr("y", 0)
             .attr("dy", "2.5em")
             .attr("text-anchor", "end")
@@ -189,8 +175,8 @@ var createPlot = (function () {
             .data(tags)
             .enter()
             .append("text")
-            .attr("x", cumulativeWidth - 100)
-            .attr("y", function(d, i) { return (i*1.5 + 5) + "em"; })
+            .attr("x", "2em")
+            .attr("y", function(d, i) { return (i * 1.5) + "em"; })
             .attr("dy", "2em")
             .attr("class", function(cycle) {
                 return "legend legend" + cycle;
@@ -218,6 +204,28 @@ var createPlot = (function () {
         };
     }
 
+    function makeRows(plotInfo, cycle) {
+        var out = "<td>";
+        if (cycle === "all") {
+            out += "All cycles";
+        } else {
+            out += "Cycle " + cycle;
+        }
+        out += "</td><td>" + plotInfo[cycle].length +
+            "</td><td>" + plotInfo[cycle].totalTime + "</td>";
+        return out;
+        
+    }
+    
+    function addToTable(plotInfo) {
+        var tags = getPlotOrder(plotInfo);
+        d3.select('tbody#exposurebreakdown').selectAll('tr')
+            .data(tags)
+            .enter()
+            .append("tr")
+            .html(function(d) { return makeRows(plotInfo, d); });
+    }
+    
     // See https://bl.ocks.org/mbostock/4061502
     //
 
@@ -305,6 +313,7 @@ var createPlot = (function () {
             url: '/api/exposures',
         })
             .done(makePlot)
+            .done(addToTable)
             .done(makeBoxPlot);
     }
 
