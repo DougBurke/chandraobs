@@ -68,7 +68,9 @@ RUN stack --no-terminal setup
 COPY ./chandraobs.cabal /opt/chandraobs/src/chandraobs.cabal
 
 # Install dependencies and check they are okay
-RUN stack --no-terminal test --only-dependencies
+ENV FLAGS --flag chandraobs:server --flag chandraobs:-redirectserver --flag chandraobs:-tools
+
+RUN stack --no-terminal test --only-dependencies ${FLAGS}
 
 # Use this to pass in the GIT commit id; it is named this to match the
 # heroku slug set up.
@@ -76,9 +78,9 @@ ARG SOURCE_VERSION
 ENV SOURCE_VERSION ${SOURCE_VERSION}
 
 COPY . /opt/chandraobs/src
-RUN stack --no-terminal build --flag chandraobs:server
 
-RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install
+RUN stack --no-terminal build ${FLAGS}
+RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
 
 # Remove unneeded files
 RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
