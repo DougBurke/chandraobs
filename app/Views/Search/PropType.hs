@@ -83,7 +83,7 @@ identifyType DDT =
      )
 
 identifyType GO =
-  p (tstrong "Guest Observer"
+  p (tstrong "General Observer"
      <> " proposals form the bulk of the observations performed "
      <> "by Chandra, and are the observations requested by Astronomers "
      <> "from all over the world. These observations are passed through "

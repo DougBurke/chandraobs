@@ -1617,7 +1617,7 @@ instance Parsable PropType where
 toPropTypeLabel :: PropType -> T.Text
 toPropTypeLabel CAL = "Calibration Observation"
 toPropTypeLabel DDT = "Director's Discretionary Time"
-toPropTypeLabel GO = "Guest Observation"
+toPropTypeLabel GO = "General Observation"
 toPropTypeLabel GTO = "Guaranteed-Time Observation"
 toPropTypeLabel TOO = "Target of Opportunity"
 
