@@ -251,7 +251,6 @@ getNumObs sched =
         1 -> "is one observation"
         _ -> "are " <> showInt nobs <> " observations"
   in "There " <> obslen
-     <> ", but this is a small fraction of the Chandra mission"
 
 
 -- | Return the total obervation time for the science observations in the

@@ -85,8 +85,8 @@ renderMatches cts =
            <> " experimental and the results should not be taken too "
            <> "seriously as there are a lot of issues regarding "
            <> "getting hold of an accurate schedule. There's also the fact "
-           <> "that the database does not go back all the way back to "
-           <> "when Chandra was launched "
+           <> "that the database does not include all the observations since "
+           <> "Chandra was launched "
            <> deployLink
            <> " (note that observations only started about a month after "
            <> "this). The shaded regions indicate the number of science "

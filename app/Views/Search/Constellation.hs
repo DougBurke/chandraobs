@@ -6,7 +6,7 @@ module Views.Search.Constellation (indexPage, matchPage) where
 
 import qualified Prelude as P
 import Prelude (($), (==),
-                compare, fst, length, lookup, mapM_,
+                compare, fst, mapM_,
                 otherwise)
 
 import qualified Data.Aeson as Aeson
@@ -19,7 +19,6 @@ import Data.Aeson ((.=))
 import Data.Function (on)
 -- import Data.Functor (void)
 import Data.List (sortBy)
-import Data.Maybe (isNothing)
 import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
@@ -27,14 +26,12 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (constellationLinkSearch)
 import Layout (floatableTable)
-import Types (Schedule, ConShort(..), ConLong(..), TimeKS(..)
+import Types (Schedule, ConShort(..), TimeKS(..)
               , getConstellationNameStr
-              , constellationMap
               , getConstellationNameStr
               , showExpTime)
 import Utils (getNumObs
              , getScienceTime
-             , showInt
              -- , toJSVarObj
              )
 import Views.Record (CurrentPage(..))
@@ -124,21 +121,6 @@ renderList cons =
 
       scons = sortBy (compare `on` fst) cons
 
-      -- the assumption is that there's enough data that few,
-      -- if any, constellations are missing.
-      --
-      notIn t = isNothing (lookup t cons)
-      missing = [fromConLong clong |
-                 (cshort, clong) <- constellationMap, notIn cshort]
-                 
-      missTxt = case length missing of
-        0 -> "and has a target in each constellation"
-        1 -> "and is missing one constellation, namely "
-             <> toHtml (P.head missing)
-        nm -> "and is missing " <> toHtml (showInt nm)
-              <> " constellations: "
-              <> toHtml (T.intercalate "," missing)
-
       {-
       dataRow (cs, texp) =
         T.pack (fromConShort cs) .= 
@@ -153,12 +135,7 @@ renderList cons =
 
     p ("As can be seen, the length of time spent observing targets "
        <> "in a constellation varies strongly with "
-       <> "the constellation. This data base only contains a "
-       <> (a ! href "/search/calendar/") "small fraction"
-       <> " of the output of Chandra, "
-       <> missTxt
-       <> "."
-      )
+       <> "the constellation.")
 
     -- (div ! id "constellationMap") ""
     

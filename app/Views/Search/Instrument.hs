@@ -263,11 +263,10 @@ renderBreakdown total perDay =
     p ("A " <> em "very" <> " unofficial breakdown of the time spent "
        <> "observing with each instrument configuration. Just to stress, "
        <> "this is " <> strong "not" <> " an official product of the "
-       <> "Chandra X-Ray Center, and the data is neither complete or 100% "
-       <> "reliable. This should only be taken as a rough estimate of the "
-       <> "observation times, and does not cover "
-       <> calLink "all the observations"
-       <> " made by Chandra!"
+       <> "Chandra X-Ray Center, and the data is not 100% "
+       <> "reliable. This should only be taken as a "
+       <> em "rough estimate"
+       <> " of the observation times."
       )
 
     p ("The plots show the total number of observing hours "
