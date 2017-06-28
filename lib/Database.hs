@@ -678,26 +678,21 @@ makeSchedule rs = do
 -- | Find the SIMBAD records for the input science observations.
 --
 getSimbadList ::
-  PersistBackend m
+  DbSql m
   => [Record]  -- ^ records; assumed to be filtered
   -> m (M.Map TargetName SimbadInfo)
 getSimbadList rs = do
   let getName = either (const Nothing) (Just . soTarget)
       tnames = nub (mapMaybe getName rs)
 
-  -- Is it best to index on target name or ObsId or ...?
-  -- Could probably do this in one call, using `in_`, and then
-  -- returning (SmmTargetField, SmmInfoField), so that it can
-  -- be used to create the output map
-  mtargets <- forM tnames $ \tname -> do
-    ans <- project SmmInfoField ((SmmTargetField ==. tname) `limitTo` 1)
-    case ans of
-      [key] -> do
-        val <- get key
-        return ((tname, ) <$> val)
-      _ -> return Nothing
+  mtargs <- project (SmmTargetField, SmmInfoField)
+            (SmmTargetField `in_` tnames)
 
-  return (M.fromList (catMaybes mtargets))
+  toMap <- forM mtargs $ \(tname, key) -> do
+    val <- get key
+    return ((tname, ) <$> val)
+
+  return (M.fromList (catMaybes toMap))
 
 
 
