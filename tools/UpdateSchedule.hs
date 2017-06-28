@@ -1,7 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# Language OverloadedStrings #-}
-{-# Language RecordWildCards #-}
-{-# Language TupleSections #-}
 
 --
 -- Usage:
@@ -150,12 +148,12 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
       tailMsg = showInt ntot <> " " <> lbl <> " observations"
         
       report n =
-        let msg = if n == 0
-                  then "No updates for any of the " <> tailMsg
-                  else if n < ntot
-                       then "Updated " <> showInt n <> " of the " <>
-                            tailMsg
-                       else "Updated all " <> tailMsg
+        let msg
+              | n == 0 = "No updates for any of the " <> tailMsg
+              | n < ntot = "Updated " <> showInt n <> " of the " <>
+                           tailMsg
+              | otherwise = "Updated all " <> tailMsg
+                            
         in T.putStrLn msg >> return n
           
   in runDb go >>= report

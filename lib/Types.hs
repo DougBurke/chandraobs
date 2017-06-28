@@ -961,6 +961,12 @@ fromObsIdStatus Archived = "archived"
 --   could be added, and I do not have a good list of the current
 --   choices.
 --
+--   Turns out the telescope field is not well described as a
+--   comma-separated list of names, since there are cases with
+--   something like [may be more spaces than in the original record):
+--
+--   "HST and Ground (VLA, mm, mid-IR, optical, and gamma-ray)"
+--   
 newtype Telescope = Telescope { fromTelescope :: T.Text }
                   deriving Eq
 
@@ -1144,14 +1150,11 @@ toTOORequest too =
 
       toksHyphen = map toNat (T.splitOn "-" too)
 
-      ladder highVal = 
-        if highVal < 7
-        then Immediate 
-        else if highVal <= 15
-             then Quick
-             else if highVal <= 30
-                  then Intermediate
-                  else Slow
+      ladder highVal
+        | highVal < 7 = Immediate
+        | highVal <= 15 = Quick
+        | highVal <= 30 = Intermediate
+        | otherwise = Slow
 
       -- NOTE: assume that >x or >=x is only valid for x=30
       mlbl =
