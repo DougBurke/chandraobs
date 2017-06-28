@@ -1,7 +1,4 @@
-# This is based on the Dockerfiles from
-#   https://arow.info/blog/posts/2017-03-30-servant-on-heroku.html
-#   http://mashina.io/psto/docker-haskell
-# but all mistakes are mine
+# A cut-down Dockerfile for the redirect server
 #
 
 FROM heroku/heroku:16
@@ -13,8 +10,6 @@ ENV LANG C.UTF-8
 # Also includes packages needed to install Stack. An alternative approach
 # is to use the FP complete ubuntu repository and install from there, but
 # it's not clear that is really any "better"
-#
-# Final installation is for Postgres
 #
 RUN apt-get remove -y --assume-yes \
   ghostscript \
@@ -35,8 +30,7 @@ RUN apt-get remove -y --assume-yes \
   xz-utils \
   zlib1g-dev \
   git \
-  gnupg \
-  libpq-dev
+  gnupg
 
 # Alternative approach to installing Stack
 # (not tried)
@@ -67,22 +61,23 @@ RUN stack --no-terminal setup
 
 COPY ./chandraobs.cabal /opt/chandraobs/src/chandraobs.cabal
 
-# Install dependencies and check they are okay
-RUN stack --no-terminal test --only-dependencies
+# Install dependencies and check they are okay.
+#
+ENV FLAGS --flag chandraobs:redirectserver --flag chandraobs:-server --flag chandraobs:-tools
 
-# Use this to pass in the GIT commit id; it is named this to match the
-# heroku slug set up.
-ARG SOURCE_VERSION
-ENV SOURCE_VERSION ${SOURCE_VERSION}
+RUN stack --no-terminal test --only-dependencies ${FLAGS}
 
 COPY . /opt/chandraobs/src
-RUN stack --no-terminal build --flag chandraobs:server
+RUN stack --no-terminal build ${FLAGS}
 
-RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install
+RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
 
 # Remove unneeded files
 RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
 RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
+
+# remove the web assets
+RUN rm -rf /opt/chandraobs/static
 
 # do not remove gnupg just yet as used by apt; also adding in packages
 # it looks like we should not need. This was done by reviewing the
@@ -126,4 +121,4 @@ USER webserver
 
 WORKDIR /opt/chandraobs
 
-CMD /opt/chandraobs/bin/webserver
+CMD /opt/chandraobs/bin/redirect
