@@ -204,7 +204,7 @@ isValidScienceObs ::
   => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
 isValidScienceObs =
   Not (isFieldNothing SoStartTimeField) &&.
-  Not (SoStatusField `in_` [Discarded, Canceled])
+  (SoStatusField `notIn_` [Discarded, Canceled])
   
 {-
 -- | Identify non-science observations that are not from the
@@ -987,11 +987,11 @@ fetchCategory ::
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
-  -- TODO: could use in_?
-  sos <- forM propNums $ \pn ->
-    select (SoProposalField ==. pn &&. isValidScienceObs)
-  let xs = concat sos
-  return (toSL soStartTime xs)
+  sobs <- select ((SoProposalField `in_` propNums
+                   &&. isValidScienceObs)
+                  `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL sobs)
+
 
 -- | Return observations which match this category and have
 --   the given SIMBAD type (which can also be unidentified).
@@ -1004,15 +1004,14 @@ fetchCategorySubType ::
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchCategorySubType cat mtype = do
 
-  propNums <- project PropNumField (PropCategoryField ==. cat)
-  sobs <- select (((SoProposalField `in_` propNums)
-                   &&. isValidScienceObs)
-                  `orderBy` [Asc SoStartTimeField])
+  SL sobs <- fetchCategory cat
 
   -- How much of this logic is in fetchSIMBADType and
   -- fetchNoSIMBADType?
   --
   let matchSIMBAD ScienceObs{..} = do
+        -- why bother going through listToMaybe as patten match the
+        -- output immediately?
         mkey <- listToMaybe <$> project SmmInfoField (SmmTargetField ==. soTarget)
         case mkey of
           Just key -> case mtype of
@@ -1048,10 +1047,10 @@ fetchProposal ::
   => PropNum
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
 fetchProposal pn = do
-  mprop <- select ((PropNumField ==. pn) `limitTo` 1)
+  mprop <- getProposalFromNumber pn
   ms <- select ((SoProposalField ==. pn &&. isValidScienceObs)
                 `orderBy` [Asc SoStartTimeField])
-  return (listToMaybe mprop, unsafeToSL ms)
+  return (mprop, unsafeToSL ms)
 
 -- | Return all the observations which match this instrument,
 --   excluding discarded.
@@ -1183,7 +1182,7 @@ fetchTOO too = do
   -- is the low-level string type.
   --
   -- Ideally the filtering would all be done in the DB,
-  -- but it's easier to do this in Haskell. I do not
+  -- but it's easier (for me) to do this in Haskell. I do not
   -- want to hard-code the possible mappings from
   -- too to the string representation, as that is fragile.
   --
@@ -1260,9 +1259,7 @@ fetchConstraint mcs = do
 --   even if the observation was discarded.
 --
 getProposal :: PersistBackend m => ScienceObs -> m (Maybe Proposal)
-getProposal ScienceObs{..} = do
-  ans <- select ((PropNumField ==. soProposal) `limitTo` 1)
-  return (listToMaybe ans)
+getProposal ScienceObs{..} = getProposalFromNumber soProposal
 
 -- | Return the proposal information if we have it.
 --
@@ -1275,20 +1272,20 @@ getProposalFromNumber propNum = do
 --   discarded observations, but will return matches if the input observation
 --   was discarded. It will return unscheduled observations.
 --
+--   Actually, it no-longer returns discarded observations.
+--
+--   See also `getRelatedObs`.
+--
 getProposalObs ::
   DbSql m
   => ScienceObs
   -> m (SortedList StartTimeOrder ScienceObs)
-getProposalObs ScienceObs{..} = do
-  -- time sorting probably not needed here
-  ans <- select (((SoProposalField ==. soProposal)
-                  &&. (SoObsIdField /=. soObsId)
-                  &&. isValidScienceObs)
-                 `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+getProposalObs ScienceObs{..} = getRelatedObs soProposal soObsId
 
 -- | Find all the other non-discarded observations in the same proposal that
 --   are in the database (including unscheduled observations).
+--
+--   See also `getProposalObs`.
 --
 getRelatedObs ::
   DbSql m
@@ -1304,6 +1301,7 @@ getRelatedObs propNum obsId = do
 
 -- | Return the observations we know about for the given proposal
 --   (that are not discarded). This includes unscheduled observations.
+--
 getObsFromProposal ::
   PersistBackend m
   => PropNum
@@ -1519,6 +1517,7 @@ getProposalObjectMapping = do
   obsDb <- project (SoTargetField, SoProposalField
                    , SoApprovedTimeField, SoObservedTimeField)
            isValidScienceObs
+
   let convert (a, b, aTime, oTime) = do
         let scat = fromMaybe unidentifiedKey (M.lookup a simMap)
         pcat <- M.lookup b propMap
@@ -1619,7 +1618,6 @@ getTimeline = do
   let simbadMap = M.fromList simbadInfo
 
   props <- map snd <$> selectAll
-  -- addLastMod (unsafeToSL obs, unsafeToSL ns, props)
   return (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
 
 
@@ -1635,6 +1633,7 @@ addLastMod ::
 addLastMod out = do
   lastMod <- fromMaybe dummyLastMod <$> getLastModified
   return (out, lastMod)
+
   
 -- | Work out a timeline based on instrument configuration; that is,
 --   start times, exposure lengths, and instruments.
@@ -1701,6 +1700,7 @@ getNumObsPerDay maxDay = do
 
   let ctimes = catMaybes times
       days = map (\t -> ((utctDay . _toUTCTime) t, 1)) ctimes
+
   return (M.fromAscListWith (+) days)
 
 {-
