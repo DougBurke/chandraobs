@@ -36,6 +36,8 @@ module Database ( getCurrentObs
                 , fetchCategory
                 , fetchCategorySubType
                 , fetchCategoryTypes
+                , fetchCycle
+                , fetchCycles
                 , fetchProposal
                 , fetchInstrument
                 , fetchGrating
@@ -947,7 +949,35 @@ fetchConstellationTypes = do
   let ms = map (second (uncurry fromMaybe)) res
       ts = M.fromListWith addTimeKS ms
   return (M.toAscList ts)
-    
+
+
+-- | Note that trying to get "all" returns the empty set.
+--
+fetchCycle ::
+  DbSql m
+  => Cycle
+  -> m (SortedList StartTimeOrder ScienceObs)
+fetchCycle (Cycle "all") = return emptySL  
+fetchCycle cyc = do
+  props <- project PropNumField (PropCycleField ==. fromCycle cyc)
+  res <- select ((isValidScienceObs &&.
+                  SoProposalField `in_` props)
+                 `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL res)
+
+
+fetchCycles ::
+  PersistBackend m
+  => m [(Cycle, Int)]
+  -- ^ The cycle and number of *proposals*
+fetchCycles = do
+  cys <- project PropCycleField (CondEmpty `orderBy` [Asc PropCycleField])
+
+  -- assume that the conversion to a Cycle can not fail here
+  let cycles = map Cycle cys
+  return (countUp cycles)
+
+
 -- | Return observations which match this category,
 --   excluding discarded observations.
 --

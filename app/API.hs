@@ -30,6 +30,8 @@ module API (scheduleOnDate
              -- , igLinkAbout
 
            , constellationLinkSearch
+           , cycleLinkSearch
+             
            , typeLinkURI
            , typeDLinkURI
            , typeLinkSearch
@@ -68,6 +70,7 @@ import Network.HTTP.Types.URI (encodePathSegments
 
 import Types (ConShort(..)
              , ConstraintKind(..)
+             , Cycle(..)
              , Instrument(..)
              , JointMission
              , Grating(..)
@@ -247,6 +250,21 @@ constellationLinkSearch ::
 constellationLinkSearch con lbl = 
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
   in (a H.! href iLink) (toHtml lbl)
+
+-- | Link to the given search (apart from for the "All" cycles,
+--   which we currently don't support in the schedule view since
+--   it has too many observations).
+--
+cycleLinkSearch ::
+  Cycle
+  -> Html
+cycleLinkSearch cyc =
+  let iLink = "/search/cycle/" <> H.toValue lbl
+      lbl = fromCycle cyc
+  in if lbl == "all"
+     then "All cycles"
+     else (a H.! href iLink) (toHtml ("Cycle " <> lbl))
+
 
 data TypeOption = TypeLink | TypeDLink deriving Eq
 

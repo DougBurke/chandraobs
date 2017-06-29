@@ -209,7 +209,8 @@ var createPlot = (function () {
         if (cycle === "all") {
             out += "All cycles";
         } else {
-            out += "Cycle " + cycle;
+            out += "<a href='/search/cycle/" + cycle + "'>Cycle " +
+                cycle + "</a>";
         }
         out += "</td><td>" + plotInfo[cycle].length +
             "</td><td>" + plotInfo[cycle].totalTime + "</td>";

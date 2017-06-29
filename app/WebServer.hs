@@ -34,6 +34,7 @@ import qualified Views.Record as Record
 import qualified Views.Search.Calendar as Calendar
 import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
+import qualified Views.Search.Cycle as Cycle
 import qualified Views.Search.Constraint as Constraint
 import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Mapping as Mapping
@@ -102,6 +103,8 @@ import Database (NumObs, NumSrc, SIMKey
                 , fetchObjectTypes 
                 , fetchConstellation
                 , fetchConstellationTypes
+                , fetchCycle
+                , fetchCycles
                 , fetchCategory
                 , fetchCategorySubType
                 , fetchCategoryTypes
@@ -544,6 +547,15 @@ webapp cm mgr scache = do
     get "/search/turnaround/" $ do
       (matches, noneTime) <- liftSQL fetchTOOs
       fromBlaze (TOO.indexPage matches noneTime)
+
+    -- TODO: also need a HEAD request version
+    get "/search/cycle/:cycle"
+      (searchResults (dbQuery "cycle" fetchCycle)
+       (const False) Cycle.matchPage)
+
+    get "/search/cycle/" $ do
+      cycles <- liftSQL fetchCycles
+      fromBlaze (Cycle.indexPage cycles)
 
     -- TODO: also need a HEAD request version
     get "/search/constraints/:cs" $ do

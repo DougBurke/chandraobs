@@ -103,6 +103,7 @@ executable webserver
                        Views.Search.Category
                        Views.Search.Constellation
                        Views.Search.Constraint
+                       Views.Search.Cycle
                        Views.Search.Instrument
                        Views.Search.Mapping
                        Views.Search.Mission

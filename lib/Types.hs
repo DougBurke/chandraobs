@@ -44,7 +44,7 @@ import Data.Bits (Bits(..), FiniteBits(..))
 
 import Data.Aeson (ToJSON(..))
 import Data.Aeson.TH
-import Data.Char (isSpace, toLower)
+import Data.Char (isDigit, isSpace, toLower)
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Maybe (fromJust, fromMaybe, mapMaybe)
@@ -2414,7 +2414,46 @@ toSIMBADLink sloc name =
       qryB = renderSimpleQuery True qry
 
   in decodeUtf8 (simbadBase sloc <> "sim-id" <> qryB)
-      
+
+
+-- | Represent Chandra observing cycles.
+--
+-- This type is not used in the database, but is for passing information
+-- around the server.
+--
+-- For now we just have it as a label around the text content, and
+-- rely on the fact that the cycles are given as 2-digit integers,
+-- so 00 < 01 < 10 < 19 < 20 < all
+--
+newtype Cycle = Cycle { fromCycle :: T.Text }
+           deriving (Eq, Ord)
+
+{-
+-- | The natural values are sorted in increasing order and "all" is
+--   last.
+instance Ord Cycle where
+  (CycleNat n1) `compare` (CycleNat n2) = compare n1 n2
+  CycleAll `compare` CycleAll = EQ
+  CycleAll `compare` (CycleNat _) = GT
+  (CycleNat _) `compare` CycleAll = LT
+-}
+
+-- | For now support all cycles up to 99 as can not be bothered with
+--   an upper limit.
+--
+toCycle :: T.Text -> Maybe Cycle
+toCycle "all" = Just (Cycle "all")
+toCycle x = case T.uncons x of
+  Just (c1, x1) -> case T.uncons x1 of
+    Just (c2, x2) | T.null x2 && isDigit c1 && isDigit c2 -> Just (Cycle x)
+    _ -> Nothing
+  _ -> Nothing
+
+
+instance Parsable Cycle where
+  parseParam = helpParse "cycle" toCycle
+
+               
 -- * Groundhog instances
 --
 -- based on the Database.Groundhog.Instances code
