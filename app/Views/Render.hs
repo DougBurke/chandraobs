@@ -7,6 +7,8 @@ module Views.Render (standardSchedulePage
                     , extraSchedulePage
                     , baseSchedulePage
                     , standardRestrictedSchedulePage
+                    , extraRestrictedSchedulePage
+                    , baseRestrictedSchedulePage
                     , standardExplorePage
                     , extraExplorePage
                     ) where

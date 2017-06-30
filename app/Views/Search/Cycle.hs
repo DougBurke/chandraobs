@@ -21,12 +21,12 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (cycleLinkSearch)
 import Layout (standardTable)
-import Types (Schedule
+import Types (RestrictedSchedule
              , Cycle(..))
-import Utils (getNumObs
-             , getScienceTime)
+import Utils (getNumObsRestricted
+             , getScienceTimeRestricted)
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage
+import Views.Render (standardRestrictedSchedulePage
                     , standardExplorePage)
 
 indexPage :: 
@@ -36,13 +36,13 @@ indexPage cycles =
   let cssPage = P.Nothing
       bodyBlock = renderList cycles
       mid = P.Just "explorebox"
-  in standardExplorePage cssPage "Chandra observations by Cycle" bodyBlock mid
+  in standardExplorePage cssPage
+     "Chandra observations by Cycle" bodyBlock mid
 
      
 matchPage :: 
   Cycle
-  -> Schedule
-  -- ^ the observations that match this type, organized into a "schedule"
+  -> RestrictedSchedule
   -> Html
 matchPage cycle sched =
   let cycleHtml = if cycle == Cycle "all"
@@ -53,16 +53,18 @@ matchPage cycle sched =
 
       mainBlock = renderMatches cycle sched
       
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
--- | For now we assume this is not for all cycles
+-- | TODO: add some text explaining what a cycle is, or at least link to
+--         somewhere on the site explaining it.
+--
 renderMatches ::
   Cycle            -- ^ Cycle
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> Html
 renderMatches cycle sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
 
       lbl = if cycle == Cycle "all"
             then "all proposal cycles"
@@ -73,7 +75,7 @@ renderMatches cycle sched =
         <> scienceTime
         <> ". "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> ".")

@@ -22,14 +22,14 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Layout (floatableTable)
-import Types (Schedule, JointMission
+import Types (RestrictedSchedule, JointMission
              , fromMission, fromMissionLong
              , fromMissionLongLink, fromMissionAboutLink)
-import Utils (getNumObs
-             , getScienceTime
+import Utils (getNumObsRestricted
+             , getScienceTimeRestricted
              )
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage
+import Views.Render (standardRestrictedSchedulePage
                      , standardExplorePage)
 
 indexPage :: 
@@ -44,7 +44,7 @@ indexPage jms =
      
 matchPage :: 
   JointMission
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchPage ms sched =
   let hdrTitle = "Chandra observations: mission " <>
@@ -54,7 +54,7 @@ matchPage ms sched =
       pageTitle = "Joint observations with the " <> mission
 
       mainBlock = renderMatches ms sched
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 -- | Render the list of missions
@@ -96,10 +96,11 @@ renderMissions jms =
 --
 renderMatches ::
   JointMission
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> Html
 renderMatches ms sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
+      
   in -- TODO: improve English here
     p ("This page shows Chandra observations of objects which had "
        <> "joint observations with the "
@@ -108,7 +109,7 @@ renderMatches ms sched =
        <> ". These observations may be simultaneous, but often "
        <> "they are not. "
        -- assume the schedule is all science observations
-       <> toHtml (getNumObs sched)
+       <> toHtml (getNumObsRestricted sched)
        <> ". The format is the same as used in the "
        <> (a ! href "/schedule") "schedule view"
        <> ".")

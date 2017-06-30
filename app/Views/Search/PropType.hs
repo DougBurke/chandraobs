@@ -21,15 +21,15 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (propTypeLink)
 import Layout (dquote, standardTable)
-import Types (Schedule(..), PropType(..), TimeKS
+import Types (RestrictedSchedule, PropType(..), TimeKS
              , toPropTypeLabel
              , normTimeKS
              , showExpTime)
-import Utils (getScienceTime
-             , getNumObs
+import Utils (getScienceTimeRestricted
+             , getNumObsRestricted
              )
 import Views.Record (CurrentPage(..))
-import Views.Render (baseSchedulePage,
+import Views.Render (baseRestrictedSchedulePage,
                      standardExplorePage)
 
 indexPage :: 
@@ -45,7 +45,7 @@ indexPage pmap =
 
 matchPage ::
   PropType
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchPage pType sched =
   let hdrTitle = "Chandra observations: " <> pageTitle <> " proposals"
@@ -55,7 +55,8 @@ matchPage pType sched =
       pageTitle = toHtml (toPropTypeLabel pType)
       mainBlock = renderMatches pType sched
       
-  in baseSchedulePage sched CPExplore hdrTitle pageTitle mainBlock jsLoad cssPage
+  in baseRestrictedSchedulePage sched CPExplore hdrTitle pageTitle
+     mainBlock jsLoad cssPage
 
 tstrong :: Html -> Html
 tstrong = (strong ! class_ "label")
@@ -175,10 +176,10 @@ renderTypes pmap =
 --
 renderMatches ::
   PropType
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> Html
 renderMatches ptype sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
 
       plabel = toHtml (toPropTypeLabel ptype)
       
@@ -189,7 +190,7 @@ renderMatches ptype sched =
        <> scienceTime
        <> ". "
        -- assume the schedule is all science observations
-       <> toHtml (getNumObs sched)
+       <> toHtml (getNumObsRestricted sched)
        <> ". The format is the same as used in the "
        <> (a ! href "/schedule") "schedule view"
        <> ".")

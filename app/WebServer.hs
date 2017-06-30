@@ -159,6 +159,11 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , TargetName(..)
              , TimeKS(..)
              , ChandraTime(..)
+
+             , RestrictedRecord
+             , RestrictedSO
+             , RestrictedSchedule
+               
              , fromSimbadType
              , toSimbadType
              , nullSL, fromSL, mergeSL, unsafeToSL
@@ -490,11 +495,11 @@ webapp cm mgr scache = do
     --
     get "/search/type/unidentified" (searchTypeUnId
                                      (liftSQL fetchNoSIMBADType)
-                                     (liftSQL . makeSchedule))
+                                     (liftSQL . makeScheduleRestricted))
 
     get "/search/type/:type" (searchType
                               (snd <$> dbQuery "type" fetchSIMBADType)
-                              (liftSQL . makeSchedule))
+                              (liftSQL . makeScheduleRestricted))
 
     -- TODO: also need a HEAD request version
     get "/search/type/" (searchTypeNone (liftSQL fetchObjectTypes))
@@ -503,27 +508,12 @@ webapp cm mgr scache = do
     --     FOR TESTING
     get "/search/dtype/" (searchDTypeNone (liftSQL fetchObjectTypes))
 
-    let searchResults getData isNull page = do
-          (xs, matches) <- getData
-          when (nullSL matches || isNull xs) next
-          sched <- liftSQL (makeSchedule (fmap Right matches))
-          fromBlaze (page xs sched)
-
     let searchResultsRestricted getData isNull page = do
           (xs, matches) <- getData
           when (nullSL matches || isNull xs) next
           sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
           fromBlaze (page xs sched)
 
-    let maybeSearchResults mval getData page =
-          case mval of
-            Just val -> do
-              matches <- getData val
-              when (nullSL matches) next
-              sched <- liftSQL (makeSchedule (fmap Right matches))
-              fromBlaze (page val sched)
-            Nothing -> next
-            
     let maybeSearchResultsRestricted mval getData page =
           case mval of
             Just val -> do
@@ -537,23 +527,29 @@ webapp cm mgr scache = do
     -- type and any "sub types"; contrast with /seatch/type/:type
     -- TODO: also need a HEAD request version
     get "/search/dtype/:type"
-      (searchResults (snd <$> dbQuery "type" fetchSIMBADDescendentTypes)
+      (searchResultsRestricted
+       (snd <$> dbQuery "type" fetchSIMBADDescendentTypes)
        null SearchTypes.matchDependencyPage)
 
     -- TODO: also need a HEAD request version
     get "/search/constellation/:constellation"
-      (searchResults (dbQuery "constellation" fetchConstellation)
+      (searchResultsRestricted
+       (dbQuery "constellation" fetchConstellation)
        (const False) Constellation.matchPage)
     
     -- TODO: also need a HEAD request version
     get "/search/constellation/"
-      (liftSQL fetchConstellationTypes >>= fromBlaze . Constellation.indexPage)
+      (liftSQL fetchConstellationTypes
+       >>= fromBlaze . Constellation.indexPage)
           
 
     -- TODO: also need a HEAD request version
     get "/search/turnaround/:too" $ do
       -- as I do not have a "none" type in TOORequestTime, parse
       -- this parameter as a string rather than as a TOORequestTime
+      --
+      -- perhaps should have two separate routes; one where the
+      -- parameter can be parsed automatically and one for none
       tooParam <- param "too"
       let mans = if T.toLower tooParam == "none"
                  then Just Nothing
@@ -561,7 +557,7 @@ webapp cm mgr scache = do
                         Nothing -> Nothing
                         a -> Just a
 
-      maybeSearchResults mans (liftSQL . fetchTOO) TOO.matchPage
+      maybeSearchResultsRestricted mans (liftSQL . fetchTOO) TOO.matchPage
         
     -- TODO: also need a HEAD request version
     get "/search/turnaround/" $ do
@@ -570,7 +566,7 @@ webapp cm mgr scache = do
 
     -- TODO: also need a HEAD request version
     get "/search/cycle/:cycle"
-      (searchResults (dbQuery "cycle" fetchCycle)
+      (searchResultsRestricted (dbQuery "cycle" fetchCycle)
        (const False) Cycle.matchPage)
 
     get "/search/cycle/" $ do
@@ -588,7 +584,8 @@ webapp cm mgr scache = do
                         Nothing -> Nothing
                         a -> Just a
                       
-      maybeSearchResults mans (liftSQL . fetchConstraint) Constraint.matchPage
+      maybeSearchResultsRestricted mans (liftSQL . fetchConstraint)
+        Constraint.matchPage
       
     -- TODO: also need a HEAD request version
     get "/search/constraints/" $ do
@@ -652,6 +649,7 @@ webapp cm mgr scache = do
     get "/search/grating/" igsearch
     get "/search/instgrat/" igsearch
 
+    -- TODO: can this use makeScheduleRestricted?
     get "/search/name" $ do
       (target, (matches, matchNames)) <- dbQuery "target" findTarget
       -- TODO: set an error code if no match? Once have sorted out search info
@@ -693,14 +691,16 @@ webapp cm mgr scache = do
       fromBlaze (PropType.indexPage propInfo)
 
     get "/search/proptype/:proptype"
-      (searchResults (dbQuery "proptype" getProposalType) (const False)
+      (searchResultsRestricted
+       (dbQuery "proptype" getProposalType) (const False)
        PropType.matchPage)
     
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" (fromBlaze Mapping.indexPage)
 
     get "/search/joint/:mission"
-      (searchResults (dbQuery "mission" fetchJointMission) (const False)
+      (searchResultsRestricted
+       (dbQuery "mission" fetchJointMission) (const False)
        Mission.matchPage)
     
     get "/search/joint/"
@@ -1011,8 +1011,8 @@ proposal getData getSched = do
 
 
 searchTypeUnId ::
-  ActionM (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs)
-  -> (SortedList StartTimeOrder Record -> ActionM Schedule)
+  ActionM (SimbadTypeInfo, SortedList StartTimeOrder RestrictedSO)
+  -> (SortedList StartTimeOrder RestrictedRecord -> ActionM RestrictedSchedule)
   -> ActionM ()
 searchTypeUnId getData getSched = do
   (typeInfo, ms) <- getData
@@ -1021,8 +1021,8 @@ searchTypeUnId getData getSched = do
       
 
 searchType ::
-  ActionM (Maybe (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs))
-  -> (SortedList StartTimeOrder Record -> ActionM Schedule)
+  ActionM (Maybe (SimbadTypeInfo, SortedList StartTimeOrder RestrictedSO))
+  -> (SortedList StartTimeOrder RestrictedRecord -> ActionM RestrictedSchedule)
   -> ActionM ()
 searchType getData getSched = do
   matches <- getData

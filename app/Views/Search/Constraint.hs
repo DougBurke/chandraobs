@@ -18,12 +18,12 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (constraintLinkSearch)
 import Layout (dquote, standardTable)
-import Types (Schedule, TimeKS, ConstraintKind(..)
+import Types (RestrictedSchedule, TimeKS, ConstraintKind(..)
              , showExpTime
              , csToLabel)
-import Utils (getScienceTime)
+import Utils (getScienceTimeRestricted)
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage
+import Views.Render (standardRestrictedSchedulePage
                     , standardExplorePage)
 
 indexPage :: 
@@ -43,7 +43,7 @@ indexPage cs noneTime =
 -- | Render the results for a single class of constraints.
 matchPage :: 
   Maybe ConstraintKind
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchPage mcs sched =
   let hdrTitle = "Chandra observations: " <> H.toHtml lbl
@@ -53,7 +53,7 @@ matchPage mcs sched =
 
       pageTitle = toHtml lbl
       mainBlock = renderMatches mcs sched
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 proplink :: H.Html
@@ -174,8 +174,8 @@ explain (Just Constrained) scienceTime =
 --
 renderMatches ::
   Maybe ConstraintKind
-  -> Schedule          -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> Html
 renderMatches mcs sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
   in p (explain mcs scienceTime)

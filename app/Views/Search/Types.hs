@@ -41,18 +41,18 @@ import API (typeLinkSearch
 import Layout (defaultMeta, d3Meta
               , dquote, floatableTable
               , renderFooter)
-import Types (Schedule(..), SimbadType(..)
+import Types (RestrictedSchedule, SimbadType(..)
              , SimbadTypeInfo, SimbadCode(..)
              , SIMCategory
              , simbadLabels
              , noSimbadLabel
              , _2)
-import Utils (getNumObs
-             , getScienceTime
+import Utils (getNumObsRestricted
+             , getScienceTimeRestricted
              , toJSVarObj
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage
+import Views.Render (standardRestrictedSchedulePage
                     , standardExplorePage)
 
 -- | A simple tabular view of the explicit object types
@@ -95,7 +95,7 @@ dependencyPage objs =
 
 matchPage :: 
   SimbadTypeInfo
-  -> Schedule  -- the observations that match this type, organized into a "schedule"
+  -> RestrictedSchedule
   -> Html
 matchPage typeInfo sched =
   let hdrTitle = "Chandra observations of " <> H.toHtml lbl
@@ -107,11 +107,11 @@ matchPage typeInfo sched =
 
       mainBlock = renderMatches lbl sched []
       
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 matchDependencyPage :: 
   [SimbadTypeInfo] -- ^ guaranteed not to be empty
-  -> Schedule  -- the observations that match this type, organized into a "schedule"
+  -> RestrictedSchedule
   -> Html
 matchDependencyPage typeInfos sched =
   let hdrTitle = "Chandra observations of " <> H.toHtml lbl
@@ -124,7 +124,7 @@ matchDependencyPage typeInfos sched =
 
       mainBlock = renderMatches lbl sched (P.tail typeInfos)
       
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 niceType :: (SimbadType, SIMCategory) -> SIMCategory
@@ -134,12 +134,16 @@ niceType (_, l) = l
 
 renderMatches ::
   SIMCategory          -- ^ SIMBAD type, as a string
-  -> Schedule          -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> [SimbadTypeInfo]  -- ^ children of this type included in the page (if any)
   -> Html
 renderMatches lbl sched children = 
-  let scienceTime = getScienceTime sched
-      
+  let scienceTime = getScienceTimeRestricted sched
+      nobs = toHtml (getNumObsRestricted sched)
+      schedLink = ", and the format used here is the same as that of the "
+                  <> (a ! href "/schedule") "schedule view"
+                  <> "."
+
       -- TODO: rewrite, re-position, and make links
       toLink = P.uncurry typeDLinkSearch 
       typeLbls = intersperse ", " (P.map toLink children)
@@ -166,6 +170,8 @@ renderMatches lbl sched children =
              , dquote "obvious"
              , " matches, but there are also a lot of target fields which are "
              , "hard to match to SIMBAD."
+             , nobs
+             , schedLink
              ]
 
         else [ "This page shows the observations of "
@@ -182,10 +188,8 @@ renderMatches lbl sched children =
              , "true that the Chandra field of view is large enough to contain "
              , "more objects than just the observation target!). "
                -- assume the schedule is all science observations
-             , toHtml (getNumObs sched)
-             , ", and the format used here is the same as that of the "
-             , (a ! href "/schedule") "schedule view"
-             , "."
+             , nobs
+             , schedLink
              ]
                   
   in p (mconcat introText)

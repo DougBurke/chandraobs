@@ -26,16 +26,16 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (constellationLinkSearch)
 import Layout (floatableTable)
-import Types (Schedule, ConShort(..), TimeKS(..)
+import Types (RestrictedSchedule, ConShort(..), TimeKS(..)
               , getConstellationNameStr
               , getConstellationNameStr
               , showExpTime)
-import Utils (getNumObs
-             , getScienceTime
+import Utils (getNumObsRestricted
+             , getScienceTimeRestricted
              -- , toJSVarObj
              )
 import Views.Record (CurrentPage(..))
-import Views.Render (extraSchedulePage
+import Views.Render (extraRestrictedSchedulePage
                     , standardExplorePage)
 
 indexPage :: 
@@ -50,8 +50,7 @@ indexPage cons =
      
 matchPage :: 
   ConShort
-  -> Schedule
-  -- ^ the observations that match this type, organized into a "schedule"
+  -> RestrictedSchedule
   -> Html
 matchPage con sched =
   let hdrTitle = "Chandra observations in " <> H.toHtml lbl
@@ -68,17 +67,17 @@ matchPage con sched =
 
       (pageTitle, mainBlock) = renderMatches lbl sched
       
-  in extraSchedulePage sched CPExplore hdrTitle pageTitle mainBlock jsLoad
+  in extraRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock jsLoad
 
 
 -- | TODO: convert the long version of SimbadType to a nice string
 --         (may want to send in SimbadType here to match on)
 renderMatches ::
   T.Text           -- ^ Constellation name
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> (Html, Html)
 renderMatches lbl sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
 
       conLink =
         let clean c | c == ' '    = '_'
@@ -99,7 +98,7 @@ renderMatches lbl sched =
         <> (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
         <> " project by Olaf Frohn. "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> ".")

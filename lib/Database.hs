@@ -36,9 +36,7 @@ module Database ( getCurrentObs
                 , fetchObjectTypes
                 , fetchConstellation
                 , fetchConstellationTypes
-                  
                 , fetchCategory
-
                 , fetchCategorySubType
                 , fetchCategoryTypes
                 , fetchCycle
@@ -869,6 +867,8 @@ getSimbadInfo target = do
 --
 --   There is NO special-case handling to support listing those objects
 --   with no SIMBAD info (i.e. if stype == noSimbadType).
+--
+{-
 fetchSIMBADType ::
   DbSql m
   => SimbadType 
@@ -900,8 +900,44 @@ fetchSIMBADType stype = do
 
     _ -> return Nothing
 
+-}
+
+fetchSIMBADType ::
+  DbSql m
+  => SimbadType 
+  -> m (Maybe (SimbadTypeInfo, SortedList StartTimeOrder RestrictedSO))
+fetchSIMBADType stype = do
+  -- TODO: would be nice to get the database to do this,
+  --       or perhaps switch to a graph databse.
+  -- 
+  -- split into two steps for now
+  mtype <- project SmiTypeField ((SmiType3Field ==. stype) `limitTo` 1)
+  case mtype of
+    [ltype] -> do
+      keys <- project AutoKeyField (SmiType3Field ==. stype)
+      sos <- forM keys $ \key -> do
+        targets <- project SmmTargetField (SmmInfoField ==. key)
+        obs <- forM targets $
+               \t -> project restrictedScience
+                     ((SoTargetField ==. t &&. isValidScienceObs)
+                      `orderBy` [Asc SoStartTimeField])
+
+        return (concat obs)
+
+      -- could create sorted lists and then combine them,
+      -- but that has issues, so do it manually
+      --
+      let xs = concat sos
+          ys = toSL rsoStartTime xs
+      return (Just ((stype, ltype), ys))
+
+    _ -> return Nothing
+
+
+
 -- | Identify those observations with no SIMBAD mapping.
 --
+{-
 fetchNoSIMBADType :: 
   DbSql m
   => m (SimbadTypeInfo, SortedList StartTimeOrder ScienceObs)
@@ -915,6 +951,27 @@ fetchNoSIMBADType = do
 
   let inSimbad = S.fromList sinfo
       noSimbad ScienceObs{..} = soTarget `S.notMember` inSimbad
+
+      out = unsafeToSL (filter noSimbad sobs)
+
+  return ((noSimbadType, noSimbadLabel), out)
+
+-}
+
+fetchNoSIMBADType :: 
+  DbSql m
+  => m (SimbadTypeInfo, SortedList StartTimeOrder RestrictedSO)
+fetchNoSIMBADType = do
+
+  -- TODO: perhaps should just query SmnTargetField and then
+  --       do a reverse lookup to get the sources?
+  --
+  sobs <- project restrictedScience
+          (isValidScienceObs `orderBy` [Asc SoStartTimeField])
+  sinfo <- project SmmTargetField (distinct CondEmpty)
+
+  let inSimbad = S.fromList sinfo
+      noSimbad so = rsoTarget so `S.notMember` inSimbad
 
       out = unsafeToSL (filter noSimbad sobs)
 
@@ -938,6 +995,7 @@ TODO: support "parent" queries
 --         so that the caller can decide (and let them easily
 --         check if they got all the types they asked for).
 --
+{-
 fetchSIMBADDescendentTypes :: 
   DbSql m
   => SimbadType 
@@ -982,8 +1040,56 @@ fetchSIMBADDescendentTypes parent = do
       
       return (out, unsafeToSL obs)
 
+-}
+
+fetchSIMBADDescendentTypes :: 
+  DbSql m
+  => SimbadType 
+  -> m ([SimbadTypeInfo], SortedList StartTimeOrder RestrictedSO)
+  -- ^ SymbadTypeInfo list is ordered by SimbadCode setting, and
+  --   the first element is for the parent, even if no observations
+  --   match it.
+fetchSIMBADDescendentTypes parent = do
+
+  -- can we let the database do the time sorting?
+  let children = map _2 (findChildTypes parent)
+      cons = map (SmiType3Field ==.) (parent : children)
+      constraint = foldl1 (||.) cons
+
+  sinfos <- project (SmiType3Field, SmiTypeField) (distinct constraint)
+  keys <- project AutoKeyField constraint
+  if null keys
+    then return ([], emptySL)
+    else do
+      -- can use foldl1 below because have checked that keys is not empty
+      let keycons = map (SmmInfoField ==.) keys
+          keyconstraint = foldl1 (||.) keycons
+
+      targets <- project SmmTargetField keyconstraint
+
+      let targcons = map (SoTargetField ==.) targets
+          targconstraint = foldl1 (||.) targcons
+
+      obs <- project restrictedScience
+             ((targconstraint &&. isValidScienceObs)
+              `orderBy` [Asc SoStartTimeField])
+
+      let addCode sinfo =
+            case simbadTypeToCode (fst sinfo) of
+              Just scode -> Just (scode, sinfo)
+              _ -> Nothing
+          sorted = sortBy (compare `on` fst) (mapMaybe addCode sinfos)
+
+          ptype = (parent, fromMaybe "" (simbadTypeToDesc parent))
+          out = case map snd sorted of
+            xs@(p:_) | p == ptype -> xs
+            xs -> ptype : xs
+      
+      return (out, unsafeToSL obs)
+
 
 -- | Return all observations that are joint with the given mission.
+{-
 fetchJointMission :: 
   DbSql m
   => JointMission
@@ -1020,7 +1126,45 @@ fetchJointMission jm = do
         Nothing -> False
 
   return (unsafeToSL (filter hasMission sobs))
-  
+
+-}
+
+fetchJointMission :: 
+  DbSql m
+  => JointMission
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchJointMission jm = do
+
+  {- It would be nice if we could use this, but there are
+     joint proposals, e.g. CXO-HST, for which the
+     joint observatory time is 0.
+
+  let emptyField = Nothing :: Maybe TimeKS
+  sobs <- select (((missionSelectorField jm /=. emptyField)
+                  &&. notDiscarded)
+                  `orderBy` [Asc SoStartTimeField])
+
+  return (unsafeToSL sobs)
+  -}
+
+  {-
+  I'd like to say
+
+  sobs <- select (SoJointWith `like` "%HST%")
+
+  but I don't know how to "lift" into the Maybe String type,
+  so do this manually instead.
+  -}
+
+  SL sobs <- fetchScienceObsBy (Not (isFieldNothing SoJointWithField))
+
+  let hasMission so = case rsoJointWith so of
+        Just ms -> includesMission jm ms
+        Nothing -> False
+
+  return (unsafeToSL (filter hasMission sobs))
+
+
 -- | Return basic information on the joint-with observations.
 --
 --   Note that the time fields are a bit confusing, so don't have
@@ -1062,6 +1206,7 @@ fetchObjectTypes = do
 -- | Return observations which match this constellation, excluding
 --   discarded observations.
 --
+{-
 fetchConstellation ::
   DbSql m
   => ConShort
@@ -1071,6 +1216,25 @@ fetchConstellation con = do
                   &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
+
+-}
+
+fetchConstellation ::
+  DbSql m
+  => ConShort
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchConstellation con = fetchScienceObsBy (SoConstellationField ==. con)
+
+fetchScienceObsBy ::
+  DbSql m
+  => Cond (Conn m) (RestrictionHolder ScienceObs ScienceObsConstructor)
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchScienceObsBy dbcond =
+  let cond = (dbcond &&. isValidScienceObs)
+             `orderBy` [Asc SoStartTimeField]
+
+  in unsafeToSL <$> project restrictedScience cond
+  
 
 -- TODO: use the database to do this computation?
 
@@ -1110,14 +1274,11 @@ fetchConstellationTypes = do
 fetchCycle ::
   DbSql m
   => Cycle
-  -> m (SortedList StartTimeOrder ScienceObs)
+  -> m (SortedList StartTimeOrder RestrictedSO)
 fetchCycle (Cycle "all") = return emptySL  
 fetchCycle cyc = do
   props <- project PropNumField (PropCycleField ==. fromCycle cyc)
-  res <- select ((isValidScienceObs &&.
-                  SoProposalField `in_` props)
-                 `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL res)
+  fetchScienceObsBy (SoProposalField `in_` props)
 
 
 fetchCycles ::
@@ -1154,10 +1315,7 @@ fetchCategory ::
   -> m (SortedList StartTimeOrder RestrictedSO)
 fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
-  sobs <- project restrictedScience ((SoProposalField `in_` propNums
-                                      &&. isValidScienceObs)
-                                     `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL sobs)
+  fetchScienceObsBy (SoProposalField `in_` propNums)
 
 
 -- | Return observations which match this category and have
@@ -1237,11 +1395,7 @@ fetchInstrument ::
   DbSql m
   => Instrument
   -> m (SortedList StartTimeOrder RestrictedSO)
-fetchInstrument inst = do
-  ans <- project restrictedScience
-         ((SoInstrumentField ==. inst &&. isValidScienceObs)
-          `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+fetchInstrument inst = fetchScienceObsBy (SoInstrumentField ==. inst)
 
 -- | Return all the observations which match this grating,
 --   excluding discarded.
@@ -1262,11 +1416,7 @@ fetchGrating ::
   DbSql m
   => Grating
   -> m (SortedList StartTimeOrder RestrictedSO)
-fetchGrating grat = do
-  ans <- project restrictedScience
-         ((SoGratingField ==. grat &&. isValidScienceObs)
-          `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+fetchGrating grat = fetchScienceObsBy (SoGratingField ==. grat)
 
 
 -- | Return all the observations which match this instrument and grating,
@@ -1289,13 +1439,11 @@ fetchIG ::
   DbSql m
   => (Instrument, Grating)
   -> m (SortedList StartTimeOrder RestrictedSO)
-fetchIG (inst, grat) = do
-  ans <- project restrictedScience
-         (((SoInstrumentField ==. inst)
-           &&. (SoGratingField ==. grat)
-           &&. isValidScienceObs)
-          `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+fetchIG (inst, grat) =
+  let dbCond = SoInstrumentField ==. inst
+               &&. SoGratingField ==. grat
+  in fetchScienceObsBy dbCond
+
 
 -- | This counts up the individual observations; should it try and group by
 --   "proposal", or at least "object per proposal"?
@@ -1375,12 +1523,8 @@ fetchTOO ::
   DbSql m
   => Maybe TOORequestTime
   -- Nothing means "no TOO"
-  -> m (SortedList StartTimeOrder ScienceObs)
-fetchTOO Nothing = do
-  ans <- select ((isFieldNothing SoTOOField
-                  &&. isValidScienceObs)
-                 `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchTOO Nothing = fetchScienceObsBy (isFieldNothing SoTOOField)
   
 fetchTOO too = do
   -- It would be nice to say something like
@@ -1393,11 +1537,11 @@ fetchTOO too = do
   -- want to hard-code the possible mappings from
   -- too to the string representation, as that is fragile.
   --
-  allAns <- select ((Not (isFieldNothing SoTOOField)
-                     &&. isValidScienceObs)
-                    `orderBy` [Asc SoStartTimeField])
+  SL allAns <- fetchScienceObsBy (Not (isFieldNothing SoTOOField))
+
   let ans = filter isTOO allAns
-      isTOO ScienceObs{..} = trType `fmap` soTOO == too
+      isTOO so = trType `fmap` rsoTOO so == too
+      
   return (unsafeToSL ans)
 
 
@@ -1449,6 +1593,7 @@ getCon (Just Constrained) = SoConstrainedField /=. NoConstraint
   
 -- | Return the schedule for a given constraint.
 --
+{-
 fetchConstraint ::
   DbSql m
   => Maybe ConstraintKind
@@ -1459,6 +1604,14 @@ fetchConstraint mcs = do
                   &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
+-}
+
+fetchConstraint ::
+  DbSql m
+  => Maybe ConstraintKind
+  -- Nothing means "no constraint"
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchConstraint mcs = fetchScienceObsBy (getCon mcs)
 
   
 -- | Return the proposal information for the observation if:
@@ -1987,7 +2140,8 @@ getProposalTypeBreakdown = do
   --
   return (M.map propAdd propMap)
 
--- | This does not include discarded observatons.  
+-- | This does not include discarded observatons.
+{-
 getProposalType ::
   DbSql m
   => PropType
@@ -1999,6 +2153,17 @@ getProposalType ptype = do
                    &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL sobs)
+-}
+
+getProposalType ::
+  DbSql m
+  => PropType
+  -> m (SortedList StartTimeOrder RestrictedSO)
+getProposalType ptype = do
+  let ptypeStr = fromPropType ptype
+  pnums <- project PropNumField (PropTypeField ==. ptypeStr)
+  fetchScienceObsBy (SoProposalField `in_` pnums)
+
 
 -- | Information on the exposure times.
 --

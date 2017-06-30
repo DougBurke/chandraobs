@@ -19,10 +19,11 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (tooLinkSearch)
 import Layout (dquote, standardTable)
-import Types (Schedule, TimeKS, TOORequestTime(..), rtToLabel, showExpTime)
-import Utils (getScienceTime)
+import Types (RestrictedSchedule, TimeKS, TOORequestTime(..)
+             , rtToLabel, showExpTime)
+import Utils (getScienceTimeRestricted)
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage
+import Views.Render (standardRestrictedSchedulePage
                      , standardExplorePage)
 
 indexPage :: 
@@ -41,7 +42,7 @@ indexPage toos noneTime =
 -- | Render the results for a single class of TOOs.
 matchPage :: 
   Maybe TOORequestTime
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchPage mtoo sched =
   let hdrTitle = "Chandra observations: " <> lbl
@@ -51,7 +52,7 @@ matchPage mtoo sched =
 
       mainBlock = renderMatches mtoo sched
       
-  in standardSchedulePage sched CPExplore hdrTitle lbl mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle lbl mainBlock
 
 
 proplink :: H.Html
@@ -174,9 +175,9 @@ explain (Just Slow) scienceTime =
 --
 renderMatches ::
   Maybe TOORequestTime
-  -> Schedule          -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> Html
 renderMatches mtoo sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
   in p (explain mtoo scienceTime)
 
