@@ -15,10 +15,10 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule, TargetName(..))
-import Utils (getNumObs)
+import Types (RestrictedSchedule, TargetName(..))
+import Utils (getScienceTimeRestricted, getNumObsRestricted)
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage,
+import Views.Render (standardRestrictedSchedulePage,
                      standardExplorePage)
 
 targetPage :: 
@@ -29,7 +29,7 @@ targetPage ::
   --   I think this should always be a singleton (unless QuerySimbad hasn't
   --   been called when it could be empty). It should not have multiple values,
   --   but I haven't convinced myself of this so leave as is for now.
-  -> Schedule
+  -> RestrictedSchedule
   -- ^ the observations that match this target, organized into a "schedule"
   -> Html
 targetPage targetName fullNames sched =
@@ -43,20 +43,21 @@ targetPage targetName fullNames sched =
       pageTitle = toHtml officialName
       mainBlock = renderMatches officialName sched
       
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 renderMatches ::
   TargetName           -- ^ target name
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule
   -> Html
 renderMatches lbl sched = 
   p ("This page shows Chandra observations of the target "
      <> toHtml lbl
+     <> getScienceTimeRestricted sched
      <> ". "
      -- TODO: need to mention what is going on here (i.e. what the
      --       search represents)
-     <> toHtml (getNumObs sched)
+     <> toHtml (getNumObsRestricted sched)
      <> ". The format is the same as used in the "
      <> (a ! href "/schedule") "schedule view"
      <> "."

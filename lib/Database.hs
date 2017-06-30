@@ -1741,6 +1741,8 @@ findProposalNameMatch instr =
 --   case-insensitive match - against both the observation target name and
 --   Simbad matches.
 --
+--   Note that it does *not* find discarded or unscheduled observations.
+--
 --   It is related to `findNameMatch`.
 --
 --   TODO:
@@ -1750,7 +1752,7 @@ findProposalNameMatch instr =
 findTarget ::
   DbSql m
   => TargetName
-  -> m (SortedList StartTimeOrder ScienceObs, [TargetName])
+  -> m (SortedList StartTimeOrder RestrictedSO, [TargetName])
   -- ^ Returns a list of matching observations and the list of
   --   "SIMBAD" names, that is, the names that are considered
   --   the primary values for the source. I would hope that
@@ -1768,11 +1770,10 @@ findTarget target = do
   -- more awkward than I'd like.
   --
   let searchTerm = TN (T.toUpper (fromTargetName target))
-  direct <- select ((upper SoTargetField ==. searchTerm)
-                    `orderBy` [Asc SoStartTimeField])
+  direct <- fetchScienceObsBy (upper SoTargetField ==. searchTerm)
 
   -- find the "Simbad" name for these targets
-  let tnames = map soTarget direct
+  let tnames = map rsoTarget (_unSL direct)
   skeys <- project SmmInfoField (SmmTargetField `in_` tnames)
   sfields <- project (AutoKeyField, SmiNameField) (AutoKeyField `in_` skeys)
   let (sauto, snames) = unzip sfields
@@ -1782,11 +1783,10 @@ findTarget target = do
 
   -- remove those names we already have data for
   let onames = S.fromList smatches `S.difference` S.fromList tnames
-  indirect <- select ((SoTargetField `in_` S.toList onames)
-                      `orderBy` [Asc SoStartTimeField])
+  indirect <- fetchScienceObsBy (SoTargetField `in_` S.toList onames)
 
   -- hopefully there are no repeats in these two lists
-  let sobs = mergeSL soStartTime (unsafeToSL direct) (unsafeToSL indirect)
+  let sobs = mergeSL rsoStartTime direct indirect
   return (sobs, snames)
 
 type NumSrc = Int

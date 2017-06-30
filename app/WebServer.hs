@@ -656,7 +656,7 @@ webapp cm mgr scache = do
       if nullSL matches
         then fromBlaze (Target.noMatchPage target)
         else do
-          sched <- liftSQL (makeSchedule (fmap Right matches))
+          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
           fromBlaze (Target.targetPage target matchNames sched)
 
     -- Try displaying a "calendar" view
