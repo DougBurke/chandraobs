@@ -168,12 +168,12 @@ categoryAndTypePage ::
   PropCategory  -- ^ propoal category
   -> Maybe SimbadType
   -- ^ If Nothing, the it is the Unidentified category.
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 categoryAndTypePage cat mtype sched =
   let hdrTitle = "Chandra observations: " <> getComboTitle cat mtype
       (pageTitle, mainBlock) = renderComboMatches cat mtype sched
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 -- | TODO: combine table rendering with Views.Schedule
 --
@@ -203,10 +203,10 @@ renderComboMatches ::
   PropCategory           -- ^ Category name
   -> Maybe SimbadType
   -- ^ If Nothing then the unidentified matches.
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule      -- ^ list of matches, could be empty
   -> (Html, Html)
 renderComboMatches cat mtype sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
 
       -- TODO: improve English here
       matchBlock = p (
@@ -218,7 +218,7 @@ renderComboMatches cat mtype sched =
         <> scienceTime
         <> ". "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> "."

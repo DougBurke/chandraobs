@@ -40,16 +40,16 @@ import API (instLinkSearch
 import Layout (defaultMeta, d3Meta
               , renderFooter
               , standardTable)
-import Types (Schedule, TimeKS(..), Instrument, Grating(..)
+import Types (RestrictedSchedule, TimeKS(..), Instrument, Grating(..)
              , showExpTime, addTimeKS
              , fromInstrument, fromGrating
              )
-import Utils (getNumObs
-             , getScienceTime
+import Utils (getNumObsRestricted
+             , getScienceTimeRestricted
              , toJSVarObj
              )
 import Views.Record (CurrentPage(..), mainNavBar)
-import Views.Render (standardSchedulePage
+import Views.Render (standardRestrictedSchedulePage
                     , standardExplorePage)
 
 indexPage :: 
@@ -65,43 +65,43 @@ indexPage insts grats igs =
 
 matchInstPage :: 
   Instrument
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchInstPage inst sched =
   let hdrTitle = "Chandra observations with " <> pageTitle
       pageTitle = H.toHtml inst
       mainBlock = renderInstMatches inst sched
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 matchGratPage :: 
   Grating
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchGratPage grat sched =
   let hdrTitle = "Chandra observations with " <> pageTitle
       pageTitle = H.toHtml grat
       mainBlock = renderGratMatches grat sched
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 matchIGPage :: 
   (Instrument, Grating)
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 matchIGPage ig@(inst, grat) sched =
   let hdrTitle = "Chandra observations with " <> pageTitle
       pageTitle = H.toHtml inst <> " and " <> H.toHtml grat
       mainBlock = renderIGMatches ig sched
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 renderInstMatches ::
   Instrument       
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule      -- ^ list of matches, could be empty
   -> Html
 renderInstMatches inst sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
   in p ("This page shows observations of objects that use "
         <> "the "
         <> instLinkAbout inst
@@ -109,7 +109,7 @@ renderInstMatches inst sched =
         <> scienceTime
         <> ". "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> ".")
@@ -117,17 +117,17 @@ renderInstMatches inst sched =
 
 renderGratMatches ::
   Grating       
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule      -- ^ list of matches, could be empty
   -> Html
 renderGratMatches grat sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
   in p ("This page shows observations of objects that use "
         <> gratLinkAbout grat
         <> " on Chandra"
         <> scienceTime
         <> ". "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> ".")
@@ -135,10 +135,10 @@ renderGratMatches grat sched =
 
 renderIGMatches ::
   (Instrument, Grating)
-  -> Schedule      -- ^ non-empty list of matches
+  -> RestrictedSchedule      -- ^ non-empty list of matches
   -> Html
 renderIGMatches (inst, grat) sched = 
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
   in p ("This page shows observations of objects that use "
         <> instLinkAbout inst
         <> " with "
@@ -147,7 +147,7 @@ renderIGMatches (inst, grat) sched =
         <> scienceTime
         <> ". "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> ".")

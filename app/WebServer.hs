@@ -110,7 +110,6 @@ import Database (NumObs, NumSrc, SIMKey
                 , fetchCycles
 
                 , fetchCategory
-                , fetchCategoryRestricted
                   
                 , fetchCategorySubType
                 , fetchCategoryTypes
@@ -525,6 +524,15 @@ webapp cm mgr scache = do
               fromBlaze (page val sched)
             Nothing -> next
             
+    let maybeSearchResultsRestricted mval getData page =
+          case mval of
+            Just val -> do
+              matches <- getData val
+              when (nullSL matches) next
+              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+              fromBlaze (page val sched)
+            Nothing -> next
+            
     -- This returns those observations that match this
     -- type and any "sub types"; contrast with /seatch/type/:type
     -- TODO: also need a HEAD request version
@@ -600,15 +608,11 @@ webapp cm mgr scache = do
                     Just s -> Just (Just s)
                     _ -> Nothing
 
-      maybeSearchResults mtype (liftSQL . fetchCategorySubType cat)
+      maybeSearchResultsRestricted mtype (liftSQL . fetchCategorySubType cat)
         (Category.categoryAndTypePage cat)
       
     get "/search/category/:category"
-      (searchResults (dbQuery "category" fetchCategory) (const False)
-       Category.matchPage)
-
-    get "/search/rcategory/:category"
-      (searchResultsRestricted (dbQuery "category" fetchCategoryRestricted)
+      (searchResultsRestricted (dbQuery "category" fetchCategory)
        (const False) Category.matchPageRestricted)
 
     -- TODO: also need a HEAD request version
@@ -618,17 +622,20 @@ webapp cm mgr scache = do
 
     -- TODO: also need a HEAD request version
     get "/search/instrument/:instrument"
-      (searchResults (dbQuery "instrument" fetchInstrument) (const False)
+      (searchResultsRestricted
+       (dbQuery "instrument" fetchInstrument) (const False)
        Instrument.matchInstPage)
 
     -- TODO: also need a HEAD request version
     get "/search/grating/:grating"
-      (searchResults (dbQuery "grating" fetchGrating) (const False)
+      (searchResultsRestricted
+       (dbQuery "grating" fetchGrating) (const False)
        Instrument.matchGratPage)
     
     -- TODO: also need a HEAD request version
     get "/search/instgrat/:ig"
-      (searchResults (dbQuery "ig" fetchIG) (const False)
+      (searchResultsRestricted
+       (dbQuery "ig" fetchIG) (const False)
        Instrument.matchIGPage)
     
     let igsearch = do

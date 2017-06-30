@@ -38,7 +38,6 @@ module Database ( getCurrentObs
                 , fetchConstellationTypes
                   
                 , fetchCategory
-                , fetchCategoryRestricted
 
                 , fetchCategorySubType
                 , fetchCategoryTypes
@@ -1136,6 +1135,7 @@ fetchCycles = do
 -- | Return observations which match this category,
 --   excluding discarded observations.
 --
+{-
 fetchCategory ::
   DbSql m
   => PropCategory
@@ -1146,17 +1146,13 @@ fetchCategory cat = do
                    &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL sobs)
+-}
 
-
-
--- Can we make it faster by just returning the infomation we
--- need for the schedule view?
---
-fetchCategoryRestricted ::
+fetchCategory ::
   DbSql m
   => PropCategory
   -> m (SortedList StartTimeOrder RestrictedSO)
-fetchCategoryRestricted cat = do
+fetchCategory cat = do
   propNums <- project PropNumField (PropCategoryField ==. cat)
   sobs <- project restrictedScience ((SoProposalField `in_` propNums
                                       &&. isValidScienceObs)
@@ -1172,7 +1168,7 @@ fetchCategorySubType ::
   => PropCategory  -- ^ proposal category
   -> Maybe SimbadType
   -- ^ If Nothing, use the Unidentified type
-  -> m (SortedList StartTimeOrder ScienceObs)
+  -> m (SortedList StartTimeOrder RestrictedSO)
 fetchCategorySubType cat mtype = do
 
   SL sobs <- fetchCategory cat
@@ -1180,19 +1176,19 @@ fetchCategorySubType cat mtype = do
   -- How much of this logic is in fetchSIMBADType and
   -- fetchNoSIMBADType?
   --
-  let matchSIMBAD ScienceObs{..} = do
-        -- why bother going through listToMaybe as patten match the
-        -- output immediately?
-        mkey <- listToMaybe <$> project SmmInfoField (SmmTargetField ==. soTarget)
+  let matchSIMBAD so = do
+        let soTarget = rsoTarget so
+        
+        mkey <- project SmmInfoField (SmmTargetField ==. soTarget)
         case mkey of
-          Just key -> case mtype of
+          (key:_) -> case mtype of
             Nothing -> return False
             Just _ -> do
               otype <- listToMaybe
                        <$> project SmiType3Field (AutoKeyField ==. key)
               return (otype == mtype)
                         
-          Nothing -> return (isNothing mtype)
+          [] -> return (isNothing mtype)
 
   out <- filterM matchSIMBAD sobs
   return (unsafeToSL out)
@@ -1226,6 +1222,7 @@ fetchProposal pn = do
 -- | Return all the observations which match this instrument,
 --   excluding discarded.
 --
+{-
 fetchInstrument ::
   DbSql m
   => Instrument
@@ -1234,22 +1231,48 @@ fetchInstrument inst = do
   ans <- select $ (SoInstrumentField ==. inst &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
   return (unsafeToSL ans)
+-}
+
+fetchInstrument ::
+  DbSql m
+  => Instrument
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchInstrument inst = do
+  ans <- project restrictedScience
+         ((SoInstrumentField ==. inst &&. isValidScienceObs)
+          `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL ans)
 
 -- | Return all the observations which match this grating,
 --   excluding discarded.
 --
+{-
 fetchGrating ::
   DbSql m
   => Grating
   -> m (SortedList StartTimeOrder ScienceObs)
 fetchGrating grat = do
-  ans <- select $ (SoGratingField ==. grat &&. isValidScienceObs)
-         `orderBy` [Asc SoStartTimeField]
+  ans <- select ((SoGratingField ==. grat &&. isValidScienceObs)
+                  `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
+
+-}
+
+fetchGrating ::
+  DbSql m
+  => Grating
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchGrating grat = do
+  ans <- project restrictedScience
+         ((SoGratingField ==. grat &&. isValidScienceObs)
+          `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL ans)
+
 
 -- | Return all the observations which match this instrument and grating,
 --   excluding discarded.
 --
+{-
 fetchIG ::
   DbSql m
   => (Instrument, Grating)
@@ -1259,6 +1282,19 @@ fetchIG (inst, grat) = do
                    &&. (SoGratingField ==. grat)
                    &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
+  return (unsafeToSL ans)
+-}
+
+fetchIG ::
+  DbSql m
+  => (Instrument, Grating)
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchIG (inst, grat) = do
+  ans <- project restrictedScience
+         (((SoInstrumentField ==. inst)
+           &&. (SoGratingField ==. grat)
+           &&. isValidScienceObs)
+          `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL ans)
 
 -- | This counts up the individual observations; should it try and group by
