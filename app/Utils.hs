@@ -12,9 +12,9 @@ module Utils (
      , getTimes
      , cleanJointName
      , schedToList
-     , getNumObs
+     , getNumObs, getNumObsRestricted
      , getScienceExposure
-     , getScienceTime
+     , getScienceTime, getScienceTimeRestricted
 
      , isChandraImageViewable
      , publicImageURL
@@ -71,8 +71,10 @@ import Types (ScienceObs(..)
              , TimeKS(..)
              , Record
              , Schedule(..)
+             , RestrictedSchedule(..), RestrictedRecord
              , recordStartTime
              , recordTime
+             , rsoExposureTime
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
 
@@ -242,37 +244,53 @@ maybeToList (Just x) = [x]
 schedToList :: Schedule -> [Record]
 schedToList Schedule{..} = scDone ++ maybeToList scDoing ++ scToDo
 
-getNumObs :: Schedule -> T.Text
-getNumObs sched =
-  let xs = schedToList sched
-      nobs = length xs
+rschedToList :: RestrictedSchedule -> [RestrictedRecord]
+rschedToList RestrictedSchedule{..} = rrDone ++ maybeToList rrDoing ++ rrToDo
+
+getNumObsHelper :: [a] -> T.Text
+getNumObsHelper xs =
+  let nobs = length xs
       obslen = case nobs of
         0 -> "are no observations"
         1 -> "is one observation"
         _ -> "are " <> showInt nobs <> " observations"
   in "There " <> obslen
 
+getNumObs :: Schedule -> T.Text
+getNumObs = getNumObsHelper . schedToList
+
+getNumObsRestricted :: RestrictedSchedule -> T.Text
+getNumObsRestricted = getNumObsHelper . rschedToList
+
 
 -- | Return the total obervation time for the science observations in the
 --   schedule.
-getScienceExposure ::
-  Schedule
-  -> TimeKS
+getScienceExposure :: Schedule -> TimeKS
 getScienceExposure sched =
   let sobs = rights (schedToList sched)
       getTime so = fromMaybe (soApprovedTime so) (soObservedTime so)
   in foldl' addTimeKS zeroKS (map getTime sobs)
 
+getScienceExposureRestricted :: RestrictedSchedule -> TimeKS
+getScienceExposureRestricted sched =
+  let sobs = rights (rschedToList sched)
+  in foldl' addTimeKS zeroKS (map rsoExposureTime sobs)
 
-getScienceTime ::
-  Schedule
-  -> H.Html
-getScienceTime sched =
-  let etime = getScienceExposure sched
-  in if isZeroKS etime
-     then mempty
-     else ", and the total science exposure time for these observations is "
-          <> H.toHtml (showExpTime etime)
+
+getScienceTimeHelper :: TimeKS -> H.Html
+getScienceTimeHelper etime =
+  if isZeroKS etime
+  then mempty
+  else ", and the total science exposure time for these observations is "
+       <> H.toHtml (showExpTime etime)
+
+
+getScienceTime :: Schedule -> H.Html
+getScienceTime = getScienceTimeHelper . getScienceExposure
+
+
+getScienceTimeRestricted :: RestrictedSchedule -> H.Html
+getScienceTimeRestricted = getScienceTimeHelper . getScienceExposureRestricted
 
 
 -- | This handles both wheter the image is publically available as well

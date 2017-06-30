@@ -52,6 +52,7 @@ library
   exposed-modules:
                   Database
                   Git
+                  Instances
                   Types
 
   ghc-options: -Wall

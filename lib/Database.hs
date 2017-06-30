@@ -16,7 +16,10 @@ module Database ( getCurrentObs
                 , getRecord
                 , getSchedule
                 , getScheduleDate
+                  
                 , makeSchedule
+                , makeScheduleRestricted
+
                 , getProposal
                 , getProposalFromNumber
                 , getProposalObs
@@ -33,7 +36,10 @@ module Database ( getCurrentObs
                 , fetchObjectTypes
                 , fetchConstellation
                 , fetchConstellationTypes
+                  
                 , fetchCategory
+                , fetchCategoryRestricted
+
                 , fetchCategorySubType
                 , fetchCategoryTypes
                 , fetchCycle
@@ -150,6 +156,7 @@ import Database.Groundhog.Postgresql
 import Formatting hiding (now)
 
 import Types
+import Instances ()
 
 -- DbSql is a terrible name; need to change it
 type DbIO m = (MonadIO m, PersistBackend m)
@@ -166,6 +173,61 @@ dummyLastMod = UTCTime (ModifiedJulianDay 0) 0
 
 -- nsInObsCatName :: T.Text
 -- nsInObsCatName = "unknown"
+
+-- Project the fields out of a ScienceObs to form a RestrictedSO
+-- and NonScienceObs to form RestrictedNS
+--
+type SF = Field ScienceObs ScienceObsConstructor
+type NF = Field NonScienceObs NonScienceObsConstructor
+
+restrictedScience ::
+  (SF ObsIdVal
+  , SF TargetName
+  , SF (Maybe ChandraTime)
+  , SF TimeKS
+  , SF (Maybe TimeKS)
+  , SF Instrument
+  , SF Grating
+  , SF (Maybe T.Text)
+  , SF (Maybe TOORequest)
+  , SF Constraint
+  , SF Constraint
+  , SF Constraint
+  , SF RA
+  , SF Dec
+  , SF ConShort)
+restrictedScience =
+  (SoObsIdField
+  , SoTargetField
+  , SoStartTimeField
+  , SoApprovedTimeField
+  , SoObservedTimeField
+  , SoInstrumentField
+  , SoGratingField
+  , SoJointWithField
+  , SoTOOField
+  , SoTimeCriticalField
+  , SoMonitorField
+  , SoConstrainedField
+    -- ^ need to check the constraints are in the right order
+  , SoRAField
+  , SoDecField
+  , SoConstellationField)
+
+restrictedNonScience ::
+  (NF ObsIdVal
+  , NF (Maybe ChandraTime)
+  , NF TimeKS
+  , NF RA
+  , NF Dec)
+restrictedNonScience =
+  (NsObsIdField
+  , NsStartTimeField
+  , NsTimeField
+    -- ^ could also send the actual time?
+  , NsRaField
+  , NsDecField)
+
 
 -- | What is the logic to the status fields, in particular
 --   unobserved versus scheduled, and does cancelled (or, rather
@@ -241,6 +303,13 @@ identifyLatestRecord ::
   -> Maybe Record
 identifyLatestRecord = identifyHelper soStartTime nsStartTime (>)
 
+identifyLatestRestrictedRecord ::
+  [RestrictedSO]
+  -> [RestrictedNS]
+  -> Maybe RestrictedRecord
+identifyLatestRestrictedRecord = identifyHelper rsoStartTime rnsStartTime (>)
+
+
 identifyEarliestRecord ::
   [ScienceObs]
   -> [NonScienceObs]
@@ -275,7 +344,8 @@ identifyHelper px py ord xs ys =
 --
 findRecord ::
   DbSql m
-  => UTCTime -> m (Maybe Record)
+  => UTCTime
+  -> m (Maybe Record)
 findRecord t = do
   let tval = ChandraTime t
   xs <- select (((SoStartTimeField <=. Just tval)
@@ -287,6 +357,24 @@ findRecord t = do
                 `limitTo` 1)
 
   return (identifyLatestRecord xs ys)
+
+findRecordRestricted ::
+  DbSql m
+  => UTCTime
+  -> m (Maybe RestrictedRecord)
+findRecordRestricted t = do
+  let tval = ChandraTime t
+  xs <- project restrictedScience
+        (((SoStartTimeField <=. Just tval)
+          &&. isValidScienceObs)
+         `orderBy` [Desc SoStartTimeField]
+         `limitTo` 1)
+  ys <- project restrictedNonScience
+        (((NsStartTimeField <=. Just tval) &&. notNsDiscarded)
+         `orderBy` [Desc NsStartTimeField]
+         `limitTo` 1)
+
+  return (identifyLatestRestrictedRecord xs ys)
 
 -- | Return information on this obsid, if known about. This includes
 --   discarded and non-scheduled observations.
@@ -496,7 +584,19 @@ getObsInRange tStart tEnd = do
   -- should filter by the actual run-time, but the following is
   -- easier.
   --
-  let filtEnd proj_start proj_runtime o =
+  -- The type signature on filtEnd is only needed if TypeFamilies
+  -- is turned on for this module (ghc 8.0.2); the signature is left
+  -- in as it doesn't harm things.
+  --
+  let filtEnd ::
+        (a -> Maybe ChandraTime)
+        -- ^ start time
+        -> (a -> TimeKS)
+        -- ^ observation length
+        -> a
+        -> Bool
+        -- ^ True if the observation ends before tStart
+      filtEnd proj_start proj_runtime o =
         case proj_start o of
           Just stime -> let rtime = proj_runtime o
                             etime = endCTime stime rtime
@@ -677,6 +777,44 @@ makeSchedule rs = do
   return (Schedule now 0 done (listToMaybe nows) todo simbad)
 
 
+-- I am going to assume that the schedule does not contain any
+-- discarded or canceled observations, so we don't need to
+-- send around the status field as well.
+--
+makeScheduleRestricted ::
+  DbFull m
+  => SortedList StartTimeOrder RestrictedRecord -- ^ no duplicates
+  -> m RestrictedSchedule
+makeScheduleRestricted rs = do
+  now <- liftIO getCurrentTime
+  mrec <- findRecordRestricted now
+  
+  let cleanrs = filter keep (fromSL rs)
+
+      {- 
+      want = (`notElem` [Discarded, Canceled])
+      keep (Left NonScienceObs{..}) = want nsStatus && isJust nsStartTime
+      keep (Right ScienceObs{..}) = want soStatus && isJust soStartTime
+      -}
+
+      keep (Left ns) = isJust (rnsStartTime ns)
+      keep (Right so) = isJust (rsoStartTime so)
+      
+      mobsid = rrecordObsId <$> mrec
+      findNow r = if Just (rrecordObsId r) == mobsid then Right r else Left r
+      (others, nows) = partitionEithers (map findNow cleanrs)
+
+      -- since we've filtered by isJust this use of fromJust is okay
+      timeUnsafe (Left rns) = fromJust (rnsStartTime rns)
+      timeUnsafe (Right rso) = fromJust (rsoStartTime rso)
+        
+      cnow = ChandraTime now
+      (done, todo) = span ((<= cnow) . timeUnsafe) others
+
+  simbad <- getSimbadListRestricted cleanrs
+  return (RestrictedSchedule now 0 done (listToMaybe nows) todo simbad)
+
+
 -- | Find the SIMBAD records for the input science observations.
 --
 getSimbadList ::
@@ -696,6 +834,23 @@ getSimbadList rs = do
 
   return (M.fromList (catMaybes toMap))
 
+
+getSimbadListRestricted ::
+  DbSql m
+  => [RestrictedRecord]  -- ^ records; assumed to be filtered
+  -> m (M.Map TargetName SimbadInfo)
+getSimbadListRestricted rs = do
+  let getName = either (const Nothing) (Just . rsoTarget)
+      tnames = nub (mapMaybe getName rs)
+
+  mtargs <- project (SmmTargetField, SmmInfoField)
+            (SmmTargetField `in_` tnames)
+
+  toMap <- forM mtargs $ \(tname, key) -> do
+    val <- get key
+    return ((tname, ) <$> val)
+
+  return (M.fromList (catMaybes toMap))
 
 
 -- | Do we have any SIMBAD information about the target?
@@ -990,6 +1145,22 @@ fetchCategory cat = do
   sobs <- select ((SoProposalField `in_` propNums
                    &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
+  return (unsafeToSL sobs)
+
+
+
+-- Can we make it faster by just returning the infomation we
+-- need for the schedule view?
+--
+fetchCategoryRestricted ::
+  DbSql m
+  => PropCategory
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchCategoryRestricted cat = do
+  propNums <- project PropNumField (PropCategoryField ==. cat)
+  sobs <- project restrictedScience ((SoProposalField `in_` propNums
+                                      &&. isValidScienceObs)
+                                     `orderBy` [Asc SoStartTimeField])
   return (unsafeToSL sobs)
 
 
@@ -2067,3 +2238,5 @@ timeDb act = do
   t2 <- liftIO getCurrentTime
   let diff = t2 `diffUTCTime` t1
   return (ans, realToFrac diff)
+
+

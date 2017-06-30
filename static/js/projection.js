@@ -17,7 +17,7 @@ var transitionTime = 600;
 var frameTransitionTime = 800;
 
 // coords is an array of objects with
-// ra/dec attributes in degrees (0-360 and -90 to 90)
+// longitude/latitude attributes in degrees (0-360 and -90 to 90)
 // as well as other attributes useful for labelling
 // and identifying the targets
 //

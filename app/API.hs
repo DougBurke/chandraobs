@@ -9,6 +9,7 @@ module API (scheduleOnDate
            , obsURIString
 
            , linkToRecord
+           , linkToRestrictedRecord
            , linkToRecordA
              
            , abstractLink
@@ -79,10 +80,16 @@ import Types (ConShort(..)
              , Proposal(..)
              , PropType
              , Record
+             , RestrictedRecord
              , SimbadType(..)
              , TargetName(..)
              , TOORequestTime
-             , recordTarget, recordObsId
+             , recordTarget
+             , recordObsId
+
+             , rrecordTarget
+             , rrecordObsId
+               
              , fromMission
              , fromPropType
              , toPropTypeLabel
@@ -127,6 +134,18 @@ linkToRecordA f r =
 
 linkToRecord :: Record -> Html
 linkToRecord = linkToRecordA recordTarget
+
+linkToRestrictedRecordA ::
+  H.ToMarkup a
+  => (RestrictedRecord -> a)
+  -> RestrictedRecord
+  -> Html
+linkToRestrictedRecordA f r = 
+  let uri = obsURI (rrecordObsId r)
+  in (a H.! href uri) (toHtml (f r))
+
+linkToRestrictedRecord :: RestrictedRecord -> Html
+linkToRestrictedRecord = linkToRestrictedRecordA rrecordTarget
 
 
 data ViewerOption =

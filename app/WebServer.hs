@@ -89,7 +89,10 @@ import Database (NumObs, NumSrc, SIMKey
                 , getObsId
                 , getSchedule
                 , getScheduleDate
+                  
                 , makeSchedule
+                , makeScheduleRestricted
+                  
                 , getProposalInfo
                 , getProposalFromNumber
                 , getRelatedObs
@@ -105,7 +108,10 @@ import Database (NumObs, NumSrc, SIMKey
                 , fetchConstellationTypes
                 , fetchCycle
                 , fetchCycles
+
                 , fetchCategory
+                , fetchCategoryRestricted
+                  
                 , fetchCategorySubType
                 , fetchCategoryTypes
                 , fetchJointMission
@@ -504,6 +510,12 @@ webapp cm mgr scache = do
           sched <- liftSQL (makeSchedule (fmap Right matches))
           fromBlaze (page xs sched)
 
+    let searchResultsRestricted getData isNull page = do
+          (xs, matches) <- getData
+          when (nullSL matches || isNull xs) next
+          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+          fromBlaze (page xs sched)
+
     let maybeSearchResults mval getData page =
           case mval of
             Just val -> do
@@ -594,6 +606,10 @@ webapp cm mgr scache = do
     get "/search/category/:category"
       (searchResults (dbQuery "category" fetchCategory) (const False)
        Category.matchPage)
+
+    get "/search/rcategory/:category"
+      (searchResultsRestricted (dbQuery "category" fetchCategoryRestricted)
+       (const False) Category.matchPageRestricted)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do

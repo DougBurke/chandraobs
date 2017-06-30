@@ -349,6 +349,142 @@ instance H.ToValue ObsIdVal where
 --
 type Record = Either NonScienceObs ScienceObs
 
+-- | This is intended to simplify information flow, rather than
+--   be a semantically "meaningful" representation of the data.
+--
+--   All aboard the tuple train.
+--
+type RestrictedRecord = Either RestrictedNS RestrictedSO
+
+-- non-science observations
+--   obsid - can derive target name from it
+--   start time
+--   duration
+--   location
+--
+type RestrictedNS = (ObsIdVal, Maybe ChandraTime, TimeKS, RA, Dec)
+
+-- science observations
+--   obsid
+--   target name   can quey simbad map for the simbad type
+--   start time
+--   approved duration
+--   observed duration
+--   instrument and grating
+--   joint with
+--   turnaround time
+--   constraints
+--   location
+--   constellation
+--
+type RestrictedSO =
+  (ObsIdVal
+  , TargetName
+  , Maybe ChandraTime
+  , TimeKS
+  , Maybe TimeKS
+  , Instrument
+  , Grating
+  , Maybe T.Text
+  , Maybe TOORequest
+  , Constraint
+  , Constraint
+  , Constraint
+  , RA
+  , Dec
+  , ConShort)
+                       
+
+rrecordObsId :: RestrictedRecord -> ObsIdVal
+rrecordObsId (Left (oi, _, _, _, _)) = oi
+rrecordObsId (Right (oi, _, _, _, _, _, _, _, _, _, _, _, _, _, _)) = oi
+
+rrecordTarget :: RestrictedRecord -> TargetName
+rrecordTarget = either rnsTarget rsoTarget
+
+rrecordStartTime :: RestrictedRecord -> Maybe ChandraTime
+rrecordStartTime = either rnsStartTime rsoStartTime
+
+rrecordTime :: RestrictedRecord -> TimeKS
+rrecordTime = either rnsExposureTime rsoExposureTime
+
+rrecordInstrument :: RestrictedRecord -> Maybe Instrument
+rrecordInstrument = either (const Nothing) (Just . rsoInstrument)
+
+rrecordGrating :: RestrictedRecord -> Maybe Grating
+rrecordGrating = either (const Nothing) (Just . rsoGrating)
+
+rrecordRA :: RestrictedRecord -> RA
+rrecordRA = either rnsRA rsoRA
+
+rrecordDec :: RestrictedRecord -> Dec
+rrecordDec = either rnsDec rsoDec
+
+rrecordConstellation :: RestrictedRecord -> Maybe ConShort
+rrecordConstellation = either (const Nothing) (Just . rsoConstellation)
+
+-- 
+
+-- fake the target name from the obsid
+-- QUS: is this sensible? We could just send around the
+--      target name here as well
+rnsTarget :: RestrictedNS -> TargetName
+rnsTarget (oi, _, _, _, _) = TN ("CAL-ER (" <>
+                                 sformat int (fromObsId oi) <>
+                                 ")")
+
+rnsStartTime :: RestrictedNS -> Maybe ChandraTime
+rnsStartTime (_, t, _, _, _) = t
+
+rnsExposureTime :: RestrictedNS -> TimeKS
+rnsExposureTime (_, _, t, _, _) = t
+
+rnsRA :: RestrictedNS -> RA
+rnsRA (_, _, _, ra, _) = ra
+
+rnsDec :: RestrictedNS -> Dec
+rnsDec (_, _, _, _, dec) = dec
+
+--
+rsoStartTime :: RestrictedSO -> Maybe ChandraTime
+rsoStartTime (_, _, t, _, _, _, _, _, _, _, _, _, _, _, _) = t
+
+rsoTarget :: RestrictedSO -> TargetName
+rsoTarget (_, tn, _, _, _, _, _, _, _, _, _, _, _, _, _) = tn
+
+-- | Prefer the observed time if available
+rsoExposureTime :: RestrictedSO -> TimeKS
+rsoExposureTime (_, _, _, _, Just ta, _, _, _, _, _, _, _, _, _, _) = ta
+rsoExposureTime (_, _, _, to, _, _, _, _, _, _, _, _, _, _, _) = to
+
+rsoInstrument :: RestrictedSO -> Instrument
+rsoInstrument (_, _, _, _, _, ins, _, _, _, _, _, _, _, _, _) = ins
+
+rsoGrating :: RestrictedSO -> Grating
+rsoGrating (_, _, _, _, _, _, grat, _, _, _, _, _, _, _, _) = grat
+
+rsoJointWith :: RestrictedSO -> Maybe T.Text
+rsoJointWith (_, _, _, _, _, _, _, jw, _, _, _, _, _, _, _) = jw
+
+rsoTOO :: RestrictedSO -> Maybe TOORequest
+rsoTOO (_, _, _, _, _, _, _, _, too, _, _, _, _, _, _) = too
+
+-- The order should be timecritical, monitor, constrained.
+--
+rsoConstraints :: RestrictedSO -> [Constraint]
+rsoConstraints (_, _, _, _, _, _, _, _, _, tcrit, mon, con, _, _, _)
+  = [tcrit, mon, con]
+
+rsoRA :: RestrictedSO -> RA
+rsoRA (_, _, _, _, _, _, _, _, _, _, _, _, ra, _, _) = ra
+
+rsoDec :: RestrictedSO -> Dec
+rsoDec (_, _, _, _, _, _, _, _, _, _, _, _, _, dec, _) = dec
+
+rsoConstellation :: RestrictedSO -> ConShort
+rsoConstellation (_, _, _, _, _, _, _, _, _, _, _, _, _, _, con) = con
+
+
 newtype TargetName = TN { fromTargetName :: T.Text }
                    deriving (Eq, Ord)
 
@@ -668,6 +804,20 @@ data Schedule =
      --   schedule (it may be empty)
    }
 
+
+data RestrictedSchedule = 
+   RestrictedSchedule
+   { rrTime  :: UTCTime      -- ^ the date when the schedule search was made
+   , rrDays  :: Int          -- ^ number of days used for the search
+   , rrDone  :: [RestrictedRecord]     -- ^ those that were done (ascending time order)
+   , rrDoing :: Maybe RestrictedRecord -- ^ current observation
+   , rrToDo  :: [RestrictedRecord]     -- ^ those that are to be done (ascending time order)
+   , rrSimbad :: M.Map TargetName SimbadInfo
+     -- ^ mapping from target to SIMBAD info for the observations in this
+     --   schedule (it may be empty)
+   }
+
+
 -- | Represent a value in kiloseconds.
 --
 --   It is assumed that the time value is >= 0.
@@ -744,6 +894,9 @@ showExpTime (TimeKS tks) =
                     
 showExp :: Record -> H.Html
 showExp = H.toHtml . showExpTime . recordTime
+
+showExpRestricted :: RestrictedRecord -> H.Html
+showExpRestricted = H.toHtml . showExpTime . rrecordTime
 
 -- do we want this to be in a nice readable value or in ks?
 instance H.ToMarkup TimeKS where

@@ -4,6 +4,7 @@
 
 module Views.Search.Category (indexPage
                              , matchPage
+                             , matchPageRestricted
                              , categoryAndTypePage
                              ) where
 
@@ -28,12 +29,14 @@ import API (abstractLink
 import Layout (floatableTable)
 import Types (Schedule, ObsIdVal(..), SimbadType
              , PropCategory
+             , RestrictedSchedule
              , simbadTypeToDesc)
-import Utils (getNumObs
-             , getScienceTime
+import Utils (getNumObs, getNumObsRestricted
+             , getScienceTime, getScienceTimeRestricted
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (standardSchedulePage
+                    , standardRestrictedSchedulePage
                      , standardExplorePage)
 
 indexPage :: 
@@ -53,8 +56,23 @@ matchPage ::
   -> Html
 matchPage cat sched =
   let hdrTitle = "Chandra observations: category " <> H.toHtml cat
-      (pageTitle, mainBlock) = renderMatches cat sched
+      scienceTime = getScienceTime sched
+      nobs = getNumObs sched
+      (pageTitle, mainBlock) = renderMatches cat scienceTime nobs
   in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
+
+
+matchPageRestricted :: 
+  PropCategory
+  -> RestrictedSchedule
+  -- the observations that match this category, organized into a "schedule"
+  -> Html
+matchPageRestricted cat sched =
+  let hdrTitle = "Chandra observations: category " <> H.toHtml cat
+      scienceTime = getScienceTimeRestricted sched
+      nobs = getNumObsRestricted sched
+      (pageTitle, mainBlock) = renderMatches cat scienceTime nobs
+  in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
 
 -- | Render the list of categories.
@@ -161,12 +179,11 @@ categoryAndTypePage cat mtype sched =
 --
 renderMatches ::
   PropCategory     -- ^ Category name
-  -> Schedule      -- ^ non-empty list of matches
+  -> Html          -- ^ exposure time value for the schedule
+  -> T.Text        -- ^ number of observations in the schedule
   -> (Html, Html)
-renderMatches cat sched = 
-  let scienceTime = getScienceTime sched
-
-      -- TODO: improve English here
+renderMatches cat scienceTime nobs = 
+  let -- TODO: improve English here
       matchBlock = p (
         "This page shows Chandra observations of objects from proposals "
         <> "in the category "
@@ -174,7 +191,7 @@ renderMatches cat sched =
         <> scienceTime
         <> ". "
         -- assume the schedule is all science observations
-        <> toHtml (getNumObs sched)
+        <> toHtml nobs
         <> ". The format is the same as used in the "
         <> (a ! href "/schedule") "schedule view"
         <> "."
