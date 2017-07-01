@@ -4,7 +4,6 @@
 
 module Views.Search.Category (indexPage
                              , matchPage
-                             , matchPageRestricted
                              , categoryAndTypePage
                              ) where
 
@@ -27,17 +26,16 @@ import API (abstractLink
            , basicTypeLinkSearch
            , categoryLinkSearch)
 import Layout (floatableTable)
-import Types (Schedule, ObsIdVal(..), SimbadType
+import Types (ObsIdVal(..), SimbadType
              , PropCategory
              , RestrictedSchedule
              , simbadTypeToDesc)
-import Utils (getNumObs, getNumObsRestricted
-             , getScienceTime, getScienceTimeRestricted
+import Utils (getNumObsRestricted
+             , getScienceTimeRestricted
              )
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage
-                    , standardRestrictedSchedulePage
-                     , standardExplorePage)
+import Views.Render (standardRestrictedSchedulePage
+                    , standardExplorePage)
 
 indexPage :: 
   [(PropCategory, Int)]
@@ -51,23 +49,10 @@ indexPage cats =
      
 matchPage :: 
   PropCategory
-  -> Schedule
-  -- the observations that match this category, organized into a "schedule"
-  -> Html
-matchPage cat sched =
-  let hdrTitle = "Chandra observations: category " <> H.toHtml cat
-      scienceTime = getScienceTime sched
-      nobs = getNumObs sched
-      (pageTitle, mainBlock) = renderMatches cat scienceTime nobs
-  in standardSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
-
-
-matchPageRestricted :: 
-  PropCategory
   -> RestrictedSchedule
   -- the observations that match this category, organized into a "schedule"
   -> Html
-matchPageRestricted cat sched =
+matchPage cat sched =
   let hdrTitle = "Chandra observations: category " <> H.toHtml cat
       scienceTime = getScienceTimeRestricted sched
       nobs = getNumObsRestricted sched

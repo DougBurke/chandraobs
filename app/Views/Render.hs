@@ -1,14 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 -- | A collection of routines.
 
-module Views.Render (standardSchedulePage
-                    , extraSchedulePage
-                    , baseSchedulePage
-                    , standardRestrictedSchedulePage
+module Views.Render (standardRestrictedSchedulePage
                     , extraRestrictedSchedulePage
                     , baseRestrictedSchedulePage
+                    -- , standardSchedulePage
+                    -- , extraSchedulePage
+                    -- , baseSchedulePage
                     , standardExplorePage
                     , extraExplorePage
                     ) where
@@ -42,7 +41,7 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (obsURIString
-            , linkToRecord
+            -- , linkToRecord
             , linkToRestrictedRecord
             , instLinkSearch
             , gratLinkSearch
@@ -54,19 +53,16 @@ import API (obsURIString
             , constraintLinkSearch
             , cssLink)
 import Layout (defaultMeta, skymapMeta, renderFooter)
-import Types (ScienceObs(..), ObsIdVal(..), Grating(..), ChandraTime(..)
-             , NonScienceObs(nsTarget)
+import Types (ObsIdVal(..), Grating(..), ChandraTime(..)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
-             , SimbadInfo(..), Record, TOORequest(..)
+             , SimbadInfo(..), TOORequest(..)
              , ConstraintKind(..)
-             , Schedule(..)
              , RestrictedSchedule(..), RestrictedRecord
              , RestrictedSO
              -- , RestrictedNS
              , TargetName(..)
-             , recordObsId, recordTarget, recordStartTime, recordTime
-             , recordInstrument, recordGrating, recordRa, recordDec
-             , showExp, showExpRestricted
+               
+             , showExpRestricted
 
              , rrecordObsId
              , rrecordInstrument
@@ -96,8 +92,10 @@ import Views.Record (CurrentPage(..), mainNavBar)
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
+{-
 idLabel :: Record -> T.Text
 idLabel = ("i" <>) . showInt . fromObsId . recordObsId
+-}
 
 ridLabel :: RestrictedRecord -> T.Text
 ridLabel = ("i" <>) . showInt . fromObsId . rrecordObsId
@@ -325,6 +323,7 @@ makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
 
 
 
+{-
 -- This is the original code
 makeSchedule ::
   Schedule
@@ -515,9 +514,12 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
 
   in (svgBlock, tblBlock)
 
+-}
+
 
 -- | Pages which include a schedule block.
 --
+{-
 standardSchedulePage ::
   Schedule
   -> CurrentPage
@@ -532,6 +534,7 @@ standardSchedulePage ::
 standardSchedulePage sched navLoc hdrTitle pageTitle explain =
   let jsLoad = "projection.createMap(obsinfo);"
   in extraSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad
+-}
 
 standardRestrictedSchedulePage ::
   RestrictedSchedule
@@ -550,6 +553,7 @@ standardRestrictedSchedulePage sched navLoc hdrTitle pageTitle explain =
 
 -- | Pages which include a schedule block.
 --
+{-
 extraSchedulePage ::
   Schedule
   -> CurrentPage
@@ -565,6 +569,7 @@ extraSchedulePage ::
   -> Html
 extraSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad =
   baseSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad Nothing
+-}
 
 extraRestrictedSchedulePage ::
   RestrictedSchedule
@@ -584,6 +589,7 @@ extraRestrictedSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad =
 
 -- | Pages which include a schedule block.
 --
+{-
 baseSchedulePage ::
   Schedule
   -> CurrentPage
@@ -630,6 +636,7 @@ baseSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad mcss =
        <> renderFooter
       )
 
+-}
 
 baseRestrictedSchedulePage ::
   RestrictedSchedule

@@ -15,31 +15,31 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (abstractLink, categoryLinkSearch)
 import Types (Proposal(..)
-              , ScienceObs(..)
-              , Schedule
+              , RestrictedSchedule
+              , rsoObsId
               )
-import Utils (schedToList, showInt)
+import Utils (rschedToList, showInt)
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage)
+import Views.Render (standardRestrictedSchedulePage)
 
 matchPage :: 
   Proposal    -- the proposal
-  -> Schedule  -- the observations included in this proposal
+  -> RestrictedSchedule  -- the observations included in this proposal
   -> Html
 matchPage prop@Proposal{..} sched =
   let hdrTitle = "Chandra proposal: " <> toHtml propNum
       pageTitle = toHtml propName
       mainBlock = renderProposal prop sched
-  in standardSchedulePage sched CPOther hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPOther hdrTitle pageTitle mainBlock
      
 renderProposal :: 
   Proposal
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 renderProposal Proposal{..} sched =
   let catLink = categoryLinkSearch propCategory propCategory
 
-      obsList = rights (schedToList sched)
+      obsList = rights (rschedToList sched)
       nobs = length obsList
       count = if nobs == 1
               then "consists of one observation"
@@ -50,7 +50,7 @@ renderProposal Proposal{..} sched =
       --       pages.
       hName = toHtml propName
       abstxt = case obsList of
-       (so:_) -> let uri = abstractLink (soObsId so)
+       (so:_) -> let uri = abstractLink (rsoObsId so)
                  in (a ! href uri) hName
        _ ->  hName
 

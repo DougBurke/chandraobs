@@ -396,8 +396,7 @@ type RestrictedSO =
                        
 
 rrecordObsId :: RestrictedRecord -> ObsIdVal
-rrecordObsId (Left (oi, _, _, _, _)) = oi
-rrecordObsId (Right (oi, _, _, _, _, _, _, _, _, _, _, _, _, _, _)) = oi
+rrecordObsId = either rnsObsId rsoObsId
 
 rrecordTarget :: RestrictedRecord -> TargetName
 rrecordTarget = either rnsTarget rsoTarget
@@ -425,6 +424,9 @@ rrecordConstellation = either (const Nothing) (Just . rsoConstellation)
 
 -- 
 
+rnsObsId :: RestrictedNS -> ObsIdVal
+rnsObsId (oi, _, _, _, _) = oi
+
 -- fake the target name from the obsid
 -- QUS: is this sensible? We could just send around the
 --      target name here as well
@@ -446,6 +448,11 @@ rnsDec :: RestrictedNS -> Dec
 rnsDec (_, _, _, _, dec) = dec
 
 --
+
+rsoObsId :: RestrictedSO -> ObsIdVal
+rsoObsId (oi, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = oi
+
+
 rsoStartTime :: RestrictedSO -> Maybe ChandraTime
 rsoStartTime (_, _, t, _, _, _, _, _, _, _, _, _, _, _, _) = t
 

@@ -17,7 +17,7 @@ module Database ( getCurrentObs
                 , getSchedule
                 , getScheduleDate
                   
-                , makeSchedule
+                -- , makeSchedule
                 , makeScheduleRestricted
 
                 , getProposal
@@ -560,7 +560,7 @@ getObsInRange ::
   DbSql m
   => ChandraTime
   -> ChandraTime
-  -> m [Record]
+  -> m [RestrictedRecord]
   -- ^ All records reurned are guaranteed to have a start time
 getObsInRange tStart tEnd = do
 
@@ -569,14 +569,13 @@ getObsInRange tStart tEnd = do
       delta = (fromRational . toRational . negate) maxlen
       minStartTime = ChandraTime (addUTCTime delta t0)
       
-  xs1 <- select (((SoStartTimeField <. Just tEnd) &&.
-                  (SoStartTimeField >=. Just minStartTime) &&.
-                  isValidScienceObs)
-                 `orderBy` [Asc SoStartTimeField])
-  ys1 <- select (((NsStartTimeField <. Just tEnd) &&.
-                  (NsStartTimeField >=. Just minStartTime) &&.
-                  notNsDiscarded)
-                 `orderBy` [Asc NsStartTimeField])
+  SL xs1 <- fetchScienceObsBy (SoStartTimeField <. Just tEnd &&.
+                               SoStartTimeField >=. Just minStartTime)
+  ys1 <- project restrictedNonScience
+         (((NsStartTimeField <. Just tEnd) &&.
+           (NsStartTimeField >=. Just minStartTime) &&.
+           notNsDiscarded)
+          `orderBy` [Asc NsStartTimeField])
 
   -- should filter by the actual run-time, but the following is
   -- easier.
@@ -600,13 +599,13 @@ getObsInRange tStart tEnd = do
                         in etime < tStart
           Nothing -> True -- should never happen
 
-      xs2 = filter (isJust . soStartTime) xs1
-      ys2 = filter (isJust . nsStartTime) ys1
+      xs2 = filter (isJust . rsoStartTime) xs1
+      ys2 = filter (isJust . rnsStartTime) ys1
       
-      xs = map Right (dropWhile (filtEnd soStartTime soApprovedTime) xs2)
-      ys = map Left (dropWhile (filtEnd nsStartTime nsTime) ys2)
+      xs = map Right (dropWhile (filtEnd rsoStartTime rsoExposureTime) xs2)
+      ys = map Left (dropWhile (filtEnd rnsStartTime rnsExposureTime) ys2)
 
-      res = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
+      res = mergeSL rrecordStartTime (unsafeToSL xs) (unsafeToSL ys)
 
   return (fromSL res)
 
@@ -652,7 +651,7 @@ getObsInRange tStart tEnd = do
 getSchedule ::
   DbFull m
   => Int    -- ^ Number of days to go back/forward
-  -> m Schedule
+  -> m RestrictedSchedule
 getSchedule ndays = do
   now <- liftIO getCurrentTime
 
@@ -679,13 +678,13 @@ getSchedule ndays = do
   -- field
   --
   let cnow = ChandraTime now
-      (aprevs, todo) = span ((<= cnow) . recordStartTimeUnsafe) res
+      (aprevs, todo) = span ((<= cnow) . fromJust . rrecordStartTime) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
 
-  simbad <- getSimbadList res
-  return (Schedule now ndays done mdoing todo simbad)
+  simbad <- getSimbadListRestricted res
+  return (RestrictedSchedule now ndays done mdoing todo simbad)
 
 
 -- | TODO: handle the case when the current observation, which has
@@ -695,7 +694,7 @@ getScheduleDate ::
   DbFull m
   => Day    -- ^ center the schedule on this day
   -> Int    -- ^ Number of days to go back/forward
-  -> m Schedule
+  -> m RestrictedSchedule
 getScheduleDate day ndays = do
   -- return all observations which have any part of their
   -- observation within the time span tStart to tEnd.
@@ -708,7 +707,7 @@ getScheduleDate day ndays = do
 
   res <- getObsInRange tStart tEnd
   
-  simbad <- getSimbadList res
+  simbad <- getSimbadListRestricted res
 
   -- TODO: this logic is more general than getSchedule, perhaps
   --       it should be used there too?
@@ -725,11 +724,13 @@ getScheduleDate day ndays = do
   let cnow = ChandraTime now
 
   let sched
-        | tStart > cnow = Schedule now ndays [] Nothing res simbad
-        | tEnd < cnow   = Schedule now ndays res Nothing [] simbad
-        | otherwise     = Schedule now ndays done mdoing todo simbad
+        | tStart > cnow = hdr [] Nothing res simbad
+        | tEnd < cnow   = hdr res Nothing [] simbad
+        | otherwise     = hdr done mdoing todo simbad
 
-      (aprevs, todo) = span ((<= cnow) . recordStartTimeUnsafe) res
+      hdr = RestrictedSchedule now ndays
+  
+      (aprevs, todo) = span ((<= cnow) . fromJust . rrecordStartTime) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
@@ -743,6 +744,7 @@ getScheduleDate day ndays = do
 --
 --   Note that this removes any observation without a start time.
 --
+{-
 makeSchedule ::
   DbFull m
   => SortedList StartTimeOrder Record -- ^ no duplicates
@@ -773,6 +775,7 @@ makeSchedule rs = do
   simbad <- getSimbadList cleanrs
   return (Schedule now 0 done (listToMaybe nows) todo simbad)
 
+-}
 
 -- I am going to assume that the schedule does not contain any
 -- discarded or canceled observations, so we don't need to
@@ -814,6 +817,7 @@ makeScheduleRestricted rs = do
 
 -- | Find the SIMBAD records for the input science observations.
 --
+{-
 getSimbadList ::
   DbSql m
   => [Record]  -- ^ records; assumed to be filtered
@@ -831,6 +835,7 @@ getSimbadList rs = do
 
   return (M.fromList (catMaybes toMap))
 
+-}
 
 getSimbadListRestricted ::
   DbSql m
@@ -1370,12 +1375,11 @@ fetchCategoryTypes = do
 fetchProposal ::
   DbSql m
   => PropNum
-  -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
+  -> m (Maybe Proposal, SortedList StartTimeOrder RestrictedSO)
 fetchProposal pn = do
   mprop <- getProposalFromNumber pn
-  ms <- select ((SoProposalField ==. pn &&. isValidScienceObs)
-                `orderBy` [Asc SoStartTimeField])
-  return (mprop, unsafeToSL ms)
+  ms <- fetchScienceObsBy (SoProposalField ==. pn)
+  return (mprop, ms)
 
 -- | Return all the observations which match this instrument,
 --   excluding discarded.

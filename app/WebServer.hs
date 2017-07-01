@@ -90,7 +90,6 @@ import Database (NumObs, NumSrc, SIMKey
                 , getSchedule
                 , getScheduleDate
                   
-                , makeSchedule
                 , makeScheduleRestricted
                   
                 , getProposalInfo
@@ -151,7 +150,6 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
              -- , PropType(..)
-             , Schedule
              , Sequence(..)
              , SIMCategory
              , SimbadTypeInfo
@@ -454,7 +452,7 @@ webapp cm mgr scache = do
     -- TODO: head requests
     get "/proposal/:propnum" (proposal
                               (snd <$> dbQuery "propnum" fetchProposal)
-                              (liftSQL .makeSchedule))
+                              (liftSQL . makeScheduleRestricted))
       
     let querySchedule n = do
           sched <- liftSQL (getSchedule n)
@@ -610,7 +608,7 @@ webapp cm mgr scache = do
       
     get "/search/category/:category"
       (searchResultsRestricted (dbQuery "category" fetchCategory)
-       (const False) Category.matchPageRestricted)
+       (const False) Category.matchPage)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
@@ -998,8 +996,8 @@ obsidOnly getData getObs getDB = do
 
 
 proposal ::
-  ActionM (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
-  -> (SortedList StartTimeOrder Record -> ActionM Schedule)
+  ActionM (Maybe Proposal, SortedList StartTimeOrder RestrictedSO)
+  -> (SortedList StartTimeOrder RestrictedRecord -> ActionM RestrictedSchedule)
   -> ActionM ()
 proposal getData getSched = do
   (mprop, matches) <- getData

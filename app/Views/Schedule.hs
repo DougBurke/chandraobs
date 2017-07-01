@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 -- | Display the schedule as a table.
 --
@@ -21,30 +20,31 @@ import Formatting.Time (dayName, dayOfMonthS, monthName, year)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (Schedule(..))
-import Utils (getScienceTime
+import Types (RestrictedSchedule(..))
+import Utils (getScienceTimeRestricted
              , showInt
              )
 import Views.Record (CurrentPage(..))
-import Views.Render (standardSchedulePage)
+import Views.Render (standardRestrictedSchedulePage)
 
 schedPage :: 
-  Schedule
+  RestrictedSchedule
   -> Html
 schedPage sched =
   let hdrTitle = "The Chandra schedule"
       (pageTitle, mainBlock) = renderSchedule sched
-  in standardSchedulePage sched CPSchedule hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPSchedule hdrTitle pageTitle mainBlock
 
 
 schedDatePage ::
   Day
-  -> Schedule
+  -> RestrictedSchedule
   -> Html
 schedDatePage date sched =
   let hdrTitle = "The Chandra schedule for " <> H.toHtml (showGregorian date)
       (pageTitle, mainBlock) = renderDateSchedule date sched
-  in standardSchedulePage sched CPSchedule hdrTitle pageTitle mainBlock
+  in standardRestrictedSchedulePage sched CPSchedule hdrTitle pageTitle
+     mainBlock
 
 -- | The previous schedule could be displayed if there is
 --   no current schedule, but let's just have a simple display
@@ -56,13 +56,13 @@ schedDatePage date sched =
 --     no JS support. This means breaking things up a bit.
 --
 renderSchedule :: 
-  Schedule
+  RestrictedSchedule
   -> (Html, Html)
 renderSchedule sched =
-  let scienceTime = getScienceTime sched
+  let scienceTime = getScienceTimeRestricted sched
                          
       -- the assumption is that the number of days is > 0
-      ndays = scDays sched
+      ndays = rrDays sched
       title = showInt ndays <> "-day Schedule"
       hdays = if ndays == 1
               then "one day"
@@ -106,22 +106,23 @@ renderSchedule sched =
         )
       
   in (toHtml title,
-      if isJust (scDoing sched) then bodyBlock else missingBlock)
+      if isJust (rrDoing sched) then bodyBlock else missingBlock)
   
 
 renderDateSchedule :: 
   Day
-  -> Schedule
+  -> RestrictedSchedule
   -> (Html, Html)
-renderDateSchedule date sched@Schedule{..} =
-  let scienceTime = getScienceTime sched
-
+renderDateSchedule date sched =
+  let scienceTime = getScienceTimeRestricted sched
+      nDays = rrDays sched
+      
       -- the assumption is that the number of days is > 0
-      title = showInt scDays <> "-day Schedule for "
+      title = showInt nDays <> "-day Schedule for "
               <> T.pack (showGregorian date)
-      hdays = if scDays == 1
+      hdays = if nDays == 1
               then "one day"
-              else toHtml (showInt scDays <> " days")
+              else toHtml (showInt nDays <> " days")
 
       dateTxt = sformat (dayName <> ", " % monthName <> " "
                         % dayOfMonthS <> ", " % year) date

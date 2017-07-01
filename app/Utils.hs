@@ -11,7 +11,8 @@ module Utils (
      , showTimeDeltaBwd
      , getTimes
      , cleanJointName
-     , schedToList
+     -- , schedToList
+     , rschedToList
      , getNumObs, getNumObsRestricted
      , getScienceExposure
      , getScienceTime, getScienceTimeRestricted
