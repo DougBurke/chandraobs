@@ -404,6 +404,13 @@ rrecordTarget = either rnsTarget rsoTarget
 rrecordStartTime :: RestrictedRecord -> Maybe ChandraTime
 rrecordStartTime = either rnsStartTime rsoStartTime
 
+rrecordEndTime :: RestrictedRecord -> Maybe ChandraTime
+rrecordEndTime r =
+  let stime = rrecordStartTime r
+      duration = rrecordTime r
+  in flip endCTime duration <$> stime
+     
+
 rrecordTime :: RestrictedRecord -> TimeKS
 rrecordTime = either rnsExposureTime rsoExposureTime
 
@@ -815,6 +822,10 @@ data Schedule =
 data RestrictedSchedule = 
    RestrictedSchedule
    { rrTime  :: UTCTime      -- ^ the date when the schedule search was made
+   , rrUpdateTime :: Maybe UTCTime
+     -- ^ as this time the schedule is outdated, and needs
+     --   re-evaluating (to move Doing/ToDo items into Done)
+     --
    , rrDays  :: Int          -- ^ number of days used for the search
    , rrDone  :: [RestrictedRecord]     -- ^ those that were done (ascending time order)
    , rrDoing :: Maybe RestrictedRecord -- ^ current observation

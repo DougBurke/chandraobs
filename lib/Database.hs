@@ -104,6 +104,8 @@ module Database ( getCurrentObs
                   
                 , SIMKey
                 , keyToPair
+
+                , updateSchedule
                   
                   -- * Hack
                   --
@@ -678,13 +680,26 @@ getSchedule ndays = do
   -- field
   --
   let cnow = ChandraTime now
-      (aprevs, todo) = span ((<= cnow) . fromJust . rrecordStartTime) res
+      (aprevs, todo) = span ((<= cnow) . timeUnsafe) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
 
+      -- assume everything has a time field
+      timeUnsafe = fromJust . rrecordStartTime
+
+      todoFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe todo
+        
   simbad <- getSimbadListRestricted res
-  return (RestrictedSchedule now ndays done mdoing todo simbad)
+  return RestrictedSchedule
+    { rrTime = now
+    , rrUpdateTime = todoFirstTime
+    , rrDays = ndays
+    , rrDone = done
+    , rrDoing = mdoing
+    , rrToDo = todo
+    , rrSimbad = simbad
+    }
 
 
 -- | TODO: handle the case when the current observation, which has
@@ -724,13 +739,23 @@ getScheduleDate day ndays = do
   let cnow = ChandraTime now
 
   let sched
-        | tStart > cnow = hdr [] Nothing res simbad
-        | tEnd < cnow   = hdr res Nothing [] simbad
-        | otherwise     = hdr done mdoing todo simbad
+        | tStart > cnow =
+            RestrictedSchedule now resFirstTime ndays [] Nothing res simbad
+        | tEnd < cnow   =
+            RestrictedSchedule now Nothing ndays res Nothing [] simbad
+        | otherwise     =
+            RestrictedSchedule now todoFirstTime ndays done mdoing todo simbad
 
-      hdr = RestrictedSchedule now ndays
+      -- assume everything has a time field
+      timeUnsafe = fromJust . rrecordStartTime
   
-      (aprevs, todo) = span ((<= cnow) . fromJust . rrecordStartTime) res
+      -- pick the start of the next observation as the time at which
+      -- the schedule is invalidated
+      --
+      todoFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe todo
+      resFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe res
+        
+      (aprevs, todo) = span ((<= cnow) . timeUnsafe) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
@@ -781,6 +806,9 @@ makeSchedule rs = do
 -- discarded or canceled observations, so we don't need to
 -- send around the status field as well.
 --
+-- It is possible to have the doing field be Nothing but
+-- there still be items in the todo list.
+--
 makeScheduleRestricted ::
   DbFull m
   => SortedList StartTimeOrder RestrictedRecord -- ^ no duplicates
@@ -805,14 +833,83 @@ makeScheduleRestricted rs = do
       (others, nows) = partitionEithers (map findNow cleanrs)
 
       -- since we've filtered by isJust this use of fromJust is okay
-      timeUnsafe (Left rns) = fromJust (rnsStartTime rns)
-      timeUnsafe (Right rso) = fromJust (rsoStartTime rso)
+      timeUnsafe = fromJust . rrecordStartTime
         
       cnow = ChandraTime now
+
+      -- We can filter on <= cnow here because others does not contain
+      -- any currently-running observation, by "definition"
+      -- (other than the possibility that the value changed
+      -- between getting the current time and the current running record)
+      --
       (done, todo) = span ((<= cnow) . timeUnsafe) others
 
+      todoFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe todo
+  
   simbad <- getSimbadListRestricted cleanrs
-  return (RestrictedSchedule now 0 done (listToMaybe nows) todo simbad)
+  return RestrictedSchedule
+    { rrTime = now
+    , rrUpdateTime = todoFirstTime
+    , rrDays = 0
+    , rrDone = done
+    , rrDoing = listToMaybe nows
+    , rrToDo = todo
+    , rrSimbad = simbad
+    }
+
+
+-- | The currently-running field is no-longer valid.
+--
+--   Hmmm, given that this can be a non-contiguous set of observations,
+--   it is possible for "currently running" to be None but there still
+--   be observations in the todo case. Do we handle this consistently?
+--
+--   This is defined in Database since this is where the schedule logic is;
+--   should be moved out.
+--
+updateSchedule ::
+  UTCTime
+  -- ^ The current time
+  -> RestrictedSchedule
+  -> RestrictedSchedule
+updateSchedule now RestrictedSchedule {..} =
+  let cnow = ChandraTime now
+
+      -- unwritten contract: if in a scheule then the record has a start
+      -- time
+      timeUnsafe = fromJust . rrecordStartTime
+
+      endTimeUnsafe = fromJust . rrecordEndTime
+      
+      oldToDo = case rrDoing of
+        Just r -> [r] ++ rrToDo
+        Nothing -> rrToDo
+
+      -- filter the old todo list to get done, maybe doing, todo
+      --
+      endTimes = map endTimeUnsafe oldToDo
+        
+      (done, todo) = span ((<= cnow) . fst) (zip endTimes oldToDo)
+
+      newDone = rrDone ++ map snd done
+      (newDoing, newToDo) = case todo of
+        [] -> (Nothing, [])
+        ((etime, r0):rs) -> if etime >= cnow
+                            then (Just r0, map snd rs)
+                            else (Nothing, map snd todo)
+
+      newFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe newToDo
+
+  in RestrictedSchedule
+     { rrTime = now
+     , rrUpdateTime = newFirstTime
+     , rrDays = rrDays
+     , rrDone = newDone
+     , rrDoing = newDoing
+     , rrToDo = newToDo
+     , rrSimbad = rrSimbad
+     }
+  
 
 
 -- | Find the SIMBAD records for the input science observations.

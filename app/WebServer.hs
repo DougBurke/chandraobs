@@ -56,6 +56,7 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
 
+-- import Database.Groundhog.Core (Action)
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , Conn
                                      , PersistBackend
@@ -68,9 +69,11 @@ import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
                           , status404, status503)
 -- import Network.Wai.Middleware.RequestLogger
-import Network.Wai.Middleware.Static (CacheContainer, CachingStrategy(PublicStaticCaching)
+import Network.Wai.Middleware.Static (CacheContainer
+                                     , CachingStrategy(PublicStaticCaching)
                                      , (>->)
-                                     , addBase, initCaching, noDots, staticPolicy')
+                                     , addBase, initCaching, noDots
+                                     , staticPolicy')
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
@@ -83,6 +86,7 @@ import Text.Read (readMaybe)
 import Web.Heroku (dbConnParams)
 import Web.Scotty
 
+import Cache (Cache, fromCacheData, getFromCache, makeCache, toCacheKey)
 import Database (NumObs, NumSrc, SIMKey
                 , findRecord
                 , getCurrentObs, getObsInfo
@@ -158,6 +162,8 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , TimeKS(..)
              , ChandraTime(..)
 
+             , Instrument(..)
+               
              , RestrictedRecord
              , RestrictedSO
              , RestrictedSchedule
@@ -249,7 +255,25 @@ main = do
           scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
-            scottyOpts opts (webapp pool mgr scache)
+
+            -- let liftSQL a = liftAndCatchIO (runDbConn a pool)
+            let liftSQL a = runDbConn a pool
+            
+            -- set up the schedule cache
+            --
+            cache <- makeCache
+                     [(toCacheKey "HRC-I",
+                       liftSQL (fetchInstrumentSchedule HRCI))
+                     , (toCacheKey "HRC-S",
+                       liftSQL (fetchInstrumentSchedule HRCS))
+                     , (toCacheKey "ACIS-I",
+                        liftSQL (fetchInstrumentSchedule ACISI))
+                     , (toCacheKey "ACIS-S",
+                        liftSQL (fetchInstrumentSchedule ACISS))
+                     ]
+
+            -- scottyOpts opts (webapp liftSQL mgr scache cache)
+            scottyOpts opts (webapp pool mgr scache cache)
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -262,11 +286,14 @@ getDBInfo r = do
   return (as, bs)
 
 webapp ::
-    Pool Postgresql
-    -> NHC.Manager
-    -> CacheContainer
-    -> ScottyM ()
-webapp cm mgr scache = do
+  -- (Action Postgresql a -> ActionM a)
+  Pool Postgresql
+  -> NHC.Manager
+  -> CacheContainer
+  -> Cache
+  -> ScottyM ()
+webapp cm mgr scache cache = do
+
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
 
     defaultHandler errHandle
@@ -621,6 +648,23 @@ webapp cm mgr scache = do
        (dbQuery "instrument" fetchInstrument) (const False)
        Instrument.matchInstPage)
 
+    get "/search/cinstrument/:instrument" $ do
+      inst <- param "instrument"
+      let keyText = fromInstrument inst
+          key = toCacheKey keyText
+      mcdata <- liftIO (getFromCache cache key)
+      case mcdata of
+        Just cdata -> do
+          logMsg ("NOTE cache hit for instrument=" <> keyText)
+          fromBlaze (Instrument.matchInstPage inst (fromCacheData cdata))
+          
+        Nothing -> do
+          logMsg ("WARNING no cache for instrument=" <> keyText)
+          matches <- liftSQL (fetchInstrument inst)
+          when (nullSL matches) next
+          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+          fromBlaze (Instrument.matchInstPage inst sched)
+
     -- TODO: also need a HEAD request version
     get "/search/grating/:grating"
       (searchResultsRestricted
@@ -754,6 +798,11 @@ errHandle txt = do
   -- work.
   status status503
   fromBlaze NotFound.errPage
+
+
+-- | Log a message to stderr
+logMsg :: T.Text -> ActionM ()
+logMsg = liftIO . T.hPutStrLn stderr
 
 
 -- TODO: define a data type to represent the JSON response, so that
@@ -1350,3 +1399,20 @@ fromNonScienceObs ns@NonScienceObs {..} =
             ] ++ ["end" .= _toUTCTime endTime | endTime > startTime]
 
   in go <$> getTimes (Left ns)
+
+
+-- cache code
+
+fetchInstrumentSchedule ::
+  (PersistBackend m, SqlDb (Conn m))
+  => Instrument
+  -> m (RestrictedSchedule)
+fetchInstrumentSchedule inst = do
+  {-
+  liftIO (T.hPutStrLn stderr
+          ("cache action: fetch schedule for " <> fromInstrument inst))
+  -}
+  
+  matches <- fetchInstrument inst
+  -- note: no check for no matches
+  makeScheduleRestricted (fmap Right matches)
