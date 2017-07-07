@@ -164,6 +164,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
 
              , Instrument(..)
              , Grating(..)
+             , PropType(..)
                
              , RestrictedRecord
              , RestrictedSO
@@ -179,6 +180,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , getConstellationNameStr
              , fromInstrument
              , fromGrating
+             , fromPropType
              , recordObsId
              )
 import Utils (HtmlContext(..)
@@ -259,20 +261,36 @@ main = do
 
             cache <- makeCache pool
                      [(toCacheKey "HRC-I",
-                       fetchInstrumentSchedule HRCI)
+                       fetchSchedule (fetchInstrument HRCI))
                      , (toCacheKey "HRC-S",
-                       fetchInstrumentSchedule HRCS)
+                       fetchSchedule (fetchInstrument HRCS))
                      , (toCacheKey "ACIS-I",
-                        fetchInstrumentSchedule ACISI)
+                        fetchSchedule (fetchInstrument ACISI))
                      , (toCacheKey "ACIS-S",
-                        fetchInstrumentSchedule ACISS)
+                        fetchSchedule (fetchInstrument ACISS))
 
                      , (toCacheKey "NONE",
-                        fetchGratingSchedule NONE)
+                        fetchSchedule (fetchGrating NONE))
                      , (toCacheKey "LETG",
-                        fetchGratingSchedule LETG)
+                        fetchSchedule (fetchGrating LETG))
                      , (toCacheKey "HETG",
-                        fetchGratingSchedule HETG)
+                        fetchSchedule (fetchGrating HETG))
+
+                        -- do not cache all the Instrument + Grating
+                        -- combos
+                     , (toCacheKey "ACIS-I-NONE",
+                        fetchSchedule (fetchIG (ACISI, NONE)))
+                     , (toCacheKey "ACIS-S-NONE",
+                        fetchSchedule (fetchIG (ACISS, NONE)))
+
+                       -- may only be worth caching GO here
+                       {-
+                     , (toCacheKey "GTO",
+                        fetchSchedule (getProposalType GTO))
+                       -}
+                     , (toCacheKey "GO",
+                        fetchSchedule (getProposalType GO))
+
                      ]
 
             scottyOpts opts (webapp pool mgr scache cache)
@@ -523,6 +541,7 @@ webapp cm mgr scache cache = do
                                      (liftSQL fetchNoSIMBADType)
                                      (liftSQL . makeScheduleRestricted))
 
+    -- TODO: use the Cache, Luke
     get "/search/type/:type" (searchType
                               (snd <$> dbQuery "type" fetchSIMBADType)
                               (liftSQL . makeScheduleRestricted))
@@ -532,6 +551,7 @@ webapp cm mgr scache cache = do
 
     -- TODO: also need a HEAD request version
     --     FOR TESTING
+    --
     get "/search/dtype/" (searchDTypeNone (liftSQL fetchObjectTypes))
 
     let searchResultsRestricted getData isNull page = do
@@ -552,12 +572,16 @@ webapp cm mgr scache cache = do
     -- This returns those observations that match this
     -- type and any "sub types"; contrast with /seatch/type/:type
     -- TODO: also need a HEAD request version
+    --
+    -- TODO: use the Cache, Luke
     get "/search/dtype/:type"
       (searchResultsRestricted
        (snd <$> dbQuery "type" fetchSIMBADDescendentTypes)
        null SearchTypes.matchDependencyPage)
 
     -- TODO: also need a HEAD request version
+    --
+    -- This does not need to use the cache just yet, I think
     get "/search/constellation/:constellation"
       (searchResultsRestricted
        (dbQuery "constellation" fetchConstellation)
@@ -570,6 +594,9 @@ webapp cm mgr scache cache = do
           
 
     -- TODO: also need a HEAD request version
+    --
+    -- The "none" type needs to use the cache
+    --
     get "/search/turnaround/:too" $ do
       -- as I do not have a "none" type in TOORequestTime, parse
       -- this parameter as a string rather than as a TOORequestTime
@@ -591,6 +618,8 @@ webapp cm mgr scache cache = do
       fromBlaze (TOO.indexPage matches noneTime)
 
     -- TODO: also need a HEAD request version
+    --
+    -- This does not need to use the cache just yet, I think
     get "/search/cycle/:cycle"
       (searchResultsRestricted (dbQuery "cycle" fetchCycle)
        (const False) Cycle.matchPage)
@@ -600,6 +629,9 @@ webapp cm mgr scache cache = do
       fromBlaze (Cycle.indexPage cycles)
 
     -- TODO: also need a HEAD request version
+    --
+    -- The "none" type needs to use the cache
+    --
     get "/search/constraints/:cs" $ do
       -- as I do not have a "none" type in ConstraintKind, parse
       -- this parameter as a string rather than as a ConstraintKind
@@ -650,23 +682,25 @@ webapp cm mgr scache cache = do
        (dbQuery "instrument" fetchInstrument) (const False)
        Instrument.matchInstPage)
     -}
-    
-    get "/search/instrument/:instrument" $ do
-      inst <- param "instrument"
-      let keyText = fromInstrument inst
-          key = toCacheKey keyText
-      mcdata <- liftIO (getFromCache cache key)
-      case mcdata of
-        Just cdata -> do
-          logMsg ("NOTE cache hit for instrument=" <> keyText)
-          fromBlaze (Instrument.matchInstPage inst (fromCacheData cdata))
+
+    let fromCache pname toText getDB toHtml = do
+          pval <- param pname
+          let key = toCacheKey (toText pval)
+          mcdata <- liftIO (getFromCache cache key)
+          case mcdata of
+            Just cdata -> 
+              fromBlaze (toHtml pval (fromCacheData cdata))
           
-        Nothing -> do
-          logMsg ("WARNING no cache for instrument=" <> keyText)
-          matches <- liftSQL (fetchInstrument inst)
-          when (nullSL matches) next
-          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
-          fromBlaze (Instrument.matchInstPage inst sched)
+            Nothing -> do
+              -- liftIO (putStrLn ("--- cache miss: " <> T.unpack (toText pval)))
+              matches <- liftSQL (getDB pval)
+              when (nullSL matches) next
+              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+              fromBlaze (toHtml pval sched)
+
+    get "/search/instrument/:instrument"
+      (fromCache "instrument" fromInstrument fetchInstrument
+                 Instrument.matchInstPage)
 
     -- TODO: also need a HEAD request version
     {-
@@ -676,28 +710,23 @@ webapp cm mgr scache cache = do
        Instrument.matchGratPage)
     -}
     
-    get "/search/grating/:grating" $ do
-      grat <- param "grating"
-      let keyText = fromGrating grat
-          key = toCacheKey keyText
-      mcdata <- liftIO (getFromCache cache key)
-      case mcdata of
-        Just cdata -> do
-          logMsg ("NOTE cache hit for grating=" <> keyText)
-          fromBlaze (Instrument.matchGratPage grat (fromCacheData cdata))
-          
-        Nothing -> do
-          logMsg ("WARNING no cache for grating=" <> keyText)
-          matches <- liftSQL (fetchGrating grat)
-          when (nullSL matches) next
-          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
-          fromBlaze (Instrument.matchGratPage grat sched)
-    
+    get "/search/grating/:grating"
+      (fromCache "grating" fromGrating fetchGrating
+                 Instrument.matchGratPage)
+
     -- TODO: also need a HEAD request version
+    {-
     get "/search/instgrat/:ig"
       (searchResultsRestricted
        (dbQuery "ig" fetchIG) (const False)
        Instrument.matchIGPage)
+    -}
+
+    let fromIG (i, g) = fromInstrument i <> "-" <> fromGrating g
+    
+    get "/search/instgrat/:ig"
+      (fromCache "ig" fromIG fetchIG
+                 Instrument.matchIGPage)
     
     let igsearch = do
           (imatches, gmatches, igmatches) <- liftSQL (
@@ -754,10 +783,17 @@ webapp cm mgr scache cache = do
       propInfo <- liftSQL getProposalTypeBreakdown
       fromBlaze (PropType.indexPage propInfo)
 
+    {-
     get "/search/proptype/:proptype"
       (searchResultsRestricted
        (dbQuery "proptype" getProposalType) (const False)
        PropType.matchPage)
+    -}
+    
+    get "/search/proptype/:proptype"
+      (fromCache "proptype" fromPropType getProposalType
+                 PropType.matchPage)
+
     
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" (fromBlaze Mapping.indexPage)
@@ -1426,21 +1462,14 @@ fromNonScienceObs ns@NonScienceObs {..} =
 
 -- cache code
 
-fetchInstrumentSchedule ::
+-- | Return a schedule for a query that only returns
+--   science observations (e.g. ACIS-I observations).
+--
+fetchSchedule ::
   (PersistBackend m, SqlDb (Conn m))
-  => Instrument
+  => m (SortedList StartTimeOrder RestrictedSO)
   -> m RestrictedSchedule
-fetchInstrumentSchedule inst = do
-  matches <- fetchInstrument inst
-  -- note: there is no check for no matches
-  makeScheduleRestricted (fmap Right matches)
-
-
-fetchGratingSchedule ::
-  (PersistBackend m, SqlDb (Conn m))
-  => Grating
-  -> m RestrictedSchedule
-fetchGratingSchedule grat = do
-  matches <- fetchGrating grat
+fetchSchedule act = do
+  matches <- act
   -- note: there is no check for no matches
   makeScheduleRestricted (fmap Right matches)
