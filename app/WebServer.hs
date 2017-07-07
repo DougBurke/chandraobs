@@ -163,6 +163,7 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , ChandraTime(..)
 
              , Instrument(..)
+             , Grating(..)
                
              , RestrictedRecord
              , RestrictedSO
@@ -265,6 +266,13 @@ main = do
                         fetchInstrumentSchedule ACISI)
                      , (toCacheKey "ACIS-S",
                         fetchInstrumentSchedule ACISS)
+
+                     , (toCacheKey "NONE",
+                        fetchGratingSchedule NONE)
+                     , (toCacheKey "LETG",
+                        fetchGratingSchedule LETG)
+                     , (toCacheKey "HETG",
+                        fetchGratingSchedule HETG)
                      ]
 
             scottyOpts opts (webapp pool mgr scache cache)
@@ -661,10 +669,29 @@ webapp cm mgr scache cache = do
           fromBlaze (Instrument.matchInstPage inst sched)
 
     -- TODO: also need a HEAD request version
+    {-
     get "/search/grating/:grating"
       (searchResultsRestricted
        (dbQuery "grating" fetchGrating) (const False)
        Instrument.matchGratPage)
+    -}
+    
+    get "/search/grating/:grating" $ do
+      grat <- param "grating"
+      let keyText = fromGrating grat
+          key = toCacheKey keyText
+      mcdata <- liftIO (getFromCache cache key)
+      case mcdata of
+        Just cdata -> do
+          logMsg ("NOTE cache hit for grating=" <> keyText)
+          fromBlaze (Instrument.matchGratPage grat (fromCacheData cdata))
+          
+        Nothing -> do
+          logMsg ("WARNING no cache for grating=" <> keyText)
+          matches <- liftSQL (fetchGrating grat)
+          when (nullSL matches) next
+          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+          fromBlaze (Instrument.matchGratPage grat sched)
     
     -- TODO: also need a HEAD request version
     get "/search/instgrat/:ig"
@@ -1404,11 +1431,16 @@ fetchInstrumentSchedule ::
   => Instrument
   -> m RestrictedSchedule
 fetchInstrumentSchedule inst = do
-  {-
-  liftIO (T.hPutStrLn stderr
-          ("cache action: fetch schedule for " <> fromInstrument inst))
-  -}
-  
   matches <- fetchInstrument inst
+  -- note: there is no check for no matches
+  makeScheduleRestricted (fmap Right matches)
+
+
+fetchGratingSchedule ::
+  (PersistBackend m, SqlDb (Conn m))
+  => Grating
+  -> m RestrictedSchedule
+fetchGratingSchedule grat = do
+  matches <- fetchGrating grat
   -- note: there is no check for no matches
   makeScheduleRestricted (fmap Right matches)
