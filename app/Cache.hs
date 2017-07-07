@@ -49,7 +49,7 @@ module Cache (Cache
 
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
+-- import qualified Data.Text.IO as T
 
 import Prelude hiding (log)
 
@@ -60,17 +60,22 @@ import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO)
 import Control.Monad (void)
 
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isNothing)
 import Data.Monoid ((<>))
+import Data.Pool (Pool)
 import Data.Time (UTCTime, getCurrentTime)
 
-import System.IO (stderr)
+import Database.Groundhog.Core (Action)
+import Database.Groundhog.Postgresql (Postgresql, runDbConn)
+
+-- import System.IO (stderr)
 
 import Types (RestrictedSchedule, rrTime, rrUpdateTime)
-import Database (updateSchedule, getLastModified, runDb)
+import Database (updateSchedule, getLastModified)
 
 log :: T.Text -> IO ()
-log = T.hPutStrLn stderr
+-- log = T.hPutStrLn stderr
+log = const (return ())
 
 -- Do I need the async package, or will this work?
 async :: IO () -> IO ()
@@ -83,7 +88,8 @@ async = void . forkIO
 --        mediated?
 --
 data Cache = Cache {
-  cacheActions :: M.Map CacheKey CacheAction
+  cacheConn :: Pool Postgresql
+  , cacheActions :: M.Map CacheKey (CacheAction RestrictedSchedule)
   , cacheStore :: MVar (M.Map CacheKey (MVar CacheValue))
   }
 
@@ -95,7 +101,7 @@ toCacheKey = CK
 
 newtype CacheData = CD { fromCacheData :: RestrictedSchedule }
 
-type CacheAction = IO RestrictedSchedule
+type CacheAction = Action Postgresql
 
 type LastModTime = UTCTime
 
@@ -110,17 +116,22 @@ type CacheValue = (LastModTime, CacheData)
 --
 --   Do I want to make this strict?
 --
-makeCache :: [(CacheKey, CacheAction)] -> IO Cache
-makeCache acts = do
+makeCache ::
+  Pool Postgresql
+  -> [(CacheKey, CacheAction RestrictedSchedule)]
+  -> IO Cache
+makeCache pool acts = do
   mvar <- newMVar M.empty
   let macts = M.fromList acts
-  return Cache { cacheActions = macts
+  return Cache { cacheConn = pool
+               , cacheActions = macts
                , cacheStore = mvar}
 
 
 {-| Retrieve the value from the key, updating the cache if required.
 
-This may return stale data.
+This may return stale data. I am not sure if this is a good idea
+any more, but let's see how it works.
 
 Nothing is returned either if
    - the key is unrecognized
@@ -168,14 +179,14 @@ clock skew)
 -}
 
 getFromCache :: Cache -> CacheKey -> IO (Maybe CacheData)
-getFromCache cache@(Cache {..}) key = do
+getFromCache cache@Cache {..} key = do
 
   -- assume that the cache is mostly going to be used with known
   -- keys, so that checking if the key is valid in cacheActions,
   -- which can be done without waiting for the MVar, is not a
   -- worthwhile optimisation.
   --
-  mLastMod <- runDb getLastModified
+  mLastMod <- runDbConn getLastModified cacheConn
   case mLastMod of
     Just lastMod -> do
       store <- readMVar cacheStore
@@ -191,11 +202,11 @@ getFromCache cache@(Cache {..}) key = do
               async (updateCache cache key)
               return (Just ans)
             
-        Nothing -> do
+        Nothing -> 
           case M.lookup key cacheActions of
             Just act -> do
               log ("NOTE: empty cache for key=" <> fromCacheKey key)
-              cdata <- act
+              cdata <- runDbConn act cacheConn
 
               -- TODO: is this sensible use of seq?
               -- TODO: note that there is a possibility for cdata
@@ -234,7 +245,7 @@ handleSchedule key mvar keyTime ans = do
        fromCacheKey key)
   now <- getCurrentTime
   let updateTime = rrUpdateTime (fromCacheData ans)
-  if updateTime == Nothing || updateTime > Just now
+  if isNothing updateTime || updateTime > Just now
     then return ans
     else do
       log ("updating the schedule for key=" <> fromCacheKey key)
@@ -287,8 +298,10 @@ updateCache Cache {..} ckey = do
       case M.lookup ckey store of
         Just mvar -> modifyMVar_ mvar $ \_ -> do
 
-            mLastMod <- runDb getLastModified
-            cdata <- act
+            (mLastMod, cdata) <- flip runDbConn cacheConn (do
+                a <- getLastModified
+                b <- act
+                return (a, b))
 
             -- TODO: is this sensible use of seq?
             -- NOTE: the assumption is that if we got here then there
@@ -297,7 +310,6 @@ updateCache Cache {..} ckey = do
             --
             let out = (fromJust mLastMod, CD cdata)
             cdata `seq` return out
-
 
         Nothing -> do
           -- COULD add to store, but treat as an error

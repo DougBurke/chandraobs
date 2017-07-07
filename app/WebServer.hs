@@ -56,7 +56,6 @@ import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, getCurrentTime)
 
--- import Database.Groundhog.Core (Action)
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , Conn
                                      , PersistBackend
@@ -145,6 +144,7 @@ import Database (NumObs, NumSrc, SIMKey
                 , getExposureValues
                    
                 , dbConnStr
+
                 )
 -- import Git (gitCommitId)
 
@@ -256,23 +256,17 @@ main = do
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
 
-            -- let liftSQL a = liftAndCatchIO (runDbConn a pool)
-            let liftSQL a = runDbConn a pool
-            
-            -- set up the schedule cache
-            --
-            cache <- makeCache
+            cache <- makeCache pool
                      [(toCacheKey "HRC-I",
-                       liftSQL (fetchInstrumentSchedule HRCI))
+                       fetchInstrumentSchedule HRCI)
                      , (toCacheKey "HRC-S",
-                       liftSQL (fetchInstrumentSchedule HRCS))
+                       fetchInstrumentSchedule HRCS)
                      , (toCacheKey "ACIS-I",
-                        liftSQL (fetchInstrumentSchedule ACISI))
+                        fetchInstrumentSchedule ACISI)
                      , (toCacheKey "ACIS-S",
-                        liftSQL (fetchInstrumentSchedule ACISS))
+                        fetchInstrumentSchedule ACISS)
                      ]
 
-            -- scottyOpts opts (webapp liftSQL mgr scache cache)
             scottyOpts opts (webapp pool mgr scache cache)
 
 -- Hack; needs cleaning up
@@ -286,7 +280,6 @@ getDBInfo r = do
   return (as, bs)
 
 webapp ::
-  -- (Action Postgresql a -> ActionM a)
   Pool Postgresql
   -> NHC.Manager
   -> CacheContainer
@@ -643,12 +636,14 @@ webapp cm mgr scache cache = do
       fromBlaze (Category.indexPage matches)
 
     -- TODO: also need a HEAD request version
+    {-
     get "/search/instrument/:instrument"
       (searchResultsRestricted
        (dbQuery "instrument" fetchInstrument) (const False)
        Instrument.matchInstPage)
-
-    get "/search/cinstrument/:instrument" $ do
+    -}
+    
+    get "/search/instrument/:instrument" $ do
       inst <- param "instrument"
       let keyText = fromInstrument inst
           key = toCacheKey keyText
@@ -773,7 +768,7 @@ webapp cm mgr scache cache = do
         _      -> next -- status status404
 
     -- TODO: is this actually correct?
-    addroute HEAD "/obsid/:obsid/wwt" (redirectObsid)
+    addroute HEAD "/obsid/:obsid/wwt" redirectObsid
 
     {-
     get "/404" $ redirect "/404.html"
@@ -802,7 +797,8 @@ errHandle txt = do
 
 -- | Log a message to stderr
 logMsg :: T.Text -> ActionM ()
-logMsg = liftIO . T.hPutStrLn stderr
+-- logMsg = liftIO . T.hPutStrLn stderr
+logMsg = const (return ())
 
 
 -- TODO: define a data type to represent the JSON response, so that
@@ -1406,7 +1402,7 @@ fromNonScienceObs ns@NonScienceObs {..} =
 fetchInstrumentSchedule ::
   (PersistBackend m, SqlDb (Conn m))
   => Instrument
-  -> m (RestrictedSchedule)
+  -> m RestrictedSchedule
 fetchInstrumentSchedule inst = do
   {-
   liftIO (T.hPutStrLn stderr
@@ -1414,5 +1410,5 @@ fetchInstrumentSchedule inst = do
   -}
   
   matches <- fetchInstrument inst
-  -- note: no check for no matches
+  -- note: there is no check for no matches
   makeScheduleRestricted (fmap Right matches)

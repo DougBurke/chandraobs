@@ -2522,6 +2522,9 @@ dbConnStr = "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
 -- | Run an action against the database. This includes a call to
 --   `handleMigration` before the action is run.
 --
+--   This is *NOT* for production use, as it relies on the contents
+--   of `dbConnStr` to define the database to use.
+--
 runDb ::
   (MonadBaseControl IO m, MonadIO m)
   => Action Postgresql a -> m a
