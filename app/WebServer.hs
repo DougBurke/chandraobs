@@ -68,9 +68,11 @@ import Network.HTTP.Types (StdMethod(HEAD)
                           , hLastModified
                           , status404, status503)
 -- import Network.Wai.Middleware.RequestLogger
-import Network.Wai.Middleware.Static (CacheContainer, CachingStrategy(PublicStaticCaching)
+import Network.Wai.Middleware.Static (CacheContainer
+                                     , CachingStrategy(PublicStaticCaching)
                                      , (>->)
-                                     , addBase, initCaching, noDots, staticPolicy')
+                                     , addBase, initCaching, noDots
+                                     , staticPolicy')
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
@@ -83,6 +85,8 @@ import Text.Read (readMaybe)
 import Web.Heroku (dbConnParams)
 import Web.Scotty
 
+import Cache (Cache, CacheKey
+             , fromCacheData, getFromCache, makeCache, toCacheKey)
 import Database (NumObs, NumSrc, SIMKey
                 , findRecord
                 , getCurrentObs, getObsInfo
@@ -141,6 +145,7 @@ import Database (NumObs, NumSrc, SIMKey
                 , getExposureValues
                    
                 , dbConnStr
+
                 )
 -- import Git (gitCommitId)
 
@@ -158,6 +163,13 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , TimeKS(..)
              , ChandraTime(..)
 
+             , Instrument(..)
+             , Grating(..)
+             , PropType(..)
+             , PropCategory
+             , TOORequestTime
+             , ConstraintKind(TimeCritical)
+               
              , RestrictedRecord
              , RestrictedSO
              , RestrictedSchedule
@@ -168,10 +180,13 @@ import Types (Record, SimbadInfo(..), Proposal(..)
              , showExpTime
              , handleMigration
              , labelToRT
+             , rtToLabel
              , labelToCS
+             , csToLC
              , getConstellationNameStr
              , fromInstrument
              , fromGrating
+             , fromPropType
              , recordObsId
              )
 import Utils (HtmlContext(..)
@@ -249,7 +264,101 @@ main = do
           scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
-            scottyOpts opts (webapp pool mgr scache)
+
+            let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
+                clustersOfGalaxies = "CLUSTERS OF GALAXIES"
+                snSnrIsolatedNS = "SN, SNR AND ISOLATED NS"
+                starsAndWD = "STARS AND WD"
+                bhAndBinaries = "BH AND NS BINARIES"
+
+                -- f is the db query, s is the "show" function
+                pair ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => (a -> m (SortedList StartTimeOrder RestrictedSO))
+                  -> (a -> T.Text)
+                  -> a
+                  -> (CacheKey, m RestrictedSchedule)
+                pair f s k = (toCacheKey (s k),
+                              fetchSchedule (f k))
+
+                inst ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => Instrument
+                  -> (CacheKey, m RestrictedSchedule)
+                inst = pair fetchInstrument fromInstrument
+
+                grat ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => Grating
+                  -> (CacheKey, m RestrictedSchedule)
+                grat = pair fetchGrating fromGrating
+                
+                igrat ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => (Instrument, Grating)
+                  -> (CacheKey, m RestrictedSchedule)
+                igrat = pair fetchIG fromIG
+                
+                prop ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => PropType
+                  -> (CacheKey, m RestrictedSchedule)
+                prop = pair getProposalType fromPropType
+                
+                cat ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => PropCategory
+                  -> (CacheKey, m RestrictedSchedule)
+                cat = pair fetchCategory id
+
+                turnaround ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => Maybe TOORequestTime
+                  -> (CacheKey, m RestrictedSchedule)
+                turnaround = pair fetchTOO mRtToLabel
+                
+                conkind ::
+                  (PersistBackend m, SqlDb (Conn m))
+                  => Maybe ConstraintKind
+                  -> (CacheKey, m RestrictedSchedule)
+                conkind = pair fetchConstraint mCSToLC
+                
+            cache <- makeCache pool
+                     [ inst HRCI
+                     , inst HRCS
+                     , inst ACISI
+                     , inst ACISS
+
+                     , grat NONE
+                     , grat LETG
+                     , grat HETG
+                       
+                        -- do not cache all the Instrument + Grating
+                        -- combos
+                     , igrat (ACISI, NONE)
+                     , igrat (ACISS, NONE)
+                       
+                       -- how many proposal types should we cache?
+                     , prop GTO
+                     , prop GO
+                       
+                       -- this is unfortunately not a fixed list
+                     , cat activeGalaxiesAndQuasars
+                     , cat clustersOfGalaxies
+                     , cat snSnrIsolatedNS
+                     , cat starsAndWD
+                     , cat bhAndBinaries
+
+                       -- at the moment the vast majority of data has
+                       -- no turnaround constraint, so not worth
+                       -- caching the others
+                     , turnaround Nothing
+
+                     , conkind Nothing
+                     , conkind (Just TimeCritical)
+                     ]
+
+            scottyOpts opts (webapp pool mgr scache cache)
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -261,12 +370,33 @@ getDBInfo r = do
   bs <- getProposalInfo r
   return (as, bs)
 
+
+fromIG :: (Instrument, Grating) -> T.Text
+fromIG (i, g) = fromInstrument i <> "-" <> fromGrating g
+
+-- Fortunately TOORequestTime and ConstraintKind use a different
+-- textual label to indicate "no data" - "Nothing" vs "none" -
+-- so we can use this for the cache without worrying about a
+-- name clash, or confusion over the key.
+--
+mRtToLabel :: Maybe TOORequestTime -> T.Text
+mRtToLabel Nothing = "Nothing"
+mRtToLabel (Just r) = rtToLabel r
+      
+-- use the lower-case representation      
+mCSToLC :: Maybe ConstraintKind -> T.Text      
+mCSToLC Nothing = "none"
+mCSToLC (Just ck) = csToLC ck
+
+
 webapp ::
-    Pool Postgresql
-    -> NHC.Manager
-    -> CacheContainer
-    -> ScottyM ()
-webapp cm mgr scache = do
+  Pool Postgresql
+  -> NHC.Manager
+  -> CacheContainer
+  -> Cache
+  -> ScottyM ()
+webapp cm mgr scache cache = do
+
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
 
     defaultHandler errHandle
@@ -487,6 +617,25 @@ webapp cm mgr scache = do
         Left _ -> next -- TODO: better error message
         Right date -> queryScheduleDate date ndays
 
+    let fromCacheInt pval toText getDB toHtml = do
+          let key = toCacheKey (toText pval)
+          mcdata <- liftIO (getFromCache cache key)
+          case mcdata of
+            Just cdata -> do
+              -- liftIO (putStrLn ("--- cache hit: " <> T.unpack (toText pval)))
+              fromBlaze (toHtml pval (fromCacheData cdata))
+          
+            Nothing -> do
+              -- liftIO (putStrLn ("--- cache miss: " <> T.unpack (toText pval)))
+              matches <- liftSQL (getDB pval)
+              when (nullSL matches) next
+              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+              fromBlaze (toHtml pval sched)
+
+        fromCache pname toText getDB toHtml = do
+          pval <- param pname
+          fromCacheInt pval toText getDB toHtml
+
     -- TODO: also need a HEAD request version
     -- This returns only those observations that match this
     -- type; contrast with /seatch/dtype/:type
@@ -495,6 +644,7 @@ webapp cm mgr scache = do
                                      (liftSQL fetchNoSIMBADType)
                                      (liftSQL . makeScheduleRestricted))
 
+    -- TODO: use the Cache, Luke
     get "/search/type/:type" (searchType
                               (snd <$> dbQuery "type" fetchSIMBADType)
                               (liftSQL . makeScheduleRestricted))
@@ -504,6 +654,7 @@ webapp cm mgr scache = do
 
     -- TODO: also need a HEAD request version
     --     FOR TESTING
+    --
     get "/search/dtype/" (searchDTypeNone (liftSQL fetchObjectTypes))
 
     let searchResultsRestricted getData isNull page = do
@@ -512,7 +663,15 @@ webapp cm mgr scache = do
           sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
           fromBlaze (page xs sched)
 
-    let maybeSearchResultsRestricted mval getData page =
+    -- This is still useful for the category/simbad search, since
+    -- we probably don't need to cache any of these, and it's
+    -- not clear whether the API of maybeSearchResultsRestricted
+    -- will work here (since the key needs to know the proposal
+    -- category and it needs some work to pass through). Actually,
+    -- can probably handle it, just need a "Maybe _ -> Text" routine
+    -- that is created on the fly to include the category.
+    --
+    let maybeSearchResultsRestrictedOld mval getData page =
           case mval of
             Just val -> do
               matches <- getData val
@@ -520,16 +679,25 @@ webapp cm mgr scache = do
               sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
               fromBlaze (page val sched)
             Nothing -> next
+
+    let maybeSearchResultsRestricted mval toText getData page =
+          case mval of
+            Just val -> fromCacheInt val toText getData page
+            Nothing -> next
             
     -- This returns those observations that match this
     -- type and any "sub types"; contrast with /seatch/type/:type
     -- TODO: also need a HEAD request version
+    --
+    -- TODO: use the Cache, Luke
     get "/search/dtype/:type"
       (searchResultsRestricted
        (snd <$> dbQuery "type" fetchSIMBADDescendentTypes)
        null SearchTypes.matchDependencyPage)
 
     -- TODO: also need a HEAD request version
+    --
+    -- This does not need to use the cache just yet, I think
     get "/search/constellation/:constellation"
       (searchResultsRestricted
        (dbQuery "constellation" fetchConstellation)
@@ -542,6 +710,9 @@ webapp cm mgr scache = do
           
 
     -- TODO: also need a HEAD request version
+    --
+    -- The "none" type needs to use the cache
+    --
     get "/search/turnaround/:too" $ do
       -- as I do not have a "none" type in TOORequestTime, parse
       -- this parameter as a string rather than as a TOORequestTime
@@ -555,7 +726,8 @@ webapp cm mgr scache = do
                         Nothing -> Nothing
                         a -> Just a
 
-      maybeSearchResultsRestricted mans (liftSQL . fetchTOO) TOO.matchPage
+      maybeSearchResultsRestricted mans mRtToLabel
+        fetchTOO TOO.matchPage
         
     -- TODO: also need a HEAD request version
     get "/search/turnaround/" $ do
@@ -563,6 +735,8 @@ webapp cm mgr scache = do
       fromBlaze (TOO.indexPage matches noneTime)
 
     -- TODO: also need a HEAD request version
+    --
+    -- This does not need to use the cache just yet, I think
     get "/search/cycle/:cycle"
       (searchResultsRestricted (dbQuery "cycle" fetchCycle)
        (const False) Cycle.matchPage)
@@ -572,6 +746,9 @@ webapp cm mgr scache = do
       fromBlaze (Cycle.indexPage cycles)
 
     -- TODO: also need a HEAD request version
+    --
+    -- The "none" type needs to use the cache
+    --
     get "/search/constraints/:cs" $ do
       -- as I do not have a "none" type in ConstraintKind, parse
       -- this parameter as a string rather than as a ConstraintKind
@@ -581,9 +758,9 @@ webapp cm mgr scache = do
                  else case labelToCS csParam of
                         Nothing -> Nothing
                         a -> Just a
-                      
-      maybeSearchResultsRestricted mans (liftSQL . fetchConstraint)
-        Constraint.matchPage
+
+      maybeSearchResultsRestricted mans mCSToLC
+        fetchConstraint Constraint.matchPage
       
     -- TODO: also need a HEAD request version
     get "/search/constraints/" $ do
@@ -603,12 +780,19 @@ webapp cm mgr scache = do
                     Just s -> Just (Just s)
                     _ -> Nothing
 
-      maybeSearchResultsRestricted mtype (liftSQL . fetchCategorySubType cat)
+      maybeSearchResultsRestrictedOld mtype
+        (liftSQL . fetchCategorySubType cat)
         (Category.categoryAndTypePage cat)
-      
+
+    {-
     get "/search/category/:category"
       (searchResultsRestricted (dbQuery "category" fetchCategory)
        (const False) Category.matchPage)
+    -}
+    
+    get "/search/category/:category"
+      (fromCache "category" id fetchCategory
+       Category.matchPage)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
@@ -616,22 +800,40 @@ webapp cm mgr scache = do
       fromBlaze (Category.indexPage matches)
 
     -- TODO: also need a HEAD request version
+    {-
     get "/search/instrument/:instrument"
       (searchResultsRestricted
        (dbQuery "instrument" fetchInstrument) (const False)
        Instrument.matchInstPage)
+    -}
+
+    get "/search/instrument/:instrument"
+      (fromCache "instrument" fromInstrument fetchInstrument
+                 Instrument.matchInstPage)
 
     -- TODO: also need a HEAD request version
+    {-
     get "/search/grating/:grating"
       (searchResultsRestricted
        (dbQuery "grating" fetchGrating) (const False)
        Instrument.matchGratPage)
+    -}
     
+    get "/search/grating/:grating"
+      (fromCache "grating" fromGrating fetchGrating
+                 Instrument.matchGratPage)
+
     -- TODO: also need a HEAD request version
+    {-
     get "/search/instgrat/:ig"
       (searchResultsRestricted
        (dbQuery "ig" fetchIG) (const False)
        Instrument.matchIGPage)
+    -}
+
+    get "/search/instgrat/:ig"
+      (fromCache "ig" fromIG fetchIG
+                 Instrument.matchIGPage)
     
     let igsearch = do
           (imatches, gmatches, igmatches) <- liftSQL (
@@ -688,10 +890,17 @@ webapp cm mgr scache = do
       propInfo <- liftSQL getProposalTypeBreakdown
       fromBlaze (PropType.indexPage propInfo)
 
+    {-
     get "/search/proptype/:proptype"
       (searchResultsRestricted
        (dbQuery "proptype" getProposalType) (const False)
        PropType.matchPage)
+    -}
+    
+    get "/search/proptype/:proptype"
+      (fromCache "proptype" fromPropType getProposalType
+                 PropType.matchPage)
+
     
     -- map between proposal category and SIMBAD object types.
     get "/search/mappings" (fromBlaze Mapping.indexPage)
@@ -729,7 +938,7 @@ webapp cm mgr scache = do
         _      -> next -- status status404
 
     -- TODO: is this actually correct?
-    addroute HEAD "/obsid/:obsid/wwt" (redirectObsid)
+    addroute HEAD "/obsid/:obsid/wwt" redirectObsid
 
     {-
     get "/404" $ redirect "/404.html"
@@ -754,6 +963,12 @@ errHandle txt = do
   -- work.
   status status503
   fromBlaze NotFound.errPage
+
+
+-- | Log a message to stderr
+logMsg :: T.Text -> ActionM ()
+-- logMsg = liftIO . T.hPutStrLn stderr
+logMsg = const (return ())
 
 
 -- TODO: define a data type to represent the JSON response, so that
@@ -1350,3 +1565,18 @@ fromNonScienceObs ns@NonScienceObs {..} =
             ] ++ ["end" .= _toUTCTime endTime | endTime > startTime]
 
   in go <$> getTimes (Left ns)
+
+
+-- cache code
+
+-- | Return a schedule for a query that only returns
+--   science observations (e.g. ACIS-I observations).
+--
+fetchSchedule ::
+  (PersistBackend m, SqlDb (Conn m))
+  => m (SortedList StartTimeOrder RestrictedSO)
+  -> m RestrictedSchedule
+fetchSchedule act = do
+  matches <- act
+  -- note: there is no check for no matches
+  makeScheduleRestricted (fmap Right matches)

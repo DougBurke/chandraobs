@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | A collection of routines.
 
@@ -133,7 +134,7 @@ makeJointLinks jw =
 makeScheduleRestricted ::
   RestrictedSchedule
   -> (Html, Html)  -- ("graph", table)
-makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
+makeScheduleRestricted RestrictedSchedule {..} =
   let instVal r = fromMaybe "n/a" $ do
         inst <- rrecordInstrument r
         grat <- rrecordGrating r
@@ -149,7 +150,7 @@ makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
       --       but "" is still there. Perhaps that can be changed to
       --       "n/a" now.
       linkToSimbad (Left _) = ""
-      linkToSimbad (Right so) = case M.lookup (rsoTarget so) simbad of
+      linkToSimbad (Right so) = case M.lookup (rsoTarget so) rrSimbad of
         Just si -> typeDLinkSearch (smiType3 si) (smiType si)
         Nothing -> basicTypeLinkSearch Nothing
 
@@ -230,7 +231,7 @@ makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
               Left ns -> "_" <> fromTargetName (rnsTarget ns)
               Right so ->
                 let tname = rsoTarget so
-                in case M.lookup tname simbad of
+                in case M.lookup tname rrSimbad of
                   Just si -> fromTargetName (smiName si)
                   Nothing -> fromTargetName tname
 
@@ -257,13 +258,13 @@ makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
          sortRow dec (td (toHtml dec))
          td (showConstellation r)
 
-      tNow = ChandraTime cTime
+      tNow = ChandraTime rrTime
       curTime Nothing = "observation is not scheduled"
       curTime (Just t) = showTimeDeltaBwd (Just tNow) (_toUTCTime t)
       
       cRow r = toRow curTime r ! A.class_ "current"
-      pRow r = toRow (`showTimeDeltaBwd` cTime) r ! A.class_ "prev"
-      nRow r = toRow (showTimeDeltaFwd cTime) r ! A.class_ "next"
+      pRow r = toRow (`showTimeDeltaBwd` rrTime) r ! A.class_ "prev"
+      nRow r = toRow (showTimeDeltaFwd rrTime) r ! A.class_ "next"
 
       -- TODO: change order
       tblBlock = table ! A.id "scheduledObs" ! class_ "tablesorter" $ do
@@ -285,15 +286,15 @@ makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
                       th "Declination"
                       th "Constellation"
                     tbody $ do
-                      mapM_ pRow done
-                      maybe mempty cRow mdoing
-                      mapM_ nRow todo
+                      mapM_ pRow rrDone
+                      maybe mempty cRow rrDoing
+                      mapM_ nRow rrToDo
 
       dataRow :: T.Text -> RestrictedRecord -> Aeson.Value
       dataRow s r =
         let -- repeats the linkToSimbad logic; but this time assumes that
             -- it is safe to include non-science obs as they won't match
-            sinfo = case M.lookup (rrecordTarget r) simbad of
+            sinfo = case M.lookup (rrecordTarget r) rrSimbad of
               Just si -> [ "simbadType" .= smiType si ]
               Nothing -> []
 
@@ -311,9 +312,9 @@ makeScheduleRestricted (RestrictedSchedule cTime _ done mdoing todo simbad) =
             ] <> sinfo)
            
       obsInfo =
-        map (dataRow "done") done
-        <> maybe [] ((:[]) . (dataRow "doing")) mdoing
-        <> map (dataRow "todo") todo
+        map (dataRow "done") rrDone
+        <> maybe [] ((:[]) . (dataRow "doing")) rrDoing
+        <> map (dataRow "todo") rrToDo
 
       svgBlock = do
         (div ! id "map") ""

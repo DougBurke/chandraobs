@@ -92,6 +92,7 @@ library
 executable webserver
   main-is:             WebServer.hs
   other-modules:       API
+                       Cache
                        Layout
                        Utils
                        Views.Index
