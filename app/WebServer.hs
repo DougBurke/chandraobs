@@ -259,6 +259,14 @@ main = do
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
 
+            let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
+                clustersOfGalaxies = "CLUSTERS OF GALAXIES"
+                snSnrIsolatedNS = "SN, SNR AND ISOLATED NS"
+                starsAndWD = "STARS AND WD"
+                bhAndBinaries = "BH AND NS BINARIES"
+
+                cat p = (toCacheKey p, fetchSchedule (fetchCategory p))
+                
             cache <- makeCache pool
                      [(toCacheKey "HRC-I",
                        fetchSchedule (fetchInstrument HRCI))
@@ -283,14 +291,19 @@ main = do
                      , (toCacheKey "ACIS-S-NONE",
                         fetchSchedule (fetchIG (ACISS, NONE)))
 
-                       -- may only be worth caching GO here
-                       {-
+                       -- how many proposal types should we cache?
                      , (toCacheKey "GTO",
                         fetchSchedule (getProposalType GTO))
-                       -}
                      , (toCacheKey "GO",
                         fetchSchedule (getProposalType GO))
 
+                       -- this is unfortunately not a fixed list
+                     , cat activeGalaxiesAndQuasars
+                     , cat clustersOfGalaxies
+                     , cat snSnrIsolatedNS
+                     , cat starsAndWD
+                     , cat bhAndBinaries
+                       
                      ]
 
             scottyOpts opts (webapp pool mgr scache cache)
@@ -533,6 +546,22 @@ webapp cm mgr scache cache = do
         Left _ -> next -- TODO: better error message
         Right date -> queryScheduleDate date ndays
 
+    let fromCache pname toText getDB toHtml = do
+          pval <- param pname
+          let key = toCacheKey (toText pval)
+          mcdata <- liftIO (getFromCache cache key)
+          case mcdata of
+            Just cdata -> do
+              -- liftIO (putStrLn ("--- cache hit: " <> T.unpack (toText pval)))
+              fromBlaze (toHtml pval (fromCacheData cdata))
+          
+            Nothing -> do
+              -- liftIO (putStrLn ("--- cache miss: " <> T.unpack (toText pval)))
+              matches <- liftSQL (getDB pval)
+              when (nullSL matches) next
+              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+              fromBlaze (toHtml pval sched)
+
     -- TODO: also need a HEAD request version
     -- This returns only those observations that match this
     -- type; contrast with /seatch/dtype/:type
@@ -665,10 +694,16 @@ webapp cm mgr scache cache = do
 
       maybeSearchResultsRestricted mtype (liftSQL . fetchCategorySubType cat)
         (Category.categoryAndTypePage cat)
-      
+
+    {-
     get "/search/category/:category"
       (searchResultsRestricted (dbQuery "category" fetchCategory)
        (const False) Category.matchPage)
+    -}
+    
+    get "/search/category/:category"
+      (fromCache "category" id fetchCategory
+       Category.matchPage)
 
     -- TODO: also need a HEAD request version
     get "/search/category/" $ do
@@ -682,21 +717,6 @@ webapp cm mgr scache cache = do
        (dbQuery "instrument" fetchInstrument) (const False)
        Instrument.matchInstPage)
     -}
-
-    let fromCache pname toText getDB toHtml = do
-          pval <- param pname
-          let key = toCacheKey (toText pval)
-          mcdata <- liftIO (getFromCache cache key)
-          case mcdata of
-            Just cdata -> 
-              fromBlaze (toHtml pval (fromCacheData cdata))
-          
-            Nothing -> do
-              -- liftIO (putStrLn ("--- cache miss: " <> T.unpack (toText pval)))
-              matches <- liftSQL (getDB pval)
-              when (nullSL matches) next
-              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
-              fromBlaze (toHtml pval sched)
 
     get "/search/instrument/:instrument"
       (fromCache "instrument" fromInstrument fetchInstrument
