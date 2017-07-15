@@ -75,6 +75,7 @@ import Types (ChipStatus(..)
              , getJointObs
              , toMission
              , toPropType
+             , fromObsId
              )
 import Utils (cleanJointName
              , isChandraImageViewable
@@ -182,8 +183,18 @@ setupLocation ScienceObs{..} =
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.rass.gif
 -- http://asc.harvard.edu/targets/<sequence>/<sequence>.<obsid>.soe.pspc.gif
 --
+-- Constaints on the obsid are five-digit 0-encoded.
+--
+-- Early observations use a different scheme, and do not include the
+-- RASS. Unfortunately I do not know when the changeover (is there an
+-- easy way to tell; perhaps may have to do a special lookup table)
+--
+-- http://cxc.harvard.edu/targets/<sequence>/<sequence>.mpvis.dss.gif
+-- http://cxc.harvard.edu/targets/<sequence>/<sequence>.mpvis.pspc.gif
+--
 -- The public image is taken from the Chandra archive, and follows
--- the rules encoded in Utils.publicImageURL
+-- the rules encoded in Utils.publicImageURL. Actually, this is currently
+-- disabled as it is causing too much activity for the CDA.
 --
 -- We also display the observational details - in \"raw\" form - as a text box
 -- as part of this section.
@@ -224,12 +235,20 @@ renderLinks tNow mprop msimbad so@ScienceObs{..} =
 
       form = addClass "radiobuttons" H.div (mconcat buttons)
 
+      -- The ObsId is 0-padded (on the left) to ensure 5 digits
+      --
+      nzeros :: Int
+      nzeros = 4 - floor (logBase (10::Double)
+                          (fromIntegral (fromObsId soObsId)))
+               
+      obsid5 = toValue (take nzeros "00000")
+               <> toValue soObsId
       urlHead = "http://asc.harvard.edu/targets/"
                 <> toValue soSequence
                 <> "/"
                 <> toValue soSequence
                 <> "."
-                <> toValue soObsId
+                <> obsid5
                 <> ".soe."
 
       boxSize = toValue (680::Int)
@@ -461,7 +480,7 @@ renderWWT ScienceObs{..} =
 
       -- NOTE: this hard-codes the URL of the site, which is not ideal
       httpHref = "http://chandraobservatory.herokuapp.com" <>
-                 obsURI (soObsId)
+                 obsURI soObsId
 
       warningDiv =
         (H.p H.! class_ "nowwt")

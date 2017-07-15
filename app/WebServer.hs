@@ -1299,6 +1299,10 @@ proxy2 ::
 proxy2 mgr pt seqVal obsid = do
   let seqStr = show (_unSequence seqVal)
       obsStr = show (fromObsId obsid)
+
+      -- Note: the obsid has to be 0-padded
+      -- (Is this code even being used?)
+      --
       url = "http://asc.harvard.edu/targets/" 
             <> seqStr <> "/" <> seqStr <> "."
             <> obsStr <> ".soe." <> show pt <> ".gif"
