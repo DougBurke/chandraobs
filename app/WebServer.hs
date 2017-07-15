@@ -150,7 +150,7 @@ import Database (NumObs, NumSrc, SIMKey
 -- import Git (gitCommitId)
 
 import Layout (getFact, renderLinks)
-import Types (Record, SimbadInfo(..), Proposal(..)
+import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , PropNum(..)
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
@@ -1211,15 +1211,15 @@ obsidOnly getData getObs getDB = do
 
 
 proposal ::
-  ActionM (Maybe Proposal, SortedList StartTimeOrder RestrictedSO)
+  ActionM (Maybe Proposal, Maybe ProposalAbstract, SortedList StartTimeOrder RestrictedSO)
   -> (SortedList StartTimeOrder RestrictedRecord -> ActionM RestrictedSchedule)
   -> ActionM ()
 proposal getData getSched = do
-  (mprop, matches) <- getData
+  (mprop, mabs, matches) <- getData
   case mprop of
     Just prop -> do
       sched <- getSched (fmap Right matches)
-      fromBlaze (Proposal.matchPage prop sched)
+      fromBlaze (Proposal.matchPage prop mabs sched)
     _         -> next -- status status404
 
 

@@ -1472,11 +1472,12 @@ fetchCategoryTypes = do
 fetchProposal ::
   DbSql m
   => PropNum
-  -> m (Maybe Proposal, SortedList StartTimeOrder RestrictedSO)
+  -> m (Maybe Proposal, Maybe ProposalAbstract, SortedList StartTimeOrder RestrictedSO)
 fetchProposal pn = do
   mprop <- getProposalFromNumber pn
+  mabs <- listToMaybe <$> select ((PaNumField ==. pn) `limitTo` 1)
   ms <- fetchScienceObsBy (SoProposalField ==. pn)
-  return (mprop, ms)
+  return (mprop, mabs, ms)
 
 -- | Return all the observations which match this instrument,
 --   excluding discarded.

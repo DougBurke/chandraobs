@@ -5,38 +5,45 @@
 
 module Views.Proposal (matchPage) where
 
-import Prelude ((==), length)
+import qualified Text.Blaze.Html5.Attributes as A
+
+import Prelude (Maybe, (==), length, maybe)
 
 import Data.Either (rights)
-import Data.Monoid ((<>), mconcat)
+import Data.Monoid ((<>), mconcat, mempty)
 
-import Text.Blaze.Html5 hiding (map, title)
-import Text.Blaze.Html5.Attributes hiding (title)
+import Text.Blaze.Html5 hiding (map, title, cite)
+import Text.Blaze.Html5.Attributes hiding (title, cite)
 
 import API (abstractLink, categoryLinkSearch)
-import Types (Proposal(..)
-              , RestrictedSchedule
-              , rsoObsId
-              )
+import Types (Proposal(..), ProposalAbstract(..)
+             , RestrictedSchedule
+             , fromBibCode
+             , rsoObsId
+             )
 import Utils (rschedToList, showInt)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardRestrictedSchedulePage)
 
 matchPage :: 
   Proposal    -- the proposal
+  -> Maybe ProposalAbstract
   -> RestrictedSchedule  -- the observations included in this proposal
   -> Html
-matchPage prop@Proposal{..} sched =
+matchPage prop@Proposal{..} mAbs sched =
   let hdrTitle = "Chandra proposal: " <> toHtml propNum
-      pageTitle = toHtml propName
-      mainBlock = renderProposal prop sched
+      pageTitle = toHtml (maybe propName paTitle mAbs)
+      mainBlock = renderProposal pageTitle prop mAbs sched
   in standardRestrictedSchedulePage sched CPOther hdrTitle pageTitle mainBlock
      
-renderProposal :: 
-  Proposal
+renderProposal ::
+  Html
+  -- ^ The proposal title
+  -> Proposal
+  -> Maybe ProposalAbstract
   -> RestrictedSchedule
   -> Html
-renderProposal Proposal{..} sched =
+renderProposal title Proposal{..} mAbs sched =
   let catLink = categoryLinkSearch propCategory propCategory
 
       obsList = rights (rschedToList sched)
@@ -48,11 +55,22 @@ renderProposal Proposal{..} sched =
       -- TODO: can we create a link just from the proposal number?
       --       probably not, since the links I am using take you to per-ObsId
       --       pages.
-      hName = toHtml propName
       abstxt = case obsList of
        (so:_) -> let uri = abstractLink (rsoObsId so)
-                 in (a ! href uri) hName
-       _ ->  hName
+                 in (a ! href uri) title
+       _ ->  title
+
+      -- TODO: need to improve the presentation; also, cite here feels a
+      -- bit funny; it is where I got the data from BUT it's not
+      -- the true source of the data. There is also the fact I'm using
+      -- a less-than stellar URI here.
+      --
+      getAbstract ProposalAbstract {..} =
+        let url = "https://ui.adsabs.harvard.edu/#abs/" <>
+                  toValue (fromBibCode paBibCode) <>
+                  "/abstract"
+        in p "The proposal abstract is:"
+           <> (blockquote ! A.cite url) (p (toHtml paAbstract))
 
   in p (mconcat
         [ "The proposal, "
@@ -67,4 +85,5 @@ renderProposal Proposal{..} sched =
         , catLink
         , " category."
         ])
+     <> maybe mempty getAbstract mAbs
 

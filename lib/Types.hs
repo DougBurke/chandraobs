@@ -193,6 +193,42 @@ data ExposureTimeOrder
 data MetaData = MetaData { mdLastModified :: UTCTime }
      deriving Eq
 
+-- | Store information on the proposals that have been queried
+--   from NASA/ADS. The relevant information includes:
+--     - total number of records
+--     - highest number reached
+--     - a possibly-empty list of those abstracts which could
+--       not be retrieved.
+--
+--   An assumption here is that the numeric counter (>= 0) used
+--   by NASA/ADS to identify and loop-through records is unique;
+--   that is 63 now is going to be 63 in three years. It is not
+--   clear that it is, but I don't want to have to query the
+--   whole database when a new set of abstracts is added (and hopefully
+--   these are then identified as nprevious to nprevious + nnew). 
+--
+data ADSSearchMetaData = ADSSearchMetaData {
+  adsMaxCount :: Int
+  -- ^ The number of records in ADS
+  , adsCurrentCount :: Int
+    -- ^ The number of records queried so far. Note that ADS uses 0
+    --   indexing, so the next query should start at
+    --   adsCurrentCount.
+  , adsChecked :: UTCTime
+    -- ^ The approximate time of the last time ADS was queried.
+  } deriving Eq
+
+
+data InvalidProposalAbstract = InvalidProposalAbstract {
+  ipADSIndex :: Int
+    -- ^ The record number used in the ADS query; the hope is that this
+    --   is a stable value, but it is not guaranteed.
+  , ipChecked :: UTCTime
+    -- ^ The approximate time this was checked
+  , ipMessage :: T.Text
+    -- ^ The reason it is "bad"
+  } deriving Eq
+
 -- | Some ObsIDs seem to not have an OCAT record, or we can
 --   not parse the response; hopefully these are all non-science
 --   observations.
@@ -695,6 +731,9 @@ newtype PropNum = PropNum { _unPropNum :: Int }
 toPropNumStr :: T.Text -> Maybe PropNum
 toPropNumStr = maybeFromText PropNum (> 0)
 
+fromPropNum :: PropNum -> Int
+fromPropNum = _unPropNum
+
 instance Parsable PropNum where
   parseParam = helpParse "proposal number" toPropNumStr
 
@@ -703,6 +742,14 @@ instance H.ToMarkup PropNum where
 
 instance H.ToValue PropNum where
   toValue = H.toValue . _unPropNum
+
+newtype BibCode = BibCode { fromBibCode :: T.Text }
+  deriving Eq
+
+-- | For now there is NO validation that this is a syntactically-valid
+--   bib code.
+toBibCode :: T.Text -> BibCode
+toBibCode = BibCode
 
 -- | Simple wrappers to avoid mixing up RA and Dec.
 --
@@ -1742,11 +1789,21 @@ instance Show Proposal where
 --   here? I haven't decided how things are going to work, so leave
 --   this for now.
 --
---   The proposal title is assumed to be correct in the Proposal record,
---   is not recorded here.
+--   Note that ADS gives back a mixed-case title value, whereas
+--   OCAT seems to have it in upper case, so we store the title
+--   here (as returned by ADS). Not 100% convinced we will use this.
+--
+--   Note that I have explicitly chosen not to include the PI in
+--   this record as:
+--      a) there could be privacy issues
+--      b) while it is interesting to see how science is connected,
+--         the PI is a single person, not the whole team working on
+--         data
 --
 data ProposalAbstract = ProposalAbstract {
   paNum :: PropNum
+  , paBibCode :: BibCode
+  , paTitle :: T.Text
   , paAbstract :: T.Text
   } deriving Eq
 
@@ -2671,6 +2728,7 @@ instance NeverNull Grating
 instance NeverNull ChipStatus
 instance NeverNull SimbadType
 instance NeverNull ObsIdStatus
+instance NeverNull BibCode
 
 -- times
 
@@ -2833,6 +2891,17 @@ instance PrimitivePersistField ShortTermTag where
   toPrimitivePersistValue = PersistText . fromShortTermTag
   fromPrimitivePersistValue = textValueHelper "ShortTermTag"
                               (Just . ShortTermTag)
+
+instance PersistField BibCode where
+  persistName _ = "BibCode"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType = _pType stringType
+
+instance PrimitivePersistField BibCode where
+  toPrimitivePersistValue = PersistText . fromBibCode
+  fromPrimitivePersistValue = textValueHelper "BibCode"
+                              (Just . toBibCode)
 
 instance PersistField ObsIdStatus where
   persistName _ = "ObsIdStatus"
@@ -3010,12 +3079,24 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: MetaDataLastModifiedConstraint
           fields: [mdLastModified]
+- entity: ADSSearchMetaData
+  constructors:
+    - name: ADSSearchMetaData
+      uniques:
+        - name: ADSSearchMetaDataCheckedConstraint
+          fields: [adsChecked]
 - entity: InvalidObsId
   constructors:
     - name: InvalidObsId
       uniques:
         - name: InvalidObsIdConstraint
           fields: [ioObsId]
+- entity: InvalidProposalAbstract
+  constructors:
+    - name: InvalidProposalAbstract
+      uniques:
+        - name: InvalidADSIndexConstraint
+          fields: [ipADSIndex]
 - entity: ShortTermSchedule
   constructors:
     - name: ShortTermSchedule
@@ -3057,7 +3138,9 @@ handleMigration =
     migrate (undefined :: SimbadMatch)
     migrate (undefined :: SimbadNoMatch)
     migrate (undefined :: MetaData)
+    migrate (undefined :: ADSSearchMetaData)
     migrate (undefined :: InvalidObsId)
+    migrate (undefined :: InvalidProposalAbstract)
     migrate (undefined :: ShortTermSchedule)
 
 -- Use Template Haskell to derive the necessary To/FromJSON
