@@ -883,6 +883,34 @@ data RestrictedSchedule =
    }
 
 
+-- | Return just the data that is needed for the timeline.
+--
+-- Note that ScienceTimeline and RestrictedSO are similar, but
+-- not the same.
+--
+type ScienceTimeline =
+  (ObsIdVal
+  , PropNum
+  , TargetName
+  , Maybe ChandraTime      -- Start time
+  , Maybe UTCTime    -- public release date
+  , TimeKS           -- approved time
+  , Maybe TimeKS     -- observed time
+  , Instrument
+  , Grating
+  , Maybe T.Text   -- the data mode
+  , Maybe TOORequest
+  , ConShort)
+
+
+type EngineeringTimeline =
+  (ObsIdVal
+  , TargetName
+  , Maybe ChandraTime  -- start time
+  , TimeKS  -- length
+  )
+
+
 -- | Represent a value in kiloseconds.
 --
 --   It is assumed that the time value is >= 0.

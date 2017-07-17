@@ -49,6 +49,7 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Either (rights)
+import Data.Foldable (toList)
 import Data.List (foldl')
 import Data.Maybe (fromMaybe)
 
@@ -236,17 +237,13 @@ getTimes rs =
     Nothing -> Nothing
 
 
-maybeToList :: Maybe a -> [a]
-maybeToList Nothing = []
-maybeToList (Just x) = [x]
-
 -- | Convert the schedule contents to a list.
 --
 schedToList :: Schedule -> [Record]
-schedToList Schedule{..} = scDone ++ maybeToList scDoing ++ scToDo
+schedToList Schedule{..} = scDone ++ toList scDoing ++ scToDo
 
 rschedToList :: RestrictedSchedule -> [RestrictedRecord]
-rschedToList RestrictedSchedule{..} = rrDone ++ maybeToList rrDoing ++ rrToDo
+rschedToList RestrictedSchedule{..} = rrDone ++ toList rrDoing ++ rrToDo
 
 getNumObsHelper :: [a] -> T.Text
 getNumObsHelper xs =

@@ -184,7 +184,7 @@ makeScheduleRestricted RestrictedSchedule {..} =
 
       showTOO (Left _) = "n/a"
       -- showTOO (Right ScienceObs{..}) = maybe "n/a" tooLinkSearch soTOO
-      showTOO (Right so) = tooLinkSearch (trType `fmap` (rsoTOO so))
+      showTOO (Right so) = tooLinkSearch (trType `fmap` rsoTOO so)
 
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
@@ -313,7 +313,7 @@ makeScheduleRestricted RestrictedSchedule {..} =
            
       obsInfo =
         map (dataRow "done") rrDone
-        <> maybe [] ((:[]) . (dataRow "doing")) rrDoing
+        <> maybe [] ((:[]) . dataRow "doing") rrDoing
         <> map (dataRow "todo") rrToDo
 
       svgBlock = do

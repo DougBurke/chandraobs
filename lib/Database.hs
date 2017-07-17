@@ -72,6 +72,7 @@ module Database ( getCurrentObs
 
                   -- Highly experimental
                 , getTimeline
+                , getTimelineNew
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -174,7 +175,8 @@ dummyLastMod = UTCTime (ModifiedJulianDay 0) 0
 -- nsInObsCatName = "unknown"
 
 -- Project the fields out of a ScienceObs to form a RestrictedSO
--- and NonScienceObs to form RestrictedNS
+-- and NonScienceObs to form RestrictedNS (also for use by the
+-- timeline queries)
 --
 type SF = Field ScienceObs ScienceObsConstructor
 type NF = Field NonScienceObs NonScienceObsConstructor
@@ -226,6 +228,48 @@ restrictedNonScience =
     -- ^ could also send the actual time?
   , NsRaField
   , NsDecField)
+
+
+scienceTimeline ::
+  (SF ObsIdVal
+  , SF PropNum
+  , SF TargetName
+  , SF (Maybe ChandraTime)
+  , SF (Maybe UTCTime)
+  , SF TimeKS
+  , SF (Maybe TimeKS)
+  , SF Instrument
+  , SF Grating
+  , SF (Maybe T.Text)
+  , SF (Maybe TOORequest)
+  , SF ConShort)
+scienceTimeline =
+  (SoObsIdField
+  , SoProposalField
+  , SoTargetField
+  , SoStartTimeField
+  , SoPublicReleaseField
+  , SoApprovedTimeField
+  , SoObservedTimeField
+  , SoInstrumentField
+  , SoGratingField
+  , SoDataModeField
+  , SoTOOField
+  , SoConstellationField)
+
+
+engineeringTimeline ::
+  (NF ObsIdVal
+  , NF TargetName
+  , NF (Maybe ChandraTime)
+  , NF TimeKS)
+engineeringTimeline =
+  (NsObsIdField
+  , NsTargetField
+  , NsStartTimeField
+  , NsTimeField
+    -- ^ could also send the actual time?
+  )
 
 
 -- | What is the logic to the status fields, in particular
@@ -882,7 +926,7 @@ updateSchedule now RestrictedSchedule {..} =
       endTimeUnsafe = fromJust . rrecordEndTime
       
       oldToDo = case rrDoing of
-        Just r -> [r] ++ rrToDo
+        Just r -> r : rrToDo
         Nothing -> rrToDo
 
       -- filter the old todo list to get done, maybe doing, todo
@@ -2057,6 +2101,51 @@ getTimeline = do
                  (NsStatusField /=. Canceled) &&.
                  (NsStartTimeField >. Just lastMod))
                 `orderBy` [Asc NsStartTimeField])
+
+  -- SIMBAD info: the returned information is enough to create
+  -- a map from the soTargetname field of a Science Obs and
+  -- the SIMBAD information. Note that there are expected to be
+  -- multiple matches to the same SIMBAD source (e.g. with different
+  -- names), but I am just going to use a simple mapping for now.
+  --
+  -- The key returned by selectAll does not have an ord instance,
+  -- which means my simple plan of using this as a key in a map
+  -- falls over without some work.
+  --
+  -- So for now looping over each record and querying for the
+  -- answer, which is not sensible!
+  --
+  matchInfo <- project (SmmTargetField, SmmInfoField) CondEmpty
+  simbadInfo <- forM matchInfo (\(name, key) -> do
+                                   Just si <- get key
+                                   return (name, si))
+
+  -- TODO: should simbadMap be evaluated?
+  let simbadMap = M.fromList simbadInfo
+
+  props <- map snd <$> selectAll
+  return (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
+
+
+getTimelineNew ::
+  DbSql m
+  => m (SortedList StartTimeOrder ScienceTimeline,
+        SortedList StartTimeOrder EngineeringTimeline,
+        M.Map TargetName SimbadInfo,
+        [Proposal])
+getTimelineNew = do
+
+  lastMod <- (ChandraTime . fromMaybe dummyLastMod) <$> getLastModified
+  
+  obs <- project scienceTimeline
+         (isValidScienceObs `orderBy` [Asc SoStartTimeField])
+
+  ns <- project engineeringTimeline
+        ((Not (isFieldNothing NsStartTimeField) &&.
+          (NsStatusField /=. Discarded) &&.
+          (NsStatusField /=. Canceled) &&.
+          (NsStartTimeField >. Just lastMod))
+         `orderBy` [Asc NsStartTimeField])
 
   -- SIMBAD info: the returned information is enough to create
   -- a map from the soTargetname field of a Science Obs and

@@ -298,10 +298,12 @@ updateCache Cache {..} ckey = do
       case M.lookup ckey store of
         Just mvar -> modifyMVar_ mvar $ \_ -> do
 
-            (mLastMod, cdata) <- flip runDbConn cacheConn (do
-                a <- getLastModified
-                b <- act
-                return (a, b))
+            let dbAct = do
+                  a <- getLastModified
+                  b <- act
+                  return (a, b)
+                  
+            (mLastMod, cdata) <- runDbConn dbAct cacheConn
 
             -- TODO: is this sensible use of seq?
             -- NOTE: the assumption is that if we got here then there
