@@ -72,7 +72,6 @@ module Database ( getCurrentObs
 
                   -- Highly experimental
                 , getTimeline
-                , getTimelineNew
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -2085,55 +2084,11 @@ getProposalObjectMapping = do
 --
 getTimeline ::
   DbSql m
-  => m (SortedList StartTimeOrder ScienceObs,
-        SortedList StartTimeOrder NonScienceObs,
-        M.Map TargetName SimbadInfo,
-        [Proposal])
-getTimeline = do
-
-  lastMod <- (ChandraTime . fromMaybe dummyLastMod) <$> getLastModified
-  
-  obs <- select (isValidScienceObs
-                 `orderBy` [Asc SoStartTimeField])
-
-  ns <- select ((Not (isFieldNothing NsStartTimeField) &&.
-                 (NsStatusField /=. Discarded) &&.
-                 (NsStatusField /=. Canceled) &&.
-                 (NsStartTimeField >. Just lastMod))
-                `orderBy` [Asc NsStartTimeField])
-
-  -- SIMBAD info: the returned information is enough to create
-  -- a map from the soTargetname field of a Science Obs and
-  -- the SIMBAD information. Note that there are expected to be
-  -- multiple matches to the same SIMBAD source (e.g. with different
-  -- names), but I am just going to use a simple mapping for now.
-  --
-  -- The key returned by selectAll does not have an ord instance,
-  -- which means my simple plan of using this as a key in a map
-  -- falls over without some work.
-  --
-  -- So for now looping over each record and querying for the
-  -- answer, which is not sensible!
-  --
-  matchInfo <- project (SmmTargetField, SmmInfoField) CondEmpty
-  simbadInfo <- forM matchInfo (\(name, key) -> do
-                                   Just si <- get key
-                                   return (name, si))
-
-  -- TODO: should simbadMap be evaluated?
-  let simbadMap = M.fromList simbadInfo
-
-  props <- map snd <$> selectAll
-  return (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
-
-
-getTimelineNew ::
-  DbSql m
   => m (SortedList StartTimeOrder ScienceTimeline,
         SortedList StartTimeOrder EngineeringTimeline,
         M.Map TargetName SimbadInfo,
         [Proposal])
-getTimelineNew = do
+getTimeline = do
 
   lastMod <- (ChandraTime . fromMaybe dummyLastMod) <$> getLastModified
   

@@ -102,7 +102,7 @@ import Database (NumObs, NumSrc, SIMKey
                 , getObsFromProposal
                 , getSimbadInfo
                 , getTimeline
-                , getTimelineNew
+
                   -- , findObsId
                 , fetchSIMBADType
                 , fetchNoSIMBADType
@@ -195,7 +195,6 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
 import Utils (HtmlContext(..)
              , fromBlaze, standardResponse
              , timeToRFC1123
-             , getTimes
              , showInt
              , isChandraImageViewable
              , publicImageURL
@@ -547,8 +546,7 @@ webapp cm mgr scache cache = do
     -- (on my local machine; 10s vs 2s, approx) so switch to it for
     -- now
     --
-    -- get "/api/timeline" (apiTimeline (liftSQL getTimeline))
-    get "/api/timeline" (apiTimelineNew (liftSQL getTimelineNew))
+    get "/api/timeline" (apiTimeline (liftSQL getTimeline))
 
     -- highly experimental
     get "/api/exposures" (apiExposures (liftSQL getExposureValues))
@@ -1132,8 +1130,8 @@ apiMappings getData = do
  
 
 apiTimeline ::
-  ActionM (SortedList StartTimeOrder ScienceObs,
-           SortedList StartTimeOrder NonScienceObs,
+  ActionM (SortedList StartTimeOrder ScienceTimeline,
+           SortedList StartTimeOrder EngineeringTimeline,
            M.Map TargetName SimbadInfo,
            [Proposal])
   -> ActionM ()
@@ -1149,52 +1147,6 @@ apiTimeline getData = do
       
       sitems = fmap fromSO stline
       nsitems = fmap fromNonScienceObs nstline
-
-      -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
-      -- to remove the Maybe.
-      --
-      noMaybe :: SortedList f (Maybe a) -> SortedList f a
-      noMaybe = unsafeToSL . catMaybes . fromSL
-      
-      --
-      -- Use the time value, already pulled out by from*Science,
-      -- to merge the records. This saves having to query the
-      -- JSON itself.
-      --
-      items = fmap snd (mergeSL fst
-                        (noMaybe sitems)
-                        (noMaybe nsitems))
-      
-  -- As we keep changing the structure of the JSON, using the
-  -- last-modified date in the header does not work well (although
-  -- it's use does at least validate that the caching was doing
-  -- something). The inclusion of the isPublic field complicates
-  -- the cacheing, so turn it off for now.
-  --
-  -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
-  -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
-
-  json (object ["items" .= fromSL items])
-
-
-apiTimelineNew ::
-  ActionM (SortedList StartTimeOrder ScienceTimeline,
-           SortedList StartTimeOrder EngineeringTimeline,
-           M.Map TargetName SimbadInfo,
-           [Proposal])
-  -> ActionM ()
-apiTimelineNew getData = do
-
-  (stline, nstline, simbadMap, props) <- getData
-  tNow <- liftIO getCurrentTime
-  
-  -- What information do we want - e.g. Simbad type?
-  --
-  let propMap = M.fromList (map (\p -> (propNum p, p)) props)
-      fromSO = fromScienceObsNew propMap simbadMap tNow
-      
-      sitems = fmap fromSO stline
-      nsitems = fmap fromNonScienceObsNew nstline
 
       -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
       -- to remove the Maybe.
@@ -1494,116 +1446,6 @@ fromScienceObs ::
   -> UTCTime
   -- ^ The current time (used to determine if an observation is
   --   now public).
-  -> ScienceObs
-  -- ^ The observation to convert
-  -> Maybe (ChandraTime, Value)
-  -- ^ The start time of the observation and a JSON dictionary
-  --   following the Exhibit schema for the Science type.
-  --   The result will be Nothing if the observation has no
-  --   start time.
-  
-fromScienceObs propMap simbadMap tNow so@ScienceObs {..} =
-  let obsid = fromObsId soObsId
-
-      -- The SIMBAD info could be stored separately, and use cross-linking,
-      -- but for now just encode all the infomation we want in the science
-      -- target structure.
-      --
-      msimbad = case M.lookup soTarget simbadMap of
-        Just SimbadInfo {..} ->
-          ["aka" .= smiName | smiName /= soTarget] ++
-          ["simbadType" .= smiType, "simbadCode" .= fromSimbadType smiType3]
-        _ -> []
-
-      isBool :: Bool -> T.Text
-      isBool True = "yes"
-      isBool _ = "no"
-
-      -- Note, this extends isPublic with a check to see if this is
-      -- CC-mode data. This means that the isPublic check has been
-      -- repeated.
-      --
-      -- NOTE: isPublic/Viewable should be added by JS in the
-      --       page itself (so can cache the JSON)
-      --
-      isViewable = isChandraImageViewable soPublicRelease
-                   soDataMode soInstrument tNow
-
-      -- Isn't this the logic of the Ord typeclass for Maybe?
-      isPublic = case soPublicRelease of
-        Just pDate -> pDate < tNow
-        Nothing -> False
-
-      -- It would be good not to encode this aling with isPublic,
-      -- but I dont' see a sensible way of encoding the URL
-      -- from within Exhibit (the 0-padded obsid value)
-      -- without help from here. I guess could have a "label-ified"
-      -- version of the obsid field
-      --
-      imgURL = publicImageURL soObsId soInstrument
-
-      -- TODO: do not include the item if the value is
-      --       not known
-      fromProp :: (Proposal -> T.Text) -> T.Text
-      fromProp f = fromMaybe "unknown"
-                   (f <$> M.lookup soProposal propMap)
-
-      obsLen = fromMaybe soApprovedTime soObservedTime
-    
-      objs startTime endTime = [
-        "type" .= ("Science" :: T.Text),
-        -- need a unique label
-        "label" .=
-        (fromTargetName soTarget <> " - ObsId " <> showInt obsid),
-        "object" .= soTarget,
-        "obsid" .= obsid,
-        "start" .= _toUTCTime startTime,
-        "end" .= _toUTCTime endTime,
-      
-        -- includling isPublic means that the data can't
-        -- be easily cached *OR* would have to identify
-        -- the time until the next obsid is public -- which
-        -- need not be the next item in the time-ordered
-        -- list -- and then use that as the cache-until
-        -- date
-        "isPublic" .= isBool isPublic,
-    
-        -- observation length, in hours; since I can't work out a simple
-        -- way to get exhibit to do the time calculation (when creating
-        -- a lens), do it here (which is wasteful).
-        "length" .= toHours obsLen,
-        "lengthLabel" .= toHoursLabel obsLen,
-      
-        "instrument" .= fromInstrument soInstrument,
-        "grating" .= fromGrating soGrating,
-        "isTOO" .= isBool (isJust soTOO),
-        "constellation" .= getConstellationNameStr soConstellation,
-      
-        "cycle" .= fromProp propCycle,
-        "category" .= fromProp propCategory,
-        "proptype" .= fromProp propType
-    
-        ]
-      
-      go (startTime, endTime) = 
-        (startTime, object (objs startTime endTime
-                            ++ ["imgURL" .= imgURL | isViewable]
-                            ++ msimbad
-                           ))
-
-  in go <$> getTimes (Right so) 
-
-
-fromScienceObsNew ::
-  M.Map PropNum Proposal
-  -- ^ The known proposals, used to enrich the ScienceObs values
-  --   with extra information.
-  -> M.Map TargetName SimbadInfo
-  -- ^ The known targets with SIMBAD information; note that multiple
-  --   target names can map to the same SIMBAD object.
-  -> UTCTime
-  -- ^ The current time (used to determine if an observation is
-  --   now public).
   -> ScienceTimeline
   -- ^ The observation to convert
   -> Maybe (ChandraTime, Value)
@@ -1611,8 +1453,7 @@ fromScienceObsNew ::
   --   following the Exhibit schema for the Science type.
   --   The result will be Nothing if the observation has no
   --   start time.
-  
-fromScienceObsNew propMap simbadMap tNow so =
+fromScienceObs propMap simbadMap tNow so =
   let (obsidVal, propnum, targetName, mStartTime, mPublicDate,
        approvedTime, mObservedTime, instrument, grating,
        mDataMode, mTOO, con) = so
@@ -1725,41 +1566,12 @@ fromScienceObsNew propMap simbadMap tNow so =
 --   using the "Engineering" schema for the Exhibit timeline.
 --
 fromNonScienceObs ::
-  NonScienceObs
-  -- ^ The observation to convert
-  -> Maybe (ChandraTime, Value)
-  -- ^ The start time of the observation and a JSON dictionary
-  --   following the Exhibit schema for the NonScience type.
-fromNonScienceObs ns@NonScienceObs {..} =
-  let obsid = fromObsId nsObsId
-
-      -- only include end time if > start time
-      objs startTime endTime = [
-        "type" .= ("Engineering" :: T.Text),
-        -- need a unique label
-        "label" .= nsTarget,
-        "obsid" .= obsid,
-        "start" .= _toUTCTime startTime,
-        -- "end" .= _toUTCTime endTime,
-        
-        -- observation length, in hours
-        "length" .= toHours nsTime
-      
-        ] ++ ["end" .= _toUTCTime endTime | endTime > startTime]
-                 
-      go (startTime, endTime) =
-        (startTime, object (objs startTime endTime))
-
-  in go <$> getTimes (Left ns)
-
-
-fromNonScienceObsNew ::
   EngineeringTimeline
   -- ^ The observation to convert
   -> Maybe (ChandraTime, Value)
   -- ^ The start time of the observation and a JSON dictionary
   --   following the Exhibit schema for the NonScience type.
-fromNonScienceObsNew ns =
+fromNonScienceObs ns =
   let (obsidVal, targetName, mStartTime, obsLen) = ns
 
       obsid = fromObsId obsidVal
