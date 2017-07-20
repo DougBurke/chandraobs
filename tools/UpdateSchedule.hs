@@ -1,9 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# Language OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
 
 --
 -- Usage:
---    ./updateschedule
+--    ./updateschedule [obsid]
 --
 -- Aim:
 --
@@ -11,11 +12,15 @@
 -- that may need updating and, if there are, query OCAT for
 -- the new data, updating the database if there has been a change.
 --
+-- If called with a single argument, it's an obsid to re-query
+-- (any checks are ignored in this case, other than that it is
+-- an invalid obsid)
+--
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Control.Monad (void, when)
+import Control.Monad (unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Monoid ((<>))
@@ -30,7 +35,8 @@ import Database.Groundhog (PersistBackend, Cond(Not), Order(Desc)
                           , orderBy
                           , select)
 import Database.Groundhog.Core (Action, PersistEntity)
-import Database.Groundhog.Postgresql (Postgresql, SqlDb, Conn, in_, insert_)
+import Database.Groundhog.Postgresql (Postgresql, SqlDb, Conn,
+                                      count, in_, insert_)
 
 import Formatting (int, sformat)
 
@@ -38,13 +44,20 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (stderr)
 
-import Database (runDb, updateLastModified)
-import OCAT (OCAT, queryOCAT, ocatToScience, ocatToNonScience)
+import Database (runDb, insertProposal, updateLastModified)
+import OCAT (OCAT, queryOCAT
+            , isScienceObsE
+            , ocatToScience, ocatToNonScience)
 
-import Types (ChandraTime(..))
-import Types (ScienceObs(..), NonScienceObs(..), ObsIdVal(..))
-import Types (Field(..))
-import Types (ObsIdStatus(..))
+import Types (ChandraTime(..), ScienceObs(..), NonScienceObs(..)
+             , ObsIdVal(..), ObsIdStatus(..)
+             , Proposal(propNum)
+             , Field(NsStatusField, NsStartTimeField
+                    , SoStatusField, SoStartTimeField
+                    , NsObsIdField, SoObsIdField
+                    , IoObsIdField)
+             , fromPropNum
+             , toObsIdValStr)
 
 showInt :: Int -> T.Text
 showInt = sformat int
@@ -130,8 +143,8 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
                           then return 0
                           else deleteObs obsid
                                >> insert_ new
-                               >> liftIO (putStr (" "
-                                                  <> show (fromObsId obsid)))
+                               >> liftIO (T.putStr (" " <>
+                                                    showInt (fromObsId obsid)))
                                >> return 1
               Nothing -> return 0
           _ -> return 0
@@ -245,18 +258,151 @@ updateSchedule nmax = do
 
         Left emsg -> T.hPutStrLn stderr emsg
                      >> exitFailure
+
+-- | It is an error if this obsid is not in the InvalidObsId table.
+updateObsId ::
+  ObsIdVal
+  -- ^ ObsId to query
+  -> IO ()
+updateObsId oi = do
+  n <- runDb (count (IoObsIdField ==. oi))
+  when (n == 0)
+    (do
+        let msg = "Error: Obsid is not in the invalid table: " <>
+                  showInt (fromObsId oi)
+        T.hPutStrLn stderr msg
+        exitFailure)
+
+  ns <- runDb (count (SoObsIdField ==. oi))
+  unless (ns == 0)
+    (do
+        let msg = "Error: Science Obsid is already known about :" <>
+                  showInt (fromObsId oi)
+        T.hPutStrLn stderr msg
+        exitFailure)
+    
+  ne <- runDb (count (NsObsIdField ==. oi))
+  unless (ne == 0)
+    (do
+        let msg = "Error: Engineering Obsid is already known about :" <>
+                  showInt (fromObsId oi)
+        T.hPutStrLn stderr msg
+        exitFailure)
+
+  -- do we assume engineering or science?
+  ocat <- queryOCAT [oi]
+  case ocat of
+    Right omap -> processObsId oi omap
+    Left emsg -> T.hPutStrLn stderr emsg
+                 >> exitFailure
+          
+
+-- What is the difference between returning [] and [(xxx, Nothing)] ?
+--
+processObsId :: ObsIdVal -> OCATMap -> IO ()
+processObsId oi [(oiv, Just ocat)] | oi == oiv = 
+  -- check for the type, since this key should always exist
+  -- rather than a more permissive "try science, then try
+  -- engineering" approach
+  case isScienceObsE ocat of
+    Left emsg -> T.hPutStrLn stderr emsg >> exitFailure
+    Right flag -> if flag
+                  then processScience oi ocat
+                  else processEngineering oi ocat
+
   
+processObsId _ [(_, Just _)] = do
+  -- do not expect this to fire so don't do match
+  T.hPutStrLn stderr "UNEXPECTED: ObsIds do not match"
+  T.hPutStrLn stderr "Database is NOT updated."
+  exitFailure
+        
+processObsId _ [(_, Nothing)] = do
+  T.hPutStrLn stderr "Unable to parse OCAT response"
+  T.hPutStrLn stderr "Database is NOT updated."
+  exitFailure
+
+processObsId _ [] = do
+  T.hPutStrLn stderr "No data retrieved from OCAT query."
+  T.hPutStrLn stderr "Database is NOT updated."
+  exitFailure
+
+-- This should not happen, so don't bother dealing with it
+processObsId _ (_:_) = do
+  T.hPutStrLn stderr "Errr, multiple responses to OCAT query."
+  T.hPutStrLn stderr "Database is NOT updated."
+  exitFailure
+
+
+processScience :: ObsIdVal -> OCAT -> IO ()
+processScience oi ocat = 
+  let act now sobs prop = do
+        delete (IoObsIdField ==. oi)
+        -- do not check if the observation is already known about
+        -- because it shouldn't, relying on the DB constraint to
+        -- let us know if something is wrong (or has changed in the
+        -- database).
+        insert_ sobs
+        flag <- insertProposal prop
+        updateLastModified now
+        return flag
+
+  in do
+     ans <- ocatToScience ocat
+     case ans of
+       Right (prop, sobs) -> do
+         now <- getCurrentTime
+         flag <- runDb (act now sobs prop)
+         T.putStrLn "Added science observation"
+         when flag (T.putStrLn ("Also added proposal " <>
+                                showInt (fromPropNum (propNum prop))))
+         
+       Left emsg -> do
+         T.hPutStrLn stderr "ERROR converting science obsid"
+         T.hPutStrLn stderr emsg
+         exitFailure
+  
+
+-- This doesn't quite match GteSchedule, since in getschedule we have
+-- the short-term schedule, so can add in the expected start time
+-- from that (if it is missing)
+--
+processEngineering :: ObsIdVal -> OCAT -> IO ()
+processEngineering oi ocat =
+  let act now ns = do
+        delete (IoObsIdField ==. oi)
+        -- do not check if the observation is already known about
+        -- because it shouldn't, relying on the DB constraint to
+        -- let us know if something is wrong (or has changed in the
+        -- database).
+        insert_ ns
+        updateLastModified now
+        
+  in case ocatToNonScience ocat of
+    Left emsg -> do
+      T.hPutStrLn stderr "ERROR converting engineering obsid"
+      T.hPutStrLn stderr emsg
+      exitFailure
+
+    Right ns -> do
+      now <- getCurrentTime
+      runDb (act now ns)
+      T.putStrLn "Added engineering observation"
+  
+
 
 usage :: IO ()
 usage = do
   pName <- T.pack <$> getProgName
-  T.hPutStrLn stderr ("Usage: " <> pName)
+  T.hPutStrLn stderr ("Usage: " <> pName <> " [obsid]")
   exitFailure
-  
+
+
 main :: IO ()
 main = do
   args <- getArgs
   case args of
     [] -> updateSchedule 20 -- could be configureable
+    [i] | Just oi <- toObsIdValStr (T.pack i) -> updateObsId oi
     _ -> usage
   
