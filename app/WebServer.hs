@@ -1129,6 +1129,22 @@ apiMappings getData = do
   json out
  
 
+-- IF we remove the current time from the conversion of
+-- the ScienceTimeline items (i.e. push this logic into the
+-- javascript that receives this data) then we can cache
+-- the data (based on the last-update time).
+--
+-- Unfortunately, the data is loaded with a direct query - e.g.
+--    <link href="/api/timeline" type="application/json"
+--          rel="exhibit-data" />
+-- which means that I need to find out how to insert a shim layer
+-- that post-processes this data.
+--
+-- Alternatively, we cache the data here, then post-process it
+-- and send the converted data. This may be the best intermediate
+-- approach.
+--
+
 apiTimeline ::
   ActionM (SortedList StartTimeOrder ScienceTimeline,
            SortedList StartTimeOrder EngineeringTimeline,
