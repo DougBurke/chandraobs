@@ -27,6 +27,7 @@ import qualified Data.Text.Lazy.IO as L
 import qualified Network.HTTP.Client as Client
 import qualified Network.HTTP.Conduit as NHC
 
+import qualified About as About
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
 import qualified Views.Proposal as Proposal
@@ -144,7 +145,9 @@ import Database (NumObs, NumSrc, SIMKey
                 , getProposalType
                   
                 , getExposureValues
-                   
+
+                , getDataBaseInfo
+                  
                 , dbConnStr
 
                 )
@@ -176,7 +179,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , RestrictedSchedule
              , ScienceTimeline
              , EngineeringTimeline
-               
+
              , fromSimbadType
              , toSimbadType
              , nullSL, fromSL, mergeSL, unsafeToSL
@@ -555,6 +558,9 @@ webapp cm mgr scache cache = do
     get "/about.html" (redirect "/about/index.html")
     get "/about" (redirect "/about/index.html")
 
+    get "/about/index.html"
+      (liftSQL getDataBaseInfo >>= fromBlaze . About.aboutPage)
+      
     -- WWT redirects: I could mark these as 410, moved permenantly,
     -- but for now leave as 304's.
     --

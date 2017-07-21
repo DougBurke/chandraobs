@@ -87,6 +87,9 @@ module Database ( getCurrentObs
 
                 , getInvalidObsIds
                 , addInvalidObsId
+
+                , getDataBaseInfo
+                , DBInfo
                   
                 , putIO
                 , runDb
@@ -122,7 +125,9 @@ module Database ( getCurrentObs
                   -- , nsInObsCatName
                   , notNsDiscarded
                   -- , notFromObsCat
-
+                    
+                  , isValidScienceObs
+                    
                   , timeDb
 
                 ) where
@@ -2559,6 +2564,35 @@ getInvalidObsIds = map snd <$> selectAll
 addInvalidObsId :: PersistBackend m => InvalidObsId -> m ()
 addInvalidObsId = insert_
 
+
+-- | General "size" information on the database. Intended for the
+--   "about" page.
+--
+type DBInfo = (Int, Int, TimeKS, Maybe UTCTime)
+  -- ^ Number of valid science observations, number of proposals
+  --   (assume that if I have a proposal then there's a sciene
+  --   observation associated, even if it is no-longer valid),
+  --   the total length of the science observations, and the
+  --   last-modified date of the database.
+
+getDataBaseInfo ::
+  (PersistBackend m, SqlDb (Conn m))
+  => m DBInfo
+getDataBaseInfo = do
+  -- nscience <- count isValidScienceObs
+  nprop <- countAll (undefined :: Proposal)
+  stimes <- project (SoApprovedTimeField,
+                     SoObservedTimeField) isValidScienceObs
+                 
+  lastMod <- getLastModified
+  let nscience = length stimes
+      texp (_, Just t) = _toKS t
+      texp (t, Nothing) = _toKS t
+      tscience = TimeKS (sum (map texp stimes))
+                         
+  return (nscience, nprop, tscience, lastMod)
+                     
+
 -- | Hard-coded connection string for the database connection.
 dbConnStr :: String
 -- dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
@@ -2588,5 +2622,6 @@ timeDb act = do
   t2 <- liftIO getCurrentTime
   let diff = t2 `diffUTCTime` t1
   return (ans, realToFrac diff)
+
 
 

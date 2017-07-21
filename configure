@@ -22,6 +22,5 @@ fi
 echo "Using id: $commit"
 
 sed -e s/@@GITHASH@@/$commit/ autogen/lib-Git.hs.in > lib/Git.hs
-sed -e s/@@GITHASH@@/$commit/g autogen/about-index.html.in > static/about/index.html
 
 # end
