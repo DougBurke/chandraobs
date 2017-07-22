@@ -1212,7 +1212,12 @@ fromObsIdStatus Archived = "archived"
 --   something like [may be more spaces than in the original record):
 --
 --   "HST and Ground (VLA, mm, mid-IR, optical, and gamma-ray)"
---   
+--   "ESO/Nustar (to be confirmed though)"
+--
+--   So, the intention is that this now represents the full
+--   input string, so really should be called something like
+--   OtherTelescopes.
+--
 newtype Telescope = Telescope { fromTelescope :: T.Text }
                   deriving Eq
 
@@ -1283,6 +1288,11 @@ data ScienceObs = ScienceObs {
 
   , soMultiTel :: Bool
   , soMultiTelInt :: Double
+
+    -- So, it turns out that Maybe Telescope would be a better
+    -- field, but for now keep as [Telescope]. The intention is
+    -- that there is either 0 or 1 element. 
+    --
   , soMultiTelObs :: [Telescope]
     
   , soTOO :: Maybe TOORequest

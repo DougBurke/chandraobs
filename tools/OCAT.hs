@@ -504,10 +504,14 @@ toSOE m con = do
         _ -> False
 
       multiTelInt = fromMaybe 0.0 (toRead m "MULTITEL_INT")
-        
+
+      {-
       multiTelObs = case toText m "MULTITEL_OBS" of
         Nothing -> []
         Just xs -> map Telescope (T.splitOn ", " xs)
+      -}
+      multiTelObs = maybe [] ((:[]) . Telescope)
+                    (toText m "MULTITEL_OBS")
       
   -- NOTE: error out here in case of an invalid conversion;
   --       really should save as an "UNKNOWN" type to avoid missing
