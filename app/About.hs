@@ -44,7 +44,7 @@ aboutPage dbInfo =
           )
     <>
     body
-     (mainNavBar CPIndex
+     (mainNavBar CPAbout
       <> (div ! class_ "explanation")
       (introSection
        <> orbitSection
@@ -167,7 +167,11 @@ dbSection (nScience, nProp, tScience, mLastMod) = do
       --       probably need to extract the logic used in the
       --       obsid rendering
       --
-      cts = maybe "There appears to be no data in the database!"
+      noData = "There appears to be no data in the database! "
+               <> "Hopefully it is being loaded up with updated information, "
+               <> "so try reloading this page after a minute or so."
+               
+      cts = maybe noData
             (\t -> "The database was last updated on "
                    <> showCTime (ChandraTime t)
                    <> " and contains "
@@ -181,7 +185,8 @@ dbSection (nScience, nProp, tScience, mLastMod) = do
             )
             mLastMod
 
-  p (toHtml cts)
+  -- logic here is ugly
+  p (toHtml (if nScience == 0 then noData else cts))
   
 
 furtherSection :: Html

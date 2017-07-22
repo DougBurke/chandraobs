@@ -547,7 +547,7 @@ webapp cm mgr scache cache = do
     --
     -- Looks like the "new" version is ~ 5 times faster at the moment
     -- (on my local machine; 10s vs 2s, approx) so switch to it for
-    -- now
+    -- now (turns out not to be as big a saving on heroku :-(
     --
     get "/api/timeline" (apiTimeline (liftSQL getTimeline))
 
@@ -555,9 +555,9 @@ webapp cm mgr scache cache = do
     get "/api/exposures" (apiExposures (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
+
     get "/about.html" (redirect "/about/index.html")
     get "/about" (redirect "/about/index.html")
-
     get "/about/index.html"
       (liftSQL getDataBaseInfo >>= fromBlaze . About.aboutPage)
       
