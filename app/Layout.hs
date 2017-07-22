@@ -210,27 +210,35 @@ renderLinks ::
   -> ScienceObs
   -> Html
 renderLinks tNow mprop msimbad so@ScienceObs{..} =
-  let optSel :: T.Text -> Bool -> Html
-      optSel lbl cf = 
-        let idName = toValue (lbl <> "button")
+  let optSel :: Html -> T.Text -> Bool -> Html
+      optSel txt idlbl cf = 
+        let idName = toValue (idlbl <> "button")
+            jsClick = "imageSwitch.switchOption('" <> toValue idlbl <> "')"
+            
             base = H.input H.! type_ "radio"
                            H.! A.name  "opttype"
-                           H.! value (toValue lbl)
+                           H.! value (toValue idlbl)
                            H.! A.id idName
-                           H.! onclick
-                               ("imageSwitch.switchOption('" <> toValue lbl <> "')")
+                           H.! onclick jsClick
+                               
         in (if cf then base H.! checked "checked" else base)
-           <> (H.label H.! A.for idName) (toHtml lbl)
+           <> (H.label H.! A.for idName) txt
 
       showChandraImage = isChandraImageViewable soPublicRelease soDataMode
                          soInstrument tNow
+
+      -- There is a little bit of historical baggage here, since the
+      -- views were originally labelled by the Astronomer-friendly
+      -- terms, but are now moving to a more readable (hopefully)
+      -- label.
+      --
       buttons =  [ "View: " ] ++
-                 [ optSel "Chandra" True | showChandraImage ] ++
-                 [ optSel "DSS" (not showChandraImage)
-                 , optSel "RASS" False
-                 , optSel "PSPC" False
-                 , optSel "Details" False
-                 , optSel "WWT" False
+                 [ optSel "Chandra" "Chandra" True | showChandraImage ] ++
+                 [ optSel "Optical" "DSS" (not showChandraImage)
+                 , optSel "X-ray (RASS)" "RASS" False
+                 , optSel "X-ray (PSPC)" "PSPC" False
+                 , optSel "Details" "Details" False
+                 , optSel "Interactive" "WWT" False
                  ]
 
       form = addClass "radiobuttons" H.div (mconcat buttons)
