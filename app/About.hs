@@ -49,6 +49,7 @@ aboutPage dbInfo =
       (introSection
        <> orbitSection
        <> dbSection dbInfo
+       <> changelog
        <> furtherSection)
       <> renderFooter
      )
@@ -188,6 +189,18 @@ dbSection (nScience, nProp, tScience, mLastMod) = do
   -- logic here is ugly
   p (toHtml (if nScience == 0 then noData else cts))
   
+
+changelog :: Html
+changelog = do
+
+  (h2 ! id "changelog") "Changes to the website"
+
+  p ("A list of some of the recent changes to the website - useful if "
+     <> "a page or link you were using has changed - can be found on "
+     <> "the "
+     <> alink "changelog.html" "recent changes to the website"
+     <> " page.")
+    
 
 furtherSection :: Html
 furtherSection = do

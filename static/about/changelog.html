@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+  <link rel="icon" type="image/gif" href="/img/cxc.gif">
+  <title>Recent changes to the website</title>
+  <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default"
+        media="all">
+
+  <!-- should I remove this since it styles the changelog in a
+       manner that is probably confusing to the reader? -->
+  <link href="/css/view.css" type="text/css" rel="stylesheet" media="all">
+  
+ </head>
+ <body>
+  <nav role="navigation">
+    <!-- NOTE: no 'chosen' element for this page -->
+    <ul>
+    <li><a id='home' href="/index.html">What is Chandra doing now?</a></li>
+    <li><a id='sched' href="/schedule/index.html">Schedule</a></li>
+    <li><a id='expl' href="/search/index.html">Explore</a></li>
+    <li><a id='about' href="/about/index.html">About</a></li>
+    <li><a id='insts' href="/about/instruments.html">Instruments</a></li>
+    <li><a id='views' href="/about/views.html">Views</a></li>
+   </ul>
+  </nav>
+
+  <div class="explanation">
+   <h1>Recent changes to the website</h1>
+
+   <p>
+     This page lists some of the recent improvements to the website.
+   </p>
+
+   <dl>
+     <dt>July 22 2017</dt>
+     <dd>
+       <p>
+         The links to the different <a href="views.html">views</a> of
+         an observation have been changed to be a bit-more informative;
+         they now say "Optical", "X-ray (RASS)", "X-ray (PSPC)", and
+         "Interactive" rather than "DSS", "RASS", "PSPC", and "WWT".
+       </p>
+     </dd>
+
+     <dt>July 20 2017</dt>
+     <dd>
+       <p>
+         Added a <a href="index.html#database">database section</a>
+         to the about page. This currently lists the time the database
+         was last updated and a brief summary of the size of the
+         database, but will hopefully soon contain some more background
+         information.
+       </p>
+     </dd>
+
+     <dt>July 17 2017</dt>
+     <dd>
+       <p>
+         Reduced the time taken to create the data needed for the
+         <a href="/search/timeline">timeline view</a> of the
+         database. More work is needed as you still have to wait too
+         long for the data to download.
+       </p>
+     </dd>
+
+     <dt>July 15 2017</dt>
+     <dd>
+       <p>
+         Included the text of the proposal abstracts, taken from the
+         rather useful
+         <a href="http://ads.harvard.edu/">SAO/NASA Astrophysics Data
+           System</a> (it is the go-to service for Astronomers searching
+         the Astronomical literature). This text - if available - is
+         included in the "Proposal view"; an example is
+         <a href="/proposal/5800713">A detailed Chandra study of the
+           luminous lensing cluster MS2137.3-2353</a>. Unfortunately
+         I have not been able to match up all observations, in particular
+         recent observations are not matched.
+       </p>
+
+       <p>
+         The link to the optical and X-ray <a href="views.html">views
+           of an observation</a> have been fixed for observations with
+         a value (ObsId) less than 10000. Note that very-early observations
+         are still broken (in that the images will not display).
+       </p>
+     </dd>
+
+     <dt>July 8 2017</dt>
+     <dd>
+       <p>
+         Reduced the download time for some of the
+         more-complex <a href="/search/">search results</a> - such as
+         viewing <a href="/search/instrument/ACIS-I">all the ACIS-I
+           observations</a>. There are still improvements to make!
+       </p>
+     </dd>
+
+     <dt>July 1 2017</dt>
+     <dd>
+       <p>
+         The view of the actual Chandra data for an observation (once
+         it is public), on both the observation page and in the timeline
+         view, has been disabled as it was causing an unexpected burden
+         on the Chandra Data Archive. It will be added back once we have
+         come up with a less-disruptive scheme.
+       </p>
+     </dd>
+
+     <!-- missing some speed improvements, but I'm mentally bundling them
+          into the July 8 section -->
+
+     <dt>June 28 2017</dt>
+     <dd>
+       <p>
+         The <a href="/search/exposures/">exposure-time breakdown page</a>
+         has been cleaned up slightly: the proposal cycles are now listed
+         in numerical order (they were in a somewhat-random order before)
+         and a table listing the breakdown of total exposure-time per
+         cycle has been added. As a by-product of this there is now a
+         per-cycle view of the observations, such as everyone's favourite
+         <a href="/search/cycle/07">Cycle 7</a>.
+       </p>
+
+       <p>
+         The documentation has been updated to reflect the fact that the
+         database has now been filled up with data back to the
+         <a href="/search/calendar/">start of the mission</a>
+         (unfortunately it's not complete, in
+         particular the early observations are currently missing).
+       </p>
+
+       <p>
+         Some minor speed improvements have been applied, since the
+         addition of all the historical data was stressing the
+         design. More improvements are to come!
+       </p>
+     </dd>
+     
+   </dl>
+   
+  </div>
+  <p id="banner">
+    The 'What is Chandra doing now?' web site is developed by
+    the Science Data Systems group of the
+    <a href="http://chandra.si.edu/">Chandra X-ray Center</a>.
+    The information on this site is intended for
+    educational purposes and should not be relied on for
+    scientific use.
+  </p>
+ </body>
+</html>
