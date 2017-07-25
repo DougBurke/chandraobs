@@ -22,6 +22,7 @@ help:
 	@echo "   cleardb     - clear database on Heroku"
 	@echo "   pushdb      - push database to Heroku"
 	@echo ""
+	@echo "   showdocker  - docker command to build the image"
 	@echo "   builddocker - build docker image"
 	@echo "   rundocker   - run docker image"
 	@echo "   pushdocker  - push docker image to Heroku"
@@ -51,6 +52,13 @@ pushdb:	cleardb
 	@echo "## To ${APP}"
 	@echo "##"
 	-@PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push ${HOMEDB} DATABASE_URL --app ${APP}
+
+showdocker:
+	@echo "### What is the command to make the docker image: webserver"
+	@echo "##"
+	@echo "## ${APP}"
+	@echo "##"
+	@echo sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
 
 builddocker:
 	@echo "### Making docker image: webserver"
