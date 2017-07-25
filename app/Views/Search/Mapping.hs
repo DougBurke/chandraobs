@@ -72,17 +72,18 @@ renderMatches =
        <> "This group also contains all the "
        <> categoryLinkSearch "SOLAR SYSTEM" ("Solar System" :: T.Text)
        <> " observations, since SIMBAD does not include solar-system objects in its "
-       <> "database. ")
-
-    p ("The format used for this display is known as a "
+       <> "database. The format used for this display is known as a "
        <> (a ! href "http://en.wikipedia.org/wiki/Sankey_diagram") "Sankey diagram"
        <> ". The bands at the left and right can be dragged vertically "
        <> "to aid visibility in case the layout algorithm does not "
-       <> "do a good job. As a reminder, this only covers a "
-       <> (a ! href "/search/calendar/") (em "small" <> " fraction")
-       <> " of the Chandra archive, and the results are not guaranteed to be "
-       <> "correct!")
+       <> "do a good job. As a reminder, this is intended for "
+       <> em "educational"
+       <> ", and not scientific, purposes, as the data is known not "
+       <> "to be perfect.")
 
-    -- TODO: add some sort of 'page needs javascript' text element
+    (p ! class_ "nojavascript")
+      ("The Sankey display requires JavaScript and it appears that it is " <>
+       "not available.")
+      
     (div ! id "mapping") ""
 
