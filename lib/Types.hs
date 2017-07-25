@@ -1838,6 +1838,8 @@ instance Show Proposal where
 --         the PI is a single person, not the whole team working on
 --         data
 --
+--   However, the PI *is* stored in the Proposal record.
+--
 data ProposalAbstract = ProposalAbstract {
   paNum :: PropNum
   , paBibCode :: BibCode

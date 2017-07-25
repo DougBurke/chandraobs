@@ -1,5 +1,10 @@
 :set -XOverloadedStrings
 
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import qualified Data.Map as M
+import qualified Data.Set as S
+
 import Database.Groundhog
 import Database.Groundhog.Postgresql
 import Types

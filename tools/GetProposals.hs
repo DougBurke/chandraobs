@@ -38,6 +38,14 @@ from this proposal.
 So, I ignore repeated proposal values, dropping them to
 the "invalid" category.
 
+Note:
+
+[("No match for title=Jet-breaks in short GRBs BibCode: \"2010cxo..prop.3129T\"",3574)]
+
+is missing a match, but it shouldn't. It may have been because
+this observation was a TOO and so may have been in the invalid
+obsids list at the time the proposal search was done.
+
 -}
 
 module Main where
