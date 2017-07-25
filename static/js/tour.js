@@ -84,7 +84,7 @@ var tour = new Tour({
     element: "#about",
     placement: "left",
     title: "About",
-    content: "Information on this web site."
+    content: "Information on this web site, including when the database was last updated and what recent changes have been made to the website."
   }
 ]});
 
