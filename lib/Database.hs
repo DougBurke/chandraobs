@@ -1,8 +1,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+
+-- MonoLocalBinds is suggested by ghc 8.2 insertIfUnknown/insertOrReplace.
+-- The constraints can't be simplified since Databsae.Groundhog.Instances
+-- doesn't export EntityConstr'.
+--
 
 -- | Simple database access shims.
 --
