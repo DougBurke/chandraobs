@@ -14,7 +14,8 @@ module Layout (
   , dquote
   , standardTable
   , floatableTable
-
+  , noJSPara
+    
   , addClass
 
   )
@@ -116,8 +117,15 @@ d3Meta =
 --
 --   It is likely that this should not be used, as you probably want
 --   skymapMeta or d3Meta instead.
+--
+--   We also load in the "base" module here, as it is a convenient,
+--   if not semantically-sensible, place to put it.
+--
 jqueryMeta :: Html
-jqueryMeta = jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
+jqueryMeta =
+  jsScript "https://code.jquery.com/jquery-1.11.1.min.js"
+  <> jsScript "/js/base.js"
+  
 
 -- | The standard footer; needs to match up with the html files in static/.
 renderFooter :: Html
@@ -481,8 +489,7 @@ renderWWT ScienceObs{..} =
                        H.! A.id "WWTCanvas") ""
                 in (H.div H.! A.id "WorldWideTelescopeControlHost") innerDiv
 
-      noJSPara =
-        (H.p H.! class_ "nojavascript")
+      noJS = noJSPara
         ("This page requires JavaScript and it appears that it is " <>
          "not available.")
 
@@ -498,10 +505,13 @@ renderWWT ScienceObs{..} =
          (a H.! href httpHref) "http version of this page " <>
          "to see if that works.")
 
-      cts = noJSPara <> warningDiv <> hostDiv
+      cts = noJS <> warningDiv <> hostDiv
       
   in (addClass "inactive" H.div H.! A.id "WWT") cts
 
+
+noJSPara :: Html -> Html
+noJSPara = (H.p H.! class_ "nojavascript")
 
 
 ldquo, rdquo :: Html

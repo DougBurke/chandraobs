@@ -1,5 +1,5 @@
 
-var createMapping = (function() {
+var createMapping = (function(base) {
     
     var margin = {top: 1, right: 1, bottom: 6, left: 1},
         width = 960 - margin.left - margin.right,
@@ -196,23 +196,10 @@ var createMapping = (function() {
         link.attr("d", path);
     }
 
-    function hide_class(className) {
-        var elems = document.getElementsByClassName(className);
-        
-        var i;
-        /* hide the elements; iterate backwards to try and
-         * reduce the amount of layout needed at the top of the file
-         * (probably pointless)
-         */
-        for (i=elems.length-1; i>=0; i--) {
-            elems[i].style.display = 'none';
-        }
-    }
-
     // TODO: handle the error case
     function createMapping() {
 
-        hide_class('nojavascript');
+        base.hide_nojs();
         
         // add in animation; this was taken from
         // http://ajaxload.info/
@@ -229,4 +216,4 @@ var createMapping = (function() {
     }
 
     return createMapping;
-})();
+})(base);

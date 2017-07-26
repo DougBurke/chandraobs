@@ -53,7 +53,7 @@ import API (obsURIString
             , jointLinkSearch
             , constraintLinkSearch
             , cssLink)
-import Layout (defaultMeta, skymapMeta, renderFooter)
+import Layout (defaultMeta, skymapMeta, renderFooter, noJSPara)
 import Types (ObsIdVal(..), Grating(..), ChandraTime(..)
              , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
              , SimbadInfo(..), TOORequest(..)
@@ -317,6 +317,8 @@ makeScheduleRestricted RestrictedSchedule {..} =
         <> map (dataRow "todo") rrToDo
 
       svgBlock = do
+        noJSPara "The map of the observations requires javascript, but it appears that it is not available."
+        
         (div ! id "map") ""
         toJSVarArr "obsinfo" obsInfo
 

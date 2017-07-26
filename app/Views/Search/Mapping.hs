@@ -23,7 +23,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import API (basicTypeLinkSearch
            , categoryLinkSearch
            , jsScript, cssLink)
-import Layout (defaultMeta, dquote, d3Meta, renderFooter)
+import Layout (defaultMeta, dquote, d3Meta, renderFooter, noJSPara)
 import Views.Record (CurrentPage(..), mainNavBar)
 
 indexPage :: Html
@@ -81,7 +81,7 @@ renderMatches =
        <> ", and not scientific, purposes, as the data is known not "
        <> "to be perfect.")
 
-    (p ! class_ "nojavascript")
+    noJSPara
       ("The Sankey display requires JavaScript and it appears that it is " <>
        "not available.")
       

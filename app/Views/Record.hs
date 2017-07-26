@@ -103,6 +103,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
+            jsScript "/js/base.js" <>
             jsScript "/js/image-switch.js" <>
             jsScript "/js/main.js" <>
             wwtJS <>

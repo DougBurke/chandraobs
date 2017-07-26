@@ -7,7 +7,7 @@
  * note that wwt.goto() is actually wwt.gotoRaDecZoom()
  */
 
-var wwt = (function () {
+var wwt = (function (base) {
     
     var wwt;
     var displayCrosshairs = true;
@@ -152,23 +152,10 @@ var wwt = (function () {
         };
     }
 
-    function hide_class(className) {
-        var elems = document.getElementsByClassName(className);
-        
-        var i;
-        /* hide the elements; iterate backwards to try and
-         * reduce the amount of layout needed at the top of the file
-         * (probably pointless)
-         */
-        for (i=elems.length-1; i>=0; i--) {
-            elems[i].style.display = 'none';
-        }
-    }
-
     function initialize(obsdata) {
-        hide_class("nojavascript");
+        base.hide_nojs();
         wwt = wwtlib.WWTControl.initControl("WWTCanvas");
-        hide_class("nowwt");
+        base.hide_class("nowwt");
         wwt.add_ready(wwtReadyFunc(obsdata));
         wwt.endInit();
     }
@@ -220,4 +207,4 @@ var wwt = (function () {
             resetStatus: resetStatus
            };
     
-})();
+})(base);
