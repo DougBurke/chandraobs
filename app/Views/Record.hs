@@ -254,17 +254,19 @@ obsNavBar ctx mObs ObsInfo{..} =
       mkNavLink ty rs =
         let lbl1 = (H.span ! class_ "directionLabel")
                    (toHtml (ty <> " observation:"))
-            lbl2 = case rs of
-              Left NonScienceObs{..} -> "Calibration ("
-                                        <> toHtml nsObsId <> ")"
-              Right ScienceObs{..} -> toHtml soTarget
+            lbl2 =
+              let obsName = case rs of
+                    Left NonScienceObs{..} -> "Calibration ("
+                                              <> toHtml nsObsId <> ")"
+                    Right ScienceObs{..} -> toHtml soTarget
+              in (H.span ! class_ "obsLabel") obsName
 
             alink = case ctx of
               StaticHtml -> a ! href (getStaticUri rs)
               DynamicHtml -> a ! href (getDynamicUri rs)
 
         in alink (lbl1 <> " " <> lbl2)
-          
+
       getStaticUri o = if Just o == mObs
                        then "/index.html"
                        else toValue (obsURI (recordObsId o))

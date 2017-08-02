@@ -83,7 +83,6 @@ nav > ul > li > a {
   padding: 0 0.5em;
 
   border-bottom: 4px solid rgba(0,0,0,0);
-  /* border-bottom: 4px solid inherit; */
 
   -webkit-transition: all 0.2s ease-in-out;
   -moz-transition: all 0.2s ease-in-out;
@@ -98,97 +97,67 @@ nav > ul > li:hover > a {
 }
 
 /*
- * From:
+ * Originally from:
  * http://www.adam-bray.com/blog/91/Easy+HTML+5+%26+CSS+3+Navigation+Menu/
  */
 nav#obslinks {
-  background-color: #fff;
-  border: 1px solid #dedede;
-  border-radius: 4px;
-  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.055);
-  color: #888;
-  display: block;
-  margin: 0.5em 1em 0.5em 1em;
-  padding: 0;
-  overflow: hidden;
-  /* width: 90%;  need to center this for it to be worthwhile */
+    background-color: #fff;
+    border-bottom: none;
+    margin-bottom: 0.5em;
 }
 
 nav#obslinks ul li {
-  list-style-type: none;
 
-  -webkit-transition: all 0.2s;
-  -moz-transition: all 0.2s;
-  -ms-transition: all 0.2s;
-  -o-transition: all 0.2s;
-  transition: all 0.2s; 
+    -webkit-transition: all 0.2s ease-in-out;
+    -moz-transition: all 0.2s ease-in-out;
+    -ms-transition: all 0.2s ease-in-out;
+    -o-transition: all 0.2s ease-in-out;
+    transition: all 0.2s ease-in-out;
 
-  /* remove main nav bar override */
-  float: none;
-  margin-right: 0;
+    border: 1px solid #dedede;
+    border-radius: 4px;
+    box-shadow: 0 4px 2px -1px rgba(0, 0, 0, 0.055);
+    
+    list-style-type: none;
+    margin-right: 0;
 
-  /* when highlighted, one side (the "outer" one) is rounded,
-     due to the radius used for nav#obslinks, and the other side
-     is flat. Try and fix this */
-  border-radius: 4px;
+    padding-bottom: 0.5em;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    padding-top: 0.5em;
+
 }
 
 nav#obslinks ul li.prevLink {
     float: left;
-    padding-right: 0.2em;
 }
 nav#obslinks ul li.nextLink {
     float: right;
-    padding-left: 0.2em;
 }
 
-/* This span is intended for non-CSS agents, so hide */
 span.directionLabel {
-    display: none;
+    display: block;
+    display: flex;
+    justify-content: center;
 }
 
-/* Draw arrows.
- * I am not happy with the spacing between the arrow and the text.
- */
-nav#obslinks ul li:before , nav#obslinks ul li:after {
-  content: "";
-  display: inline-block;
-  height: 0;
-  width: 0;
-  vertical-align: middle;
-
-  -webkit-transition: color 0.2s linear;
-  -moz-transition: color 0.2s linear;
-  -o-transition: color 0.2s linear;
-  transition: color 0.2s linear; 
+span.directionLabel:after {
+    content: " ";
+    display: block;
 }
 
-li.prevLink:before { 
-  border-right: 0.5em solid #666; /* #aaa; */
-  border-top: 0.5em solid transparent;
-  border-bottom: 0.5em solid transparent; 
-  margin-left: 0.5em;
-  margin-right: 0.2em;
-}
-
-li.nextLink:after { 
-  border-left: 0.5em solid #666; /* #aaa; */
-  border-top: 0.5em solid transparent;
-  border-bottom: 0.5em solid transparent; 
-  margin-right: 0.5em;
-  margin-left: 0.2em;
+span.obsLabel {
+    display: block;
+    display: flex;
+    justify-content: center;
+    padding-top: 0.2em;
 }
 
 nav#obslinks > ul > li > a {
-  /*
-  color: #666; -- #aaa; --
-  line-height: 2em;
-  text-decoration: none;
- */
+    border-bottom: 0;  /* override the blue lines used for other nav elements */
+    display: block;
     color: #666;
-  padding: 0 0.2em;
-
-  border-bottom: 0;
+    line-height: 1em;
 }
 /*
  * There are too many styles that interact here, so be explicit
