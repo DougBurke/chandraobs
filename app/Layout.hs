@@ -48,6 +48,7 @@ import Text.Blaze.Html5.Attributes (alt
 import Text.Blaze.Internal (Attributable)
 
 import API (categoryLinkSearch
+           , cycleLinkSearch
            , instLinkSearch
            , nameLinkSearch
            , obsIdLink
@@ -71,6 +72,7 @@ import Types (ChipStatus(..)
              , TimeKS(..)
              , TOORequest(..)
              , RA(..), Dec(..) -- only needed for WWT experiments
+             , toCycle
              , fromMissionLongLink
              , getConstellationName
              , getJointObs
@@ -420,9 +422,14 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
         let p0 = toHtml propType
             plink n = propTypeLink n Nothing
             ptype = maybe p0 plink (toPropType propType)
+
+            cycLink = case toCycle propCycle of
+              Just cyc -> cycleLinkSearch cyc
+              Nothing -> "Cycle " <> toHtml propCycle
+              
         in 
           keyVal "Proposal:"
-          ("Cycle " <> toHtml propCycle <> ", "
+          (cycLink <> ", "
            <> ptype <> ", "
            <> categoryLinkSearch propCategory propCategory
           )
