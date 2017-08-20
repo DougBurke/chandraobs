@@ -55,7 +55,8 @@ library
                   Instances
                   Types
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(server) || flag(tools)
     build-depends:
@@ -116,7 +117,8 @@ executable webserver
                        Views.Search.TOO
   hs-source-dirs:      app/
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(server)
     build-depends:
@@ -164,7 +166,8 @@ executable redirect
   main-is:             Redirect.hs
   hs-source-dirs:      tools/
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(redirectserver)
     build-depends:
@@ -183,7 +186,8 @@ executable getschedule
   other-modules:       Parser
                        OCAT
                                               
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(tools)
     build-depends:
@@ -214,7 +218,8 @@ executable updateschedule
   hs-source-dirs:      tools/
   other-modules:       OCAT
                                               
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(tools)
     build-depends:
@@ -240,7 +245,8 @@ executable querysimbad
   main-is:             QuerySimbad.hs
   hs-source-dirs:      tools/
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(tools)
     build-depends:
@@ -265,7 +271,8 @@ executable getcurrent
   main-is:             GetCurrent.hs
   hs-source-dirs:      tools/
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(tools)
     build-depends:
@@ -282,7 +289,8 @@ executable getproposals
   main-is:             GetProposals.hs
   hs-source-dirs:      tools/
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(tools)
     build-depends:
@@ -311,7 +319,8 @@ executable hackgeo
   main-is:             HackGeo.hs
   hs-source-dirs:      tools/
 
-  ghc-options: -Wall
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
 
   if flag(hackgeo)
     build-depends:
