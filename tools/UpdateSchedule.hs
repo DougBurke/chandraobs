@@ -1,21 +1,32 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# Language OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE RecordWildCards #-}
 
---
--- Usage:
---    ./updateschedule [obsid]
---
--- Aim:
---
--- Review the current database to see if there are any ObsIds
--- that may need updating and, if there are, query OCAT for
--- the new data, updating the database if there has been a change.
---
--- If called with a single argument, it's an obsid to re-query
--- (any checks are ignored in this case, other than that it is
--- an invalid obsid)
---
+{-
+
+Usage:
+    ./updateschedule [obsid]
+
+Aim:
+
+Review the current database to see if there are any ObsIds
+that may need updating and, if there are, query OCAT for
+the new data, updating the database if there has been a change.
+
+If called with a single argument, it's an obsid to re-query
+(any checks are ignored in this case, other than that it is
+an invalid obsid)
+
+TODO:
+
+The current scheme for identifying observations to query is
+not ideal, since it looks like it includes already-observed
+data. This needs to be reviewed (and perhaps concentrate on
+observations that have just beem, or are about to be,
+observed, rather than in reverse start-time order).
+
+-}
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -57,6 +68,7 @@ import Types (ChandraTime(..), ScienceObs(..), NonScienceObs(..)
                     , NsObsIdField, SoObsIdField
                     , IoObsIdField)
              , fromPropNum
+             , showCTime
              , toObsIdValStr)
 
 showInt :: Int -> T.Text
@@ -172,6 +184,10 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
   in runDb go >>= report
   
 
+-- Unlike the non-science obs, the to-be-queried obsids are dumped
+-- to stdout just so that I can check the logic to create this list
+-- is sensible
+--
 updateScience ::
   OCATMap
   -- ^ The response from querying OCAT
@@ -179,7 +195,7 @@ updateScience ::
   -- ^ The information in the database
   -> IO Int
   -- ^ The number of records changed in the database
-updateScience =
+updateScience omap sobs =
   let fromOCAT obsid o = do
         ans <- ocatToScience o
         case ans of
@@ -191,9 +207,22 @@ updateScience =
           Right (_, x) -> return (Just x)
         
       del obsid = delete (SoObsIdField ==. obsid)
-  in updateObsIds "Science" soObsId fromOCAT del
+  in showScienceObs sobs
+     >> updateObsIds "Science" soObsId fromOCAT del omap sobs
 
-  
+
+showScienceObs ::
+  [ScienceObs]
+  -> IO ()
+showScienceObs = mapM_ (T.putStrLn . textify) . zip [1..]
+  where
+    textify (i, ScienceObs {..}) =
+      let stime = maybe "<no start>" showCTime soStartTime
+          pad = "  "
+      in pad <> "[" <> showInt i <> "] ObsId: "
+         <> showInt (fromObsId soObsId)
+         <> " " <> stime
+
 -- For now assume that if a non-science observation can not be found
 -- in the OCAT that it should just be left as is.
 --
@@ -402,7 +431,7 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> updateSchedule 20 -- could be configureable
+    [] -> updateSchedule 30 -- could be configureable
     [i] | Just oi <- toObsIdValStr (T.pack i) -> updateObsId oi
     _ -> usage
   
