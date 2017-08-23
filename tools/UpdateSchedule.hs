@@ -92,6 +92,17 @@ showInt = sformat int
 --   GetSchedule will check these the next time they appear
 --   in the STS; they do not need to be updated here.
 --
+--   Should we remove the "Observed" category from this
+--   search, since what could be updated? When does a
+--   record go from "Observed" to "Archived"? Note that
+--   there are records from 2000 which have an "observed"
+--   status - e.g.
+--   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=37
+--
+--   This algorithm needs updating - e.g. may want to occasionally
+--   check the observed science observations to see if they
+--   have become archived.
+--
 getUpdateable ::
   (PersistBackend m, SqlDb (Conn m))
   => Int
@@ -100,12 +111,13 @@ getUpdateable ::
   -> ChandraTime
   -> m ([NonScienceObs], [ScienceObs])
 getUpdateable nmax tmax = do
-  let wanted = [Unobserved, Scheduled, Observed]
-  updateN <- select ((NsStatusField `in_` wanted &&.
+  let wantedN = [Unobserved, Scheduled, Observed]
+  let wantedS = [Unobserved, Scheduled]
+  updateN <- select ((NsStatusField `in_` wantedN &&.
                       NsStartTimeField <. Just tmax)
                      `orderBy` [Desc NsStartTimeField]
                      `limitTo` nmax)
-  updateS <- select ((SoStatusField `in_` wanted &&.
+  updateS <- select ((SoStatusField `in_` wantedS &&.
                       Not (isFieldNothing SoStartTimeField))
                      `orderBy` [Desc SoStartTimeField]
                      `limitTo` nmax)
