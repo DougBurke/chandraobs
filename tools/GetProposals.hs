@@ -99,7 +99,8 @@ missingProposals ::
   Natural
   -- ^ Maximum number of proposals to return
   -> IO [PropNum]
-  -- ^ This is ordered by proposal number (smallest first)
+  -- ^ This is ordered by proposal number, but is for the
+  --   highest proposal numbers present.
 missingProposals nmax = do
 
   let dbAct = do
@@ -123,8 +124,9 @@ missingProposals nmax = do
       wanted = S.toAscList (sAll `S.difference` s)
 
   let nmiss = length wanted
+      ndrop = nmiss - fromIntegral nmax
   T.putStrLn ("There are " <> showInt nmiss <> " missing abstracts.")
-  return (take (fromIntegral nmax) wanted)
+  return (drop ndrop wanted)
 
   
 {-
