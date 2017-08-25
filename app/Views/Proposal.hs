@@ -5,7 +5,7 @@
 
 module Views.Proposal (matchPage) where
 
-import qualified Text.Blaze.Html5.Attributes as A
+-- import qualified Text.Blaze.Html5.Attributes as A
 
 import Prelude (Maybe, (==), length, maybe)
 
@@ -18,7 +18,6 @@ import Text.Blaze.Html5.Attributes hiding (title, cite)
 import API (abstractLink, categoryLinkSearch)
 import Types (Proposal(..), ProposalAbstract(..)
              , RestrictedSchedule
-             , fromBibCode
              , rsoObsId
              )
 import Utils (rschedToList, showInt)
@@ -60,17 +59,24 @@ renderProposal title Proposal{..} mAbs sched =
                  in (a ! href uri) title
        _ ->  title
 
-      -- TODO: need to improve the presentation; also, cite here feels a
-      -- bit funny; it is where I got the data from BUT it's not
-      -- the true source of the data. There is also the fact I'm using
-      -- a less-than stellar URI here.
-      --
+      {-
+      The following is invalid since the proposal number has to be
+      zero-padded to 8 characters (on the left). It also doesn't
+      buy the user much, since the resulting web page doesn't add
+      anything more (other than checking that the text hasn't
+      changed).
+
       getAbstract ProposalAbstract {..} =
-        let url = "https://ui.adsabs.harvard.edu/#abs/" <>
-                  toValue (fromBibCode paBibCode) <>
-                  "/abstract"
+        let url = "http://cda.cfa.harvard.edu/srservices/propAbstract.do"
+                  <> "?propNum="
+                  <> toValue (paNum)
         in p "The proposal abstract is:"
            <> (blockquote ! A.cite url) (p (toHtml paAbstract))
+      -}
+      
+      getAbstract ProposalAbstract {..} =
+        p "The proposal abstract is:"
+        <> blockquote (p (toHtml paAbstract))
 
   in p (mconcat
         [ "The proposal, "

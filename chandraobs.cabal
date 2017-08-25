@@ -294,21 +294,14 @@ executable getproposals
 
   if flag(tools)
     build-depends:
-     aeson
-     , base
+     base
      , bytestring
      , chandraobs
      , containers
+     , formatting
      , groundhog-postgresql
-     , http-client-tls == 0.3.*
-     , http-types == 0.9.*
-     , mtl
-     -- it would be nice to have a common streaming library used in this
-     -- project!           
-     , pipes == 4.3.*
-     , pipes-attoparsec == 0.5.*
-     , pipes-http == 1.0.*
-     , strict == 0.3.*
+     , http-conduit
+     , tagsoup
      , text
      , time
 

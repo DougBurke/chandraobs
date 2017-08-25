@@ -193,42 +193,6 @@ data ExposureTimeOrder
 data MetaData = MetaData { mdLastModified :: UTCTime }
      deriving Eq
 
--- | Store information on the proposals that have been queried
---   from NASA/ADS. The relevant information includes:
---     - total number of records
---     - highest number reached
---     - a possibly-empty list of those abstracts which could
---       not be retrieved.
---
---   An assumption here is that the numeric counter (>= 0) used
---   by NASA/ADS to identify and loop-through records is unique;
---   that is 63 now is going to be 63 in three years. It is not
---   clear that it is, but I don't want to have to query the
---   whole database when a new set of abstracts is added (and hopefully
---   these are then identified as nprevious to nprevious + nnew). 
---
-data ADSSearchMetaData = ADSSearchMetaData {
-  adsMaxCount :: Int
-  -- ^ The number of records in ADS
-  , adsCurrentCount :: Int
-    -- ^ The number of records queried so far. Note that ADS uses 0
-    --   indexing, so the next query should start at
-    --   adsCurrentCount.
-  , adsChecked :: UTCTime
-    -- ^ The approximate time of the last time ADS was queried.
-  } deriving Eq
-
-
-data InvalidProposalAbstract = InvalidProposalAbstract {
-  ipADSIndex :: Int
-    -- ^ The record number used in the ADS query; the hope is that this
-    --   is a stable value, but it is not guaranteed.
-  , ipChecked :: UTCTime
-    -- ^ The approximate time this was checked
-  , ipMessage :: T.Text
-    -- ^ The reason it is "bad"
-  } deriving Eq
-
 -- | Some ObsIDs seem to not have an OCAT record, or we can
 --   not parse the response; hopefully these are all non-science
 --   observations.
@@ -742,14 +706,6 @@ instance H.ToMarkup PropNum where
 
 instance H.ToValue PropNum where
   toValue = H.toValue . _unPropNum
-
-newtype BibCode = BibCode { fromBibCode :: T.Text }
-  deriving Eq
-
--- | For now there is NO validation that this is a syntactically-valid
---   bib code.
-toBibCode :: T.Text -> BibCode
-toBibCode = BibCode
 
 -- | Simple wrappers to avoid mixing up RA and Dec.
 --
@@ -1827,10 +1783,6 @@ instance Show Proposal where
 --   here? I haven't decided how things are going to work, so leave
 --   this for now.
 --
---   Note that ADS gives back a mixed-case title value, whereas
---   OCAT seems to have it in upper case, so we store the title
---   here (as returned by ADS). Not 100% convinced we will use this.
---
 --   Note that I have explicitly chosen not to include the PI in
 --   this record as:
 --      a) there could be privacy issues
@@ -1842,8 +1794,9 @@ instance Show Proposal where
 --
 data ProposalAbstract = ProposalAbstract {
   paNum :: PropNum
-  , paBibCode :: BibCode
   , paTitle :: T.Text
+    -- ^ This is left over from initial attempts using ADS, where the
+    --   case was different. Left in in case it is still useful.
   , paAbstract :: T.Text
   } deriving Eq
 
@@ -1855,6 +1808,22 @@ instance Show ProposalAbstract where
   show ProposalAbstract{..} =
     "Proposal Abstract: " <> show (_unPropNum paNum)
     <> " " <> T.unpack (T.take 40 paAbstract) <> "..."
+
+-- | Record abstracts which have been attempted but for which
+--   something went wrong. This is (hopefully) going to all be
+--   "Missing abstract" (i.e. the OCAT does not have the information)
+--   but there could be network issues too.
+--
+data MissingProposalAbstract = MissingProposalAbstract {
+  mpNum :: PropNum
+  -- ^ proposal number
+  , mpReason :: T.Text
+    -- ^ reason for failure
+  , mpChecked :: UTCTime
+    -- ^ approximate time the query was made
+  }
+
+
 
 -- | Enumeration for the different proposal categories.
 --   This is not currently used in the database - e.g. for
@@ -2768,7 +2737,6 @@ instance NeverNull Grating
 instance NeverNull ChipStatus
 instance NeverNull SimbadType
 instance NeverNull ObsIdStatus
-instance NeverNull BibCode
 
 -- times
 
@@ -2932,17 +2900,6 @@ instance PrimitivePersistField ShortTermTag where
   fromPrimitivePersistValue = textValueHelper "ShortTermTag"
                               (Just . ShortTermTag)
 
-instance PersistField BibCode where
-  persistName _ = "BibCode"
-  toPersistValues = primToPersistValue
-  fromPersistValues = primFromPersistValue
-  dbType = _pType stringType
-
-instance PrimitivePersistField BibCode where
-  toPrimitivePersistValue = PersistText . fromBibCode
-  fromPrimitivePersistValue = textValueHelper "BibCode"
-                              (Just . toBibCode)
-
 instance PersistField ObsIdStatus where
   persistName _ = "ObsIdStatus"
   toPersistValues = primToPersistValue
@@ -3095,6 +3052,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: PropAbstractConstraint
           fields: [paNum]
+- entity: MissingProposalAbstract
+  constructors:
+    - name: MissingProposalAbstract
+      uniques:
+        - name: MissingAbstractConstraint
+          fields: [mpNum]
 - entity: SimbadInfo
   constructors:
     - name: SimbadInfo
@@ -3119,24 +3082,12 @@ mkPersist defaultCodegenConfig [groundhog|
       uniques:
         - name: MetaDataLastModifiedConstraint
           fields: [mdLastModified]
-- entity: ADSSearchMetaData
-  constructors:
-    - name: ADSSearchMetaData
-      uniques:
-        - name: ADSSearchMetaDataCheckedConstraint
-          fields: [adsChecked]
 - entity: InvalidObsId
   constructors:
     - name: InvalidObsId
       uniques:
         - name: InvalidObsIdConstraint
           fields: [ioObsId]
-- entity: InvalidProposalAbstract
-  constructors:
-    - name: InvalidProposalAbstract
-      uniques:
-        - name: InvalidADSIndexConstraint
-          fields: [ipADSIndex]
 - entity: ShortTermSchedule
   constructors:
     - name: ShortTermSchedule
@@ -3174,13 +3125,12 @@ handleMigration =
     -- migrate (undefined :: OverlapObs)  do we use this yet?
     migrate (undefined :: Proposal)
     migrate (undefined :: ProposalAbstract)
+    migrate (undefined :: MissingProposalAbstract)
     migrate (undefined :: SimbadInfo)
     migrate (undefined :: SimbadMatch)
     migrate (undefined :: SimbadNoMatch)
     migrate (undefined :: MetaData)
-    migrate (undefined :: ADSSearchMetaData)
     migrate (undefined :: InvalidObsId)
-    migrate (undefined :: InvalidProposalAbstract)
     migrate (undefined :: ShortTermSchedule)
 
 -- Use Template Haskell to derive the necessary To/FromJSON
