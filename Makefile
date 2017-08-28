@@ -24,6 +24,7 @@ help:
 	@echo ""
 	@echo "   showdocker  - docker command to build the image"
 	@echo "   builddocker - build docker image"
+	@echo "   cleandocker - build docker image (with no cache)"
 	@echo "   rundocker   - run docker image"
 	@echo "   pushdocker  - push docker image to Heroku"
 	@echo ""
@@ -66,6 +67,13 @@ builddocker:
 	@echo "## ${APP}"
 	@echo "##"
 	@sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
+
+cleandocker:
+	@echo "### Making docker image: webserver (no cache)"
+	@echo "##"
+	@echo "## ${APP}"
+	@echo "##"
+	@sudo docker build --no-cache -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
 
 rundocker:
 	@echo "### Running ${APP} docker image locally"
