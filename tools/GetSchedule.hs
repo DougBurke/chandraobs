@@ -60,7 +60,8 @@ import Data.Time (UTCTime, getCurrentTime)
 
 import Database.Groundhog (PersistBackend
                           , (&&.)
-                          , (==.)  -- (/=.), (||.), (>=.)
+                          , (==.)
+                          , count
                           , delete
                           , project
                           , select
@@ -87,6 +88,7 @@ import Database (runDb, getInvalidObsIds, updateLastModified
                  , insertProposal)
 import OCAT (OCAT, isScienceObsE, noDataInOCAT
             , queryOCAT, ocatToScience, ocatToNonScience
+            , addProposal
             , showInt)
 import Parser (parseSTS
               , parseReadable
@@ -100,6 +102,7 @@ import Types (ShortTermTag(..), ShortTermSchedule(..), toShortTermTag)
 import Types (NonScienceObs(..), ScienceObs(..), ObsIdVal(..))
 import Types (InvalidObsId(..), Field(..))
 import Types (ObsIdStatus(..), TargetName(..))
+import Types (Proposal(propNum))
 
 -- The assumption is that all pages are accessible from 
 -- baseLoc <> startPage and that they are in reverse
@@ -716,10 +719,13 @@ addScienceObs t obsid ocat = do
   case ansE of
     Left emsg -> addInvalidObsId t obsid emsg
     Right (prop, sObs) -> do
-      -- TODO: look at adding in the proposal
       void (insertProposal prop)  -- may already exist
       insertScience sObs
-      return True
+      let pnum = propNum prop
+      nprop <- count (PaNumField ==. pnum)
+      if nprop == 0
+        then addProposal pnum
+        else return True
                  
 
 -- | In most cases the obsid should not be known about, but there
@@ -994,6 +1000,7 @@ updateScheduleFromPage tNow schedList = do
   
   schedInfo <- map snd <$> selectAll
   let todo = toList (wanted 1 stsTag schedInfo fst schedList)
+      printErr = liftIO . T.hPutStrLn stderr
 
   case todo of
     [] -> return (0, 0)
@@ -1005,22 +1012,23 @@ updateScheduleFromPage tNow schedList = do
         Right sts -> addToSchedule tNow tag sts
 
         Left pe -> do
-          liftIO (T.putStrLn ("# Error parsing " <> fromShortTermTag tag))
           let emsg = T.pack (show pe)
-          liftIO (T.putStrLn emsg)
+              
+          printErr ("# Error parsing " <> fromShortTermTag tag)
+          printErr emsg
           -- addShortTermTag tNow tag (Just emsg)
           -- return (1, 0)
           -- halt rather than mark-as-bad as I don't want to accidentally
           -- mark pages we just can't parse yet as bad; this actually
           -- may be a better solution that continuing.
-          liftIO (T.putStrLn "# For now, halting execution")
+          printErr "# For now, halting execution"
           liftIO exitFailure
 
-    _ ->
+    _ -> do
       -- this is a programmer error
-      liftIO (T.hPutStrLn stderr ("ERROR: expected 1, found " <>
-                                  showInt (length todo) <> " pages")
-              >> exitFailure)
+      printErr ("ERROR: expected 1, found " <>
+                showInt (length todo) <> " pages")
+      liftIO exitFailure
 
 
 -- | Extract any new schedule information and add it to the

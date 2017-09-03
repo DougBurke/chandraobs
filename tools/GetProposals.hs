@@ -40,22 +40,17 @@ Note that, unlike ADS, propNum=02200112 has the title
 
 module Main where
 
-import qualified Data.ByteString.Lazy as L
 import qualified Data.Set as S
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import Control.Monad (forM_)
 
 import Database.Groundhog.Postgresql (Cond(CondEmpty), Order(Asc)
                                      , orderBy
-                                     , insert_
                                      , project)
 
 import Data.Monoid ((<>))
-import Data.Text.Encoding (decodeUtf8')
 
-import Network.HTTP.Conduit
 import Numeric.Natural
 
 import System.Environment (getArgs, getProgName)
@@ -64,9 +59,8 @@ import System.IO (hPutStrLn, stderr)
 
 import Text.Read (readMaybe)
 
-import Database (runDb, updateLastModified)
-import Types (ProposalAbstract(..), MissingProposalAbstract(..)
-              , PropNum(..)
+import Database (runDb)
+import Types (PropNum(..)
               , fromPropNum
               , Field(PaNumField, PropNumField, MpNumField)
               )
@@ -119,6 +113,8 @@ missingProposals nmax = do
 {-
 Identify those proposals which do not have an abstract, and then
 query CXC for them.
+
+This only works with a local database
 -}
 runSearch :: Natural -> IO ()
 runSearch nmax = do
@@ -130,7 +126,7 @@ runSearch nmax = do
     else do
       T.putStrLn ("Found " <> showInt nprops <> " missing proposals")
 
-      flags <- mapM addProposal props
+      flags <- mapM (runDb . addProposal) props
       let nfound = length (filter id flags)
 
       if nfound == nprops

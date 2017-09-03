@@ -157,7 +157,9 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
 import Control.Monad (forM_, unless, when)
+import Control.Monad.IO.Class (liftIO)
 
+import Database.Groundhog (PersistBackend)
 import Database.Groundhog.Postgresql (insert_)
 
 import Data.List (intercalate)
@@ -188,7 +190,7 @@ import Text.HTML.TagSoup (innerText
                          , partitions)
 import Text.Read (readMaybe)
 
-import Database (runDb, updateLastModified)
+import Database (updateLastModified)
 import Types
 
 userAgent :: Header
@@ -938,9 +940,10 @@ dumpScienceObs ScienceObs{..} = do
 --   if this is a sensible assumption.
 --
 addProposal ::
-  PropNum
+  PersistBackend m
+  => PropNum
   -- ^ This proposal should not exist in the database
-  -> IO Bool
+  -> m Bool
   -- ^ True if the proposal was added
 addProposal pnum = do
   
@@ -957,14 +960,16 @@ addProposal pnum = do
       qopts = [ ("propNum", Just propNumBS) ]
       req1 = setQueryString qopts req
 
-  rsp <- getTextFromOCAT req1
+      errPrint = liftIO . T.hPutStrLn stderr
+  
+  rsp <- liftIO (getTextFromOCAT req1)
   case rsp of
     Right ans -> extractAbstract pnum ans
         
     Left emsg -> do
-      T.hPutStrLn stderr ("Problem querying propNum: "
-                          <> showInt (fromPropNum pnum))
-      T.hPutStrLn stderr emsg
+      errPrint ("Problem querying propNum: "
+                <> showInt (fromPropNum pnum))
+      errPrint emsg
       return False
 
 
@@ -972,50 +977,39 @@ addProposal pnum = do
 -- it will error out if they do not.
 --
 extractAbstract ::
-  PropNum
+  PersistBackend m
+  => PropNum
   -> T.Text
   -- ^ Assumed to be the HTML response
-  -> IO Bool
+  -> m Bool
   -- ^ True if the proposal was added to the database
 extractAbstract pnum txt = do
-  now <- getCurrentTime
+  let printErr = liftIO . T.hPutStrLn stderr
+  now <- liftIO getCurrentTime
   case findAbstract pnum txt of
     Left emsg -> do
-      T.putStrLn ("Failed for " <> showInt (fromPropNum pnum))
-      T.putStrLn emsg
+      printErr ("Failed for " <> showInt (fromPropNum pnum))
+      printErr emsg
 
-      let dbAct = do
-            insert_ missingAbs
-            updateLastModified now
-
-          missingAbs = MissingProposalAbstract {
+      let missingAbs = MissingProposalAbstract {
             mpNum = pnum
             , mpReason = emsg
             , mpChecked = now
             }
       
-      runDb dbAct
+      insert_ missingAbs
+      updateLastModified now
       return False
 
     Right (absTitle, absText) -> do
-      {-
-      T.putStrLn ("Proposal: " <> showInt (fromPropNum pnum))
-      T.putStrLn ("Title: " <> absTitle)
-      T.putStrLn absText
-      T.putStrLn "----------------------------------------------"
-      -}
-      
-      let dbAct = do
-            insert_ newAbs
-            updateLastModified now
-
-          newAbs = ProposalAbstract {
+      let newAbs = ProposalAbstract {
             paNum = pnum
             , paTitle = absTitle
             , paAbstract = absText
             }
 
-      runDb dbAct
+      insert_ newAbs
+      updateLastModified now
       return True
 
 

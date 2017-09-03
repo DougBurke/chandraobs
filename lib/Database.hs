@@ -155,8 +155,9 @@ import Data.List (foldl', group, groupBy, nub, sortBy)
 import Data.Maybe (catMaybes, fromJust, fromMaybe,
                    isJust, isNothing, listToMaybe, mapMaybe)
 import Data.Ord (Down(..), comparing)
-import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime)
-import Data.Time (diffUTCTime) -- debugging
+import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
+                 , diffUTCTime -- debugging
+                 )
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
                                 DbDescriptor, RestrictionHolder,
