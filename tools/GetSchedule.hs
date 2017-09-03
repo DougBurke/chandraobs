@@ -46,7 +46,7 @@ import qualified Text.Parsec.Error as PE
 import qualified Text.Parsec.Pos as PP
 
 import Control.Applicative ((<|>))
-import Control.Monad (forM, forM_, when)
+import Control.Monad (forM, forM_, void, when)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Either (partitionEithers)
@@ -67,8 +67,6 @@ import Database.Groundhog (PersistBackend
                           , selectAll)
 import Database.Groundhog.Postgresql (SqlDb, Conn, in_, insert_)
 
-import Formatting (int, sformat)
-
 import Network.HTTP.Conduit
 import Numeric.Natural
 
@@ -88,7 +86,8 @@ import Text.Read (readMaybe)
 import Database (runDb, getInvalidObsIds, updateLastModified
                  , insertProposal)
 import OCAT (OCAT, isScienceObsE, noDataInOCAT
-            , queryOCAT, ocatToScience, ocatToNonScience)
+            , queryOCAT, ocatToScience, ocatToNonScience
+            , showInt)
 import Parser (parseSTS
               , parseReadable
               , parseRAStr
@@ -644,10 +643,6 @@ removeHeader txt =
     [] -> Nothing
 
 
-showInt :: Int -> T.Text
-showInt = sformat int
-
-
 -- | Record that this short-term schedule page has been processed.
 --
 addShortTermTag ::
@@ -720,9 +715,11 @@ addScienceObs t obsid ocat = do
   ansE <- liftIO (ocatToScience ocat)
   case ansE of
     Left emsg -> addInvalidObsId t obsid emsg
-    Right (prop, sObs) -> insertProposal prop  -- may already exist
-                          >> insertScience sObs
-                          >> return True
+    Right (prop, sObs) -> do
+      -- TODO: look at adding in the proposal
+      void (insertProposal prop)  -- may already exist
+      insertScience sObs
+      return True
                  
 
 -- | In most cases the obsid should not be known about, but there

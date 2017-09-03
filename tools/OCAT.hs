@@ -10,7 +10,12 @@ module OCAT (OCAT
             , isScienceObsE
               
             , dumpScienceObs
+
+            , addProposal
+
+              -- need a random-stuff module
             , slen
+            , showInt
             ) where
 
 {-
@@ -145,6 +150,7 @@ I wonder what the following mean:
 -}
 
 
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -152,10 +158,19 @@ import qualified Data.Text.IO as T
 
 import Control.Monad (forM_, unless, when)
 
+import Database.Groundhog.Postgresql (insert_)
+
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8')
+import Data.Time (TimeLocale, UTCTime
+                 , defaultTimeLocale
+                 , getCurrentTime
+                 , readSTime)
+
+
+import Formatting (int, sformat)
 
 import Network.HTTP.Conduit
 import Network.HTTP.Types.Header (Header)
@@ -167,10 +182,13 @@ import System.IO.Temp (withSystemTempFile)
 -- import System.Process (readProcessWithExitCode, system)
 import System.Process (system)
 
-import Data.Time (TimeLocale, UTCTime, defaultTimeLocale, readSTime)
-
+import Text.HTML.TagSoup (innerText
+                         , isTagOpenName
+                         , parseTags
+                         , partitions)
 import Text.Read (readMaybe)
 
+import Database (runDb, updateLastModified)
 import Types
 
 userAgent :: Header
@@ -663,6 +681,20 @@ makeObsCatQuery ::
 makeObsCatQuery flag oids = do
 
   req <- parseRequest (getObsCatQuery oids)
+  rsp <- getTextFromOCAT req
+  case rsp of
+    Right ans -> Right <$> processResponse flag ans
+        
+    Left emsg -> do
+      T.hPutStrLn stderr ("Unable to query OCAT: " <> emsg)
+      return (Left emsg)
+
+
+-- Add in the user agent header, query OCAT, and convert response
+-- to Text.
+--
+getTextFromOCAT :: Request -> IO (Either T.Text T.Text)
+getTextFromOCAT req = do
   let hdrs = userAgent : requestHeaders req
       req' = req { requestHeaders = hdrs }
 
@@ -674,14 +706,9 @@ makeObsCatQuery flag oids = do
       lbsToText :: L.ByteString -> Either T.Text T.Text
       lbsToText lbs =
         either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
-  
-  case lbsToText rsplbs of
-    Right ans -> Right <$> processResponse flag ans
-        
-    Left emsg -> do
-      T.hPutStrLn stderr ("Unable to query OCAT: " <> emsg)
-      return (Left emsg)
 
+  return (lbsToText rsplbs)
+  
 
 processResponse ::
   Bool
@@ -764,6 +791,9 @@ ocatToScience ocat =
 
 slen :: [a] -> T.Text
 slen = T.pack . show . length
+
+showInt :: Int -> T.Text
+showInt = sformat int
 
 {-
 
@@ -894,4 +924,153 @@ dumpScienceObs ScienceObs{..} = do
   print soRoll
   print soSubArrayStart
   print soSubArraySize
+
+
+-- proposal abstracts
+--
+
+-- | Should this either return the error string?
+--
+--   The proposal is added to the "unable to query proposal"
+--   database table only if the query was successful but
+--   the response could not be parsed. If the query itself
+--   failed it is assumed to be a transient error. Let's see
+--   if this is a sensible assumption.
+--
+addProposal ::
+  PropNum
+  -- ^ This proposal should not exist in the database
+  -> IO Bool
+  -- ^ True if the proposal was added
+addProposal pnum = do
+  
+  let req = parseRequest_ baseLoc
+      baseLoc = "http://cda.cfa.harvard.edu/srservices/propAbstract.do"
+
+      -- It is easier to query by obsid, as the obsid does not
+      -- have to be 0-padded (I think), but leave as the
+      -- following for now
+      --
+      pstr = show (fromPropNum pnum)
+      n0 = 8 - length pstr
+      propNumBS = B8.pack (replicate n0 '0' <> pstr)
+      qopts = [ ("propNum", Just propNumBS) ]
+      req1 = setQueryString qopts req
+
+  rsp <- getTextFromOCAT req1
+  case rsp of
+    Right ans -> extractAbstract pnum ans
+        
+    Left emsg -> do
+      T.hPutStrLn stderr ("Problem querying propNum: "
+                          <> showInt (fromPropNum pnum))
+      T.hPutStrLn stderr emsg
+      return False
+
+
+-- There is no check that the database constraints hold - i.e.
+-- it will error out if they do not.
+--
+extractAbstract ::
+  PropNum
+  -> T.Text
+  -- ^ Assumed to be the HTML response
+  -> IO Bool
+  -- ^ True if the proposal was added to the database
+extractAbstract pnum txt = do
+  now <- getCurrentTime
+  case findAbstract pnum txt of
+    Left emsg -> do
+      T.putStrLn ("Failed for " <> showInt (fromPropNum pnum))
+      T.putStrLn emsg
+
+      let dbAct = do
+            insert_ missingAbs
+            updateLastModified now
+
+          missingAbs = MissingProposalAbstract {
+            mpNum = pnum
+            , mpReason = emsg
+            , mpChecked = now
+            }
+      
+      runDb dbAct
+      return False
+
+    Right (absTitle, absText) -> do
+      {-
+      T.putStrLn ("Proposal: " <> showInt (fromPropNum pnum))
+      T.putStrLn ("Title: " <> absTitle)
+      T.putStrLn absText
+      T.putStrLn "----------------------------------------------"
+      -}
+      
+      let dbAct = do
+            insert_ newAbs
+            updateLastModified now
+
+          newAbs = ProposalAbstract {
+            paNum = pnum
+            , paTitle = absTitle
+            , paAbstract = absText
+            }
+
+      runDb dbAct
+      return True
+
+
+-- It is possible for an abstract to be incomplete - e.g.
+-- missing either or both of the title and abstract. It is considered
+-- an "error" if either is missing (since it is no use here if
+-- we just have the title).
+--
+findAbstract ::
+  PropNum
+  -> T.Text
+  -- ^ Assumed to be the HTML response
+  -> Either T.Text (T.Text, T.Text)
+  -- ^ On success the return is the proposal title and abstract.
+findAbstract pnum txt = do
+  let tags = parseTags txt
+      findRow = isTagOpenName "tr"
+      findCell = isTagOpenName "td"
+
+      rows = partitions findRow tags
+
+      clean = T.strip . innerText
+  
+      getSecond row = case partitions findCell row of
+        [_, td] -> Right (clean td)
+        _ -> Left "Expected two cells in row"
+
+      getOne = Right . clean
+      
+  -- hard code the structure of the table until we find we have to
+  -- be more generic
+  --
+  (title, number, abstract) <- case rows of
+        [titleRow, _, numberRow, _, _, _, abstractHeaderRow, abstractRow]
+          -> do
+          title <- getSecond titleRow
+          number <- getSecond numberRow
+          header <- getOne abstractHeaderRow
+          abstract <- getOne abstractRow
+          if header /= "Abstract:"
+            then Left "Unable to find abstract header"
+            else Right (title, number, abstract)
+        _ -> Left "Unexpected number of rows in the table"
+
+  let checkVal l v = if v == "null"
+                     then Left ("Missing " <> l)
+                     else Right v
+                          
+  checkAbstract <- checkVal "abstract" abstract
+  checkTitle <- checkVal "title" title
+  
+  let checkNum n | n == fromPropNum pnum = Right (checkTitle, checkAbstract)
+                 | otherwise = Left "Proposal number mismatch"
+                               
+  maybe (Left "Invalid proposal number") checkNum
+    (readMaybe (T.unpack number))
+
 
