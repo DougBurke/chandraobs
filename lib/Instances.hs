@@ -24,8 +24,6 @@ import Database.Groundhog.Instances ()
 -- | It looks like Groundhog limits itself to tuples with only 5 members;
 --   but we can do more, even if it isn't sensible.
 --
---   How many do we need? For now it looks like 11.
---
 instance (Projection a1 a1'
          , Projection a2 a2'
          , Projection a3 a3'

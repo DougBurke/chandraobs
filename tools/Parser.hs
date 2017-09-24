@@ -212,6 +212,16 @@ handleTime start texp =
   in (tks, t1, t2)
 
 
+parsePosition :: Parser (RA, Dec, Double)
+parsePosition = do
+  ra <- parseReadable -- ra
+  dec <- parseReadable -- dec
+  roll <- parseDouble -- roll
+  void parseDouble -- pitch
+  void parseDouble -- slew
+  return (ra, dec, roll)
+  
+
 obsLine :: Parser ScheduleItem
 obsLine = do
   void parseInt -- seqNum
@@ -223,11 +233,7 @@ obsLine = do
   texp <- parseDouble
   void parseInst -- inst
   void parseGrat -- grat
-  ra <- parseReadable -- ra
-  dec <- parseReadable -- dec
-  roll <- parseDouble -- roll
-  void parseDouble -- pitch
-  void parseDouble -- slew
+  (ra, dec, roll) <- parsePosition
   lexeme (void (string "dss pspc rass"))
 
   let (tks, t1, _) = handleTime start texp
@@ -266,11 +272,7 @@ calLine = do
   texp <- parseDouble
   sep2
   sep2
-  ra <- parseReadable
-  dec <- parseReadable
-  roll <- parseDouble
-  void parseDouble -- pitch
-  void parseDouble -- slew
+  (ra, dec, roll) <- parsePosition
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
 
