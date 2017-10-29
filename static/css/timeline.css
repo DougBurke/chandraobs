@@ -129,6 +129,15 @@ div.exhibit-facet-header {
     background-color: rgba(0, 131, 179, 0.2);
 }
 
+/* numbers are getting large enough need more space */
+div.exhibit-facet-value-count {
+    width: 3em;
+    text-align: center
+}
+div.exhibit-facet-value-inner {
+    padding-left: 3.2em;
+}
+
 .logo {
    text-align: center
 }
