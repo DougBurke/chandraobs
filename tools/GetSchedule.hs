@@ -1007,6 +1007,7 @@ updateScheduleFromPage tNow schedList = do
     
     [tagInfo] -> do
       let tag = fst tagInfo
+      liftIO (T.putStrLn ("###   page : " <> fromShortTermTag tag))
       res <- liftIO (downloadSchedulePage tagInfo)
       case toSchedule res of
         Right sts -> addToSchedule tNow tag sts

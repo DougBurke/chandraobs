@@ -443,7 +443,7 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> updateSchedule 30 -- could be configureable
+    [] -> updateSchedule 50 -- could be configureable
     [i] | Just oi <- toObsIdValStr (T.pack i) -> updateObsId oi
     _ -> usage
   
