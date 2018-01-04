@@ -680,6 +680,7 @@ makeObsCatQuery ::
   --   does not contain information on one, some, or all
   --   of the input obsids.
   --
+makeObsCatQuery _ [] = return (Right [])  
 makeObsCatQuery flag oids = do
 
   req <- parseRequest (getObsCatQuery oids)

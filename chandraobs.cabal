@@ -242,6 +242,38 @@ executable updateschedule
   else
     buildable:  False
 
+executable addobsidlist
+  main-is:             AddObsidList.hs
+  hs-source-dirs:      tools/
+  other-modules:       OCAT
+                                              
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     -- TODO: may want to store the ocat output as files
+     -- , directory >= 1.2 && < 1.4
+     , formatting
+     , groundhog
+     , groundhog-postgresql
+     , http-conduit >= 2.1 && < 2.3
+     , http-types
+     , network >= 2.4 && < 2.7
+     -- , parsec == 3.1.*
+     , process >= 1.1 && < 1.7
+     , tagsoup >= 0.13 && < 0.15
+     , temporary >= 1.1 && < 1.3
+     , text
+     , time
+
+  else
+    buildable:  False
+
 executable querysimbad
   main-is:             QuerySimbad.hs
   hs-source-dirs:      tools/
