@@ -21,7 +21,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Control.Monad (forM_, when)
+import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Either (partitionEithers)
@@ -80,7 +80,14 @@ showObsId :: ObsIdVal -> IO ()
 showObsId = putStrLn . ("  " <> ) . show . fromObsId
 
 
-processScience :: ObsIdVal -> OCAT -> IO ()
+-- | This does *NOT* error out if an ocat can not be processed; instead
+--   we carry on, displaying a message to stderr, and dropping this ObsId.
+--
+processScience ::
+  ObsIdVal
+  -> OCAT
+  -> IO Bool
+  -- ^ Was the obsid added?
 processScience oi ocat = 
   let act now sobs prop = do
         delete (IoObsIdField ==. oi)
@@ -93,27 +100,31 @@ processScience oi ocat =
         updateLastModified now
         return flag
 
+      obsid = showInt (fromObsId oi)
+
   in do
      ans <- ocatToScience ocat
      case ans of
        Right (prop, sobs) -> do
          now <- getCurrentTime
          flag <- runDb (act now sobs prop)
-         T.putStrLn "Added science observation"
+         T.putStrLn ("Added science observation " <> obsid)
          when flag (T.putStrLn ("Also added proposal " <>
                                 showInt (fromPropNum (propNum prop))))
+         return True
          
        Left emsg -> do
-         T.hPutStrLn stderr "ERROR converting science obsid"
+         T.hPutStrLn stderr ("ERROR converting science obsid " <> obsid)
          T.hPutStrLn stderr emsg
-         exitFailure
+         -- exitFailure
+         return False
   
 
 -- This doesn't quite match GteSchedule, since in getschedule we have
 -- the short-term schedule, so can add in the expected start time
 -- from that (if it is missing)
 --
-processEngineering :: ObsIdVal -> OCAT -> IO ()
+processEngineering :: ObsIdVal -> OCAT -> IO Bool
 processEngineering oi ocat =
   let act now ns = do
         delete (IoObsIdField ==. oi)
@@ -123,17 +134,21 @@ processEngineering oi ocat =
         -- database).
         insert_ ns
         updateLastModified now
-        
+
+      obsid = showInt (fromObsId oi)
+      
   in case ocatToNonScience ocat of
     Left emsg -> do
-      T.hPutStrLn stderr "ERROR converting engineering obsid"
+      T.hPutStrLn stderr ("ERROR converting engineering obsid " <> obsid)
       T.hPutStrLn stderr emsg
-      exitFailure
+      -- exitFailure
+      return False
 
     Right ns -> do
       now <- getCurrentTime
       runDb (act now ns)
-      T.putStrLn "Added engineering observation"
+      T.putStrLn ("Added engineering observation " <> obsid)
+      return True
 
     
 -- | Return those items that need querying from OCAT.
@@ -192,11 +207,13 @@ findUnknownObs obsids = do
 
 -- | Do we need to send in the obsidval as well as OCAT?
 --
---   This exits if there's an error accessing the database,
---   rather than returning to the caller, to indicate something
---   is wrong.
+--   This skips problem obsids - i.e. those that we can not add to the
+--   database.
 --
-addFromOCAT :: (ObsIdVal, OCAT) -> IO ()
+addFromOCAT ::
+  (ObsIdVal, OCAT)
+  -> IO Bool
+  -- ^ Was the obsid added to the database?
 addFromOCAT (oi, ocat) = 
   -- check for the type, since this key should always exist
   -- rather than a more permissive "try science, then try
@@ -243,7 +260,23 @@ processOCAT input omap = do
       forM_ failed showObsId
       putStrLn ""
 
-  forM_ okay addFromOCAT
+  -- Should probably the errors here
+  flags <- forM okay addFromOCAT
+  let nfail = length (filter not flags)
+      failedObsIds = map snd (filter (not . fst) (zip flags (map fst okay)))
+
+      report (i, oi) =
+        let msg = "  [" <> showInt i <> "/" <> showInt nfail <>
+                  "] " <> showInt (fromObsId oi)
+        in T.hPutStrLn stderr msg
+
+      doFail = do
+        let n = showInt nfail
+        T.hPutStrLn stderr ("\nFAILED " <> n <> " obsid(s).\n")
+        forM_ (zip [1..] failedObsIds) report
+        exitFailure
+        
+  when (nfail > 0) doFail
 
   
 -- | Query the database to find out which obsids are already
