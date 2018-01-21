@@ -4,4 +4,4 @@ packages:
 extra-deps:
 - heroku-0.1.2.3
 - pipes-http-1.0.5
-resolver: lts-9.4
+resolver: lts-10.3
