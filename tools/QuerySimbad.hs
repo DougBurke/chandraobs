@@ -16,6 +16,10 @@
 --
 --
 --   TODO:
+--      Avoid un-needed queries (e.g. when querying the same source
+--      multiple times), which can happen when handling multiple
+--      names used by CAL for the same source (as an example).
+--
 --      I have seen some recent runs returning:
 --
 --      Querying SIMBAD for SMC X-1
@@ -156,14 +160,18 @@ cleanupName s =
 --   to deal with names that include nebula or filament
 --   that potentially could be a valid identifier.
 --
+-- TODO: need a better scheme for the "special cases"
+--
 cleanTargetName :: TargetName -> TargetName
 cleanTargetName tgtName =
   let tgt = fromTargetName tgtName
       lc = T.toLower
   in case T.words tgt of
     [] -> ""
+
     -- special case names used by CAL
     [n] | lc n == "arlac" -> "Ar Lac"
+
     toks -> let (ltok:rtoks) = reverse toks
 
                 -- Remove last token, if necessary
@@ -184,7 +192,13 @@ cleanTargetName tgtName =
                 cleanName = T.unwords toks4
             in if "E0102-72" `T.isPrefixOf` cleanName 
                then TN "1E 0102.2-7219"
-               else TN cleanName
+               else if ("CAS A," `T.isPrefixOf` cleanName ||
+                        "CAS A " `T.isPrefixOf` cleanName)
+                    then TN "Cassiopeia A"
+                    else if ("G21.5-09" `T.isPrefixOf` cleanName ||
+                             "G21.5-0.9" `T.isPrefixOf` cleanName)
+                         then TN "PSR J1833-1034"
+                         else TN cleanName
 
 -- | Compass directions to remove (in lower case).
 compassDirs :: [T.Text]
