@@ -1,4 +1,7 @@
-/* WWT pages */
+/* WWT pages.
+ * This is no-longer used (has been moved into main.css), and so should
+ * be removed.
+ */
 
 /* The WWT page does not have a class/id to hook onto */
 nav.main + p {

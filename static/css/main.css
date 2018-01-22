@@ -313,11 +313,15 @@ div#mainBar {
 
 /* WWT pages */
 
-/* The WWT page does not have a class/id to hook onto */
-nav.main + p {
+/* The WWT page does not have a class/id to hook onto (following can
+ * probably be removed).
+ */
+
+nav.main + p { /* is this still needed? */
   width: 700px;
 }
 
+/* no-longer use wwtControls */
 div#wwtControls {
   width: 700px;
 }

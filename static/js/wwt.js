@@ -158,6 +158,19 @@ var wwt = (function (base) {
         base.hide_class("nowwt");
         wwt.add_ready(wwtReadyFunc(obsdata));
         wwt.endInit();
+
+        /*
+         * Stop scroll events from being passed up to the browser,
+         * since it is a less-than-ideal UI. Is this the best place
+         * for it; perhaps within wwtReadyFunc?
+         */
+        var canvas = document.getElementById("WWTCanvas");
+        canvas.addEventListener("mousewheel", e => e.preventDefault());
+        canvas.addEventListener("DOMMouseScroll", e => e.preventDefault());
+
+        // The following is taken from ADS all-sky-survey, not entirely
+        // sure if needed here.
+        canvas.onmouseout = e => wwtlib.WWTControl.singleton.onMouseUp(e);
     }
 
     /*
