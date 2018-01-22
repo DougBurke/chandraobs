@@ -62,9 +62,6 @@ WORKDIR /opt/chandraobs/src
 #
 ENV PATH "$PATH:/opt/stack/bin:/opt/chandraobs/bin"
 
-# Report the stack version
-RUN stack --version
-
 COPY ./stack.yaml /opt/chandraobs/src/stack.yaml
 RUN stack --no-terminal setup
 
@@ -84,6 +81,9 @@ COPY . /opt/chandraobs/src
 
 RUN stack --no-terminal build ${FLAGS}
 RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
+
+# Report the stack version (after the build so it gets reported each time)
+RUN stack --version
 
 # Remove unneeded files
 RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
