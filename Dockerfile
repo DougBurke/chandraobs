@@ -62,6 +62,9 @@ WORKDIR /opt/chandraobs/src
 #
 ENV PATH "$PATH:/opt/stack/bin:/opt/chandraobs/bin"
 
+# Report the stack version
+RUN stack --version
+
 COPY ./stack.yaml /opt/chandraobs/src/stack.yaml
 RUN stack --no-terminal setup
 
