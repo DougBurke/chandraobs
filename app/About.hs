@@ -56,7 +56,7 @@ aboutPage dbInfo =
 
 
 alink :: AttributeValue -> Html -> Html
-alink url lbl = (a ! href url) lbl
+alink url = a ! href url
 
 
 introSection :: Html
@@ -247,6 +247,98 @@ furtherSection = do
      "Exhibit widget framework"
      <> ".")
 
+  p ("The " <> alink "views.html#WWT" "interactive view" <>
+     " uses the HTML5 version of the American Astronomical Society's "
+     <> alink "http://www.worldwidetelescope.org/webclient/"
+     "WorldWide Telescope"
+     <> " - aka WWT - web client. The background images have been "
+     <> "provided by a variety of institutions and groups:")
+
+  let thumb url = img ! class_ "thumbnail" ! src url
+      hdr url title = dt (alink url title)
+      
+  (dl ! class_ "credits") (
+    hdr "http://www.nasa.gov/mission_pages/planck/index.html" "Planck"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck"
+        <>
+        p ("Planck is a European Space Agency mission, with significant " <>
+           "participation from NASA. NASAs Planck Project Office is based at " <>
+           "JPL. JPL contributed mission-enabling technology for both of " <>
+           "Plancks science instruments. European, Canadian and U.S. Planck " <>
+           "scientists work together to analyze the Planck data."))
+    
+    <>
+    hdr "http://lwa.nrl.navy.mil/VLSS/" "VLA Low-frequency Sky Survey (VLSS)"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA"
+        <>
+        p ("VLSS Cohen, A. S.; Lane, W. M.; Cotton, W. D.; Kassim, N. E.; Lazio, " <>
+           "T. J. W.; Perley, R. A.; Condon, J. J.; Erickson, W. C.; " <>
+           "Served From NASA Skyview"))
+
+    {-
+    <>
+    hdr "http://wise.ssl.berkeley.edu/" "WISE"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=wise"
+        <>
+        p "NASA/JPL-Caltech/UCLA")
+    -}
+
+    <>
+    hdr "http://www.ipac.caltech.edu/2mass/" "2MASS"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass"
+        <>
+        p ("This publication makes use of data products from the Two Micron " <>
+           "All Sky Survey, which is a joint project of the University of " <>
+           "Massachusetts and the Infrared Processing and Analysis " <>
+           "Center/California Institute of Technology, funded by the National " <>
+           "Aeronautics and Space Administration and the National Science " <>
+           "Foundation."))
+
+    <>
+    hdr "http://gsss.stsci.edu/Acknowledgements/DataCopyrights.htm" "DSS"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/thumbnails/DSS.png"
+        <>
+        p "Copyright DSS Consortium")
+
+    {-
+    <>
+    hdr "http://www.astro.princeton.edu/~dfink/halpha/processing.html" "Hα"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=halpha"
+        <>
+        p ("Image Courtesy Douglas Finkbeiner. The full-sky H-alpha map (6' " <>
+           "FWHM resolution) is a composite of the Virginia Tech Spectral " <>
+           "line Survey (VTSS) in the north and the Southern H-Alpha Sky " <>
+           "Survey Atlas (SHASSA) in the south. The Wisconsin H-Alpha Mapper " <>
+           "(WHAM) survey provides a stable zero-point over 3/4 of the sky on " <>
+           "a one degree scale."))
+    -}
+    
+    <>
+    hdr "http://www.xray.mpe.mpg.de/cgi-bin/rosat/rosat-survey" "RASS"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=rosatcolor"
+        <>
+        p ("This is a composite of three RASS3 surveys from the ROSAT Data " <>
+           "Archive of the Max-Planck-Institut fur extraterrestrische Physik " <>
+           "(MPE) at Garching, Germany. TOAST-formatted data was obtained " <>
+           "from NASA's SkyView Virtual Telescope. Red is soft band " <>
+           "(RASS3sb), Green is broad band (RASS3bb), Blue is hard band " <>
+           "(RASS3hb)"))
+
+    <>
+    hdr "http://www.nasa.gov/mission_pages/GLAST/main/index.html" "Fermi"
+    <>
+    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
+        <>
+        p "NASA and the FERMI-LAT Team.")
+    )
+    
   let bitURL = "https://bitbucket.org/doug_burke/chandraobs/commits/"
                <> bitTxt
       bitTxt = fromCommitId gitCommitId

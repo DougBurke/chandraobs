@@ -27,7 +27,7 @@ import qualified Data.Text.Lazy.IO as L
 import qualified Network.HTTP.Client as Client
 import qualified Network.HTTP.Conduit as NHC
 
-import qualified About as About
+import qualified About
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
 import qualified Views.Proposal as Proposal

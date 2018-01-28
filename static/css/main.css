@@ -330,6 +330,64 @@ div#wwtControls > label {
   margin-left: 0.5em;
 }
 
+/* Handle the elements on the WWT canvas */
+
+div#WorldWideTelescopeControlHost {
+  position: relative;
+}
+
+#wwtusercontrol {
+  background-color: rgba(255, 255, 255, 0.6);
+  border: 1px solid #D9D9D9;
+  border-radius: 0.5em;
+  cursor: move;
+  left: 1em;
+  padding: 0.5em;
+  position: absolute;
+  top: 1em;
+  z-index: 100;
+}
+
+#resizeButtons {
+    float: left;
+}
+
+#resizeButtons img {
+    width: 1em;
+    height: 1em;
+}
+
+/*
+ * Apply the width to resizeWWTArea so that
+ * when they get hidden the container (#wwtusercontrol)
+ * can shrink.
+ */
+#resizeWWTArea {
+    width: 12em;  /* trial and error to get this */
+}
+
+/* bootstrap-inspired styling */
+.button {
+  background-color: rgba(217, 83, 79, 0.8);  /* red-ish */
+  border: 1px solid rgb(212, 63, 58);
+  border-radius: 0.5em;
+  color: white;
+  cursor: pointer;
+  display: inline-block;
+  margin-top: 0.4em;
+  padding: 0.5em;
+  text-align: center;
+  vertical-align: middle;
+  width: 100%;
+}
+
+.button:hover {
+  background-color: rgba(210, 35, 45, 0.8);
+  border-color: rgb(172, 41, 37);
+  color: white;
+  text-decoration: none;
+}
+
 /* facts and errors */
 
 p.fact , p.noserver , p.unknownerror {
@@ -343,7 +401,7 @@ p.fact , p.noserver , p.unknownerror {
   /* display: inline; */
   background-color: rgba(153,153,153,0.2);  /* gray */
 }
-<
+
 /* other stuff */
 
 p.footnote {
@@ -481,9 +539,28 @@ table.standard tbody tr:nth-child(2n+1) {
     background: rgba(0, 131, 179, 0.1);
 }
 
-/* It is assumed that the label element is the first iten in the block */
+/* It is assumed that the label element is the first item in the block */
 .term .label {
     margin-left: -0.5em;
+}
+
+/* Used for image thumbnails for the WWT credits on the about page */
+img.thumbnail {
+  float: left;
+  padding-right: 0.5em;
+}
+
+/*
+ * Since the thumbnail images can extend beyond the credits, need to make
+ * sure that they are cleared before the next item, which is either the
+ * next dt element or the paragraph following the list.
+ */
+dl.credits dt {
+    clear: both;
+}
+
+dl.credits + p {
+    clear: both;
 }
 
 /*

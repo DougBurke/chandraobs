@@ -489,12 +489,63 @@ renderWWT ::
   ScienceObs
   -> Html
 renderWWT ScienceObs{..} =
-  let hostDiv = let innerDiv =
+  let hostDiv = let innerCts =
                       (H.div
                        -- Pick the size to match the DSS/RASS/PSPC size
                        H.! A.style "width: 680px; height: 680px;"
                        H.! A.id "WWTCanvas") ""
-                in (H.div H.! A.id "WorldWideTelescopeControlHost") innerDiv
+                      <>
+                      (H.div
+                       H.! A.id "wwtusercontrol"
+                       H.! A.draggable "true") buttons
+
+                    -- Dislike the number of ids here; resizeWWTArea should really
+                    -- be a class, I think.
+                    --
+                    buttons = (H.div H.! A.id "wwtuserbuttons")
+                              (resize <>
+                               (H.div H.! A.id "resizeWWTArea")
+                                (selectBackground <>
+                                 switchConstellation <>
+                                 switchBoundaries))
+                              
+                    -- click handlers for these elements added by JS
+                    --
+                    resize = (H.div H.! A.id "resizeButtons")
+                             (H.img H.! A.id "resizeHide"
+                                    H.! A.src "/img/ic_expand_less_black_24px.svg" <>
+                              H.img H.! A.id "resizeShow"
+                                    H.! A.src "/img/ic_expand_more_black_24px.svg")
+                                                         
+                    -- I need an argument for the selected attribute, but what should
+                    -- it be?
+                    opt val = (H.option H.! A.value val)
+                    optS val = (H.option H.! A.value val H.! A.selected "")
+                    selectBackground = (H.select H.! A.name "imagechoice"
+                                                 H.! A.class_ "button"
+                                                 H.! A.id "imagechoice")
+                                       (opt "planck-cmb" "CMB (Planck)" <>
+                                        -- opt "planck-dust-gas" "Dust and Gas (Planck)" <>
+                                        opt "vlss" "Radio (VLSS; δ≳-40°)" <>
+                                        -- opt "wise" "IR (WISE)" <>
+                                        opt "2mass-image" "IR (2MASS)" <>
+                                        optS "dss" "Optical (DSS)" <>
+                                        -- opt "halpha" "Optical (Hα)" <>
+                                        opt "rass" "X-ray (RASS)" <>
+                                        opt "fermi3" "Gamma (Fermi)")
+      
+                    switchConstellation =
+                      (H.button H.! A.class_ "button"
+                                H.! A.type_ "button"
+                                H.! A.id "toggleConstellation")
+                      "Hide Constellations"
+                    switchBoundaries =
+                      (H.button H.! A.class_ "button"
+                                H.! A.type_ "button"
+                                H.! A.id "toggleBoundaries")
+                      "Hide Boundaries"
+                                
+                in (H.div H.! A.id "WorldWideTelescopeControlHost") innerCts
 
       noJS = noJSPara
         ("This page requires JavaScript and it appears that it is " <>
@@ -518,7 +569,7 @@ renderWWT ScienceObs{..} =
 
 
 noJSPara :: Html -> Html
-noJSPara = (H.p H.! class_ "nojavascript")
+noJSPara = H.p H.! class_ "nojavascript"
 
 
 ldquo, rdquo :: Html

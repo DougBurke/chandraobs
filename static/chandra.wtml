@@ -1,0 +1,208 @@
+<?xml version="1.0"?>
+<Folder MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="CSC2" Group="Explorer" Searchable="False" Type="Earth">
+  <VersionDependent>false</VersionDependent>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="WMAP ILC 5-Year Cosmic Microwave Background" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Microwave" Url="http://www.worldwidetelescope.org/wwtweb/tiles.aspx?q={1},{2},{3},wmap5yr_ilc_200uK" TileLevels="4" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="WMAP ILC 5-Year Cosmic Microwave Background" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" ReferenceFrame="Sky" MeanRadius="0">
+        <Credits>Courtesy WMAP Science Team</Credits>
+        <CreditsUrl>http://lambda.gsfc.nasa.gov/product/map/current/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=wmap5yr_ilc_200uk</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="SFD Dust Map (Infrared)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="IR" Url="http://www.worldwidetelescope.org/wwtweb/tiles.aspx?q={1},{2},{3},dust" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="SFD Dust Map (Infrared)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" ReferenceFrame="Sky" MeanRadius="0">
+        <Credits>Data provided by two NASA satellites, the  Infrared Astronomy Satellite (IRAS) and the Cosmic Background Explorer (COBE). Processing by David J. Schlegel, Douglas P. Finkbeiner and Marc Davis, Princeton University and University of California, Berkeley.</Credits>
+        <CreditsUrl>http://astro.berkeley.edu/~marc/dust/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=dust</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="2MASS: Catalog (Synthetic, Near Infrared)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="IR" Url="http://r{S:2}.ortho.tiles.virtualearth.net/tiles/wts0000000312{Q}?g=138" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="2MASS: Catalog (Synthetic, Near Infrared)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" ReferenceFrame="Sky" MeanRadius="0">
+        <Credits>Image Jina Suh from 2MASS catalog Copyright Microsoft 2007; This publication makes use of data products from the Two Micron All Sky Survey, which is a joint project of the University of Massachusetts and the Infrared Processing and Analysis Center/California Institute of Technology, funded by the 
+
+National Aeronautics and Space Administration and the National Science Foundation.</Credits>
+        <CreditsUrl>http://www.ipac.caltech.edu/2mass/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="Digitized Sky Survey (Color)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Visible" Url="http://cdn.worldwidetelescope.org/wwtweb/dss.aspx?q={1},{2},{3}" TileLevels="12" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="Digitized Sky Survey (Color)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="True" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Copyright DSS Consortium</Credits>
+        <CreditsUrl>http://gsss.stsci.edu/Acknowledgements/DataCopyrights.htm</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/thumbnails/DSS.png</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="VLSS: VLA Low-frequency Sky Survey (Radio)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Radio" Url="http://r{S:2}.ortho.tiles.virtualearth.net/tiles/wts0000000132{Q}?g=131" TileLevels="5" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="VLSS: VLA Low-frequency Sky Survey (Radio)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>VLSS Cohen, A. S.; Lane, W. M.; Cotton, W. D.; Kassim, N. E.; Lazio, T. J. W.; Perley, R. A.; Condon, J. J.; Erickson, W. C.; Served From NASA Skyview</Credits>
+        <CreditsUrl>http://lwa.nrl.navy.mil/VLSS/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="Planck CMB" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Visible" Url="http://www.worldwidetelescope.org/wwtweb/tiles.aspx?q={1},{2},{3},planck" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="Planck CMB" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Planck is a European Space Agency mission, with significant participation from NASA. NASAs Planck Project Office is based at JPL. JPL contributed mission-enabling technology for both of Plancks science instruments. European, Canadian and U.S. Planck scientists work together to analyze the Planck 
+
+data.</Credits>
+        <CreditsUrl>http://www.nasa.gov/mission_pages/planck/index.html</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="Planck Dust &amp; Gas" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Microwave" Url="http://wwtfiles.blob.core.windows.net/plnk/planck4channelL{1}X{2}Y{3}.png" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="Planck Dust &amp; Gas" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits />
+        <CreditsUrl />
+        <ThumbnailUrl>http://wwtfiles.blob.core.windows.net/plnk/planck4channel_thumb.jpg</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="IRIS: Improved Reprocessing of IRAS Survey (Infrared)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="IR" Url="http://r{S:0}.ortho.tiles.virtualearth.net/tiles/wts0000001130{Q}?g=182" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="IRIS: Improved Reprocessing of IRAS Survey (Infrared)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Original IRAS data: NASA/JPL IPAC, IRIS Reprocessing: Canadian Institute for Theoretical Astrophysics/Institut d'Astrophysique Spatiale. TOAST-formatted data was obtained from NASA's SkyView Virtual Telescope (Red is IRIS100, Green IRIS60, Blue IRIS12).</Credits>
+        <CreditsUrl>http://www.cita.utoronto.ca/~mamd/IRIS/IrisOverview.html</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=iriscolor</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="WISE All Sky (Infrared)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="IR" Url="http://www.worldwidetelescope.org/wwtweb/tiles.aspx?q={L},{X},{Y},wise" TileLevels="7" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="WISE All Sky (Infrared)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>NASA/JPL-Caltech/UCLA</Credits>
+        <CreditsUrl>http://wise.ssl.berkeley.edu/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=wise</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="2Mass: Imagery (Infrared)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="IR" Url="http://www.worldwidetelescope.org/wwtweb/TwoMassToast.aspx?q={1},{2},{3}" TileLevels="8" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="2Mass: Imagery (Infrared)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>This publication makes use of data products from the Two Micron All Sky Survey, which is a joint project of the University of Massachusetts and the Infrared Processing and Analysis Center/California Institute of Technology, funded by the National Aeronautics and Space Administration and the National 
+
+Science Foundation.</Credits>
+        <CreditsUrl>http://www.ipac.caltech.edu/2mass/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="Hydrogen Alpha Full Sky Map" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="HydrogenAlpha" Url="http://www.worldwidetelescope.org/wwtweb/tiles.aspx?q={1},{2},{3},halpha" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="Hydrogen Alpha Full Sky Map" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Image Courtesy Douglas Finkbeiner. The full-sky H-alpha map (6' FWHM resolution) is a composite of the Virginia Tech Spectral line Survey (VTSS) in the north and the Southern H-Alpha Sky Survey Atlas (SHASSA) in the south. The Wisconsin H-Alpha Mapper (WHAM) survey provides a stable zero-point over 3/4 
+
+of the sky on a one degree scale. </Credits>
+        <CreditsUrl>http://www.astro.princeton.edu/~dfink/halpha/processing.html</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=halpha</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="SDSS: Sloan Digital Sky Survey (Optical)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Visible" Url="http://www.worldwidetelescope.org/wwtweb/sdsstoast.aspx?q={1},{2},{3}" TileLevels="13" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="SDSS: Sloan Digital Sky Survey (Optical)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Copyright SDSS</Credits>
+        <CreditsUrl>http://www.sdss.org/collaboration/credits.html</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=sloan</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="Tycho (Synthetic, Optical)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Visible" Url="http://r{S:1}.ortho.tiles.virtualearth.net/tiles/wts0000000131{Q}?g=131" TileLevels="5" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="Tycho (Synthetic, Optical)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>NASA/Goddard Space Flight Center Scientific Visualization Studio</Credits>
+        <CreditsUrl>http://svs.gsfc.nasa.gov/vis/a000000/a003400/a003442/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=tychobrahe</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="USNOB: US Naval Observatory B 1.0 (Synthetic, Optical)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Visible" Url="http://r{S:0}.ortho.tiles.virtualearth.net/tiles/wts0000001210{Q}?g=182" TileLevels="6" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="USNOB: US Naval Observatory B 1.0 (Synthetic, Optical)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Monet D.G., Levine S.E., Casian B., et al. Astron. J., 125, 984 (2003). Rendering by Jina Suh (Microsoft).</Credits>
+        <CreditsUrl>http://cdsarc.u-strasbg.fr/viz-bin/Cat?I/284</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=usnob</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="GALEX 4 Near-UV" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Ultraviolet" Url="http://www.worldwidetelescope.org/wwtweb/galex4near.aspx?q={1},{2},{3}" TileLevels="10" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="GALEX 4 Near-UV" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>This is the Near UV band (1770-2730A) of the GALEX GR4 data release archived at MAST/STScI.
+TOAST-formatted mosaics were obtained using facilities of NASA's SkyView Virtual Telescope.
+</Credits>
+        <CreditsUrl>http://galex.stsci.edu/GR4/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=galexnear</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="GALEX 4 Far-UV" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Ultraviolet" Url="http://www.worldwidetelescope.org/wwtweb/galex4far.aspx?q={1},{2},{3}" TileLevels="10" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="GALEX 4 Far-UV" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>This is the Far UV band(1350-1780A) of the GALEX GR4 data release archived at MAST/STScI.
+TOAST-formatted mosaics were obtained using facilities of NASA's SkyView Virtual Telescope.
+</Credits>
+        <CreditsUrl>http://galex.stsci.edu/GR4/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=galexfar</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="GALEX (Ultraviolet)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Ultraviolet" Url="http://www.worldwidetelescope.org/wwtweb/galexTOAST.aspx?q={1},{2},{3}" TileLevels="10" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="GALEX (Ultraviolet)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>Space Telescope Science Institute. TOAST-formatted data was obtained from NASA's SkyView Virtual Telescope. The Galaxy Explorer instrument allows observations to be made in ultraviolet bands Far UV 1350-1780A and Near UV 1770-2730A. This is the GR2/3 release. </Credits>
+        <CreditsUrl>http://galex.stsci.edu/GR2/</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=galexboth</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="RASS: ROSAT All Sky Survey (X-ray)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="XRay" Url="http://r{S:2}.ortho.tiles.virtualearth.net/tiles/wts0000001132{Q}?g=182" TileLevels="7" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="0123" Projection="Toast" Name="RASS: ROSAT All Sky Survey (X-ray)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>This is a composite of three RASS3 surveys from the ROSAT Data Archive of the Max-Planck-Institut fur extraterrestrische Physik (MPE) at Garching, Germany. TOAST-formatted data was obtained from NASA's SkyView Virtual Telescope. Red is soft band (RASS3sb), Green is broad band (RASS3bb), Blue is hard 
+
+band (RASS3hb)</Credits>
+        <CreditsUrl>http://www.xray.mpe.mpg.de/cgi-bin/rosat/rosat-survey</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=rosatcolor</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+  <Place MSRCommunityId="0" MSRComponentId="0" Permission="0" Name="Fermi Year Three (Gamma)" DataSetType="Sky" RA="0" Dec="0" Constellation="" Classification="Unidentified" Magnitude="0" Distance="0" ZoomLevel="360" Rotation="0" Angle="0" DomeAlt="0" DomeAz="0" Opacity="100" AngularSize="360">
+    <Target>Custom</Target>
+    <ForegroundImageSet>
+      <ImageSet MSRCommunityId="0" MSRComponentId="0" Permission="0" Generic="False" DataSetType="Sky" BandPass="Gamma" Url="http://www.worldwidetelescope.org/wwtweb/tiles.aspx?q={1},{2},{3},FermiYearThree" TileLevels="5" WidthFactor="1" Sparse="False" Rotation="0" QuadTreeMap="" Projection="Toast" Name="Fermi Year Three (Gamma)" FileType=".png" CenterY="0" CenterX="0" BottomsUp="False" StockSet="False" ElevationModel="False" OffsetX="0" OffsetY="0" BaseTileLevel="0" BaseDegreesPerTile="180" MeanRadius="0">
+        <Credits>NASA and the FERMI-LAT Team. </Credits>
+        <CreditsUrl>http://www.nasa.gov/mission_pages/GLAST/main/index.html</CreditsUrl>
+        <ThumbnailUrl>http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree</ThumbnailUrl>
+      </ImageSet>
+    </ForegroundImageSet>
+  </Place>
+</Folder>
