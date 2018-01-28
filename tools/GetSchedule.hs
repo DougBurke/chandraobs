@@ -994,8 +994,10 @@ updateScheduleFromPage ::
   -> Seq.Seq (ShortTermTag, T.Text)
   -- ^ The latest version of the short-term schedule (in
   --   descending order, so the first entry is the latest)
-  -> m (Int, Int)
-  -- ^ The number of failed and successful ObsId downloads.
+  -> m (Maybe (Int, Int))
+  -- ^ The number of failed and successful ObsId downloads,
+  --   or `Nothing` when there are no pages to download.
+  --
 updateScheduleFromPage tNow schedList = do
   
   schedInfo <- map snd <$> selectAll
@@ -1003,14 +1005,14 @@ updateScheduleFromPage tNow schedList = do
       printErr = liftIO . T.hPutStrLn stderr
 
   case todo of
-    [] -> return (0, 0)
+    [] -> return Nothing
     
     [tagInfo] -> do
       let tag = fst tagInfo
       liftIO (T.putStrLn ("###   page : " <> fromShortTermTag tag))
       res <- liftIO (downloadSchedulePage tagInfo)
       case toSchedule res of
-        Right sts -> addToSchedule tNow tag sts
+        Right sts -> Just `fmap` addToSchedule tNow tag sts
 
         Left pe -> do
           let emsg = T.pack (show pe)
@@ -1052,23 +1054,45 @@ run nmax = do
 
   -- Process each page as a db operation
   --
+  -- Perhaps ntot should be Seq.length schedList instead of nmax?
+  --
   let ntot = fromIntegral nmax :: Int
       
-  res <- forM [1..ntot] $ \i -> do
-    putStrLn ("## page " ++ show i <> " of " <> show ntot)
+      queryNextSched i = do
+        T.putStrLn ("## page " <> showInt i <> " of " <> showInt ntot)
+        tNow <- getCurrentTime
+        runDb (updateScheduleFromPage tNow schedList)
 
-    tNow <- getCurrentTime
-    runDb (updateScheduleFromPage tNow schedList)
+      -- The order of the results does not matter here, so
+      -- they are returned in the reverse order to the way
+      -- they are processed.
+      --
+      -- I am missing a hylomorphism here...
+      --
+      checkScheds = go 1 []
+        where
+          go i res =
+            if i > ntot
+            then return res
+            else do
+              mans <- queryNextSched i
+              case mans of
+                Just ans -> go (i + 1) (ans : res)
+                Nothing -> do
+                  T.putStrLn "  No more pages to download!"
+                  return res
 
+  res <- checkScheds
+    
   let (nbads, ngoods) = unzip res
       nbad = sum nbads
       ngood = sum ngoods
       
-  putStrLn ""
-  putStrLn ("Downloaded " ++ show ngood ++ " ObsIds")
+  T.putStrLn ""
+  T.putStrLn ("Downloaded " <> showInt ngood <> " ObsIds")
 
-  when (nbad > 0) (putStrLn ("There were " ++ show nbad ++
-                             " error cases") >> exitFailure)
+  when (nbad > 0) (T.putStrLn ("There were " <> showInt nbad <>
+                               " error cases") >> exitFailure)
   
 
 usage :: IO ()
