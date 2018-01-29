@@ -81,6 +81,9 @@ var wwt = (function (base) {
     }
     */
 
+    // Return settings for the FOV display based on the
+    // observational status.
+    //
     // Return the color to use for the FOV; this depends on
     // whether the observation has been done, is running,
     // or is yet to be observed. The same colors as the
@@ -90,24 +93,32 @@ var wwt = (function (base) {
     // currently being run (it can be added but needs some
     // work). So at present running observations are
     // displayed as the "TODO" color.
-    // 
+    //
     // The "running" color should be: rgba(245,245,245,0.8)
     // #F5F5F5
     //
-    function colorFOV(obsdata) {
+    // The linewidth depends on if this is a "real" observation
+    // or an unobserverd or discarded one (thinner).
+    //
+    function fovSettings(obsdata) {
+        var color, linewidth;
+        linewidth = 2;
         if ((obsdata.status === "archived") ||
             (obsdata.status === "observed")) {
             // return "rgba(216,179,101,0.8)";
-            return "#D8B365";
+            color = "#D8B365";
         } else if (obsdata.status === "scheduled") {
             // return "rgba(90,180,172,0.8)";
-            return "#5AB4AC";
+            color = "#5AB4AC";
         } else if (obsdata.status === "unobserved") {
-            return "yellow";
+            linewidth = 1;
+            color = "yellow";
         } else {
             // discarded or canceled
-            return "red";
+            linewidth = 1;
+            color = "red";
         }
+        return {color: color, linewidth: linewidth};
     }
     
     // Hack up an approximate field of view; this does
@@ -174,21 +185,24 @@ var wwt = (function (base) {
 
     function addFOV(obsdata) {
         
+        var settings = fovSettings(obsdata);
+
         var points = shiftFOV(obsdata);
         var fov = wwt.createPolyLine(true);
+
+        // Unfortunately these do not do much with the WWT
+        // at present, but left in for now.
+        //
         fov.set_id("fov");
         fov.set_label(obsdata.name);
         fov.set_showHoverLabel(true);
 
-        // TODO: also adjust line width?
-        var color = colorFOV(obsdata);
         // fov.set_lineColor("0x8800FFFF");
         // fov.set_lineColor("green");
 
-        console.log("color -> [" + color + "]");
-        fov.set_lineColor(color);
-        
-        fov.set_lineWidth(1);
+        fov.set_lineColor(settings.color);
+        fov.set_lineWidth(settings.linewidth);
+
         //fov.set_opacity(0.6);
         fov.set_opacity(1.0);
 
