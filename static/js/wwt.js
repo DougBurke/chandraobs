@@ -81,6 +81,35 @@ var wwt = (function (base) {
     }
     */
 
+    // Return the color to use for the FOV; this depends on
+    // whether the observation has been done, is running,
+    // or is yet to be observed. The same colors as the
+    // main display can be used. At least that's the plan,
+    // but the problem is that we currently don't have
+    // the information to determine if an observation is
+    // currently being run (it can be added but needs some
+    // work). So at present running observations are
+    // displayed as the "TODO" color.
+    // 
+    // The "running" color should be: rgba(245,245,245,0.8)
+    // #F5F5F5
+    //
+    function colorFOV(obsdata) {
+        if ((obsdata.status === "archived") ||
+            (obsdata.status === "observed")) {
+            // return "rgba(216,179,101,0.8)";
+            return "#D8B365";
+        } else if (obsdata.status === "scheduled") {
+            // return "rgba(90,180,172,0.8)";
+            return "#5AB4AC";
+        } else if (obsdata.status === "unobserved") {
+            return "yellow";
+        } else {
+            // discarded or canceled
+            return "red";
+        }
+    }
+    
     // Hack up an approximate field of view; this does
     // not account for any offset between the given
     // position and the aimpoint of the instrument.
@@ -93,7 +122,7 @@ var wwt = (function (base) {
         var dec = obsdata.dec;
         var roll = obsdata.roll;
         var instrument = obsdata.instrument;
-        
+
         // assume center is at 0,0; units are in degrees,
         // no roll.
         var aw = 8.0/60.0; // width of ACIS chip in degrees
@@ -150,11 +179,19 @@ var wwt = (function (base) {
         fov.set_id("fov");
         fov.set_label(obsdata.name);
         fov.set_showHoverLabel(true);
-        //fov.set_lineColor("0x8800FFFF");
-        fov.set_lineColor("green");
+
+        // TODO: also adjust line width?
+        var color = colorFOV(obsdata);
+        // fov.set_lineColor("0x8800FFFF");
+        // fov.set_lineColor("green");
+
+        console.log("color -> [" + color + "]");
+        fov.set_lineColor(color);
+        
         fov.set_lineWidth(1);
         //fov.set_opacity(0.6);
         fov.set_opacity(1.0);
+
         for(var i in points) {
             fov.addPoint(points[i][0], points[i][1]);
         }
@@ -162,6 +199,7 @@ var wwt = (function (base) {
         fovAnnotation = fov;
     }
 
+    function hackColor(color) { fovAnnotation.set_lineColor(color); }
     
     function wwtReadyFunc(obsdata) {
         raPos = obsdata.ra;
@@ -444,6 +482,8 @@ var wwt = (function (base) {
             // newer API
             setLocation: setLocation,
             resetStatus: resetStatus
+
+            , hackColor: hackColor   // very temporary...
            };
     
 })(base);

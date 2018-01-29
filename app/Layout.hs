@@ -79,6 +79,7 @@ import Types (ChipStatus(..)
              , toMission
              , toPropType
              , fromObsId
+             , fromObsIdStatus
              )
 import Utils (cleanJointName
              , isChandraImageViewable
@@ -167,6 +168,8 @@ facts = [
 
 -- | This is used so that the WWT widget can know where to look.
 --
+--   Could send in the sub-array information, to improve the display.
+--
 setupLocation :: ScienceObs -> Html
 setupLocation ScienceObs{..} =
   let -- TODO: what is the best way of specifying the location?
@@ -177,8 +180,22 @@ setupLocation ScienceObs{..} =
         ", dec: ", toHtml (_unDec soDec),
         ", roll: ", toHtml soRoll,
         ", instrument: '", toHtml soInstrument, "'",
-        ", name: '", toHtml soTarget, "'};"
+        ", name: '", toHtml soTarget, "'",
+        ", obsid: ", toHtml (fromObsId soObsId),
+        ", status: '", statusVal, "'",
+        "};"
         ]
+
+      -- Want to indicate "todo", "doing", "done"
+      -- but for now just pass over the status field
+      -- (which doesn't allow us to distinguish
+      -- "todo" from "doing"). The assumption is that
+      -- there's no "discarded/canceled" observations
+      -- but do not enforce it. Actually, it is possible
+      -- to ask for an obsid of a cancelled observation,
+      -- so it us useful to have in.
+      --
+      statusVal = toHtml (fromObsIdStatus soStatus)
 
   in H.script jsSettings
 
