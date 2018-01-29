@@ -14,7 +14,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (title)
-import Text.Blaze.Html5.Attributes hiding (title)
+import Text.Blaze.Html5.Attributes hiding (item, title)
 
 import API (cssLink)
 import Database (DBInfo)
@@ -40,7 +40,8 @@ aboutPage dbInfo =
   docTypeHtml ! lang "en-US" $
     head (H.title "What is the 'What is Chandra doing now?' site?" <>
           defaultMeta <>
-          (cssLink "/css/main.css" ! A.title  "Default")
+          (cssLink "/css/main.css" ! A.title "Default") <>
+          (cssLink "/css/about.css")
           )
     <>
     body
@@ -256,13 +257,14 @@ furtherSection = do
 
   let thumb url = img ! class_ "thumbnail" ! src url
       hdr url title = dt (alink url title)
+
+      item url cts = (dd ! class_ "term") (thumb url <> cts)
       
   (dl ! class_ "credits") (
     hdr "http://www.nasa.gov/mission_pages/planck/index.html" "Planck"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck"
-        <>
-        p ("Planck is a European Space Agency mission, with significant " <>
+    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck"
+       (p ("Planck is a European Space Agency mission, with significant " <>
            "participation from NASA. NASAs Planck Project Office is based at " <>
            "JPL. JPL contributed mission-enabling technology for both of " <>
            "Plancks science instruments. European, Canadian and U.S. Planck " <>
@@ -271,9 +273,8 @@ furtherSection = do
     <>
     hdr "http://lwa.nrl.navy.mil/VLSS/" "VLA Low-frequency Sky Survey (VLSS)"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA"
-        <>
-        p ("VLSS Cohen, A. S.; Lane, W. M.; Cotton, W. D.; Kassim, N. E.; Lazio, " <>
+    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA"
+       (p ("VLSS Cohen, A. S.; Lane, W. M.; Cotton, W. D.; Kassim, N. E.; Lazio, " <>
            "T. J. W.; Perley, R. A.; Condon, J. J.; Erickson, W. C.; " <>
            "Served From NASA Skyview"))
 
@@ -289,9 +290,8 @@ furtherSection = do
     <>
     hdr "http://www.ipac.caltech.edu/2mass/" "2MASS"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass"
-        <>
-        p ("This publication makes use of data products from the Two Micron " <>
+    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass"
+       (p ("This publication makes use of data products from the Two Micron " <>
            "All Sky Survey, which is a joint project of the University of " <>
            "Massachusetts and the Infrared Processing and Analysis " <>
            "Center/California Institute of Technology, funded by the National " <>
@@ -301,9 +301,8 @@ furtherSection = do
     <>
     hdr "http://gsss.stsci.edu/Acknowledgements/DataCopyrights.htm" "DSS"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/thumbnails/DSS.png"
-        <>
-        p "Copyright DSS Consortium")
+    item "http://www.worldwidetelescope.org/thumbnails/DSS.png"
+       (p "Copyright DSS Consortium")
 
     {-
     <>
@@ -322,9 +321,8 @@ furtherSection = do
     <>
     hdr "http://www.xray.mpe.mpg.de/cgi-bin/rosat/rosat-survey" "RASS"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=rosatcolor"
-        <>
-        p ("This is a composite of three RASS3 surveys from the ROSAT Data " <>
+    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=rosatcolor"
+       (p ("This is a composite of three RASS3 surveys from the ROSAT Data " <>
            "Archive of the Max-Planck-Institut fur extraterrestrische Physik " <>
            "(MPE) at Garching, Germany. TOAST-formatted data was obtained " <>
            "from NASA's SkyView Virtual Telescope. Red is soft band " <>
@@ -334,9 +332,8 @@ furtherSection = do
     <>
     hdr "http://www.nasa.gov/mission_pages/GLAST/main/index.html" "Fermi"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
-        <>
-        p "NASA and the FERMI-LAT Team.")
+    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
+       (p "NASA and the FERMI-LAT Team.")
     )
     
   let bitURL = "https://bitbucket.org/doug_burke/chandraobs/commits/"
