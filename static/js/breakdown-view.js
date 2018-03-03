@@ -32,7 +32,7 @@ var svg;
 
 function createBreakdown(seriesData) {
 
-    var totHeight = height + margin.top + margin.bottom;
+    let totHeight = height + margin.top + margin.bottom;
     d3.select("#seriesBlock").style("height", totHeight);
 
     /*
@@ -42,21 +42,21 @@ function createBreakdown(seriesData) {
      *
      * The dates are in UTC, so need to work in UTC
      */
-    var startDate = new Date("2015-01-01");
-    var endDate = new Date("2016-01-01");
+    const startDate = new Date("2015-01-01");
+    const endDate = new Date("2016-01-01");
 
-    var series = seriesData.series.filter(function (d) {
+    const series = seriesData.series.filter((d) => {
         var date = new Date(d.date);
         return (date >= startDate) && (date < endDate);
     });
-    var seriesMap = series.reduce(function(o, d) {
-        var date = new Date(d.date);
+    const seriesMap = series.reduce((o, d) => {
+        const date = new Date(d.date);
         o[date] = d.values;
         return o;
     }, {});
     
-    var plotData = d3.time.day.utc.range(startDate, endDate).map(function(d) {
-        var values = seriesMap[d] || {};
+    const plotData = d3.time.day.utc.range(startDate, endDate).map((d) => {
+        const values = seriesMap[d] || {};
         return { "date": d, "values": values };
     });
     
@@ -64,19 +64,19 @@ function createBreakdown(seriesData) {
     // in that there are apparently days with ~40h in them, but
     // that is because the exposure time is associated with the
     // start day *only*.
-    var tnorm = 1000.0 / 3600.0;
+    let tnorm = 1000.0 / 3600.0;
     
     /*
      * Create an array of series, one for each label.
      * Is there a neater way to do this?
      */
 
-    var getData = function(i) {
-        return plotData.map(function(d) {
-            var keys = d3.keys(d.values).filter(function(k) {
-                return k.startsWith(labels[i]);
+    let getData = function(label) {
+        return plotData.map((d) => {
+            const keys = d3.keys(d.values).filter((k) => {
+                return k.startsWith(label);
             });
-            var ys = keys.reduce(function(s, k) {
+            const ys = keys.reduce((s, k) => {
                 return s + d.values[k];
             }, 0);
             return { x: d.date,
@@ -86,19 +86,21 @@ function createBreakdown(seriesData) {
         });
     };
     
-    // var labels = ["ACIS-I+NONE", "ACIS-S+NONE"];
-    var labels = ["ACIS-I", "ACIS-S", "HRC-I", "HRC-S"];
-    var toplot = new Array(labels.length);
-    for (var i = 0; i < labels.length; i++) {
-        toplot[i] = {
-            'label': labels[i],
-            'data': getData(i)
-        };
+    const labels = ["ACIS-I", "ACIS-S", "HRC-I", "HRC-S"];
+    const toplot = [];
+    for (var label of labels) {
+        toplot.push({
+            'label': label,
+            'data': getData(label)
+        });
     }
     
     // Update the scale domains.
     x.domain([startDate, endDate]);
-    y.domain([0, d3.max(toplot, function(a) { return d3.max(a.data, function(d) { return d.y; }); })]);
+    y.domain([0,
+              d3.max(toplot,
+                     (a) => { return d3.max(a.data, (d) => { return d.y; }); })
+             ]);
 
     svg = d3.select("#seriesBlock").selectAll(".timeplot")
         .data(toplot)
@@ -111,13 +113,13 @@ function createBreakdown(seriesData) {
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
     // Set up the axes
-    var axgap = 10;
-    var xax = svg.append("g")
+    let axgap = 10;
+    let xax = svg.append("g")
         .attr("class", "x axis")
         .attr("transform", "translate(0," + (height+axgap) + ")")
         .call(xAxis);
     
-    var yax = svg.append("g")
+    let yax = svg.append("g")
         .attr("class", "y axis")
         .attr("transform", "translate(" + (-axgap) + ",0)")
         .call(yAxis);
@@ -129,13 +131,13 @@ function createBreakdown(seriesData) {
         .attr("transform", "rotate(270 0 0)")
         .text("Hours");
     
-    var line = d3.svg.line()
+    let line = d3.svg.line()
         .interpolate("linear")
-        .x(function(d) { return x(d.x); })
-        .y(function(d) { return y(d.y); });
+        .x((d) => { return x(d.x); })
+        .y((d) => { return y(d.y); });
 
     svg.selectAll(".timeline")
-        .data(function(d) { return [d.data]; })
+        .data((d) => { return [d.data]; })
         .enter()
         .append("path")
         .attr("class", "timeline")
@@ -148,7 +150,7 @@ function createBreakdown(seriesData) {
         .attr("dx", "-1em")
         .attr("dy", "1.2em")
         .attr("text-anchor", "end")
-        .text(function(d) { return d.label; });
+        .text((d) => { return d.label; });
 }
 
     return createBreakdown;

@@ -36,12 +36,12 @@ var createMapping = (function(base) {
     function getTimeString(thours) {
         // Do these outside the checks below, even if not needed
         // in all cases
-        var nhours = Math.round(thours);
-        var ndays = Math.floor(nhours / 24.0);
-        var nweeks = Math.floor(ndays / 7);
+        const nhours = Math.round(thours);
+        const ndays = Math.floor(nhours / 24.0);
+        const nweeks = Math.floor(ndays / 7);
 
-        var tleft;
-        var str;
+        let tleft;
+        let str;
         
         if (nhours < 1) {
             str = "< 1 hour";
@@ -74,7 +74,7 @@ var createMapping = (function(base) {
     }
 
     function getNumSrcString(nsrc) {
-        var str;
+        let str;
         if (nsrc == 1) {
             str = "One source";
         } else {
@@ -88,7 +88,7 @@ var createMapping = (function(base) {
         // for now, hard-code the value to be the totalExp field,
         // but convert from kilo-seconds to hours.
         //  
-        mapInfo.links.forEach(function(d) {
+        mapInfo.links.forEach((d) => {
             d.value = d.totalExp * 1000.0 / 3600.0;
         });
         
@@ -111,17 +111,16 @@ var createMapping = (function(base) {
             .enter().append("path")
             .attr("class", "link")
             .attr("d", path)
-            .on("click", function(d) {
+            .on("click", (d) => {
                 // Would prefer to make this an actual link, so the UI is more
                 // familiar, but this works.
-                var cat = d.source.name;
-                var stype = mapInfo.simbadMap[d.target.name] || "unidentified";
+                const cat = d.source.name;
+                let stype = mapInfo.simbadMap[d.target.name] || "unidentified";
                 if (stype == "000") { stype = "unidentified"; }
-                var url = "/search/category/" +
+                window.location = "/search/category/" +
                     encodeURIComponent(cat) +
                     "/" +
                     encodeURIComponent(stype);
-                window.location = url;
             })
         
         /* TODO: investigate fading-out all the other nodes
@@ -129,47 +128,47 @@ var createMapping = (function(base) {
            .on("mouseout", function(d) { console.log("exit"); })
         */
         
-            .style("stroke-width", function(d) { return Math.max(1, d.dy); })
-            .sort(function(a, b) { return b.dy - a.dy; });
+            .style("stroke-width", (d) => { return Math.max(1, d.dy); })
+            .sort((a, b) => { return b.dy - a.dy; });
 
         link.append("title")
-            .text(function(d) {
+            .text((d) => {
                 return d.source.name + " → " + d.target.name + "\n"
                     + getNumSrcString(d.numSource) + " observed for "
                     + getTimeString(d.value);
             });
 
-        var node = svg.append("g").selectAll(".node")
+        let node = svg.append("g").selectAll(".node")
             .data(mapInfo.nodes)
             .enter().append("g")
             .attr("class", "node")
-            .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+            .attr("transform", (d) => { return "translate(" + d.x + "," + d.y + ")"; })
             .call(d3.behavior.drag()
-                  .origin(function(d) { return d; })
-                  .on("dragstart", function() { this.parentNode.appendChild(this); })
+                  .origin((d) => { return d; })
+                  .on("dragstart", () => { this.parentNode.appendChild(this); })
                   .on("drag", dragmove));
 
         node.append("rect")
-            .attr("height", function(d) { return d.dy; })
+            .attr("height", (d) => { return d.dy; })
             .attr("width", sankey.nodeWidth())
-            .style("fill", function(d) {
+            .style("fill", (d) => {
                 d.color = color(d.name.replace(/ .*/, ""));
                 return d.color; })
-            .style("stroke", function(d) { return d3.rgb(d.color).darker(2); })
+            .style("stroke", (d) => { return d3.rgb(d.color).darker(2); })
             .append("title")
-            .text(function(d) {
+            .text((d) => {
                 return d.name + "\n"
                     + "Observed for " + getTimeString(d.value);
             });
 
         node
             .append("a")
-            .attr("xlink:href", function(d) {
-                var out;
+            .attr("xlink:href", (d) => {
+                let out;
                 if (mapInfo.proposals.indexOf(d.name) > -1) {
                     out = "/search/category/" + encodeURIComponent(d.name);
                 } else if (mapInfo.simbadNames.indexOf(d.name) > -1) {
-                    var stype = mapInfo.simbadMap[d.name];
+                    const stype = mapInfo.simbadMap[d.name];
                     out = "/search/type/";
                     if (stype == "000") {
                         out += "unidentified";
@@ -182,12 +181,12 @@ var createMapping = (function(base) {
                 return out; })
             .append("text")
             .attr("x", -6)
-            .attr("y", function(d) { return d.dy / 2; })
+            .attr("y", (d) => { return d.dy / 2; })
             .attr("dy", ".35em")
             .attr("text-anchor", "end")
             .attr("transform", null)
-            .text(function(d) { return d.name; })
-            .filter(function(d) { return d.x < width / 2; })
+            .text((d) => { return d.name; })
+            .filter((d) => { return d.x < width / 2; })
             .attr("x", 6 + sankey.nodeWidth())
             .attr("text-anchor", "start");
 

@@ -10,10 +10,8 @@ var imageSwitch = (function() {
     var viewElems = ['Chandra', 'DSS', 'RASS', 'PSPC', 'Details', 'WWT'];
 
     function switchOption(name) {
-        
-        var n = viewElems.length;
-        for (var i = 0; i < n; i++) {
-            var oname = viewElems[i];
+
+        for (const oname of viewElems) {
             var elem = document.getElementById(oname);
             if (elem === null) {
                 continue;

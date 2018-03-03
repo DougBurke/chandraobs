@@ -31,7 +31,7 @@ var createPlot = (function () {
     function toHours(ks) { return ks / 3.6; }
 
     function makeLabel(plotInfo, cycle) {
-        var lbl;
+        let lbl;
         if (cycle === "all") {
             lbl = "All cycles";
         } else {
@@ -47,21 +47,23 @@ var createPlot = (function () {
     
     function makePlot(plotInfo) {
         
-        var tags = getPlotOrder(plotInfo);
+        const tags = getPlotOrder(plotInfo);
         
-        var allInfo = plotInfo.all;
+        const allInfo = plotInfo.all;
 
         /* Since the X axis (time) is plotted using a log scale,
            use the first non-zero value (ideally all the times
            would be > 0, but some are 0).
         */
-        var zeros = allInfo.times.filter(function(d) { return d <= 0; });
-        var nzeros = zeros.length;
-        zeros = undefined;
+        const nzeros =
+              allInfo.
+              times.
+              filter((d) => { return d <= 0; }).
+              length;
     
         /* Plotting up a cumulative function */
-        var tmin = allInfo.times[nzeros];
-        var tmax = allInfo.times[allInfo.length - 1];
+        const tmin = allInfo.times[nzeros];
+        const tmax = allInfo.times[allInfo.length - 1];
 
         /* actually, let's use 0 as the base. */
         /* tmin = 0;  not with a log scale */
@@ -75,7 +77,7 @@ var createPlot = (function () {
         xrange.domain([tmin, tmax]);
         yrange.domain([0, 100]);
 
-        var xrangeHours = d3.scale.log()
+        const xrangeHours = d3.scale.log()
             .range(xrange.range())
             .domain([toHours(tmin), toHours(tmax)]);
 
@@ -87,16 +89,16 @@ var createPlot = (function () {
             .attr("transform",
                   "translate(" + margin.left + "," + margin.top + ")");
 
-        var xAxis = d3.svg.axis()
+        let xAxis = d3.svg.axis()
             .scale(xrangeHours)
             .tickFormat(xrangeHours.tickFormat(7, ".1f"))
             .orient("bottom");
 
-        var yAxis = d3.svg.axis()
+        let yAxis = d3.svg.axis()
             .scale(yrange)
             .orient("left");
 
-        var xax = svg.append("g")
+        let xax = svg.append("g")
             .attr("class", "x axis")
             .call(xAxis)
             .attr("transform", "translate(0," + height + ")");
@@ -109,7 +111,7 @@ var createPlot = (function () {
             .attr("text-anchor", "end")
             .text("Time (hours)");
     
-        var yax = svg.append("g")
+        let yax = svg.append("g")
             .attr("class", "y axis")
             .call(yAxis);
 
@@ -131,24 +133,22 @@ var createPlot = (function () {
 
         /* Perhaps would be better to create the data in the
          * form needed */
-        var line = function(n) {
+        let line = (n) => {
             return d3.svg.line()
                 .interpolate("basis")
-                .x(function(d) {
+                .x((d) => {
                     return xrange(d);
                 })
-                .y(function(d, i) {
+                .y((d, i) => {
                     return yrange(100 * (i + 1) / n);
                 });
         };
 
-        var colors = d3.scale.category10()
+        let colors = d3.scale.category10()
             .domain(tags);
 
-        for (var i = 0; i < tags.length; i++) {
-            var cycle = tags[i];
-            
-            var lbl;
+        for (const cycle of tags) {
+            let lbl;
             if (cycle === "all") {
                 lbl = "All cycles";
             } else {
@@ -156,7 +156,7 @@ var createPlot = (function () {
             }
 
             plotInfo[cycle].times = plotInfo[cycle].times.
-                filter(function (d) { return d > 0; });
+                filter((d) => { return d > 0; });
         
             svg.append("path")
                 .datum(plotInfo[cycle].times)
@@ -169,8 +169,7 @@ var createPlot = (function () {
                 .attr("d", line(plotInfo[cycle].length))
                 .on("mouseover", highlightCycle(plotInfo, cycle))
                 .on("mouseout", removeHighlightCycle(plotInfo, cycle))
-            ;
-            
+            ;            
         }
 
         svg.selectAll(".legend")
@@ -178,20 +177,20 @@ var createPlot = (function () {
             .enter()
             .append("text")
             .attr("x", "2em")
-            .attr("y", function(d, i) { return (i * 1.5) + "em"; })
+            .attr("y", (d, i) => { return (i * 1.5) + "em"; })
             .attr("dy", "2em")
-            .attr("class", function(cycle) {
+            .attr("class", (cycle) => {
                 return "legend legend" + cycle;
             })
             .style("fill", colors)
-            .text(function(cycle) {
+            .text((cycle) => {
                 return makeLabel(plotInfo, cycle);
             });
     
     }
 
     function highlightCycle(plotInfo, cycle) {
-        return function () {
+        return () => {
             d3.selectAll('text.legend' + cycle)
                 .text(makeLabel(plotInfo, cycle) + " \u21E6")
                 .classed('item-selected', true);
@@ -199,7 +198,7 @@ var createPlot = (function () {
     }
     
     function removeHighlightCycle(plotInfo, cycle) {
-        return function () {
+        return () => {
             d3.selectAll('text.legend' + cycle)
                 .text(makeLabel(plotInfo, cycle))
                 .classed('item-selected', false);
@@ -207,7 +206,7 @@ var createPlot = (function () {
     }
 
     function makeRows(plotInfo, cycle) {
-        var out = "<td>";
+        let out = "<td>";
         if (cycle === "all") {
             out += "All cycles";
         } else {
@@ -221,12 +220,12 @@ var createPlot = (function () {
     }
     
     function addToTable(plotInfo) {
-        var tags = getPlotOrder(plotInfo);
+        const tags = getPlotOrder(plotInfo);
         d3.select('tbody#exposurebreakdown').selectAll('tr')
             .data(tags)
             .enter()
             .append("tr")
-            .html(function(d) { return makeRows(plotInfo, d); });
+            .html((d) => { return makeRows(plotInfo, d); });
     }
     
     // See https://bl.ocks.org/mbostock/4061502
@@ -241,8 +240,8 @@ var createPlot = (function () {
 
     // Returns a function to compute the interquartile range.
     function iqr(k) {
-        return function(d, i) {
-            var q1 = d.quartiles[0],
+        return (d) => {
+            let q1 = d.quartiles[0],
                 q3 = d.quartiles[2],
                 iqr = (q3 - q1) * k,
                 i = -1,
@@ -264,19 +263,18 @@ var createPlot = (function () {
 
         // Note: want to display in hours, not ks
     
-        var allInfo = plotInfo.all;
+        const allInfo = plotInfo.all;
         // var minTime = d3.min(allInfo.times);
-        var maxTime = d3.max(allInfo.times);
+        const maxTime = d3.max(allInfo.times);
 
         // At the moment this is in the order we want
-        var data = [];
-        var tags = getPlotOrder(plotInfo);
-        for (var i = 0; i < tags.length; i++) {
-            var cycle = tags[i];
+        const tags = getPlotOrder(plotInfo);
+        const data = [];
+        for (const cycle of tags) {
             data.push(plotInfo[cycle].times.map(toHours));
         }
 
-        var colors = d3.scale.category10()
+        const colors = d3.scale.category10()
             .domain(tags);
 
         // boxChart.domain([toHours(minTime), toHours(maxTime)]);
@@ -288,7 +286,7 @@ var createPlot = (function () {
             .attr("class", "box")
             .attr("width", totBoxWidth)
             .attr("height", totBoxHeight)
-            .style("stroke", function(d, i) { return colors(tags[i]); })
+            .style("stroke", (d, i) => { return colors(tags[i]); })
             .append("g")
             .attr("transform", "translate(" + boxMargin.left + "," +
                   boxMargin.top + ")")
@@ -301,8 +299,8 @@ var createPlot = (function () {
             .attr("y", boxHeight)
             .attr("dy", "2em")
             .attr("text-anchor", "middle")
-            .text(function(d, i) {
-                var lbl = tags[i];
+            .text((d, i) => {
+                const lbl = tags[i];
                 if (lbl === "all") {
                     return "All";
                 } else {

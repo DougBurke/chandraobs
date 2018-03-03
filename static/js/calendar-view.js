@@ -39,8 +39,8 @@ var monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 
 function createCalendar(cal) {
 
-    var startDate = new Date(cal.startDate);
-    var endDate = new Date(cal.endDate);
+    const startDate = new Date(cal.startDate);
+    const endDate = new Date(cal.endDate);
 
     // add a day onto the end date, as that (hopefully) fixes some issues
     // seen below (maybe there's a timezone conversion going on with some
@@ -48,22 +48,23 @@ function createCalendar(cal) {
     // so adding on a day is a "hack"
     endDate.setUTCDate(endDate.getUTCDate() + 1);
     
-    var startYear = startDate.getUTCFullYear();
-    var endYear = endDate.getUTCFullYear();
+    const startYear = startDate.getUTCFullYear();
+    const endYear = endDate.getUTCFullYear();
 
-    var startMonth = new Date(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1);
-    var endMonth = new Date(endDate.getUTCFullYear(), endDate.getUTCMonth() + 1, 1); 
+    const startMonth = new Date(startDate.getUTCFullYear(),
+                                startDate.getUTCMonth(), 1);
+    const endMonth = new Date(endDate.getUTCFullYear(),
+                              endDate.getUTCMonth() + 1, 1); 
 
-    var counts = cal.counts;
-    var minCount = 1;
-    var maxCount = d3.max(d3.values(counts)) || minCount;
+    const counts = cal.counts;
+    const minCount = 1;
+    const maxCount = d3.max(d3.values(counts)) || minCount;
 
     // TODO: can now go to a scale starting at 0 counts;
     //       would be nice to go to 9+ rather than 8+
-    var domain = [0, 8];
     color = d3.scale.quantize()
-        .domain(domain)
-        .range(d3.range(9).map(function(d) { return "q" + d + "-9"; }));
+        .domain([0, 8])
+        .range(d3.range(9).map((d) => { return "q" + d + "-9"; }));
 
     addColorbar(0);
 
@@ -71,7 +72,7 @@ function createCalendar(cal) {
     // decreasing)?
     //
     // var years = d3.range(startYear, endYear + 1);
-    var years = d3.range(endYear, startYear - 1, -1);
+    const years = d3.range(endYear, startYear - 1, -1);
     
     svg = d3.select("div#calendar").selectAll(".year")
         .data(years)
@@ -87,7 +88,7 @@ function createCalendar(cal) {
     svg.append("text")
         .attr("transform", "translate(-6," + cellSize * 3.5 + ")rotate(-90)")
         .style("text-anchor", "middle")
-        .text(function(d) { return d; });
+        .text((d) => { return d; });
 
     // draw each day
     //
@@ -95,41 +96,46 @@ function createCalendar(cal) {
     // all the information needed to create labels and links.
     //
     rect = svg.selectAll(".day")
-        .data(function(d) {
-            var days = d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1));
-            return days.filter(function (d) { return (d >= startDate) && (d <= endDate); });
+        .data((d) => {
+            const days = d3.time.days(new Date(d, 0, 1),
+                                      new Date(d + 1, 0, 1));
+            return days.filter((d) => {
+                return (d >= startDate) && (d <= endDate);
+            });
         })
         .enter()
         .append("a")
-        .attr("xlink:href", function(d) { return "/schedule/date/" + format(d) + "/3"; })
+        .attr("xlink:href", (d) => { return "/schedule/date/" + format(d) + "/3"; })
         .append("rect")
         .attr("class", "day")
         .attr("width", cellSize)
         .attr("height", cellSize)
-        .attr("x", function(d) { return d3.time.weekOfYear(d) * cellSize; })
-        .attr("y", function(d) { return d.getDay() * cellSize; })
+        .attr("x", (d) => { return d3.time.weekOfYear(d) * cellSize; })
+        .attr("y", (d) => { return d.getDay() * cellSize; })
         .datum(format);
 
     // label with the date
     rect.append("title")
-        .text(function(d) { return d + ": no data"; });
+        .text((d) => { return d + ": no data"; });
+
+    let monthFilter = (d) => {
+        const months = d3.time.months(new Date(d, 0, 1),
+                                      new Date(d + 1, 0, 1));
+        return months.filter((d) => {
+            return (d >= startMonth) && (d < endMonth);
+        });
+    };
 
     // month boundaries
     svg.selectAll(".month")
-        .data(function(d) {
-            var months = d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1));
-            return months.filter(function (d) { return (d >= startMonth) && (d < endMonth); });
-        })
+        .data(monthFilter)
         .enter().append("path")
         .attr("class", "month")
         .attr("d", monthPath);
 
     // month labels
     svg.selectAll(".monthLabel")
-        .data(function(d) {
-            var months = d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1));
-            return months.filter(function (d) { return (d >= startMonth) && (d < endMonth); });
-        })
+        .data(monthFilter)
         .enter().append("text")
         .attr("class", "monthLabel")
         .style("text-anchor", "middle")
@@ -138,7 +144,7 @@ function createCalendar(cal) {
     // boxes, and I don't want to have to fix that
         .attr("y", 0)
         .attr("dy", "-0.2em")
-        .text(function(d) { return monthName[d.getMonth()]; });
+        .text((d) => { return monthName[d.getMonth()]; });
 
     // add counts info for those days that have it
     //
@@ -148,22 +154,22 @@ function createCalendar(cal) {
     // and they are not included in the map. They could
     // be added, but let's try to support sparse data.
     //
-    rect.filter(function(d) {
-        var day = new Date(d);
+    rect.filter((d) => {
+        const day = new Date(d);
         return (day >= startDate) && (day <= endDate);
     })
-        .attr("class", function(d) {
-            var n = counts[d] || 0;
+        .attr("class", (d) => {
+            const n = counts[d] || 0;
             return "day " + color(n);
         })
         .attr("opacity", opacityRest)
         .on('mouseover', highlightDay)
         .on('mouseout', unhighlightDay)
         .select("title")
-        .text(function(d) {
-            var n = "no";
+        .text((d) => {
+            let n = "no";
             if (d in counts) { n = counts[d]; }
-            var lbl = d + ": " + n + " observation";
+            let lbl = d + ": " + n + " observation";
             if (n !== 1) { lbl += "s"; }
             return lbl;
         });
@@ -187,9 +193,9 @@ function createCalendar(cal) {
 function addColorbar(padding) {
     
     // add a color bar to the display
-    var dataset = d3.range(0, 9);
+    let dataset = d3.range(0, 9);
 
-    var cbar = d3.select("div#calendar")
+    let cbar = d3.select("div#calendar")
         .append("svg")
         .attr("class", "colorbar")
         .attr("width", width) // use the same size as the year displays
@@ -198,16 +204,16 @@ function addColorbar(padding) {
         .attr("transform", "translate(0," + padding + ")");
     
     // right-align the box
-    var xpos = width - 10 * cellSize * 2;
+    let xpos = width - 10 * cellSize * 2;
     cbar.selectAll("rect")
         .data(dataset)
         .enter()
         .append("rect")
         .attr("width", cellSize * 2)
         .attr("height", cellSize * 2)
-        .attr("x", function(d) { return xpos + d * cellSize * 2; })
+        .attr("x", (d) => { return xpos + d * cellSize * 2; })
         .attr("y", 0)
-        .attr("class", function(d) { return "day " + color(d); });
+        .attr("class", (d) => { return "day " + color(d); });
 
     cbar.append("text")
         .attr("class", "description")
@@ -226,26 +232,26 @@ function addColorbar(padding) {
         .enter()
         .append("text")
         .attr("class", "label")
-        .attr("x", function(d) { return xpos + d * cellSize * 2; })
+        .attr("x", (d) => { return xpos + d * cellSize * 2; })
         .attr("y", cellSize * 2)
         .attr("dx", "1em")
         .attr("dy", "1em")
         .attr("text-anchor", "middle")
-        .text(function(d) { if (d < 8) { return String(d); } else { return "8+"; } });
+        .text((d) => { if (d < 8) { return String(d); } else { return "8+"; } });
 }
 
 
 var transitionTime = 600;
 
 function highlightDay(dd) {
-    rect.filter(function(d) { return d === dd; })
+    rect.filter((d) => { return d === dd; })
         .transition()
         .duration(transitionTime)
         .attr("opacity", opacitySel);
 }
 
 function unhighlightDay(dd) {
-    rect.filter(function(d) { return d === dd; })
+    rect.filter((d) => { return d === dd; })
         .transition()
         .duration(transitionTime)
         .attr("opacity", opacityRest);
@@ -254,14 +260,14 @@ function unhighlightDay(dd) {
 // Return the X value corresponding to the last day of the month.
 //
 function monthX(t0) {
-    var m = t0.getMonth();
-    var tend = new Date(t0.getFullYear(), t0.getMonth() + 1, 0);
-    var wend = d3.time.weekOfYear(tend);
+    // const m = t0.getMonth();
+    const tend = new Date(t0.getFullYear(), t0.getMonth() + 1, 0);
+    const wend = d3.time.weekOfYear(tend);
     return wend * cellSize;
 }
 
 function monthPath(t0) {
-  var t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
+  const t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
       d0 = t0.getDay(), w0 = d3.time.weekOfYear(t0),
       d1 = t1.getDay(), w1 = d3.time.weekOfYear(t1);
   return "M" + (w0 + 1) * cellSize + "," + d0 * cellSize

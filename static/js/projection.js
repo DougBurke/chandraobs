@@ -31,35 +31,35 @@ var projection = (function (base) {
 
         base.hide_nojs();
         
-        var width = 960;
-        var height = 500;
+        let width = 960;
+        let height = 500;
 
-        var tscale = d3.scale.sqrt()
+        let tscale = d3.scale.sqrt()
             .domain([0, 150]) // not many obs are larger than this (in ks)
             .range([3, 15]);
 
         // colors from Cynthia Brewer's http://colorbrewer2.org/ web site
-        var color = d3.scale.ordinal()
+        let color = d3.scale.ordinal()
             .domain(["done", "doing", "todo"])
         // .range([d3.rgb('#ece7f2'), d3.rgb('#a6bddb'), d3.rgb('#2b8cbe')]);
         // .range([d3.rgb('#d8b365'), d3.rgb('#f5f5f5'), d3.rgb('#5ab4ac')]);
         // f5f5f5 is too close to white to be useful here
             .range([d3.rgb('#d8b365'), d3.rgb('#f5f5f5'), d3.rgb('#5ab4ac')]);
 
-        var svg = d3.select('div#map').append('svg')
+        let svg = d3.select('div#map').append('svg')
             .attr("width", width)
             .attr("height", height)
             .attr("opacity", 0);  // opacity is re-set once MW is loaded
 
-        var projection = d3.geo.aitoff()
+        let projection = d3.geo.aitoff()
             .scale(150)
             .translate([width / 2, height / 2])
             .precision(0.1);
 
-        var path = d3.geo.path()
+        let path = d3.geo.path()
             .projection(projection);
 
-        var graticule = d3.geo.graticule();
+        let graticule = d3.geo.graticule();
 
         // Longitude every 2 hours, latitude every 15 degrees,
         // and change the latitude mionor extent so that the
@@ -102,9 +102,9 @@ var projection = (function (base) {
             .attr("d", path);
 
         // label graticules; could make it adaptive but hard code
-        var longvals = d3.range(1, 6).map(function (d) { 
-            var pos = projection([180 - d * 60, 0]);
-            var lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
+        let longvals = d3.range(1, 6).map(function (d) { 
+            const pos = projection([180 - d * 60, 0]);
+            const lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
             return { x: pos[0], y: pos[1], lbl: lbl };
         });
         
@@ -118,9 +118,9 @@ var projection = (function (base) {
             .attr("dy", "1.4em")
             .text(function(d) { return d.lbl; });
 
-        var latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
-            var pos = projection([0, d]);
-            var lbl = d + "\u00B0"; // degree symbol
+        let latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
+            const pos = projection([0, d]);
+            const lbl = d + "\u00B0"; // degree symbol
             return { x: pos[0], y: pos[1], lbl: lbl };
         });
         
@@ -137,9 +137,9 @@ var projection = (function (base) {
 
         // mark the observations
         
-        var points = coords.map(function (d) {
+        let points = coords.map(function (d) {
             // TODO: worry about clipping?
-            var pos = projection([d.longitude, d.latitude]);
+            const pos = projection([d.longitude, d.latitude]);
             d.x = pos[0];
             d.y = pos[1];
             return d;
@@ -169,13 +169,13 @@ var projection = (function (base) {
     }
 
     function addMilkyWay(svg, path) {
-        var fname = "mw-hack.json";
+        const fname = "mw-hack.json";
         d3.json("/data/" + fname, function(error, mw) {
             if (error) {
                 return console.warn("Unable to load " + fname);
             }
 
-            var oline = svg.select("#baseplane").selectAll(".milkyway")
+            let oline = svg.select("#baseplane").selectAll(".milkyway")
                 .data(mw.features);
             
             oline.enter()
@@ -203,17 +203,17 @@ var projection = (function (base) {
     //
     function addConstellation (svg, path, conInfo) {
         if (!conInfo) { return; }
-        var fname = "constellations.bounds-hack.json";
+        const fname = "constellations.bounds-hack.json";
         d3.json("/data/" + fname, function(error, con) {
             if (error) {
                 return console.warn("Unable to load " + fname);
             }
             
-            var conName = conInfo.shortName;
-            var conFullName = conInfo.longName;
+            const conName = conInfo.shortName;
+            const conFullName = conInfo.longName;
             
             // all constellations
-            var allcon = svg.select("#baseplane").selectAll(".constellations")
+            let allcon = svg.select("#baseplane").selectAll(".constellations")
                 .data(con.features);
 
             allcon.enter()
@@ -222,9 +222,9 @@ var projection = (function (base) {
                 .attr("d", path);
 
             // selected constellation
-            var features = con.features.filter(function(d) { return d.id === conName; });
+            let features = con.features.filter(function(d) { return d.id === conName; });
             
-            var selcon = svg.select("#baseplane").selectAll(".constellation")
+            let selcon = svg.select("#baseplane").selectAll(".constellation")
                 .data(features);
             
             selcon.enter()
@@ -254,7 +254,7 @@ var projection = (function (base) {
     /* Highlight the given object in the sky map */
     function selectObs(lbl) {
         d3.select('#' + lbl).classed('selrow', true);
-        var idlbl = 'gfx-' + lbl;
+        const idlbl = 'gfx-' + lbl;
         d3.selectAll('.obs').transition()
             .duration(transitionTime)
             .attr("opacity", function () { return (this.id === idlbl) ? selOpacity : unselOpacity; });

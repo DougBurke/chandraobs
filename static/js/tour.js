@@ -8,7 +8,7 @@ var tour = new Tour({
   /* debug: true, */
   storage: false,
   orphan: true,
-  onEnd: function (tr) { tr.setCurrentStep(0); },
+  onEnd: (tr) => { tr.setCurrentStep(0); },
   steps: [
   {
     element: "#tour",

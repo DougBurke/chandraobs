@@ -5,10 +5,10 @@ $(document).ready(function() {
 
     $.tablesorter.addParser({
         id: 'extsort',
-        is: function (s) {
+        is: (s) => {
             return false; // this parser is not auto-detected
         },
-        format: function (s, table, cell, cellIndex) {
+        format: (s, table, cell, cellIndex) => {
             return $(cell).attr('data-sortvalue');
         },
         type: 'numeric'
@@ -17,10 +17,10 @@ $(document).ready(function() {
     // Is this sensible?
     $.tablesorter.addParser({
         id: 'extsortText',
-        is: function (s) {
+        is: (s) => {
             return false; // this parser is not auto-detected
         },
-        format: function (s, table, cell, cellIndex) {
+        format: (s, table, cell, cellIndex) => {
             return $(cell).attr('data-sortvalue');
         },
         type: 'text'

@@ -9,6 +9,8 @@
 
 "use strict";
 
+var dummy;
+
 var wwt = (function (base) {
     
     var wwt;
@@ -55,8 +57,8 @@ var wwt = (function (base) {
     // action (which has no arguments).
     //
     function handleToggle(target, label, toggleAction) {
-        var newval = toggleAction();
-        var action;
+        const newval = toggleAction();
+        let action;
         if (newval) {
             action = "Hide ";
         } else {
@@ -103,7 +105,7 @@ var wwt = (function (base) {
     // or an unobserverd or discarded one (thinner).
     //
     function fovSettings(obsdata) {
-        var color, linewidth;
+        let color, linewidth;
         linewidth = 2;
         if ((obsdata.status === "archived") ||
             (obsdata.status === "observed")) {
@@ -131,22 +133,22 @@ var wwt = (function (base) {
     //
     function shiftFOV(obsdata) {
 
-        var ra = obsdata.ra;
-        var dec = obsdata.dec;
-        var roll = obsdata.roll;
-        var instrument = obsdata.instrument;
+        let ra = obsdata.ra;
+        let dec = obsdata.dec;
+        let roll = obsdata.roll;
+        let instrument = obsdata.instrument;
 
         // assume center is at 0,0; units are in degrees,
         // no roll.
-        var aw = 8.0/60.0; // width of ACIS chip in degrees
-        var hiw = 30.0/60.0; // width of HRC-I chip in degrees
-        var aw2 = aw/2;
-        var hiw2 = hiw/2;
-        var hsw = 99.0 / 60.0;
-        var hsh = 6.0 / 60.0; // if use 3.4 then need to deal with offset
-        var hsw2 = hsw / 2;
-        var hsh2 = hsh / 2;
-        var p0;
+        let aw = 8.0/60.0; // width of ACIS chip in degrees
+        let hiw = 30.0/60.0; // width of HRC-I chip in degrees
+        let aw2 = aw/2;
+        let hiw2 = hiw/2;
+        let hsw = 99.0 / 60.0;
+        let hsh = 6.0 / 60.0; // if use 3.4 then need to deal with offset
+        let hsw2 = hsw / 2;
+        let hsh2 = hsh / 2;
+        let p0;
         if (instrument === "ACIS-S") {
             p0 = [[-3*aw,-aw2], [-3*aw,aw2], [3*aw,aw2], [3*aw,-aw2], [-3*aw,-aw2]];
         } else if (instrument === "HRC-I") {
@@ -162,35 +164,36 @@ var wwt = (function (base) {
             p0 = [[-aw,-aw], [-aw,aw], [aw,aw], [aw,-aw], [-aw,-aw]];
         }
         
-        var p1 = new Array(p0.length);
+        let p1 = [];
 
         // how is roll defined? clockwise? where is roll=0?
         // It seems that this is correct by comparing to the
         // DSS result
-        var ang = roll * Math.PI / 180.0;
-        var cosang = Math.cos(ang);
-        var sinang = Math.sin(ang);
-        var cosdec = Math.cos(dec * Math.PI / 180.0);
-        
-        for (var i = 0; i < p0.length; i++) {
-            var x0 = p0[i][0];
-            var y0 = p0[i][1];
+        let ang = roll * Math.PI / 180.0;
+        let cosang = Math.cos(ang);
+        let sinang = Math.sin(ang);
+        let cosdec = Math.cos(dec * Math.PI / 180.0);
 
-            var dx = (x0 * cosang - y0 * sinang) / cosdec;
-            var x1 = ra + dx;
-            var y1 = dec + x0 * sinang + y0 * cosang;
+        for (const p of p0) {
+            let x0 = p[0];
+            let y0 = p[1];
 
-            p1[i] = [x1, y1];
+            let dx = (x0 * cosang - y0 * sinang) / cosdec;
+            let x1 = ra + dx;
+            let y1 = dec + x0 * sinang + y0 * cosang;
+
+            p1.push([x1, y1]);
         }
+
         return p1;
     }
 
     function addFOV(obsdata) {
-        
-        var settings = fovSettings(obsdata);
 
-        var points = shiftFOV(obsdata);
-        var fov = wwt.createPolyLine(true);
+        const settings = fovSettings(obsdata);
+
+        const points = shiftFOV(obsdata);
+        const fov = wwt.createPolyLine(true);
 
         // Unfortunately these do not do much with the WWT
         // at present, but left in for now.
@@ -208,8 +211,8 @@ var wwt = (function (base) {
         //fov.set_opacity(0.6);
         fov.set_opacity(1.0);
 
-        for(var i in points) {
-            fov.addPoint(points[i][0], points[i][1]);
+        for(const p of points) {
+            fov.addPoint(p[0], p[1]);
         }
         wwt.addAnnotation(fov);
         fovAnnotation = fov;
@@ -245,7 +248,7 @@ var wwt = (function (base) {
          * since it is a less-than-ideal UI. Is this the best place
          * for it; perhaps within wwtReadyFunc?
          */
-        var canvas = document.getElementById("WWTCanvas");
+        const canvas = document.getElementById("WWTCanvas");
         canvas.addEventListener("mousewheel", e => e.preventDefault());
         canvas.addEventListener("DOMMouseScroll", e => e.preventDefault());
 
@@ -267,15 +270,15 @@ var wwt = (function (base) {
         // Handle the show/hide button. The click handler is assigned
         // to the div containing the two buttons.
         //
-        var hide = document.getElementById("resizeHide");
-        var show = document.getElementById("resizeShow");
-        var contents = document.getElementById("resizeWWTArea");
+        const hide = document.getElementById("resizeHide");
+        const show = document.getElementById("resizeShow");
+        const contents = document.getElementById("resizeWWTArea");
         hide.style.display = "block";
         show.style.display = "none";
 
         document.getElementById("resizeButtons")
             .addEventListener("click", () => {
-                var state;
+                let state;
                 if (resize_state) {
                     hide.style.display = "none";
                     show.style.display = "block";
@@ -306,7 +309,7 @@ var wwt = (function (base) {
     // Perhaps I should just always use clientX/Y rather than this?
     //
     function getEventPos(event) {
-        var x, y;
+        let x, y;
         if (typeof event.x === "undefined") {
             x = event.clientX;
             y = event.clientY;
@@ -322,19 +325,19 @@ var wwt = (function (base) {
      */
     function dragStartPane(event) {
 
-        var toMove = event.target.id;
+        const toMove = event.target.id;
         
         // Store the current location of the event, so we can find out
         // how much we have shifted by.
         //
-        var evpos = getEventPos(event);
+        const evpos = getEventPos(event);
         evpos.id = toMove;
         event.dataTransfer.setData(paneMimeType, JSON.stringify(evpos));
 
         // The id is not supposed to contain a space, and we don't, so
         // it's okay to separate with spaces.
         //
-        var store = evpos.x.toString() + " " + evpos.y.toString() +
+        const store = evpos.x.toString() + " " + evpos.y.toString() +
             " " + toMove;
         event.dataTransfer.setData("text/plain", store);
 
@@ -353,18 +356,17 @@ var wwt = (function (base) {
         // It's not clear whether I can guarantee that the structured
         // data is available, so code up a fallback, just in case.
         //
-        var x0, y0, toMove;
-        var fallback = true;
-        var types = event.dataTransfer.types;
-        for (var i=0; i < types.length; i++) {
-            if (types[i] === paneMimeType) {
+        let x0, y0, toMove;
+        let fallback = true;
+        for (const t of event.dataTransfer.types) {
+            if (t === paneMimeType) {
                 fallback = false;
                 break;
             }
         }
         if (fallback) {
-            var store = event.dataTransfer.getData('text/plain');
-            var tags = store.split(" ");
+            let store = event.dataTransfer.getData('text/plain');
+            let tags = store.split(" ");
             if (tags.length !== 3) {
                 console.log("Invalid store data from drop: [" + store + "]");
                 event.preventDefault();  // is this sensible here?
@@ -374,26 +376,26 @@ var wwt = (function (base) {
             y0 = parseInt(tags[1]);
             toMove = tags[2];
         } else {
-            var json = event.dataTransfer.getData(paneMimeType);
-            var obj = JSON.parse(json);
+            let json = event.dataTransfer.getData(paneMimeType);
+            let obj = JSON.parse(json);
             x0 = obj.x;
             y0 = obj.y;
             toMove = obj.id;
         }
             
-        var evpos = getEventPos(event);
-        var dx = evpos.x - x0;
-        var dy = evpos.y - y0;
+        let evpos = getEventPos(event);
+        let dx = evpos.x - x0;
+        let dy = evpos.y - y0;
 
-        var div = document.getElementById(toMove);
-        var stackbbox = div.getBoundingClientRect();
-        var parentbbox = div.parentElement.getBoundingClientRect();
+        let div = document.getElementById(toMove);
+        let stackbbox = div.getBoundingClientRect();
+        let parentbbox = div.parentElement.getBoundingClientRect();
 
-        var x1 = div.offsetLeft + dx;
-        var y1 = div.offsetTop + dy;
+        let x1 = div.offsetLeft + dx;
+        let y1 = div.offsetTop + dy;
 
-        var xmin = 0, xmax = parentbbox.width - stackbbox.width;
-        var ymin = 0, ymax = parentbbox.height - stackbbox.height;
+        let xmin = 0, xmax = parentbbox.width - stackbbox.width;
+        let ymin = 0, ymax = parentbbox.height - stackbbox.height;
         if (x1 < xmin) { x1 = xmin; } else if (x1 > xmax) { x1 = xmax; }
         if (y1 < ymin) { y1 = ymin; } else if (y1 > ymax) { y1 = ymax; }
 
@@ -443,7 +445,7 @@ var wwt = (function (base) {
             wwt.setForegroundOpacity(0.0);
             return;
         }
-        var fullName = wtml[name];
+        const fullName = wtml[name];
         if (typeof fullName === "undefined") {
             console.log("Unknown name: " + name);
             return;
@@ -472,7 +474,7 @@ var wwt = (function (base) {
             initialize(obsdata);
             isInitialized = 1;
         } else {
-            var fov = startFOV; // do we want to use the current zoom?
+            const fov = startFOV; // do we want to use the current zoom?
             // console.log("* zoom level = " + fov);
             wwt.gotoRaDecZoom(obsdata.ra, obsdata.dec, fov, false);
         }

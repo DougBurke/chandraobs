@@ -41,7 +41,7 @@ function nodeClick(d) {
 
 // Based on http://bl.ocks.org/mbostock/4062006
 function changeOtherNodes(opacity) {
-    return function(g, i) {
+    return (g, i) => {
         // What shall we fade? I don't quite understand what is going
         // on with the opacity, but changing both opacity and fill-opacity
         // appears to have fixed, or worked around, the issue
@@ -50,7 +50,7 @@ function changeOtherNodes(opacity) {
         //
         // might it be nice to keep the parent/children?
         svg.selectAll(".node text")
-            .filter(function(d) { return d.id != g.id; })
+            .filter((d) => { return d.id != g.id; })
             .transition()
             .style("fill-opacity", opacity)
             .style("opacity", opacity);
@@ -60,33 +60,37 @@ function changeOtherNodes(opacity) {
 function update(source) {
 
     // Compute the new tree layout.
-    var nodes = tree.nodes(root).reverse(),
+    let nodes = tree.nodes(root).reverse(),
         links = tree.links(nodes);
 
     // Normalize for fixed-depth.
-    nodes.forEach(function(d) { d.y = d.depth * 180; });
+    nodes.forEach((d) => { d.y = d.depth * 180; });
     
     // Update the nodes…
-    var i = 0;
-    var node = svg.selectAll("g.node")
-        .data(nodes, function(d) { return d.id || (d.id = ++i); });
+    let i = 0;
+    let node = svg.selectAll("g.node")
+        .data(nodes, (d) => { return d.id || (d.id = ++i); });
 
     // Unlike the standard d3 dendogram, the text are links, so
     // restrict the expand/hide functionality to just the circle
     
     // Enter any new nodes at the parent's previous position.
-    var nodeEnter = node.enter().append("g")
+    let nodeEnter = node.enter().append("g")
         .attr("class", "node")
-        .attr("transform", function(d) { return "translate(" + source.y0 + "," + source.x0 + ")"; })
+        .attr("transform", (d) => { return "translate(" + source.y0 + "," + source.x0 + ")"; })
     // QUS: how best to highlight this node + path (parents and/or
     //      descendents? Maybe want the links to be kept too?
         .on("mouseover", changeOtherNodes(unselOpacity))
         .on("mouseout", changeOtherNodes(baseOpacity))
     ;
+
+    let nodeFill = (d) => {
+        return d._children ? "lightsteelblue" : "#fff";
+    };
     
     nodeEnter.append("circle")
         .attr("r", 1e-6)
-        .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; })
+        .style("fill", nodeFill)
         .on("click", nodeClick)
     ;
 
@@ -94,14 +98,14 @@ function update(source) {
     // size, but leave the check in for future work.
     nodeEnter
         .append("a")
-        .attr("xlink:href", function(d) { return d.searchLink; })
+        .attr("xlink:href", (d) => { return d.searchLink; })
         .append("text")
-        .attr("x", function(d) { return d.children || d._children ? -10 : 10; })
+        .attr("x", (d) => { return d.children || d._children ? -10 : 10; })
         .attr("dy", ".35em")
-        .attr("text-anchor", function(d) { return d.children || d._children ? "end" : "start"; })
-        .text(function(d) {
+        .attr("text-anchor", (d) => { return d.children || d._children ? "end" : "start"; })
+        .text((d) => {
             if (d.depth < 1) { return ""; }
-            var lbl = d.name;
+            let lbl = d.name;
             // leave the following in for now, even though 0-size elements
             // have been filtered out.
             if (d.size > 0) { lbl += " (" + d.size + ")"; }
@@ -110,21 +114,21 @@ function update(source) {
     ;
     
     // Transition nodes to their new position.
-    var nodeUpdate = node.transition()
+    let nodeUpdate = node.transition()
         .duration(duration)
-        .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
+        .attr("transform", (d) => { return "translate(" + d.y + "," + d.x + ")"; });
 
     nodeUpdate.select("circle")
         .attr("r", 4.5)
-        .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+        .style("fill", nodeFill);
 
     nodeUpdate.select("text")
         .style("fill-opacity", 1);
 
     // Transition exiting nodes to the parent's new position.
-    var nodeExit = node.exit().transition()
+    let nodeExit = node.exit().transition()
         .duration(duration)
-        .attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
+        .attr("transform", (d) => { return "translate(" + source.y + "," + source.x + ")"; })
         .remove();
 
     nodeExit.select("circle")
@@ -134,14 +138,17 @@ function update(source) {
         .style("fill-opacity", 1e-6);
     
     // Update the links…
-    var link = svg.selectAll("path.link")
-        .data(links, function(d) { return d.target.id; });
+    let link = svg.selectAll("path.link")
+        .data(links, (d) => { return d.target.id; });
+
+    // TODO: the d attr is replaced by something that appears not
+    //       to have anything to do with d: is this correct?
     
     // Enter any new links at the parent's previous position.
     link.enter().insert("path", "g")
         .attr("class", "link")
-        .attr("d", function(d) {
-            var o = {x: source.x0, y: source.y0};
+        .attr("d", (d) => {
+            const o = {x: source.x0, y: source.y0};
             return diagonal({source: o, target: o});
         });
     
@@ -153,14 +160,14 @@ function update(source) {
     // Transition exiting nodes to the parent's new position.
     link.exit().transition()
         .duration(duration)
-        .attr("d", function(d) {
+        .attr("d", (d) => {
             var o = {x: source.x, y: source.y};
             return diagonal({source: o, target: o});
         })
         .remove();
 
     // Stash the old positions for transition.
-    nodes.forEach(function(d) {
+    nodes.forEach((d) => {
         d.x0 = d.x;
         d.y0 = d.y;
     });
@@ -191,7 +198,7 @@ function createTree(json) {
         .size([height, width]);
 
     diagonal = d3.svg.diagonal()
-        .projection(function(d) { return [d.y, d.x]; });
+        .projection((d) => { return [d.y, d.x]; });
     
     root = json;
     root.x0 = height / 2;
