@@ -1,3 +1,5 @@
+"use strict";
+
 var base = (function() {
 
     function hide_class(className) {

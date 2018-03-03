@@ -1,4 +1,6 @@
 
+"use strict";
+
 var createMapping = (function(base) {
     
     var margin = {top: 1, right: 1, bottom: 6, left: 1},
@@ -39,7 +41,8 @@ var createMapping = (function(base) {
         var nweeks = Math.floor(ndays / 7);
 
         var tleft;
-
+        var str;
+        
         if (nhours < 1) {
             str = "< 1 hour";
         } else if (nhours < 2) {

@@ -2,6 +2,8 @@
  * plot up data using the Aitoff projection
  */
 
+"use strict";
+
 var projection = (function (base) {
 
     var baseOpacity = 0.6;

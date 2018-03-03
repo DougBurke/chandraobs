@@ -5,6 +5,8 @@
  * https://bl.ocks.org/mbostock/4339083
  */
 
+"use strict";
+
 var createTree = (function () {
     
 var root;

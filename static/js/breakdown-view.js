@@ -3,6 +3,7 @@
  * after significant modification. All bugs are mine.
  */
 
+"use strict";
 
 var createBreakdown = (function () {
     

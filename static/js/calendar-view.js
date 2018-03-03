@@ -10,6 +10,8 @@
 //   Or, only draw cells for which we have data!
 //
 
+"use strict";
+
 var createCalendar = (function () {
     
 var width = 960,

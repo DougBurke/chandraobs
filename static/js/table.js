@@ -1,3 +1,6 @@
+
+"use strict";
+
 $(document).ready(function() { 
 
     $.tablesorter.addParser({

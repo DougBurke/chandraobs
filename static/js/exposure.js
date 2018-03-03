@@ -5,6 +5,8 @@
  *   as the label.
  */
 
+"use strict";
+
 var createPlot = (function () {
     
     var totWidth = 960;

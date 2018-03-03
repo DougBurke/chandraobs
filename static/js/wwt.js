@@ -7,6 +7,8 @@
  * note that wwt.goto() is actually wwt.gotoRaDecZoom()
  */
 
+"use strict";
+
 var wwt = (function (base) {
     
     var wwt;
@@ -216,15 +218,15 @@ var wwt = (function (base) {
     function hackColor(color) { fovAnnotation.set_lineColor(color); }
     
     function wwtReadyFunc(obsdata) {
-        raPos = obsdata.ra;
-        decPos = obsdata.dec;
+        // raPos = obsdata.ra;
+        // decPos = obsdata.dec;
         return function () {
             wwt.settings.set_showCrosshairs(displayCrosshairs);
             wwt.settings.set_showConstellationFigures(displayConstellations);
             wwt.settings.set_showConstellationBoundries(displayBoundaries);
             wwt.hideUI(true);
             addFOV(obsdata);
-            wwt.gotoRaDecZoom(raPos, decPos, startFOV, false);
+            wwt.gotoRaDecZoom(obsdata.ra, obsdata.dec, startFOV, false);
         };
     }
 

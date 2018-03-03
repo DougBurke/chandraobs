@@ -2,6 +2,8 @@
  * Tour using http://bootstraptour.com
  */
 
+"use strict";
+
 var tour = new Tour({
   /* debug: true, */
   storage: false,

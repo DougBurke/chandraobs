@@ -2,6 +2,8 @@
  * Simple attempt to support user selection of the DSS/PSPC/RASS links.
  */
 
+"use strict";
+
 var imageSwitch = (function() {
 
     /* For now hard-code the names */

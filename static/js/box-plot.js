@@ -3,6 +3,8 @@
 // https://opensource.org/licenses/GPL-3.0
 //
 
+"use strict";
+
 (function() {
 
 // Inspired by http://informationandvisualization.de/blog/box-plot
