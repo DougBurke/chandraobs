@@ -62,7 +62,7 @@ library
        , blaze-html >= 0.7 && < 0.10
        , bytestring == 0.10.*
        , containers >= 0.4 && < 0.6
-       , formatting == 6.2.*
+       , formatting >= 6.2 && < 6.4
        , groundhog >= 0.8 && < 0.9
        , groundhog-postgresql >= 0.8 && < 0.9
        , groundhog-th >= 0.8 && < 0.9

@@ -125,7 +125,9 @@ showTime =
 -- This could be more generic, but trying to identify where
 -- specific conversions are needed for Text.
 --
-showInt :: Integral a => a -> T.Text
+-- I think we could get away with just 'Int -> T.Text'.
+--
+showInt :: (Integral a, F.Buildable a) => a -> T.Text
 showInt = F.sformat F.int
 
 
