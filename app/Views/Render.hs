@@ -19,7 +19,7 @@ import Prelude ((.), ($), (==), (-), (+)
                , fmap, map, mapM_, maybe, not, return, snd, truncate
                , zip)
 
-import Prelude ((<$>), mconcat, mempty)
+import Prelude (mconcat, mempty)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as M
@@ -664,7 +664,7 @@ baseRestrictedSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad mcss =
              -- TODO: should /css/schedule.css be made optional
              <> cssLink "/css/schedule.css"
 
-             <> fromMaybe mempty (cssLink <$> mcss)
+             <> maybe mempty cssLink mcss
 
              <> (cssLink "/css/main.css" ! A.title "Default")
             )
@@ -725,9 +725,9 @@ extraExplorePage ::
 extraExplorePage mJS mCSSPage hdrTitle bodyBlock mIdName =
   let hdr = (H.title hdrTitle
              <> defaultMeta
-             <> fromMaybe mempty (snd <$> mJS)
+             <> maybe mempty snd mJS
              <> (cssLink "/css/main.css" ! A.title "Default")
-             <> fromMaybe mempty (cssLink <$> mCSSPage)
+             <> maybe mempty cssLink mCSSPage
             )
 
       idVal = fromMaybe "schedule" mIdName

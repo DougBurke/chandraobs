@@ -288,9 +288,9 @@ obsNavBar ctx mObs ObsInfo{..} =
       navPrev = entry "Previous" "prevLink"
       navNext = entry "Next"     "nextLink"
 
-      barContents = 
-        fromMaybe mempty (navPrev <$> prevObs) <>
-        fromMaybe mempty (navNext <$> nextObs)
+      barContents =
+        maybe mempty navPrev prevObs <>
+        maybe mempty navNext nextObs
         
       bar = (nav ! id "obslinks") (ul barContents)
 
@@ -466,7 +466,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       tooTxt _ _ = 
         p "This is a TOO (target of opportunity) observation."
 
-      tooPara = fromMaybe mempty (tooTxt obsStatus <$> soTOO)
+      tooPara = maybe mempty (tooTxt obsStatus) soTOO
 
       sTime = fst <$> mTimes
       eTime = snd <$> mTimes
