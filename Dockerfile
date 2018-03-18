@@ -82,7 +82,9 @@ COPY . /opt/chandraobs/src
 RUN stack --no-terminal build ${FLAGS}
 RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
 
-# Report the stack version (after the build so it gets reported each time)
+# Report the ghc and stack versions (after the build so it gets reported
+# each time)
+RUN stack exec ghc -- --version
 RUN stack --version
 
 # Remove unneeded files
