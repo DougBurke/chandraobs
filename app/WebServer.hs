@@ -1356,7 +1356,7 @@ proxy2 mgr pt seqVal obsid = do
   
       cText =  L.fromStrict . TE.decodeUtf8
 
-      runM f x = fromMaybe (return ()) (f <$> x)
+      runM = maybe (return ())
 
   runM (setHeader "Last-Modified") mLastMod
   runM (setHeader "ETag") mETag
@@ -1522,8 +1522,7 @@ fromScienceObs propMap simbadMap tNow so =
       -- TODO: do not include the item if the value is
       --       not known
       fromProp :: (Proposal -> T.Text) -> T.Text
-      fromProp f = fromMaybe "unknown"
-                   (f <$> M.lookup propnum propMap)
+      fromProp f = maybe "unknown" f (M.lookup propnum propMap)
 
       obsLen = fromMaybe approvedTime mObservedTime
     

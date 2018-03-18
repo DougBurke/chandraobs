@@ -415,7 +415,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
       -- not (and if it's ACIS or HRC), since we display different things.
       chipDetails = case soDetector of
         Just dm -> keyVal "Chips:" (toHtml dm)
-        _ -> fromMaybe mempty $ keyVal "Chips: " . toHtml <$> detector
+        _ -> maybe mempty (keyVal "Chips: " . toHtml) detector
 
       -- for now just convert to ACIS-??? treating optional as on
       detector = 
@@ -477,17 +477,16 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           , keyVal "Instrument:" instInfo
           , chipDetails
           , fromMaybe mempty subArray
-          , fromMaybe mempty (keyVal "Data Mode:" . toHtml <$> soDataMode)
+          , maybe mempty (keyVal "Data Mode:" . toHtml) soDataMode
           -- rely on the ToMarkup instance of ChandraTime
-          , fromMaybe mempty (keyVal "Date:" . toHtml <$> soStartTime)
+          , maybe mempty (keyVal "Date:" . toHtml) soStartTime
           , expLink
           -- rely on the ToMarkup instance of RA
           , keyVal "Right Ascension:" (toHtml soRA)
           -- rely on the ToMarkup instance of Dec
           , keyVal "Declination:" (toHtml soDec)
           , keyVal "Roll:" (toHtml roll <> degSymbol)
-          , fromMaybe mempty
-            (keyVal "Constellation:" <$> conLink soConstellation)
+          , maybe mempty (keyVal "Constellation:") (conLink soConstellation)
           , jointElems
           , constraintElems
           ]
