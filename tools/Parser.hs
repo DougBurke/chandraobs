@@ -119,9 +119,7 @@ strToInt = toInt . map digitToInt
 
 -- for now I do not check for overflow
 parseInt :: Parser Int
-parseInt = do
-  is <- lexeme (many1 digit)
-  return (strToInt is)
+parseInt = strToInt <$> lexeme (many1 digit)
 
 -- parse a single integer value
 parseInt1 :: Parser Int
