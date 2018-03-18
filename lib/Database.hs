@@ -7,7 +7,8 @@
 
 -- MonoLocalBinds is suggested by ghc 8.2 insertIfUnknown/insertOrReplace.
 -- The constraints can't be simplified since Databsae.Groundhog.Instances
--- doesn't export EntityConstr'.
+-- doesn't export EntityConstr'. Well, maybe they can and I just haven't
+-- found the magic sauce.
 --
 
 -- | Simple database access shims.
@@ -160,6 +161,7 @@ import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
                  )
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
+                                Projection',
                                 DbDescriptor, RestrictionHolder,
                                 distinct)
 import Database.Groundhog.Postgresql
@@ -442,19 +444,37 @@ findObsId oi = do
       ans <- findNonScience oi
       return (Left <$> ans)
 
+-- | Select a single item (the condition is assumed to return
+--   at most one item, but this is enforced by this query).
+--
+maybeSelect ::
+  (EntityConstr v c,
+   PersistBackend m)
+  => Cond (Conn m) (RestrictionHolder v c)
+  -> m (Maybe v)
+maybeSelect cond = listToMaybe <$> select (cond `limitTo` 1)
+
+maybeProject ::
+  (PersistBackend m
+  , PersistEntity v
+  , Projection' p (Conn m) (RestrictionHolder v c) a
+  , EntityConstr v c
+  )
+  => p
+  -> Cond (Conn m) (RestrictionHolder v c)
+  -> m (Maybe a)
+maybeProject out cond = listToMaybe <$> project out (cond `limitTo` 1)
+
+
 -- | Return information on this non-science observation. This includes
 --   discarded observations.
 --
 findNonScience :: PersistBackend m => ObsIdVal -> m (Maybe NonScienceObs)
-findNonScience oi = do
-  ans <- select ((NsObsIdField ==. oi) `limitTo` 1)
-  return (listToMaybe ans)
+findNonScience oi = maybeSelect (NsObsIdField ==. oi)
 
 -- | This will return a discarded or unscheduled observation.
 findScience :: PersistBackend m => ObsIdVal -> m (Maybe ScienceObs)
-findScience oi = do
-  ans <- select ((SoObsIdField ==. oi) `limitTo` 1)
-  return (listToMaybe ans)
+findScience oi = maybeSelect (SoObsIdField ==. oi)
 
 -- | Return the current observation (ignoring discarded observations,
 --   but in this case it is unlikely that the database will have been
@@ -702,6 +722,16 @@ getObsInRange tStart tEnd = do
   return (fromSL res)
 -}
 
+
+-- Assumes the record has a start time.
+timeUnsafe :: RestrictedRecord -> ChandraTime
+timeUnsafe = fromJust . rrecordStartTime
+
+-- Assumes the record has a start time.
+utcUnsafe :: RestrictedRecord -> UTCTime
+utcUnsafe = _toUTCTime . timeUnsafe
+
+
 -- | TODO: handle the case when the current observation, which has
 --   just started, has an exposure time > ndays.
 --
@@ -740,10 +770,7 @@ getSchedule ndays = do
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
 
-      -- assume everything has a time field
-      timeUnsafe = fromJust . rrecordStartTime
-
-      todoFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe todo
+      todoFirstTime = utcUnsafe <$> listToMaybe todo
         
   simbad <- getSimbadListRestricted res
   return RestrictedSchedule
@@ -801,14 +828,11 @@ getScheduleDate day ndays = do
         | otherwise     =
             RestrictedSchedule now todoFirstTime ndays done mdoing todo simbad
 
-      -- assume everything has a time field
-      timeUnsafe = fromJust . rrecordStartTime
-  
       -- pick the start of the next observation as the time at which
       -- the schedule is invalidated
       --
-      todoFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe todo
-      resFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe res
+      todoFirstTime = utcUnsafe <$> listToMaybe todo
+      resFirstTime = utcUnsafe <$> listToMaybe res
         
       (aprevs, todo) = span ((<= cnow) . timeUnsafe) res
       (mdoing, done) = case reverse aprevs of
@@ -887,9 +911,6 @@ makeScheduleRestricted rs = do
       findNow r = if Just (rrecordObsId r) == mobsid then Right r else Left r
       (others, nows) = partitionEithers (map findNow cleanrs)
 
-      -- since we've filtered by isJust this use of fromJust is okay
-      timeUnsafe = fromJust . rrecordStartTime
-        
       cnow = ChandraTime now
 
       -- We can filter on <= cnow here because others does not contain
@@ -899,7 +920,7 @@ makeScheduleRestricted rs = do
       --
       (done, todo) = span ((<= cnow) . timeUnsafe) others
 
-      todoFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe todo
+      todoFirstTime = utcUnsafe <$> listToMaybe todo
   
   simbad <- getSimbadListRestricted cleanrs
   return RestrictedSchedule
@@ -930,9 +951,8 @@ updateSchedule ::
 updateSchedule now RestrictedSchedule {..} =
   let cnow = ChandraTime now
 
-      -- unwritten contract: if in a scheule then the record has a start
+      -- unwritten contract: if in a schedule then the record has a start
       -- time
-      timeUnsafe = fromJust . rrecordStartTime
 
       endTimeUnsafe = fromJust . rrecordEndTime
       
@@ -953,7 +973,7 @@ updateSchedule now RestrictedSchedule {..} =
                             then (Just r0, map snd rs)
                             else (Nothing, map snd todo)
 
-      newFirstTime = (_toUTCTime . timeUnsafe) <$> listToMaybe newToDo
+      newFirstTime = utcUnsafe <$> listToMaybe newToDo
 
   in RestrictedSchedule
      { rrTime = now
@@ -1505,8 +1525,7 @@ fetchCategorySubType cat mtype = do
                         
           [] -> return (isNothing mtype)
 
-  out <- filterM matchSIMBAD sobs
-  return (unsafeToSL out)
+  unsafeToSL <$> filterM matchSIMBAD sobs
 
 
 -- | Return information on the category types.
@@ -1515,10 +1534,9 @@ fetchCategoryTypes ::
   PersistBackend m
   => m [(PropCategory, Int)]
   -- ^ proposal category and the number of proposals that match
-fetchCategoryTypes = do
-  res <- project PropCategoryField
-         (CondEmpty `orderBy` [Asc PropCategoryField])
-  return (countUp res)
+fetchCategoryTypes =
+  countUp <$>
+  project PropCategoryField (CondEmpty `orderBy` [Asc PropCategoryField])
 
 -- | Return all the observations which match this proposal,
 --   excluding discarded observations.
@@ -1530,7 +1548,7 @@ fetchProposal ::
   -> m (Maybe Proposal, Maybe ProposalAbstract, SortedList StartTimeOrder RestrictedSO)
 fetchProposal pn = do
   mprop <- getProposalFromNumber pn
-  mabs <- listToMaybe <$> select ((PaNumField ==. pn) `limitTo` 1)
+  mabs <- maybeSelect (PaNumField ==. pn)
   ms <- fetchScienceObsBy (SoProposalField ==. pn)
   return (mprop, mabs, ms)
 
@@ -1611,11 +1629,11 @@ fetchInstrumentTypes ::
   DbSql m
   => m [(Instrument, Int)]
   -- ^ instrument and the number of observations that match
-fetchInstrumentTypes = do
-  insts <- project SoInstrumentField (isValidScienceObs
-                                      `orderBy`
-                                      [Asc SoInstrumentField])
-  return (countUp insts)
+fetchInstrumentTypes =
+  countUp <$>
+  project SoInstrumentField (isValidScienceObs
+                             `orderBy`
+                             [Asc SoInstrumentField])
 
 -- | As `fetchInstrumentTypes` but for gratings.
 --
@@ -1625,10 +1643,10 @@ fetchGratingTypes ::
   DbSql m
   => m [(Grating, Int)]
   -- ^ grating and the number of observations that match
-fetchGratingTypes = do
-  grats <- project SoGratingField (isValidScienceObs `orderBy`
-                                   [Asc SoGratingField])
-  return (countUp grats)
+fetchGratingTypes =
+  countUp <$>
+  project SoGratingField (isValidScienceObs `orderBy`
+                          [Asc SoGratingField])
 
 -- | A combination of `fetchInstrumentTypes` and `fetchGratingTypes`.
 --
@@ -1638,11 +1656,11 @@ fetchIGTypes ::
   DbSql m
   => m [((Instrument, Grating), Int)]
   -- ^ instrument + grating combo and the number of observations that match
-fetchIGTypes = do
-  igs <- project (SoInstrumentField, SoGratingField)
-         (isValidScienceObs `orderBy`
-          [Asc SoInstrumentField, Asc SoGratingField])
-  return (countUp igs)
+fetchIGTypes =
+  let ordering = [Asc SoInstrumentField, Asc SoGratingField]
+      cond = isValidScienceObs `orderBy` ordering
+      fields = (SoInstrumentField, SoGratingField)
+  in countUp <$> project fields cond
 
 
 -- | What is the breakdown of TOOs?
@@ -1781,9 +1799,7 @@ getProposal ScienceObs{..} = getProposalFromNumber soProposal
 -- | Return the proposal information if we have it.
 --
 getProposalFromNumber :: PersistBackend m => PropNum -> m (Maybe Proposal)
-getProposalFromNumber propNum = do
-  ans <- select ((PropNumField ==. propNum) `limitTo` 1)
-  return (listToMaybe ans)
+getProposalFromNumber propNum = maybeSelect (PropNumField ==. propNum)
 
 -- | Find all the other observations in the proposal. This does not return
 --   discarded observations, but will return matches if the input observation
@@ -1809,12 +1825,12 @@ getRelatedObs ::
   => PropNum
   -> ObsIdVal
   -> m (SortedList StartTimeOrder ScienceObs)
-getRelatedObs propNum obsId = do
-  ans <- select (((SoProposalField ==. propNum)
-                  &&. (SoObsIdField /=. obsId)
-                  &&. isValidScienceObs)
-                 `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+getRelatedObs propNum obsId =
+  unsafeToSL <$>
+  select (((SoProposalField ==. propNum)
+           &&. (SoObsIdField /=. obsId)
+           &&. isValidScienceObs)
+          `orderBy` [Asc SoStartTimeField])
 
 -- | Return the observations we know about for the given proposal
 --   (that are not discarded). This includes unscheduled observations.
@@ -1823,11 +1839,11 @@ getObsFromProposal ::
   PersistBackend m
   => PropNum
   -> m (SortedList StartTimeOrder ScienceObs)
-getObsFromProposal propNum = do
-  ans <- select ((SoProposalField ==. propNum &&.
-                  SoStatusField /=. Discarded)
-                 `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+getObsFromProposal propNum =
+  unsafeToSL <$>
+  select ((SoProposalField ==. propNum &&.
+           SoStatusField /=. Discarded)
+          `orderBy` [Asc SoStartTimeField])
 
 -- | A combination of `getProposal` and `getProposalObs`.
 --
@@ -1848,9 +1864,8 @@ getProposalInfo (Right so) = do
 --   This INCLUDES discarded and unscheduled observations.
 --
 findObsStatusTypes :: PersistBackend m => m [(ObsIdStatus, Int)]
-findObsStatusTypes = do
-  statuses <- project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
-  return (countUp statuses)
+findObsStatusTypes =
+  countUp <$> project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
 
 
 -- | Try supporting "name matching". This is complicated by the fact
@@ -2018,9 +2033,8 @@ getProposalObjectMapping = do
   --
   simList <- project (SmmTargetField, SmmInfoField) (distinct CondEmpty)
   simDb <- forM simList $ \(target, key) -> do
-    ans <- listToMaybe <$> project
-           (SmiTypeField, SmiType3Field)
-           ((AutoKeyField ==. key) `limitTo` 1)
+    ans <- maybeProject (SmiTypeField, SmiType3Field)
+           (AutoKeyField ==. key)
     return ((target,) . SK <$> ans)
     
   let simMap :: M.Map TargetName SIMKey
@@ -2547,12 +2561,20 @@ updateLastModified lastMod = do
   
 -- | When was the database last modified?
 getLastModified :: PersistBackend m => m (Maybe UTCTime)
-getLastModified = do
-  lmods <- project MdLastModifiedField (CondEmpty
-                                        `orderBy` [Desc MdLastModifiedField]
-                                        `limitTo` 1)
-  return (listToMaybe lmods)
+getLastModified =
+  listToMaybe
+  <$>
+  project MdLastModifiedField (CondEmpty
+                               `orderBy` [Desc MdLastModifiedField]
+                               `limitTo` 1)
+{-
+  my type-fu was not strong enough to work out to
+  let maybeProject accept a condition including restrictions (in this
+  case ordering).
 
+  maybeProject MdLastModifiedField (CondEmpty `orderBy`
+                                    [Desc MdLastModifiedField])
+-}
 
 -- | What ObsIds should we not bother querying OCAT about?
 --
