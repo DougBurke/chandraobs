@@ -5,7 +5,6 @@
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
@@ -27,7 +26,7 @@ reportOI oi = do
   let p m a = T.putStrLn m >> print a 
       noData = T.putStrLn "NO DATA FOUND"
       rep = either (p "# Non-science observation") (p "# Science observation")
-      printObs xs = fromMaybe noData (rep <$> xs)
+      printObs = maybe noData rep
         
   T.putStrLn "\n### Current observation:"
   rep (oiCurrentObs oi)
