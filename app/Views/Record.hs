@@ -34,7 +34,7 @@ import Data.Maybe (fromMaybe, isJust, isNothing)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
-import Text.Blaze.Html5 hiding (map, title)
+import Text.Blaze.Html5 hiding (map, title, u)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (abstractLink, instLinkSearch, gratLinkSearch
