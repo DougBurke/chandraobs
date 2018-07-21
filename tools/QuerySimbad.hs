@@ -167,11 +167,19 @@ cleanTargetName :: TargetName -> TargetName
 cleanTargetName tgtName =
   let tgt = fromTargetName tgtName
       lc = T.toLower
+
+      isOffset x = any (`T.isSuffixOf` x)
+                   [",YOFF=2", ",YOFF=5", ",YOFF=10", ",YOFF=15",
+                    ",ZOFF=2", ",ZOFF=5", ",ZOFF=10", ",ZOFF=15"]
+      removeOffset = T.dropEnd 1 . T.dropWhileEnd (/= ',')
+                       
   in case T.words tgt of
     [] -> ""
 
     -- special case names used by CAL
     [n] | lc n `elem` ["arlac", "arlac,hrc-s,ao2", "arlac,hrc-i,ao2a"] -> "Ar Lac"
+    [n] | isOffset n -> TN (removeOffset n)
+          
     (n:_:ao:[]) | lc n == "vega," && lc ao == "ao2" -> "Vega"
     
     toks -> let (ltok:rtoks) = reverse toks
@@ -206,6 +214,7 @@ cleanTargetName tgtName =
             in if "E0102-72" `T.isPrefixOf` cleanName 
                then TN "1E 0102.2-7219"
                else if ("CAS A," `T.isPrefixOf` cleanName ||
+                        "CAS A[" `T.isPrefixOf` cleanName ||
                         "CAS A " `T.isPrefixOf` cleanName)
                     then TN "Cassiopeia A"
                     else if ("G21.5-09" `T.isPrefixOf` cleanName ||
