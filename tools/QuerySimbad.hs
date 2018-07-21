@@ -140,6 +140,7 @@ cleanupName s =
 --
 --   *) Special case conversion from 'ArLac' to 'ar lac'
 --      as this is an often-observed calibration target.
+--      (and some other cal-type targets).
 --
 --   *) remove trailing word of the form
 --     NORTH SOUTH EAST WEST NE SE SW NW
@@ -170,8 +171,9 @@ cleanTargetName tgtName =
     [] -> ""
 
     -- special case names used by CAL
-    [n] | lc n == "arlac" -> "Ar Lac"
-
+    [n] | lc n `elem` ["arlac", "arlac,hrc-s,ao2", "arlac,hrc-i,ao2a"] -> "Ar Lac"
+    (n:_:ao:[]) | lc n == "vega," && lc ao == "ao2" -> "Vega"
+    
     toks -> let (ltok:rtoks) = reverse toks
 
                 -- Remove last token, if necessary
@@ -183,13 +185,24 @@ cleanTargetName tgtName =
 
                 -- stopping on filament could be dangerous, but not
                 -- seen anything problematic so far
-                isSkip x = any (`T.isPrefixOf` lc x) ["offset", "outskirt", "filament"]
+                isSkip x = any (`T.isPrefixOf` lc x)
+                           ["offset", "outskirt", "filament"]
                 toks3 = takeWhile (not . isSkip) toks2
 
                 (ltok3:rtoks3) = reverse toks3
                 toks4 = if ltok3 == "-" then reverse rtoks3 else toks3
 
-                cleanName = T.unwords toks4
+                -- Remove trailing [I3,-120,0,0,0] (and S3) seen with
+                -- Betelgeuse. Could use T.stripSuffix instead, and
+                -- could just focus on the last element of toks4
+                --
+                trail x = if any (`T.isSuffixOf` x)
+                             ["[I3,-120,0,0,0]", "[S3,-120,0,0,0]"]
+                          then T.dropEnd 15 x
+                          else x
+                toks5 = map trail toks4
+    
+                cleanName = T.unwords toks5
             in if "E0102-72" `T.isPrefixOf` cleanName 
                then TN "1E 0102.2-7219"
                else if ("CAS A," `T.isPrefixOf` cleanName ||
@@ -228,9 +241,12 @@ querySIMBAD ::
   SimbadLoc
   -> Bool        -- ^ @True@ for debug output
   -> TargetName  -- ^ object name
+  -> Int         -- ^ current iteration number
+  -> Int         -- ^ Maximum iteration number
   -> IO (SearchResults, Maybe SimbadInfo)
-querySIMBAD sloc f objname = do
-  T.putStrLn ("Querying SIMBAD for " <> fromTargetName objname)
+querySIMBAD sloc f objname cur total = do
+  T.putStrLn ("[" <> showInt cur <> "/" <> showInt total <>
+              "] Querying SIMBAD for " <> fromTargetName objname)
   let -- we POST the script to SIMBAD
       script = "format object \"%MAIN_ID\t%OTYPE(3)\t%OTYPE(V)\t%COO(d;A D)\\n\"\n"
                <> "query id "
@@ -400,10 +416,11 @@ updateDB sloc mndays f = withSocketsDo $ do
       noMatchSet = S.fromList noMatchTargets
 
       unidSet = allSet `S.difference` (matchSet `S.union` noMatchSet)
-
+      nUnid = S.size unidSet
+      
       -- tgs = filter ((`S.member` unidSet) . fst) allTgs
 
-  T.putStrLn ("# -> " <> showInt (S.size unidSet) <> " have no Simbad info")
+  T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
 
   -- Could do all the database changes at once, but let's see
   -- how this works out.
@@ -413,9 +430,9 @@ updateDB sloc mndays f = withSocketsDo $ do
   -- leave that for a later revision (the assumption here is that
   -- there are not going to be too many calls to SIMBAD).
   --
-  forM_ (S.toList unidSet) $ 
-    \tgt -> do
-      (searchRes, minfo) <- querySIMBAD sloc f tgt
+  forM_ (zip [1..] (S.toList unidSet)) $ 
+    \(ctr, tgt) -> do
+      (searchRes, minfo) <- querySIMBAD sloc f tgt ctr nUnid
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
@@ -531,10 +548,14 @@ updateOldRecords sloc (Just ndays) f = do
   T.putStrLn ("# Old queries to be redone: " <> slen old)
   T.putStrLn ("# Changed queries: "          <> slen changed)
 
+  -- TODO: is todo guaranteed to not contain repeated elements?
+  let todo = old ++ changed
+      ntodo = length todo
+  
   -- This is *very* similar to the previous version
-  forM_ (old ++ changed) $ 
-    \SimbadNoMatch{..} -> do
-      (searchRes, minfo) <- querySIMBAD sloc f smnTarget
+  forM_ (zip [1..] todo) $ 
+    \(ctr, SimbadNoMatch{..}) -> do
+      (searchRes, minfo) <- querySIMBAD sloc f smnTarget ctr ntodo
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
