@@ -300,6 +300,11 @@ updateSchedule nmax = do
         Left emsg -> T.hPutStrLn stderr emsg
                      >> exitFailure
 
+  -- This is to help know when I last ran this, so it doesn't matter
+  -- if it isn't shown on error
+  T.putStrLn ("Query started at: " <> showCTime tnow)
+
+
 -- | It is an error if this obsid is not in the InvalidObsId table.
 updateObsId ::
   ObsIdVal
