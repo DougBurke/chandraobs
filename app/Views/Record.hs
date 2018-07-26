@@ -227,14 +227,20 @@ mainNavBar cp =
       -- and so need to be in reverse order. Check static/css/main.css
       -- 'nav ul li:nth-child(-n+a)' to find out what a is.
 
-  in nav ! customAttribute "role" "navigation" $ ul $
-       li (indexA CPIndex)
-       <> li (schedA CPSchedule)
-       <> li (explA CPExplore)
-       -- remaining elements are in reverse display order (looking left-to-right)
-       <> li (aboutA CPAbout)
-       <> li (instA CPInstruments)
-       <> li (viewA CPView)
+      lis = li (indexA CPIndex)
+            <> li (schedA CPSchedule)
+            <> li (explA CPExplore)
+            -- remaining elements are in reverse display order (looking left-to-right)
+            <> li (aboutA CPAbout)
+            <> li (instA CPInstruments)
+            <> li (viewA CPView)
+
+      holidayPara = (p ! A.style "clear: both; text-align: center;")
+                    ("I am on vacation so the site is not being updated. "
+                     <> "Please come back on August 6th.")
+
+  in (nav ! customAttribute "role" "navigation")
+     (ul lis <> holidayPara)
 
 -- | Display the observation navigation bar.
 --
