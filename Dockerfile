@@ -50,7 +50,8 @@ RUN rm -rf /var/lib/apt/lists/*
 
 # Install stack to /opt/stack/bin.
 RUN mkdir -p /opt/stack/bin
-RUN curl -L https://www.stackage.org/stack/linux-x86_64-static | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
+# RUN curl -L https://www.stackage.org/stack/linux-x86_64-static | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
+RUN curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
 
 RUN mkdir -p /opt/chandraobs/src
 RUN mkdir -p /opt/chandraobs/bin
