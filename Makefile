@@ -2,6 +2,10 @@
 # This is only for running commands. It is not intended to handle
 # dependency resolution - e.g. to avoid a push or build if not needed.
 #
+# There have been changes to how heroku/docker integration works; not
+# entirely convinced that the following has been fully updated to
+# handle this.
+#
 
 APP=chandraobservatory
 REDIRECT_APP=chandraobs-devel
@@ -83,9 +87,12 @@ rundocker:
 pushdocker:
 	@echo "### Pushing docker image to Heroku"
 	@echo "##"
+	@echo "## [will also build it]"
+	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo docker push registry.heroku.com/${APP}/web
+	@heroku container:push web --app ${APP}
+	@heroku container:release web --app ${APP}
 
 buildredirect:
 	@echo "### Making docker image: redirect"
@@ -102,6 +109,9 @@ runredirect:
 pushredirect:
 	@echo "### Pushing redirect docker imageto Heroku"
 	@echo "##"
+	@echo "## [will also build it]"
+	@echo "##"
 	@echo "## ${REDIRECT_APP}"
 	@echo "##"
-	@sudo docker push registry.heroku.com/${REDIRECT_APP}/web
+	@heroku container:push web --app ${REDIRECT_APP}
+	@heroku container:release web --app ${REDIRECT_APP}
