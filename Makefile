@@ -91,8 +91,8 @@ pushdocker:
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@heroku container:push web --app ${APP}
-	@heroku container:release web --app ${APP}
+	@sudo heroku container:push web --app ${APP}
+	@sudo heroku container:release web --app ${APP}
 
 buildredirect:
 	@echo "### Making docker image: redirect"
@@ -113,5 +113,5 @@ pushredirect:
 	@echo "##"
 	@echo "## ${REDIRECT_APP}"
 	@echo "##"
-	@heroku container:push web --app ${REDIRECT_APP}
-	@heroku container:release web --app ${REDIRECT_APP}
+	@sudo heroku container:push web --app ${REDIRECT_APP}
+	@sudo heroku container:release web --app ${REDIRECT_APP}
