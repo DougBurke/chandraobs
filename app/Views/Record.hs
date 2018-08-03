@@ -230,17 +230,24 @@ mainNavBar cp =
       lis = li (indexA CPIndex)
             <> li (schedA CPSchedule)
             <> li (explA CPExplore)
-            -- remaining elements are in reverse display order (looking left-to-right)
+            -- remaining elements are in reverse display order,
+            -- looking left-to-right, as they are floated.
             <> li (aboutA CPAbout)
             <> li (instA CPInstruments)
             <> li (viewA CPView)
 
-      holidayPara = (p ! A.style "clear: both; text-align: center;")
-                    ("I am on vacation so the site is not being updated. "
-                     <> "Please come back on August 6th.")
-
+      {-
+       - This could be picked up from the database (i.e. have a table
+       - with message and time-range to display, but leave that thought
+       - for now
+      awayPara = (p ! A.style "clear: both; text-align: center;")
+                 ("I am on vacation so the site is not being updated. "
+                  <> "Please come back on August 6th.")
+      -}
+      awayPara = mempty
+      
   in (nav ! customAttribute "role" "navigation")
-     (ul lis <> holidayPara)
+     (ul lis <> awayPara)
 
 -- | Display the observation navigation bar.
 --
