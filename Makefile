@@ -91,7 +91,7 @@ pushdocker:
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo heroku container:push web --app ${APP}
+	@sudo heroku container:push web --app ${APP} --arg SOURCE_VERSION=${SOURCE_VERSION}
 	@sudo heroku container:release web --app ${APP}
 
 buildredirect:
@@ -113,5 +113,8 @@ pushredirect:
 	@echo "##"
 	@echo "## ${REDIRECT_APP}"
 	@echo "##"
-	@sudo heroku container:push web --app ${REDIRECT_APP}
-	@sudo heroku container:release web --app ${REDIRECT_APP}
+	@echo "## NOTE: this is currently broken, as does not"
+	@echo "##       use Dockerfile.redirect"
+	@echo "##"
+	@not-a-command sudo heroku container:push web --app ${REDIRECT_APP}
+	@not-a-command sudo heroku container:release web --app ${REDIRECT_APP}
