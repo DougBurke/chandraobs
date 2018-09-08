@@ -2,6 +2,8 @@ flags: {}
 packages:
 - '.'
 extra-deps:
+- groundhog-0.9.0
+- groundhog-th-0.9.0
+- groundhog-postgresql-0.9.0
 - heroku-0.1.2.3
-- pipes-http-1.0.5
-resolver: lts-11.22
+resolver: lts-12.9

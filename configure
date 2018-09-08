@@ -21,6 +21,22 @@ else
 fi
 echo "Using id: $commit"
 
-sed -e s/@@GITHASH@@/$commit/ autogen/lib-Git.hs.in > lib/Git.hs
+# Work out where we are (this seems to have changed in Cabal
+# circa 2.2.0.1 / ghc 8.4). Very hacky. It is important for
+# basedir to end in a / character if set.
+#
+echo `pwd`
+if [ -d autogen ] ; then
+    basedir=`pwd`/
+else if [ -d ../../../../../autogen ] ; then
+         basedir=../../../../../
+     else
+         echo "*** WARNING: autogen/ not found";
+         exit 1;
+     fi
+fi
+
+echo "basedir=${basedir}"
+sed -e s/@@GITHASH@@/$commit/ ${basedir}autogen/lib-Git.hs.in > ${basedir}lib/Git.hs
 
 # end
