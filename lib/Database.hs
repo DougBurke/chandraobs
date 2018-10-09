@@ -2143,8 +2143,14 @@ getTimeline = do
   --
   matchInfo <- project (SmmTargetField, SmmInfoField) CondEmpty
   simbadInfo <- forM matchInfo (\(name, key) -> do
-                                   Just si <- get key
-                                   return (name, si))
+                                   msi <- get key
+                                   -- MonadFail changes in ghc 8.6 pointed
+                                   -- out assumption that this could never
+                                   -- fail; it still has that assumption
+                                   -- but is now more explicit about it
+                                   case msi of
+                                     Just si -> return (name, si)
+                                     Nothing -> error "programming error: unexpected key")
 
   -- TODO: should simbadMap be evaluated?
   let simbadMap = M.fromList simbadInfo
