@@ -26,12 +26,13 @@ echo "Using id: $commit"
 # basedir to end in a / character if set.
 #
 echo `pwd`
-if [ -d autogen ] ; then
+search=autogen/lib-Git.hs.in
+if [ -f $search ] ; then
     basedir=`pwd`/
-else if [ -d ../../../../../autogen ] ; then
+else if [ -f ../../../../../$search ] ; then
          basedir=../../../../../
      else
-         echo "*** WARNING: autogen/ not found";
+         echo "*** WARNING: $search not found";
          exit 1;
      fi
 fi
