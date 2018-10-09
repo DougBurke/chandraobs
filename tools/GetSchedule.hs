@@ -45,6 +45,8 @@ import qualified Data.Text.IO as T
 import qualified Text.Parsec.Error as PE
 import qualified Text.Parsec.Pos as PP
 
+import qualified Network.HTTP.Conduit as NHC
+
 import Control.Applicative ((<|>))
 import Control.Monad (forM, forM_, void, when)
 import Control.Monad.IO.Class (liftIO)
@@ -68,7 +70,6 @@ import Database.Groundhog (PersistBackend
                           , selectAll)
 import Database.Groundhog.Postgresql (SqlDb, Conn, in_, insert_)
 
-import Network.HTTP.Conduit
 import Numeric.Natural
 
 import System.Environment (getArgs, getProgName)
@@ -119,7 +120,7 @@ getPage ::
   String  -- ^ page name (under baseLoc)
   -> IO T.Text
 getPage name =
-  decodeUtf8 . L.toStrict <$> simpleHttp (baseLoc <> name)
+  decodeUtf8 . L.toStrict <$> NHC.simpleHttp (baseLoc <> name)
 
 -- This is from a manual check - June 26 2017 - of the contents.
 -- It may include pages which have been hidden/not included on

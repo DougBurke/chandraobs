@@ -41,6 +41,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Set as S
 
+import qualified Network.HTTP.Conduit as NHC
+
 import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
@@ -55,7 +57,6 @@ import Database.Groundhog.Postgresql
 import Formatting (int, sformat)
 
 import Network (withSocketsDo)
-import Network.HTTP.Conduit
 import Network.HTTP.Types.Header (Header)
 
 import System.Environment (getArgs, getProgName)
@@ -272,14 +273,15 @@ querySIMBAD sloc f objname cur total = do
 
   cTime <- getCurrentTime
 
-  req <- parseRequest uri
+  req <- NHC.parseRequest uri
 
-  let hdrs = userAgent : requestHeaders req
-      req' = urlEncodedBody [("script", script)] $ req { requestHeaders = hdrs }
+  let hdrs = userAgent : NHC.requestHeaders req
+      req' = req { NHC.requestHeaders = hdrs }
+      req'' = NHC.urlEncodedBody [("script", script)] req'
 
-  mgr <- newManager tlsManagerSettings
-  rsp <- httpLbs req' mgr
-  let body = decodeUtf8 (L8.toStrict (responseBody rsp))
+  mgr <- NHC.newManager NHC.tlsManagerSettings
+  rsp <- NHC.httpLbs req'' mgr
+  let body = decodeUtf8 (L8.toStrict (NHC.responseBody rsp))
   
       -- TODO: need to handle data that does not match expectations
       --       eg if there's an error field, display it and return nothing ...

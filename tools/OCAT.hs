@@ -156,6 +156,8 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
+import qualified Network.HTTP.Conduit as NHC
+
 import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 
@@ -174,7 +176,6 @@ import Data.Time (TimeLocale, UTCTime
 
 import Formatting (int, sformat)
 
-import Network.HTTP.Conduit
 import Network.HTTP.Types.Header (Header)
 
 import System.Environment (getEnv)
@@ -683,7 +684,7 @@ makeObsCatQuery ::
 makeObsCatQuery _ [] = return (Right [])  
 makeObsCatQuery flag oids = do
 
-  req <- parseRequest (getObsCatQuery oids)
+  req <- NHC.parseRequest (getObsCatQuery oids)
   rsp <- getTextFromOCAT req
   case rsp of
     Right ans -> Right <$> processResponse flag ans
@@ -696,15 +697,15 @@ makeObsCatQuery flag oids = do
 -- Add in the user agent header, query OCAT, and convert response
 -- to Text.
 --
-getTextFromOCAT :: Request -> IO (Either T.Text T.Text)
+getTextFromOCAT :: NHC.Request -> IO (Either T.Text T.Text)
 getTextFromOCAT req = do
-  let hdrs = userAgent : requestHeaders req
-      req' = req { requestHeaders = hdrs }
+  let hdrs = userAgent : NHC.requestHeaders req
+      req' = req { NHC.requestHeaders = hdrs }
 
-  mgr <- newManager tlsManagerSettings
-  rsp <- httpLbs req' mgr
+  mgr <- NHC.newManager NHC.tlsManagerSettings
+  rsp <- NHC.httpLbs req' mgr
 
-  let rsplbs = responseBody rsp
+  let rsplbs = NHC.responseBody rsp
   
       lbsToText :: L.ByteString -> Either T.Text T.Text
       lbsToText lbs =
@@ -948,7 +949,7 @@ addProposal ::
   -- ^ True if the proposal was added
 addProposal pnum = do
   
-  let req = parseRequest_ baseLoc
+  let req = NHC.parseRequest_ baseLoc
       baseLoc = "http://cda.cfa.harvard.edu/srservices/propAbstract.do"
 
       -- It is easier to query by obsid, as the obsid does not
@@ -959,7 +960,7 @@ addProposal pnum = do
       n0 = 8 - length pstr
       propNumBS = B8.pack (replicate n0 '0' <> pstr)
       qopts = [ ("propNum", Just propNumBS) ]
-      req1 = setQueryString qopts req
+      req1 = NHC.setQueryString qopts req
 
       errPrint = liftIO . T.hPutStrLn stderr
   
