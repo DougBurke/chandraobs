@@ -7,68 +7,6 @@
 
 var main2 = (function() {
 
-    // *** setupImageBlock is not used, but left in for now ***
-    //
-    // As the image links are now re-created I no longer need to use a
-    // proxy for them (or, rather, some of the fun involving the
-    // proxies), but I'm not sure whether this is an improvement
-    // UI wise.
-    //
-    // Set up the links/images/text for the image block and show it.
-    //
-    // How do we want to handle image loading?
-    //
-    /***
-    function setupImageBlock(obsdata, sobs, mprop) {
-        
-        // what happens if we just "break" the image, i.e. have no source
-        // - it doesn't seem, visually, too dis-pleasing on a local
-        //   connection; maybe worse with more latency?
-        // var loadimg = 'loading.gif';
-        var loadimg = ''; 
-        
-        $( '#DSS'  ).prop('src', loadimg);
-        $( '#RASS' ).prop('src', loadimg);
-        $( '#PSPC' ).prop('src', loadimg);
-
-        var path = obsdata.sequence + '/' + obsdata.obsid;
-        $.ajax({
-	    url: '/proxy/dss/' + path
-	    , type: 'GET'
-	    , dataType: 'text'
-	    , cache: true
-	}).done(function(d64) {
-	    $( '#DSS' ).prop('src', 'data:image/gif;base64,' + d64);
-	});
-        
-        $.ajax({
-	    url: '/proxy/rass/' + path
-	    , type: 'GET'
-	    , dataType: 'text'
-	    , cache: true
-	}).done(function(d64) {
-	    $( '#RASS' ).prop('src', 'data:image/gif;base64,' + d64);
-	});
-        
-        $.ajax({
-	    url: '/proxy/pspc/' + path
-	    , type: 'GET'
-	    , dataType: 'text'
-	    , cache: true
-	}).done(function(d64) {
-	    $( '#PSPC' ).prop('src', 'data:image/gif;base64,' + d64);
-	});
-        
-        // TODO: could this instead be included on this page?
-        $( '#WWTbutton' ).prop('href', '/obsid/' + obsdata.obsid + '/wwt');
-        
-        renderObsIdDetails(obsdata, sobs, mprop);
-        
-        // should be sent name, but as not using this we'll leave it for now
-        imageSwitch.switchOption();
-    }
-    ***/
-    
     /*
      * Show or hide the graphical elements that indicate whether
      * this is the current observation or not.

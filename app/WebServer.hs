@@ -12,20 +12,15 @@
 -- 
 module Main where
 
-import qualified Data.ByteString.Base64.Lazy as B64
 -- import qualified Data.Conduit as C
 -- import qualified Data.Conduit.Combinators as CC
 
 import qualified Data.Map.Strict as M
 
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as L
-
-import qualified Network.HTTP.Client as Client
-import qualified Network.HTTP.Conduit as NHC
 
 import qualified About
 import qualified Views.Index as Index
@@ -66,7 +61,6 @@ import Database.Groundhog.Postgresql (Postgresql(..)
 
 -- import Network.HTTP.Date (HTTPDate, epochTimeToHTTPDate, formatHTTPDate)
 import Network.HTTP.Types (StdMethod(HEAD)
-                          , hLastModified
                           , status404, status503)
 -- import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static (CacheContainer
@@ -159,7 +153,6 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , NonScienceObs(..), ScienceObs(..)
              , ObsInfo(..), ObsIdVal(..)
              -- , PropType(..)
-             , Sequence(..)
              , SIMCategory
              , SimbadTypeInfo
              , SortedList, StartTimeOrder, ExposureTimeOrder
@@ -261,11 +254,7 @@ main = do
         scottyOpts opts . webapp
         -}
 
-        -- Given that the manager is meant to exist for as long
-        -- as the application, there seems no need to use
-        -- withManager
         do
-          mgr <- NHC.newManager Client.defaultManagerSettings
           scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
@@ -363,7 +352,7 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            scottyOpts opts (webapp pool mgr scache cache)
+            scottyOpts opts (webapp pool scache cache)
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -396,11 +385,10 @@ mCSToLC (Just ck) = csToLC ck
 
 webapp ::
   Pool Postgresql
-  -> NHC.Manager
   -> CacheContainer
   -> Cache
   -> ScottyM ()
-webapp cm mgr scache cache = do
+webapp cm scache cache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
 
@@ -412,18 +400,6 @@ webapp cm mgr scache cache = do
     -- middleware logStdoutDev
     -- middleware (staticPolicy (noDots >-> addBase "static"))
     middleware (staticPolicy' scache (noDots >-> addBase "static"))
-
-    -- proxy requests to the DSS/RASS/PSPC images so we can
-    -- access them via AJAX. *experimental*
-    --
-    let proxyImg imgType = do
-          seqVal <- param "sequence"
-          obsid <- param "obsid"
-          proxy mgr imgType seqVal obsid
-          
-    get "/proxy/dss/:sequence/:obsid" (proxyImg PTDSS)
-    get "/proxy/rass/:sequence/:obsid" (proxyImg PTRASS)
-    get "/proxy/pspc/:sequence/:obsid" (proxyImg PTPSPC)
 
     let {-
         dbQuery :: Parsable p
@@ -1281,131 +1257,6 @@ searchDTypeNone :: ActionM [(SimbadTypeInfo, Int)] -> ActionM ()
 searchDTypeNone getData = getData >>= fromBlaze . SearchTypes.dependencyPage
 
                          
--- TODO: move into a separate module once it works
--- TODO: should cache the http manager
--- TODO: use a streaming solution/base64 converter from
---       conduit-extra
---
-
-data ProxyType = PTDSS | PTRASS | PTPSPC
-               deriving Eq
-
-instance Show ProxyType where
-    show PTDSS  = "dss"
-    show PTRASS = "rass"
-    show PTPSPC = "pspc"
-
-plainText :: L.Text
-plainText = "text/plain; charset=utf-8"
-
-{-   
-proxy1 :: a -> ProxyType -> Sequence -> ObsIdVal -> ActionM ()
-proxy1 _ pt seqVal obsid = do
-  let seqStr = show $ _unSequence seqVal
-      obsStr = show $ fromObsId obsid
-      url = "http://asc.harvard.edu/targets/" ++
-            seqStr ++ "/" ++ seqStr ++ "." ++
-            obsStr ++ ".soe." ++ show pt ++ ".gif"
-  -- request <- liftIO $ NHC.parseUrl url
-  liftIO $ putStrLn $ "--> " ++ url
-  bdy <- liftIO $ NHC.simpleHttp url
-  liftIO $ putStrLn $ "<-- " ++ url
-  setHeader "Content-Type" plainText
-  raw $ B64.encode bdy
-
--}
-
--- TODO: handle possible errors 
-proxy2 :: 
-    NHC.Manager
-    -> ProxyType
-    -> Sequence 
-    -> ObsIdVal 
-    -> ActionM ()
-proxy2 mgr pt seqVal obsid = do
-  let seqStr = show (_unSequence seqVal)
-      obsStr = show (fromObsId obsid)
-
-      -- Note: the obsid has to be 0-padded
-      -- (Is this code even being used?)
-      --
-      url = "http://asc.harvard.edu/targets/" 
-            <> seqStr <> "/" <> seqStr <> "."
-            <> obsStr <> ".soe." <> show pt <> ".gif"
-            
-  req <- liftIO (NHC.parseRequest url)
-  
-  -- liftIO $ putStrLn $ "--> " ++ url
-  rsp <- liftIO (NHC.httpLbs req mgr)
-  -- liftIO $ putStrLn $ "<-- " ++ url
-  setHeader "Content-Type" plainText
-
-  -- copy over etags/last-modified headers to see if that helps
-  -- with the caching; if may have done.
-  --
-  -- Since the ETag header is opaque it should be okay
-  -- to just copy it over, since the assumption is that the
-  -- base64 encoding is not going to change. Except that it
-  -- also depends on what my code does, so if there's ever
-  -- any change here I might want to change the ETag,
-  -- so perhaps there should be some addition to it.
-  --
-  let rhdrs = NHC.responseHeaders rsp
-      mLastMod = cText <$> lookup hLastModified rhdrs
-      mETag = cText <$> lookup "ETag" rhdrs
-  
-      cText =  L.fromStrict . TE.decodeUtf8
-
-      runM = maybe (return ())
-
-  runM (setHeader "Last-Modified") mLastMod
-  runM (setHeader "ETag") mETag
-
-  raw (B64.encode (NHC.responseBody rsp))
-
-{-
-
-can we stream the base-64 encoding?
-
-proxy3 :: 
-    NHC.Manager
-    -> ProxyType
-    -> Sequence 
-    -> ObsIdVal 
-    -> ActionM ()
-proxy3 mgr pt seqVal obsid = do
-  let seqStr = show $ _unSequence seqVal
-      obsStr = show $ fromObsId obsid
-      url = "http://asc.harvard.edu/targets/" ++
-            seqStr ++ "/" ++ seqStr ++ "." ++
-            obsStr ++ ".soe." ++ show pt ++ ".gif"
-  liftIO $ putStrLn $ "--> " ++ url
-  req <- liftIO $ NHC.parseUrl url
-  rsp <- liftIO $ NHC.http req mgr
-  liftIO $ putStrLn $ "<-- " ++ url
-  setHeader "Content-Type" plainText
-  -- how to take advantage of stream, rather than raw,
-  -- to allow a streaming solution?
-  -- b64 <- liftIO (NHC.responseBody rsp C.$$+- CC.encodeBase64)
-
-want to take the response, encode it, then convert it into a form that
-I can use stream :: StreamingBody -> ActionM () with
-  type StreamingBody = (Builder -> IO ()) -> IO () -> IO ()
-
-  b64 <- liftIO (NHC.responseBody rsp C.$$+- CC.encodeBase64)
-  raw b64
-
--}
-
-proxy :: 
-    NHC.Manager
-    -> ProxyType
-    -> Sequence 
-    -> ObsIdVal 
-    -> ActionM ()
-proxy = proxy2
-
-
 -- Conversion routines for the timeline API.
 --
 

@@ -117,8 +117,6 @@ executable webserver
     build-depends:
        aeson
        , base
-       -- , base16-bytestring == 0.1.*
-       , base64-bytestring == 1.0.*
        , blaze-builder >= 0.3 && < 0.5
        , blaze-html
        , blaze-markup
@@ -131,12 +129,6 @@ executable webserver
        , groundhog
        , groundhog-postgresql
        , heroku == 0.1.*
-       -- TODO: http-date is experimental
-       -- , http-date == 0.0.*
-       -- TODO: http-client is experimental
-       , http-client >= 0.4.31 && < 0.6
-       -- TODO: http-conduit is experimental
-       , http-conduit
        , http-types
        , random >= 1.0 && < 1.2
        , resource-pool == 0.2.*
