@@ -185,7 +185,7 @@ executable getschedule
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.4
      , http-types
-     , network >= 2.4 && < 2.7
+     , network >= 2.4 && < 2.9
      , parsec == 3.1.*
      , process >= 1.1 && < 1.7
      , tagsoup >= 0.13 && < 0.15
@@ -246,7 +246,7 @@ executable addobsidlist
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.4
      , http-types
-     , network >= 2.4 && < 2.7
+     , network >= 2.4 && < 2.9
      -- , parsec == 3.1.*
      , process >= 1.1 && < 1.7
      , tagsoup >= 0.13 && < 0.15
@@ -274,7 +274,6 @@ executable querysimbad
      , groundhog-postgresql
      , http-conduit
      , http-types
-     , network
      , split
      , text
      , time

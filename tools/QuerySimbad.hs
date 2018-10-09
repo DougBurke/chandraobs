@@ -56,7 +56,6 @@ import Database.Groundhog.Postgresql
 
 import Formatting (int, sformat)
 
-import Network (withSocketsDo)
 import Network.HTTP.Types.Header (Header)
 
 import System.Environment (getArgs, getProgName)
@@ -100,17 +99,25 @@ insertSimbadInfo sm = do
   case ems of
     Right newkey -> return (newkey, False)
     Left oldkey -> do
-             Just oldsm <- get oldkey
+      -- Need to handle the possibility of failure to appease the
+      -- MonadFail pantheon of deities.
+      --
+      let handle oldsm = do
+            -- do we need to update the existing SimbadInfo
+            -- structure?
+            --
+            -- I am assuming that oldkey is still valid after
+            -- the replacement.
+            --
+            when (oldsm /= sm) (replace oldkey sm)
+            return (oldkey, True)
 
-             -- do we need to update the existing SimbadInfo
-             -- structure?
-             --
-             -- I am assuming that oldkey is still valid after
-             -- the replacement.
-             --
-             when (oldsm /= sm) (replace oldkey sm)
+          eval = error "programmer error: no key"
 
-             return (oldkey, True)
+      mans <- get oldkey
+      case mans of
+        Just ans -> handle ans
+        Nothing -> eval
 
 
 -- | Returns True if the database was updated.
@@ -391,8 +398,11 @@ blag f = when f . putIO
 -- This code is not transactional, in that it relies on there
 -- being no other database updates running when this one is.
 --
+-- There is no attempt to support running on Windows (although
+-- this is only relevant if using network pre 2.6.1.0).
+--
 updateDB :: SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateDB sloc mndays f = withSocketsDo $ do
+updateDB sloc mndays f = do
   case sloc of
     SimbadCfA -> T.putStrLn "# Using CfA SIMBAD mirror"
     SimbadCDS -> T.putStrLn "# Using CDS SIMBAD"
