@@ -188,7 +188,7 @@ cleanTargetName tgtName =
     [n] | lc n `elem` ["arlac", "arlac,hrc-s,ao2", "arlac,hrc-i,ao2a"] -> "Ar Lac"
     [n] | isOffset n -> TN (removeOffset n)
           
-    (n:_:ao:[]) | lc n == "vega," && lc ao == "ao2" -> "Vega"
+    [n, _, ao] | lc n == "vega," && lc ao == "ao2" -> "Vega"
     
     toks -> let (ltok:rtoks) = reverse toks
 

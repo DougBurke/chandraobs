@@ -152,10 +152,10 @@ import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
-import Data.List (foldl', group, groupBy, nub, sortBy)
+import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
 import Data.Maybe (catMaybes, fromJust, fromMaybe,
                    isJust, isNothing, listToMaybe, mapMaybe)
-import Data.Ord (Down(..), comparing)
+import Data.Ord (Down(..))
 import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
                  , diffUTCTime -- debugging
                  )
@@ -1424,7 +1424,7 @@ countUp xs =
       cts = map length gs
       ids = map head gs
       ys = zip ids cts
-  in sortBy (comparing (Down . snd)) ys
+  in sortOn (Down . snd) ys
 
 
 -- | Return count of the constellations.
@@ -2116,7 +2116,7 @@ getTimeline ::
         [Proposal])
 getTimeline = do
 
-  lastMod <- (ChandraTime . fromMaybe dummyLastMod) <$> getLastModified
+  lastMod <- ChandraTime . fromMaybe dummyLastMod <$> getLastModified
   
   obs <- project scienceTimeline
          (isValidScienceObs `orderBy` [Asc SoStartTimeField])

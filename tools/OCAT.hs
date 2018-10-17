@@ -465,7 +465,7 @@ toSOE m con = do
   sTime <- if status == Discarded
            then Right Nothing
            else case M.lookup "START_DATE" m of
-             Just sd -> (Just . ChandraTime) <$> textToUTCE sd
+             Just sd -> Just . ChandraTime <$> textToUTCE sd
              Nothing -> Right Nothing
   
   appExp <- toTimeKSE m "APP_EXP"
