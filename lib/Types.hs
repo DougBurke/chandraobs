@@ -326,13 +326,26 @@ instance Parsable (Instrument, Grating) where
 --
 --   Due to a clash with @ObsName@ we use @ObsIdVal@
 --   for now, but it's planned to move to @ObsId@.
+--
+--   This should really store a Word32 rather than an Int.
+--
 newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
+-- I assume that 0 is valid
+validObsIdVal :: Int -> Bool
+validObsIdVal = inRange 0 65535
+
 -- | Limited validation of the input.
 toObsIdValStr :: T.Text -> Maybe ObsIdVal
-toObsIdValStr = maybeFromText ObsIdVal (inRange 0 65535)
+toObsIdValStr = maybeFromText ObsIdVal validObsIdVal
+
+-- | Limited validation of the input.
+toObsIdValInt :: Int -> Maybe ObsIdVal
+toObsIdValInt x = if validObsIdVal x
+                  then Just (ObsIdVal x)
+                  else Nothing
 
 instance Parsable ObsIdVal where
   parseParam = helpParse "ObsId" toObsIdValStr
