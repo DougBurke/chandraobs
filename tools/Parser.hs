@@ -175,14 +175,14 @@ parseColonSep = do
 parseRAStr :: Parser RA
 parseRAStr = do
   r <- parseColonSep
-  return (RA (15 * r))
+  return (toRA (15 * r))
 
 parseDecStr :: Parser Dec
 parseDecStr = do
   sign <- option 1 (char '-' >> return (-1))
   spaces -- yes, there can be spaces after the sign!
   r <- parseColonSep
-  return (Dec (sign * r))
+  return (toDec (sign * r))
 
   
 -- parsing the title really requires parsing the time and then picking
@@ -204,7 +204,7 @@ parseGrat = parseReadable
 
 handleTime :: String -> Double -> (TimeKS, ChandraTime, ChandraTime)
 handleTime start texp =
-  let tks = TimeKS texp
+  let tks = unsafeToTimeKS texp
       t1 = toCTime start
       t2 = endCTime t1 tks
   in (tks, t1, t2)
@@ -237,7 +237,7 @@ obsLine = do
   let (tks, t1, _) = handleTime start texp
 
       si = ScheduleItem {
-        siObsId = ObsIdVal obsid
+        siObsId = unsafeToObsIdVal obsid
         , siScienceObs = True
         , siStart = t1
         -- , siEnd = t2
@@ -288,7 +288,7 @@ calLine = do
         else strToInt nameOrObsId
   
       si = ScheduleItem {
-        siObsId = ObsIdVal obsid
+        siObsId = unsafeToObsIdVal obsid
         , siScienceObs = False
         , siStart = t1
         -- , siEnd = t2

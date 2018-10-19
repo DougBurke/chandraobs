@@ -26,9 +26,10 @@ import API (abstractLink
            , basicTypeLinkSearch
            , categoryLinkSearch)
 import Layout (floatableTable)
-import Types (ObsIdVal(..), SimbadType
+import Types (SimbadType
              , PropCategory
              , RestrictedSchedule
+             , unsafeToObsIdVal
              , simbadTypeToDesc)
 import Utils (getNumObsRestricted
              , getScienceTimeRestricted
@@ -111,7 +112,7 @@ renderTypes cats =
        <> (a ! href "/proposal/14400832") "proposal link"
        <> " for an observation, and then selecting the proposal title "
        <> "- in this example I chose "
-       <> (a ! href (abstractLink (ObsIdVal 14662)))
+       <> (a ! href (abstractLink (unsafeToObsIdVal 14662)))
        "An X-ray binary candidate with potential extended emission"
        <> "."
       )

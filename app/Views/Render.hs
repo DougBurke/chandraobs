@@ -54,14 +54,18 @@ import API (obsURIString
             , constraintLinkSearch
             , cssLink)
 import Layout (defaultMeta, skymapMeta, renderFooter, noJSPara)
-import Types (ObsIdVal(..), Grating(..), ChandraTime(..)
-             , RA(..), Dec(..), TimeKS(..), Constraint(..), ConShort(..)
-             , SimbadInfo(..), TOORequest(..)
+import Types (ObsIdVal(..), Grating(..)
+             , ChandraTime, toChandraTime, fromChandraTime
+             , Constraint(..), ConShort(..)
+             , SimbadInfo(..)
              , ConstraintKind(..)
              , RestrictedSchedule(..), RestrictedRecord
              , RestrictedSO
              -- , RestrictedNS
              , TargetName(..)
+               
+             , fromRA, fromDec, fromTimeKS
+             , tooTime
                
              , showExpRestricted
 
@@ -159,7 +163,7 @@ makeScheduleRestricted RestrictedSchedule {..} =
       --
       getT :: ChandraTime -> Integer
       getT = (truncate :: POSIXTime -> Integer) .
-             utcTimeToPOSIXSeconds . _toUTCTime
+             utcTimeToPOSIXSeconds . fromChandraTime
                
       aTime :: RestrictedRecord -> AttributeValue
       aTime r = toValue (case rrecordStartTime r of
@@ -184,7 +188,7 @@ makeScheduleRestricted RestrictedSchedule {..} =
 
       showTOO (Left _) = "n/a"
       -- showTOO (Right ScienceObs{..}) = maybe "n/a" tooLinkSearch soTOO
-      showTOO (Right so) = tooLinkSearch (trType `fmap` rsoTOO so)
+      showTOO (Right so) = tooLinkSearch (tooTime `fmap` rsoTOO so)
 
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
@@ -258,9 +262,9 @@ makeScheduleRestricted RestrictedSchedule {..} =
          sortRow dec (td (toHtml dec))
          td (showConstellation r)
 
-      tNow = ChandraTime rrTime
+      tNow = toChandraTime rrTime
       curTime Nothing = "observation is not scheduled"
-      curTime (Just t) = showTimeDeltaBwd (Just tNow) (_toUTCTime t)
+      curTime (Just t) = showTimeDeltaBwd (Just tNow) (fromChandraTime t)
       
       cRow r = toRow curTime r ! A.class_ "current"
       pRow r = toRow (`showTimeDeltaBwd` rrTime) r ! A.class_ "prev"
@@ -302,9 +306,9 @@ makeScheduleRestricted RestrictedSchedule {..} =
         -- RA/Dec/time/... where appropriate
         -- could also include object type if available
         in Aeson.object
-           ([ "longitude" .= (180 - _unRA (rrecordRA r))
-            , "latitude" .= _unDec (rrecordDec r)
-            , "texp" .= _toKS (rrecordTime r)
+           ([ "longitude" .= (180 - fromRA (rrecordRA r))
+            , "latitude" .= fromDec (rrecordDec r)
+            , "texp" .= fromTimeKS (rrecordTime r)
             , "idname" .= ridLabel r
             , "label" .= rrecordTarget r
             , "urifrag" .= obsURIString (rrecordObsId r)
@@ -499,7 +503,7 @@ makeSchedule (Schedule cTime _ done mdoing todo simbad) =
         in Aeson.object
            ([ "longitude" .= (180 - _unRA (recordRa r))
             , "latitude" .= _unDec (recordDec r)
-            , "texp" .= _toKS (recordTime r)
+            , "texp" .= fromTimeKS (recordTime r)
             , "idname" .= idLabel r
             , "label" .= recordTarget r
             , "urifrag" .= obsURIString (recordObsId r)

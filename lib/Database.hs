@@ -161,7 +161,7 @@ import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
                  )
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
-                                Projection',
+                                Field, Projection',
                                 DbDescriptor, RestrictionHolder,
                                 distinct)
 import Database.Groundhog.Postgresql
@@ -403,7 +403,7 @@ findRecord ::
   => UTCTime
   -> m (Maybe Record)
 findRecord t = do
-  let tval = ChandraTime t
+  let tval = toChandraTime t
   xs <- select (((SoStartTimeField <=. Just tval)
                  &&. isValidScienceObs)
                 `orderBy` [Desc SoStartTimeField]
@@ -419,7 +419,7 @@ findRecordRestricted ::
   => UTCTime
   -> m (Maybe RestrictedRecord)
 findRecordRestricted t = do
-  let tval = ChandraTime t
+  let tval = toChandraTime t
   xs <- project restrictedScience
         (((SoStartTimeField <=. Just tval)
           &&. isValidScienceObs)
@@ -641,13 +641,14 @@ getObsInRange ::
   -- ^ All records reurned are guaranteed to have a start time
 getObsInRange tStart tEnd = do
 
-  let t0 = _toUTCTime tStart
+  let t0 = fromChandraTime tStart
       maxlen = 250 * 1000 :: Double
       delta = (fromRational . toRational . negate) maxlen
-      minStartTime = ChandraTime (addUTCTime delta t0)
+      minStartTime = toChandraTime (addUTCTime delta t0)
       
-  SL xs1 <- fetchScienceObsBy (SoStartTimeField <. Just tEnd &&.
-                               SoStartTimeField >=. Just minStartTime)
+  xs1 <- fromSL <$> fetchScienceObsBy (SoStartTimeField <. Just tEnd &&.
+                                       SoStartTimeField >=. Just minStartTime)
+
   ys1 <- project restrictedNonScience
          (((NsStartTimeField <. Just tEnd) &&.
            (NsStartTimeField >=. Just minStartTime) &&.
@@ -729,7 +730,7 @@ timeUnsafe = fromJust . rrecordStartTime
 
 -- Assumes the record has a start time.
 utcUnsafe :: RestrictedRecord -> UTCTime
-utcUnsafe = _toUTCTime . timeUnsafe
+utcUnsafe = fromChandraTime . timeUnsafe
 
 
 -- | TODO: handle the case when the current observation, which has
@@ -753,8 +754,8 @@ getSchedule ndays = do
       day = toModifiedJulianDay dayNow - fromIntegral ndays
       dayStart = ModifiedJulianDay day
 
-      tStart = ChandraTime (UTCTime dayStart 0)
-      tEnd   = ChandraTime (UTCTime dayEnd 0)
+      tStart = toChandraTime (UTCTime dayStart 0)
+      tEnd   = toChandraTime (UTCTime dayEnd 0)
 
   res <- getObsInRange tStart tEnd
   
@@ -764,7 +765,7 @@ getSchedule ndays = do
   -- Note that getObsInRange guarantees that we have a startTime
   -- field
   --
-  let cnow = ChandraTime now
+  let cnow = toChandraTime now
       (aprevs, todo) = span ((<= cnow) . timeUnsafe) res
       (mdoing, done) = case reverse aprevs of
         [] -> (Nothing, [])
@@ -799,8 +800,8 @@ getScheduleDate day ndays = do
   let dayEnd = addDays (fromIntegral ndays + 1) day
       dayStart = addDays (- fromIntegral ndays) day
 
-      tStart = ChandraTime (UTCTime dayStart 0)
-      tEnd   = ChandraTime (UTCTime dayEnd 0)
+      tStart = toChandraTime (UTCTime dayStart 0)
+      tEnd   = toChandraTime (UTCTime dayEnd 0)
 
   res <- getObsInRange tStart tEnd
   
@@ -818,7 +819,7 @@ getScheduleDate day ndays = do
   -- field
   --
   now <- liftIO getCurrentTime
-  let cnow = ChandraTime now
+  let cnow = toChandraTime now
 
   let sched
         | tStart > cnow =
@@ -911,7 +912,7 @@ makeScheduleRestricted rs = do
       findNow r = if Just (rrecordObsId r) == mobsid then Right r else Left r
       (others, nows) = partitionEithers (map findNow cleanrs)
 
-      cnow = ChandraTime now
+      cnow = toChandraTime now
 
       -- We can filter on <= cnow here because others does not contain
       -- any currently-running observation, by "definition"
@@ -949,7 +950,7 @@ updateSchedule ::
   -> RestrictedSchedule
   -> RestrictedSchedule
 updateSchedule now RestrictedSchedule {..} =
-  let cnow = ChandraTime now
+  let cnow = toChandraTime now
 
       -- unwritten contract: if in a schedule then the record has a start
       -- time
@@ -1333,7 +1334,7 @@ fetchJointMission jm = do
   so do this manually instead.
   -}
 
-  SL sobs <- fetchScienceObsBy (Not (isFieldNothing SoJointWithField))
+  sobs <- fromSL <$> fetchScienceObsBy (Not (isFieldNothing SoJointWithField))
 
   let hasMission so = case rsoJointWith so of
         Just ms -> includesMission jm ms
@@ -1452,10 +1453,10 @@ fetchCycle ::
   DbSql m
   => Cycle
   -> m (SortedList StartTimeOrder RestrictedSO)
-fetchCycle (Cycle "all") = return emptySL  
-fetchCycle cyc = do
-  props <- project PropNumField (PropCycleField ==. fromCycle cyc)
-  fetchScienceObsBy (SoProposalField `in_` props)
+fetchCycle cyc | cyc == allCycles = return emptySL
+               | otherwise = do
+                   props <- project PropNumField (PropCycleField ==. fromCycle cyc)
+                   fetchScienceObsBy (SoProposalField `in_` props)
 
 
 fetchCycles ::
@@ -1466,7 +1467,7 @@ fetchCycles = do
   cys <- project PropCycleField (CondEmpty `orderBy` [Asc PropCycleField])
 
   -- assume that the conversion to a Cycle can not fail here
-  let cycles = map Cycle cys
+  let cycles = map unsafeToCycle cys
   return (countUp cycles)
 
 
@@ -1506,7 +1507,7 @@ fetchCategorySubType ::
   -> m (SortedList StartTimeOrder RestrictedSO)
 fetchCategorySubType cat mtype = do
 
-  SL sobs <- fetchCategory cat
+  sobs <- fromSL <$> fetchCategory cat
 
   -- How much of this logic is in fetchSIMBADType and
   -- fetchNoSIMBADType?
@@ -1687,7 +1688,7 @@ fetchTOOs = do
 
       noneTime = foldl' addTimeKS zeroKS nones
 
-      ms = map (first trType) toos
+      ms = map (first tooTime) toos
       ts = M.fromListWith addTimeKS ms
       
   return (M.toAscList ts, noneTime)
@@ -1712,10 +1713,10 @@ fetchTOO too = do
   -- want to hard-code the possible mappings from
   -- too to the string representation, as that is fragile.
   --
-  SL allAns <- fetchScienceObsBy (Not (isFieldNothing SoTOOField))
+  allAns <- fromSL <$> fetchScienceObsBy (Not (isFieldNothing SoTOOField))
 
   let ans = filter isTOO allAns
-      isTOO so = trType `fmap` rsoTOO so == too
+      isTOO so = tooTime `fmap` rsoTOO so == too
       
   return (unsafeToSL ans)
 
@@ -1941,11 +1942,11 @@ findTarget target = do
   -- Switching to a newtype for TargetName makes this a bit
   -- more awkward than I'd like.
   --
-  let searchTerm = TN (T.toUpper (fromTargetName target))
+  let searchTerm = toTargetName (T.toUpper (fromTargetName target))
   direct <- fetchScienceObsBy (upper SoTargetField ==. searchTerm)
 
   -- find the "Simbad" name for these targets
-  let tnames = map rsoTarget (_unSL direct)
+  let tnames = map rsoTarget (fromSL direct)
   skeys <- project SmmInfoField (SmmTargetField `in_` tnames)
   sfields <- project (AutoKeyField, SmiNameField) (AutoKeyField `in_` skeys)
   let (sauto, snames) = unzip sfields
@@ -2116,7 +2117,7 @@ getTimeline ::
         [Proposal])
 getTimeline = do
 
-  lastMod <- ChandraTime . fromMaybe dummyLastMod <$> getLastModified
+  lastMod <- toChandraTime . fromMaybe dummyLastMod <$> getLastModified
   
   obs <- project scienceTimeline
          (isValidScienceObs `orderBy` [Asc SoStartTimeField])
@@ -2189,7 +2190,7 @@ getExposureBreakdown ::
   -> m (M.Map (Instrument, Grating) TimeKS
        , M.Map Day (M.Map (Instrument, Grating) TimeKS))
 getExposureBreakdown maxDay = do
-  let maxTime = ChandraTime (UTCTime maxDay 0)
+  let maxTime = toChandraTime (UTCTime maxDay 0)
   ans <- project (SoStartTimeField, SoApprovedTimeField
                  , SoObservedTimeField, SoInstrumentField
                  , SoGratingField)
@@ -2198,7 +2199,7 @@ getExposureBreakdown maxDay = do
 
   let conv (Just startTime, approvTime, observTime, inst, grat) =
         let expTime = fromMaybe approvTime observTime
-            key = utctDay (_toUTCTime startTime)
+            key = utctDay (fromChandraTime startTime)
             val = M.singleton (inst,grat) expTime
         in Just (key, val)
       conv (Nothing, _, _, _, _) = Nothing
@@ -2231,13 +2232,13 @@ getNumObsPerDay ::
   --   in each day. For dates in the future it uses the planned
   --   observations.
 getNumObsPerDay maxDay = do
-  let maxTime = ChandraTime (UTCTime maxDay 0)
+  let maxTime = toChandraTime (UTCTime maxDay 0)
   times <- project SoStartTimeField
            ((isValidScienceObs &&. (SoStartTimeField <=. Just maxTime))
             `orderBy` [Asc SoStartTimeField])
 
   let ctimes = catMaybes times
-      days = map (\t -> ((utctDay . _toUTCTime) t, 1)) ctimes
+      days = map (\t -> ((utctDay . fromChandraTime) t, 1)) ctimes
 
   return (M.fromAscListWith (+) days)
 
@@ -2561,7 +2562,7 @@ insertOrReplace cond newVal = do
 --
 updateLastModified :: PersistBackend m => UTCTime -> m ()
 updateLastModified lastMod = do
-  let new = MetaData { mdLastModified = lastMod }
+  let new = toMetaData lastMod
   deleteAll (undefined :: MetaData)
   insert_ new
   
@@ -2621,9 +2622,9 @@ getDataBaseInfo = do
                  
   lastMod <- getLastModified
   let nscience = length stimes
-      texp (_, Just t) = _toKS t
-      texp (t, Nothing) = _toKS t
-      tscience = TimeKS (sum (map texp stimes))
+      texp (_, Just t) = fromTimeKS t
+      texp (t, Nothing) = fromTimeKS t
+      tscience = unsafeToTimeKS (sum (map texp stimes))
                          
   return (nscience, nprop, tscience, lastMod)
                      

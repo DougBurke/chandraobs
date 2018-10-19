@@ -60,7 +60,7 @@ import System.IO (hPutStrLn, stderr)
 import Text.Read (readMaybe)
 
 import Database (runDb)
-import Types (PropNum(..)
+import Types (PropNum
               , fromPropNum
               , Field(PaNumField, PropNumField, MpNumField)
               )

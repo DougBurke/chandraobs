@@ -98,11 +98,15 @@ import Parser (parseSTS
               , parseTime
               , handleTime)
 
-import Types (ChandraTime(..), ScheduleItem(..))
-import Types (ShortTermTag(..), ShortTermSchedule(..), toShortTermTag)
-import Types (NonScienceObs(..), ScienceObs(..), ObsIdVal(..))
+import Types (ScheduleItem(..), fromChandraTime)
+import Types (ShortTermTag, ShortTermSchedule(..)
+             , toShortTermTag, fromShortTermTag)
+import Types (NonScienceObs(..), ScienceObs(..)
+             , ObsIdVal
+             , unsafeToObsIdVal
+             , fromObsId)
 import Types (InvalidObsId(..), Field(..))
-import Types (ObsIdStatus(..), TargetName(..))
+import Types (ObsIdStatus(..), toTargetName)
 import Types (Proposal(propNum))
 
 -- The assumption is that all pages are accessible from 
@@ -583,7 +587,7 @@ processRow colOpt tags =
 
        let (tks, t1, _) = handleTime start texp
        
-       Right ScheduleItem { siObsId = ObsIdVal obsid
+       Right ScheduleItem { siObsId = unsafeToObsIdVal obsid
                           , siScienceObs = True
                           , siStart = t1
                           , siDuration = tks
@@ -818,7 +822,7 @@ addNonScienceObsManual ScheduleItem{..} =
   let nsObs = NonScienceObs
               { nsStatus = Unobserved
               , nsObsId = siObsId
-              , nsTarget = TN name
+              , nsTarget = toTargetName name
               , nsStartTime = Just siStart
               , nsTime = siDuration
               , nsRa = siRA
@@ -864,7 +868,7 @@ addToSchedule time tag xs = do
       -- (this is an approximation).
       --
       isTodoNS si@ScheduleItem{..} =
-        if not siScienceObs && _toUTCTime siStart >= time
+        if not siScienceObs && fromChandraTime siStart >= time
         then Left si
         else Right si
       (todoNonScience, rest) = partitionEithers (map isTodoNS wantedItems)

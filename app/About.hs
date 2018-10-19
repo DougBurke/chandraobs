@@ -21,7 +21,7 @@ import Database (DBInfo)
 import Git (fromCommitId, gitCommitId)
 import Layout (defaultMeta, renderFooter)
 import Utils (showInt)
-import Types (ChandraTime(..), showCTime, showExpTime)
+import Types (toChandraTime, showCTime, showExpTime)
 import Views.Record (CurrentPage(..)
                     , mainNavBar)
 
@@ -175,7 +175,7 @@ dbSection (nScience, nProp, tScience, mLastMod) = do
                
       cts = maybe noData
             (\t -> "The database was last updated on "
-                   <> showCTime (ChandraTime t)
+                   <> showCTime (toChandraTime t)
                    <> " and contains "
                    <> showInt nScience
                    <> " scientific " <> obs

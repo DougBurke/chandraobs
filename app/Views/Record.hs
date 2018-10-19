@@ -50,14 +50,15 @@ import Layout (defaultMeta
 import Types (Record, ScienceObs(..), NonScienceObs(..)
              , SimbadInfo(..)
              , Proposal(..)
-             , Grating(..), TimeKS(..)
+             , Grating(..)
              , ObsInfo(..), ObsStatus(..)
-             , ChandraTime(..), Constraint(..)
+             , ChandraTime, Constraint(..)
              , ConLong(..)
              , ObsIdStatus(Discarded)
              , SimbadLoc(SimbadCfA)
              , SortedList, StartTimeOrder
              , TargetName, SIMCategory
+             , zeroKS
              , fromSL, lengthSL
              , getObsStatus
              , toSIMBADLink
@@ -708,7 +709,7 @@ nonSciencePara (mTimes, cTime) NonScienceObs{..} obsStatus =
                 , "."
                 ]
 
-      nullTime = TimeKS 0
+      nullTime = zeroKS
       targetName = toHtml nsTarget
       lenVal = toHtml $ showExpTime nsTime
 

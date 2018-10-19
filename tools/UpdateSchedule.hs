@@ -60,13 +60,14 @@ import OCAT (OCAT, queryOCAT
             , isScienceObsE
             , ocatToScience, ocatToNonScience)
 
-import Types (ChandraTime(..), ScienceObs(..), NonScienceObs(..)
+import Types (ChandraTime, ScienceObs(..), NonScienceObs(..)
              , ObsIdVal(..), ObsIdStatus(..)
              , Proposal(propNum)
              , Field(NsStatusField, NsStartTimeField
                     , SoStatusField, SoStartTimeField
                     , NsObsIdField, SoObsIdField
                     , IoObsIdField)
+             , toChandraTime
              , fromPropNum
              , showCTime
              , toObsIdValStr)
@@ -278,7 +279,7 @@ updateSchedule nmax = do
   -- than the database last-modified time - some delta
   -- (e.g. a week) - to reduce pointless queries.
   --
-  tnow <- ChandraTime <$> getCurrentTime
+  tnow <- toChandraTime <$> getCurrentTime
   (todoNS, todoS) <- runDb (getUpdateable nmax tnow)
 
   if null todoNS && null todoS

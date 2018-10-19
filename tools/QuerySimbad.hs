@@ -186,7 +186,7 @@ cleanTargetName tgtName =
 
     -- special case names used by CAL
     [n] | lc n `elem` ["arlac", "arlac,hrc-s,ao2", "arlac,hrc-i,ao2a"] -> "Ar Lac"
-    [n] | isOffset n -> TN (removeOffset n)
+    [n] | isOffset n -> toTargetName (removeOffset n)
           
     [n, _, ao] | lc n == "vega," && lc ao == "ao2" -> "Vega"
     
@@ -220,15 +220,15 @@ cleanTargetName tgtName =
     
                 cleanName = T.unwords toks5
             in if "E0102-72" `T.isPrefixOf` cleanName 
-               then TN "1E 0102.2-7219"
+               then toTargetName "1E 0102.2-7219"
                else if ("CAS A," `T.isPrefixOf` cleanName ||
                         "CAS A[" `T.isPrefixOf` cleanName ||
                         "CAS A " `T.isPrefixOf` cleanName)
-                    then TN "Cassiopeia A"
+                    then toTargetName "Cassiopeia A"
                     else if ("G21.5-09" `T.isPrefixOf` cleanName ||
                              "G21.5-0.9" `T.isPrefixOf` cleanName)
-                         then TN "PSR J1833-1034"
-                         else TN cleanName
+                         then toTargetName "PSR J1833-1034"
+                         else toTargetName cleanName
 
 -- | Compass directions to remove (in lower case).
 compassDirs :: [T.Text]
@@ -326,7 +326,7 @@ parseObject txt =
               (toSimbadType s)
   in case toks of
     [name, otype3, otype, _] ->
-      Just (TN (cleanupName name), toT otype3, otype)
+      Just (toTargetName (cleanupName name), toT otype3, otype)
     _ -> Nothing
 
 slen :: [a] -> T.Text

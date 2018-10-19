@@ -41,8 +41,15 @@ import API (typeLinkSearch
 import Layout (defaultMeta, d3Meta
               , dquote, floatableTable
               , renderFooter)
-import Types (RestrictedSchedule, SimbadType(..)
-             , SimbadTypeInfo, SimbadCode(..)
+import Types (RestrictedSchedule
+             , SimbadType
+             , fromSimbadType
+             , SimbadTypeInfo
+             , SimbadCode
+             , sc1
+             , sc2
+             , sc3
+             , scLevel
              , SIMCategory
              , simbadLabels
              , noSimbadLabel
@@ -128,8 +135,8 @@ matchDependencyPage typeInfos sched =
 
 
 niceType :: (SimbadType, SIMCategory) -> SIMCategory
-niceType (SimbadType "reg", _) = "Area of the sky"
-niceType (_, l) = l
+niceType (s, l) | fromSimbadType s == "reg" = "Area of the sky"
+                | P.otherwise               = l
 
 
 renderMatches ::
@@ -270,9 +277,9 @@ toTree ::
 toTree sl =
   let -- just hard code things for now
       g x = groupBy ((==) `on` (x . _2))
-      g1 = g _sc1
-      g2 = g _sc2
-      g3 = g _sc3
+      g1 = g sc1
+      g2 = g sc2
+      g3 = g sc3
 
       c1 = g1 sl
 
@@ -283,7 +290,7 @@ toTree sl =
         Aeson.object (if null xs then obj else "children" .= cs : obj)
 
       makeObj st sc ntot =
-        let lvl = _scLevel sc
+        let lvl = scLevel sc
         in [ "name" .= snd st
            , "level" .= lvl
            , "shortName" .= short st

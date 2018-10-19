@@ -22,7 +22,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import API (cycleLinkSearch)
 import Layout (standardTable)
 import Types (RestrictedSchedule
-             , Cycle(..))
+             , Cycle, fromCycle, allCycles)
 import Utils (getNumObsRestricted
              , getScienceTimeRestricted)
 import Views.Record (CurrentPage(..))
@@ -45,7 +45,7 @@ matchPage ::
   -> RestrictedSchedule
   -> Html
 matchPage cycle sched =
-  let cycleHtml = if cycle == Cycle "all"
+  let cycleHtml = if cycle == allCycles
                   then "all proposal cycles"
                   else "Cycle " <> H.toHtml (fromCycle cycle)
       hdrTitle = "Chandra observations: " <> cycleHtml
@@ -66,7 +66,7 @@ renderMatches ::
 renderMatches cycle sched = 
   let scienceTime = getScienceTimeRestricted sched
 
-      lbl = if cycle == Cycle "all"
+      lbl = if cycle == allCycles
             then "all proposal cycles"
             else "proposal Cycle " <> toHtml (fromCycle cycle)
 

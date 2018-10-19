@@ -1,14 +1,13 @@
 {-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 
 -- | Set up some types for representing Chandra observations. The
@@ -22,11 +21,253 @@
 --   Given the way the code has ended up below, perhaps I should be
 --   using some form of a lens library.
 --
-module Types where
+module Types ( ObsIdVal
+             , unsafeToObsIdVal
+             , toObsIdValStr
+             , fromObsId
+               
+             , ObsIdStatus(..)
+             , toObsIdStatus
+             , fromObsIdStatus
+               
+             , InvalidObsId(..)
+               
+             , Instrument(..)
+             , toInstrument
+             , fromInstrument
+               
+             , Grating(..)
+             , toGrating
+             , fromGrating
+               
+             , ChipStatus(..)
+             , toChipStatus
+             , fromChipStatus
+               
+             , Sequence
+             , unsafeToSequence
+             , fromSequence
+               
+             , Telescope
+             , toTelescope
+               
+             , TargetName
+             , toTargetName
+             , fromTargetName
+               
+             , TOORequest
+             , toTOORequest
+             , tooTime
+             , tooValue
+               
+             , TOORequestTime(..)
+             , labelToRT
+             , rtToLabel
+               
+             , Cycle
+             , unsafeToCycle
+             , toCycle
+             , fromCycle
+             , allCycles
 
--- Since Template Haskell is being used to create a number of
--- symbols, I have decided to export everything from this module
--- rather than try to track and document it.
+             , JointMission
+             , toMission
+             , fromMission
+             , fromMissionLong
+             , includesMission
+             , splitToMission
+             , getJointObs
+             , fromMissionAboutLink
+             , fromMissionLongLink
+
+             , RA
+             , toRA
+             , fromRA
+             , showRA
+               
+             , Dec
+             , toDec
+             , fromDec
+             , showDec
+
+             , ChandraTime
+             , toChandraTime
+             , toCTime
+             , fromChandraTime
+             , endCTime
+             , showCTime
+               
+             , TimeKS
+             , unsafeToTimeKS
+             , fromTimeKS
+             , addTimeKS
+             , normTimeKS
+             , zeroKS
+             , isZeroKS
+             , showExpTime
+
+             , ObsStatus(..)
+             , getObsStatus
+               
+             , ScienceObs(..)
+             , NonScienceObs(..)
+             , ObsInfo(..)
+
+             , Schedule(..)
+               
+             , Record
+             , recordObsId
+             , recordStartTime
+             , recordTime
+             , recordTarget
+               
+             , RestrictedRecord
+             , showExpRestricted
+             , rrecordObsId
+             , rrecordInstrument
+             , rrecordGrating
+             , rrecordStartTime
+             , rrecordEndTime
+             , rrecordTime
+             , rrecordTarget
+             , rrecordRA
+             , rrecordDec
+               
+             , RestrictedSchedule(..)
+               
+             , RestrictedSO
+             , rsoObsId
+             , rsoStartTime
+             , rsoExposureTime
+             , rsoTarget
+             , rsoTOO
+             , rsoJointWith
+             , rsoConstraints
+             , rsoConstellation
+               
+             , RestrictedNS
+             , rnsStartTime
+             , rnsExposureTime
+             , rnsTarget
+
+             , ShortTermTag
+             , toShortTermTag
+             , fromShortTermTag
+               
+             , ShortTermSchedule(..)
+               
+             , ScienceTimeline
+             , EngineeringTimeline
+               
+             , StartTimeOrder
+             , ExposureTimeOrder
+               
+             , Constraint(..)
+             , toConstraint
+             , fromConstraint
+               
+             , ConstraintKind(..)
+             , labelToCS
+             , csToLabel
+             , csToLC
+
+             , ConLong
+             , fromConLong
+               
+             , ConShort
+             , toConShort
+             , fromConShort
+             , getConstellationName
+             , getConstellationNameStr
+               
+             , Proposal(..)
+             , ProposalAbstract(..)
+             , MissingProposalAbstract(..)
+               
+             , PropNum
+             , toPropNum
+             , fromPropNum
+               
+             , PropCategory
+             , PropType(..)
+             , toPropType
+             , toPropTypeLabel
+             , fromPropType
+
+             , SimbadInfo(..)
+             , similarName
+               
+             , SimbadType
+             , toSimbadType
+             , fromSimbadType
+             , noSimbadType
+             , simbadTypeToCode
+             , simbadTypeToDesc
+             , findChildTypes
+               
+             , SimbadTypeInfo
+
+             , SimbadCode
+             , sc1
+             , sc2
+             , sc3
+             , scLevel
+             , simbadLabels
+               
+             , SimbadMatch(..)
+             , SimbadNoMatch(..)
+               
+             , SIMCategory
+             , noSimbadLabel
+
+             , SimbadLoc(..)
+             , simbadBase
+             , toSIMBADLink
+               
+             , MetaData
+             , toMetaData
+               -- mdLastModified isn't used anywhere, but is used by
+               -- TH/Groundhog, so export it to avoid a "unused top-level
+               -- binding warning.
+             , mdLastModified
+
+             , ScheduleItem(..)
+               
+             , SortedList
+             , emptySL
+             , toSL
+             , unsafeToSL
+             , fromSL
+             , mergeSL
+             , lengthSL
+             , nullSL
+
+             , handleMigration
+               
+               -- ^ not using lenses...
+             , _2
+
+               -- ^ Groundhog related symbols. PersistEntity and Field
+               --   are needed to export the Type Family symbols
+               --   used to represent fields/columns, such as
+               --   SoObsIdField.
+               --
+             , ScienceObsConstructor(..)
+             , NonScienceObsConstructor(..)
+             , InvalidObsIdConstructor(..)
+             , MetaDataConstructor(..)
+             , MissingProposalAbstractConstructor(..)
+             , ProposalAbstractConstructor(..)
+             , ProposalConstructor(..)
+             , ShortTermScheduleConstructor(..)
+             , SimbadInfoConstructor(..)
+             , SimbadMatchConstructor(..)
+             , SimbadNoMatchConstructor(..)
+
+             -- , PersistEntity(..)
+             , Field(..)
+               
+             ) where
 
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Map.Strict as M
@@ -40,23 +281,24 @@ import Control.Arrow (first)
 import Control.Monad ((>=>))
 import Control.Monad.IO.Class (MonadIO)
 
-import Data.Bits (Bits(..), FiniteBits(..))
-
 import Data.Aeson (ToJSON(..))
-import Data.Aeson.TH
+import Data.Aeson.TH (deriveToJSON, defaultOptions, constructorTagModifier, fieldLabelModifier)
+import Data.Bits (Bits(..), FiniteBits(..))
 import Data.Char (isDigit, isSpace, toLower)
 import Data.Function (on)
 import Data.List (sortBy)
-import Data.Maybe (fromJust, fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Time (UTCTime, TimeLocale
+                 , addUTCTime, defaultTimeLocale, parseTimeOrError)
 
 -- I am not convinced I'm adding the PersistField values sensibly
 import Database.Groundhog.Core
-import Database.Groundhog.Generic (primToPersistValue, primFromPersistValue)
 import Database.Groundhog.TH
-import Database.Groundhog.Postgresql
+import Database.Groundhog.Generic (primToPersistValue, primFromPersistValue)
+import Database.Groundhog.Postgresql (runMigration)
 
 import Formatting
 import Formatting.Time
@@ -67,9 +309,6 @@ import Numeric.Natural
 import Text.Read (readMaybe)
 
 import Web.Scotty (Parsable(..))
-
-import Data.Time (UTCTime, TimeLocale
-                 , addUTCTime, defaultTimeLocale, parseTimeOrError)
 
 -- make it easy to compile on different systems for now
 readTime :: TimeLocale -> String -> String -> UTCTime
@@ -192,6 +431,9 @@ data ExposureTimeOrder
 --
 data MetaData = MetaData { mdLastModified :: UTCTime }
      deriving Eq
+
+toMetaData :: UTCTime -> MetaData
+toMetaData = MetaData
 
 -- | Some ObsIDs seem to not have an OCAT record, or we can
 --   not parse the response; hopefully these are all non-science
@@ -333,6 +575,12 @@ newtype ObsIdVal = ObsIdVal { fromObsId :: Int }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
+-- | No validation!
+--
+unsafeToObsIdVal :: Int -> ObsIdVal
+unsafeToObsIdVal = ObsIdVal
+
+
 -- I assume that 0 is valid
 validObsIdVal :: Int -> Bool
 validObsIdVal = inRange 0 65535
@@ -341,11 +589,13 @@ validObsIdVal = inRange 0 65535
 toObsIdValStr :: T.Text -> Maybe ObsIdVal
 toObsIdValStr = maybeFromText ObsIdVal validObsIdVal
 
+{-
 -- | Limited validation of the input.
 toObsIdValInt :: Int -> Maybe ObsIdVal
 toObsIdValInt x = if validObsIdVal x
                   then Just (ObsIdVal x)
                   else Nothing
+-}
 
 instance Parsable ObsIdVal where
   parseParam = helpParse "ObsId" toObsIdValStr
@@ -439,8 +689,10 @@ rrecordRA = either rnsRA rsoRA
 rrecordDec :: RestrictedRecord -> Dec
 rrecordDec = either rnsDec rsoDec
 
+{-
 rrecordConstellation :: RestrictedRecord -> Maybe ConShort
 rrecordConstellation = either (const Nothing) (Just . rsoConstellation)
+-}
 
 -- 
 
@@ -515,6 +767,10 @@ rsoConstellation (_, _, _, _, _, _, _, _, _, _, _, _, _, _, con) = con
 newtype TargetName = TN { fromTargetName :: T.Text }
                    deriving (Eq, Ord)
 
+-- | There is no attempt to validate the name.
+toTargetName :: T.Text -> TargetName
+toTargetName = TN
+
 instance IsString TargetName where
   fromString = TN . T.pack
 
@@ -533,8 +789,10 @@ instance H.ToValue TargetName where
 -- hacks for quickly converting old code; however, the idea of
 -- a Record has stuck around for a while, so it may need to stay
 
+{-
 recordSequence :: Record -> Maybe Sequence
 recordSequence = either (const Nothing) (Just . soSequence)
+-}
 
 recordObsId :: Record -> ObsIdVal
 recordObsId = either nsObsId soObsId
@@ -545,13 +803,16 @@ recordTarget = either nsTarget soTarget
 recordStartTime :: Record -> Maybe ChandraTime
 recordStartTime = either nsStartTime soStartTime
 
+{-
 recordStartTimeUnsafe :: Record -> ChandraTime
 recordStartTimeUnsafe = fromJust . recordStartTime
+-}
 
 -- Use the actual time if we have it, otherwise the approved time
 recordTime :: Record -> TimeKS
 recordTime = either nsTime (\ScienceObs{..} -> fromMaybe soApprovedTime soObservedTime)
 
+{-
 recordInstrument :: Record -> Maybe Instrument
 recordInstrument = either (const Nothing) (Just . soInstrument)
 
@@ -566,6 +827,7 @@ recordDec = either nsDec soDec
 
 recordRoll :: Record -> Double
 recordRoll = either nsRoll soRoll
+-}
 
 -- | I just want a simple way of passing around 
 --   useful information about an observation.
@@ -583,6 +845,12 @@ data ObsInfo = ObsInfo {
 newtype ChandraTime = ChandraTime { _toUTCTime :: UTCTime }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
+
+toChandraTime :: UTCTime -> ChandraTime
+toChandraTime = ChandraTime
+
+fromChandraTime :: ChandraTime -> UTCTime
+fromChandraTime = _toUTCTime
 
 readsPrecF :: (Read a) => (a -> b) -> Int -> ReadS b
 readsPrecF f i s = 
@@ -685,6 +953,20 @@ newtype Sequence = Sequence { _unSequence :: Int }
    -- deriving (Eq, Ord, Show)
    deriving (Eq, Ord)
 
+unsafeToSequence :: Int -> Sequence
+unsafeToSequence = Sequence
+
+fromSequence :: Sequence -> Int
+fromSequence = _unSequence
+
+{-
+-- | Limited validation of the input.
+toSequenceInt :: Int -> Maybe Sequence
+toSequenceInt s = if s > 0
+                  then Just (Sequence s)
+                  else Nothing
+-}
+
 -- | Limited validation of the input.
 toSequenceStr :: T.Text -> Maybe Sequence
 toSequenceStr = maybeFromText Sequence (> 0)
@@ -702,6 +984,11 @@ instance H.ToValue Sequence where
 newtype PropNum = PropNum { _unPropNum :: Int } 
    -- deriving (Eq, Ord, Show)
    deriving (Eq, Ord)
+
+-- | There is no validation.
+--
+toPropNum :: Int -> PropNum
+toPropNum = PropNum
 
 -- | Limited validation of the input (currently only
 --   enforces a positive value).
@@ -730,6 +1017,23 @@ instance H.ToValue PropNum where
 newtype RA = RA { _unRA :: Double } 
 
 newtype Dec = Dec { _unDec :: Double } 
+
+-- | Currently no validation.
+--
+toRA :: Double -> RA
+toRA = RA
+
+-- | Currently no validation.
+--
+toDec :: Double -> Dec
+toDec = Dec
+
+
+fromRA :: RA -> Double
+fromRA = _unRA
+
+fromDec :: Dec -> Double
+fromDec = _unDec
 
 
 -- Internal routine; assumes that tol is >= 0              
@@ -888,6 +1192,12 @@ newtype TimeKS = TimeKS { _toKS :: Double }
   -- deriving (Eq, Ord, Show)
   deriving (Eq, Ord)
 
+fromTimeKS :: TimeKS -> Double
+fromTimeKS = _toKS
+
+unsafeToTimeKS :: Double -> TimeKS
+unsafeToTimeKS = TimeKS
+
 zeroKS :: TimeKS
 zeroKS = TimeKS 0
 
@@ -900,6 +1210,7 @@ isZeroKS (TimeKS a) = a <= 0
 addTimeKS :: TimeKS -> TimeKS -> TimeKS
 addTimeKS (TimeKS a) (TimeKS b) = TimeKS (a+b)
 
+-- | Divide the time by a value.
 normTimeKS :: Integral n => TimeKS -> n -> TimeKS
 normTimeKS (TimeKS a) n = TimeKS (a / fromIntegral n)
 
@@ -953,9 +1264,11 @@ showExpTime (TimeKS tks) =
                else if nw < 52
                     then units nw rd "week" "day"
                     else units ny rw "year" "week"
-                    
+
+{-                         
 showExp :: Record -> H.Html
 showExp = H.toHtml . showExpTime . recordTime
+-}
 
 showExpRestricted :: RestrictedRecord -> H.Html
 showExpRestricted = H.toHtml . showExpTime . rrecordTime
@@ -1190,6 +1503,11 @@ fromObsIdStatus Archived = "archived"
 newtype Telescope = Telescope { fromTelescope :: T.Text }
                   deriving Eq
 
+-- | There is no validation.
+--
+toTelescope :: T.Text -> Telescope
+toTelescope = Telescope
+
 -- | Represent a science observation, using data from the Chandra observing
 --   catalog (OCAT) rather than the short-term schedule page.
 --
@@ -1324,6 +1642,13 @@ labelToRT lbl =
 data TOORequest = TR { trType :: TOORequestTime
                      , trValue :: T.Text }
 
+tooTime :: TOORequest -> TOORequestTime
+tooTime = trType
+
+tooValue :: TOORequest -> T.Text
+tooValue = trValue
+
+{-
 -- | This creates a request with an empty value field,
 --   which is not ideal and should only be used to create
 --   a request used in a comparison, rather than one that
@@ -1334,6 +1659,7 @@ data TOORequest = TR { trType :: TOORequestTime
 --
 rtToRequest :: TOORequestTime -> TOORequest
 rtToRequest rt = TR rt ""
+-}
 
 -- | A request is considered equal if its \"type\" is equal,
 --   not its actual value. This is potentially unsafe.
@@ -1542,6 +1868,7 @@ missionSelector Swift = soJointSWIFT
 missionSelector NuSTAR = soJointNUSTAR
 -}
 
+{-
 -- | What observations \"overlap\" this one, and are
 --   publically available.
 --   The overlap is determined by the find_chandra_obsid script
@@ -1554,6 +1881,7 @@ data OverlapObs =
     , ovDistance :: Double    -- ^ distance from ovObsId in arcminutes
     , ovCheck :: UTCTime      -- ^ when was the check made; this is probably not useful
   } deriving Eq
+-}
 
 -- | Short form for constellation names (e.g. UMa for Ursa Major).
 --
@@ -1743,12 +2071,14 @@ instance Show ScienceObs where
     <> " ks " <> T.unpack (showStartTime soStartTime)
     <> " " <> T.unpack (fromObsIdStatus soStatus)
 
+{-
 -- | Has the observation been archived? If so, we assume that the observational
 --   parameters we care about are not going to change. This may turn out to be
 --   a bad idea.
 --
 isArchived :: ScienceObs -> Bool
 isArchived ScienceObs{..} = soStatus == Archived
+-}
 
 -- | This could be an enumeration, but there's always the possibility
 --   that the set of values could change, so leave as is for now.
@@ -1937,9 +2267,6 @@ noSimbadLabel = "Unidentified"
 --     - `SimbadNoMatch` which indicates that we have not found a
 --       match when searching SIMBAD.
 --
---   At present `SimbadSearch` is a union of `SimbadNoMatch` and
---   `SimbadMatch`.
---
 data SimbadInfo = SimbadInfo {
   smiName :: TargetName
     -- ^ the primary identifier for the object
@@ -1962,6 +2289,7 @@ data SimbadMatch = SimbadMatch {
 --  deriving Eq
 deriving instance Eq SimbadMatch
 
+
 -- | Indicates that there is no SIMBAD match for the
 --   target name. This could be folded into `SimbadMatch`
 --   if we can have a `Maybe (DefaultKey SimbadInfo)`
@@ -1974,7 +2302,15 @@ data SimbadNoMatch = SimbadNoMatch {
   }
   deriving Eq
 
+
+{-
+-- | What does SIMBAD know about this object?
+--
+--   At present `SimbadSearch` is a union of `SimbadNoMatch` and
+--   `SimbadMatch`.
+--
 type SimbadSearch = Either SimbadNoMatch SimbadMatch
+-}
 
 -- | Do we consider the two names to be the same?
 --
@@ -2248,6 +2584,18 @@ data SimbadCode =
   SimbadCode { _sc1 :: Int, _sc2 :: Int, _sc3 :: Int, _sc4 :: Int,
                _scLevel :: Int }
   deriving (Eq, Ord)
+
+sc1 :: SimbadCode -> Int
+sc1 = _sc1
+
+sc2 :: SimbadCode -> Int
+sc2 = _sc2
+
+sc3 :: SimbadCode -> Int
+sc3 = _sc3
+
+scLevel :: SimbadCode -> Int
+scLevel = _scLevel
 
 -- Should the Ord instance be derived manually, so that _scLevel
 -- can be removed from the check, or does it not matter?
@@ -2531,6 +2879,7 @@ simbadTypeToCode stype =
     ((sc, _, _):_) -> Just sc
     [] -> Nothing
 
+{-
 -- | The reverse of simbadTypeToCode.
 --
 simbadCodeToType :: SimbadCode -> Maybe SimbadType
@@ -2547,6 +2896,7 @@ simbadCodeToDesc sc =
   case dropWhile ((/= sc) . _1) simbadLabels of
     ((_, _, lbl):_) -> Just lbl
     [] -> Nothing
+-}
   
 -- | Return the long description for the type.
 --
@@ -2560,6 +2910,7 @@ simbadTypeToDesc stype =
     [] -> Nothing
 
 
+{-
 -- | Do we have a child type (i.e. an element on the branch of
 --   the parent).
 --
@@ -2593,15 +2944,17 @@ getSimbadParent SimbadCode{..} =
      else case filter ((==parent) . _1) simbadLabels of
        [_] -> Just parent
        _ -> Nothing
-  
+
+-}
+
 -- | validate input arguments
 
 toSC4 :: Int -> Int -> Int -> Int -> Either T.Text SimbadCode
-toSC4 sc1 sc2 sc3 sc4 = do
-  i1 <- ivalidate sc1 0 15 "1"
-  i2 <- ivalidate sc2 0 15 "2"
-  i3 <- ivalidate sc3 0 30 "3"
-  i4 <- ivalidate sc4 0 11 "4"
+toSC4 s1 s2 s3 s4 = do
+  i1 <- ivalidate s1 0 15 "1"
+  i2 <- ivalidate s2 0 15 "2"
+  i3 <- ivalidate s3 0 30 "3"
+  i4 <- ivalidate s4 0 11 "4"
   let lvl = 4 - length (takeWhile (==0) [i4, i3, i2])
   return (SimbadCode i1 i2 i3 i4 lvl)
   
@@ -2678,6 +3031,10 @@ toSIMBADLink sloc name =
 newtype Cycle = Cycle { fromCycle :: T.Text }
            deriving (Eq, Ord)
 
+-- | Labelled as unsafe since there is no processing of the text.
+unsafeToCycle :: T.Text -> Cycle
+unsafeToCycle = Cycle
+
 {-
 -- | The natural values are sorted in increasing order and "all" is
 --   last.
@@ -2687,6 +3044,9 @@ instance Ord Cycle where
   CycleAll `compare` (CycleNat _) = GT
   (CycleNat _) `compare` CycleAll = LT
 -}
+
+allCycles :: Cycle
+allCycles = Cycle "all"
 
 -- | For now support all cycles up to 99 as can not be bothered with
 --   an upper limit.
@@ -3030,6 +3390,25 @@ instance FiniteBits Sequence where
 instance FiniteBits ObsIdVal where
   finiteBitSize = finiteBitSize . fromObsId
 
+
+handleMigration ::
+  (PersistBackend m, MonadIO m) => m ()
+handleMigration =
+  runMigration $ do
+    migrate (undefined :: ScienceObs)
+    migrate (undefined :: NonScienceObs)
+    -- migrate (undefined :: OverlapObs)  do we use this yet?
+    migrate (undefined :: Proposal)
+    migrate (undefined :: ProposalAbstract)
+    migrate (undefined :: MissingProposalAbstract)
+    migrate (undefined :: SimbadInfo)
+    migrate (undefined :: SimbadMatch)
+    migrate (undefined :: SimbadNoMatch)
+    migrate (undefined :: MetaData)
+    migrate (undefined :: InvalidObsId)
+    migrate (undefined :: ShortTermSchedule)
+
+
 -- We do not take advantage of the database here (eg unique fields,
 -- or relations between entities).
 --
@@ -3129,22 +3508,6 @@ missionSelectorField Swift = SoJointSWIFTField
 missionSelectorField NuSTAR = SoJointNUSTARField
 -}
 
-handleMigration ::
-  (PersistBackend m, MonadIO m) => m ()
-handleMigration =
-  runMigration $ do
-    migrate (undefined :: ScienceObs)
-    migrate (undefined :: NonScienceObs)
-    -- migrate (undefined :: OverlapObs)  do we use this yet?
-    migrate (undefined :: Proposal)
-    migrate (undefined :: ProposalAbstract)
-    migrate (undefined :: MissingProposalAbstract)
-    migrate (undefined :: SimbadInfo)
-    migrate (undefined :: SimbadMatch)
-    migrate (undefined :: SimbadNoMatch)
-    migrate (undefined :: MetaData)
-    migrate (undefined :: InvalidObsId)
-    migrate (undefined :: ShortTermSchedule)
 
 -- Use Template Haskell to derive the necessary To/FromJSON
 -- instances (seeing as we use TH already for GroundHog)

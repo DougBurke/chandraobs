@@ -149,16 +149,24 @@ import Database (NumObs, NumSrc, SIMKey
 
 import Layout (getFact, renderLinks)
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
-             , PropNum(..)
+             , PropNum
+             , fromPropNum
              , NonScienceObs(..), ScienceObs(..)
-             , ObsInfo(..), ObsIdVal(..)
+             , ObsInfo(..)
+             , unsafeToObsIdVal
+             , fromObsId
+               
              -- , PropType(..)
              , SIMCategory
              , SimbadTypeInfo
              , SortedList, StartTimeOrder, ExposureTimeOrder
              , TargetName(..)
-             , TimeKS(..)
-             , ChandraTime(..)
+             , TimeKS
+             , unsafeToTimeKS
+             , fromTimeKS
+             , ChandraTime
+             , toChandraTime
+             , fromChandraTime
 
              , Instrument(..)
              , Grating(..)
@@ -413,7 +421,7 @@ webapp cm scache cache = do
           return (pval, ans)
 
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
-        queryObsidParam = dbQuery "obsid" (getObsId . ObsIdVal)
+        queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
     -- for now always return JSON; need a better success/failure
     -- set up.
@@ -1042,7 +1050,7 @@ apiSearchProposal getData = do
   -- ToJSON serialization?
   let out = fmap conv matches
       conv (title, pnum) = object [ "title" .= title
-                                  , "number" .= _unPropNum pnum ]
+                                  , "number" .= fromPropNum pnum ]
   json out
 
 
@@ -1077,7 +1085,7 @@ apiMappings getData = do
         let stype = fst (keyToPair skey)
         in object [ "source" .= getVal prop propMap
                   , "target" .= getVal stype simMap
-                  , "totalExp" .= _toKS texp
+                  , "totalExp" .= fromTimeKS texp
                   , "numSource" .= nsrc
                   , "numObs" .= nobs ]
 
@@ -1179,8 +1187,8 @@ apiExposures ::
 apiExposures getData = do
   pairs <- getData
   let toPair (cyc, vals) =
-        let ts = map _toKS (fromSL vals)
-            allTime = showExpTime (TimeKS (sum ts))
+        let ts = map fromTimeKS (fromSL vals)
+            allTime = showExpTime (unsafeToTimeKS (sum ts))
         in 
           cyc .= object
           [ "cycle" .= cyc
@@ -1269,11 +1277,11 @@ searchDTypeNone getData = getData >>= fromBlaze . SearchTypes.dependencyPage
 --   both a number and a text label in the JSON if I can help it).
 --
 toHours :: TimeKS -> Double
-toHours ks = _toKS ks / 3.6
+toHours ks = fromTimeKS ks / 3.6
 
 {-
 toHours ks =
-  let h = _toKS ks / 3.6
+  let h = fromTimeKS ks / 3.6
       h10 = round (h * 10)
   in fromInteger h10 / 10
 -}     
@@ -1384,8 +1392,8 @@ fromScienceObs propMap simbadMap tNow so =
         (fromTargetName targetName <> " - ObsId " <> showInt obsid),
         "object" .= targetName,
         "obsid" .= obsid,
-        "start" .= _toUTCTime startTime,
-        "end" .= _toUTCTime endTime,
+        "start" .= fromChandraTime startTime,
+        "end" .= fromChandraTime endTime,
       
         -- includling isPublic means that the data can't
         -- be easily cached *OR* would have to identify
@@ -1421,13 +1429,13 @@ fromScienceObs propMap simbadMap tNow so =
       -- based on Utils.getTimes
       getSTLTimes = 
         case mStartTime of
-          Just t -> let sTime = _toUTCTime t
+          Just t -> let sTime = fromChandraTime t
 
                         tlen = fromMaybe approvedTime mObservedTime
-                        expTime = (fromInteger . ceiling) (1000 * _toKS tlen)
+                        expTime = (fromInteger . ceiling) (1000 * fromTimeKS tlen)
                         
                         eTime = addUTCTime expTime sTime
-                    in Just (ChandraTime sTime, ChandraTime eTime)
+                    in Just (toChandraTime sTime, toChandraTime eTime)
           Nothing -> Nothing
       
   in go <$> getSTLTimes
@@ -1454,13 +1462,13 @@ fromNonScienceObs ns =
         -- need a unique label
         "label" .= targetName,
         "obsid" .= obsid,
-        "start" .= _toUTCTime startTime,
-        -- "end" .= _toUTCTime endTime,
+        "start" .= fromChandraTime startTime,
+        -- "end" .= fromChandraTime endTime,
         
         -- observation length, in hours
         "length" .= toHours obsLen
       
-        ] ++ ["end" .= _toUTCTime endTime | endTime > startTime]
+        ] ++ ["end" .= fromChandraTime endTime | endTime > startTime]
                  
       go (startTime, endTime) =
         (startTime, object (objs startTime endTime))
@@ -1468,12 +1476,12 @@ fromNonScienceObs ns =
       -- based on Utils.getTimes
       getETLTimes =
         case mStartTime of
-          Just t -> let sTime = _toUTCTime t
+          Just t -> let sTime = fromChandraTime t
 
-                        expTime = (fromInteger . ceiling) (1000 * _toKS obsLen)
+                        expTime = (fromInteger . ceiling) (1000 * fromTimeKS obsLen)
                         
                         eTime = addUTCTime expTime sTime
-                    in Just (ChandraTime sTime, ChandraTime eTime)
+                    in Just (toChandraTime sTime, toChandraTime eTime)
           Nothing -> Nothing
         
   in go <$> getETLTimes

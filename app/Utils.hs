@@ -67,10 +67,10 @@ import Web.Scotty
 
 import Git (CommitId, fromCommitId)
 import Types (ScienceObs(..)
-             , ChandraTime(..)
+             , ChandraTime, toChandraTime, fromChandraTime
              , Instrument(..)
              , ObsIdVal(..)
-             , TimeKS(..)
+             , TimeKS, fromTimeKS
              , Record
              , Schedule(..)
              , RestrictedSchedule(..), RestrictedRecord
@@ -154,8 +154,9 @@ showTimeDeltaFwd ::
   -> Maybe ChandraTime  -- time 2, >= time 1
   -> T.Text   -- time1 relative to time2
 showTimeDeltaFwd _ Nothing = "observation is not scheduled"
-showTimeDeltaFwd t1 (Just (ChandraTime t2)) = 
-  let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
+showTimeDeltaFwd t1 (Just ct2) = 
+  let t2 = fromChandraTime ct2
+      (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       -- TODO: look at F.plural
       toTxt n lbl =
@@ -190,8 +191,9 @@ showTimeDeltaBwd ::
   -> UTCTime  -- time 2, >= time 1
   -> T.Text   -- time1 relative to time2
 showTimeDeltaBwd Nothing _ = "observation is not scheduled"  
-showTimeDeltaBwd (Just (ChandraTime t1)) t2 = 
-  let (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
+showTimeDeltaBwd (Just ct1) t2 = 
+  let t1 = fromChandraTime ct1
+      (delta, nd, nh, nm, d, h, m) = getTimeElems t1 t2
 
       -- TODO: look at F.plural
       toTxt n lbl =
@@ -232,10 +234,11 @@ getTimes ::
   -> Maybe (ChandraTime, ChandraTime) -- start and end times
 getTimes rs =
   case recordStartTime rs of
-    Just t -> let sTime = _toUTCTime t
-                  expTime = fromInteger . ceiling $ 1000 * _toKS (recordTime rs)
+    Just t -> let sTime = fromChandraTime t
+                  ks = 1000 * fromTimeKS (recordTime rs)
+                  expTime = (fromInteger . ceiling) ks 
                   eTime = addUTCTime expTime sTime
-              in Just (ChandraTime sTime, ChandraTime eTime)
+              in Just (toChandraTime sTime, toChandraTime eTime)
     Nothing -> Nothing
 
 

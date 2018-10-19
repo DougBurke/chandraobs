@@ -26,7 +26,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (constellationLinkSearch)
 import Layout (floatableTable)
-import Types (RestrictedSchedule, ConShort(..), TimeKS(..)
+import Types (RestrictedSchedule, ConShort(..), TimeKS
               , getConstellationNameStr
               , getConstellationNameStr
               , showExpTime)

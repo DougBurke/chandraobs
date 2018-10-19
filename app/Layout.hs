@@ -61,7 +61,8 @@ import API (categoryLinkSearch
            )
 import Types (ChipStatus(..)
              , Constraint(..)
-             , ConLong(..)
+             , fromConLong
+               
              , ConShort(..)
              , Grating(..)
              , Instrument(..)
@@ -69,9 +70,9 @@ import Types (ChipStatus(..)
              , Proposal(..)
              , ScienceObs(..)
              , SimbadInfo(..)
-             , TimeKS(..)
-             , TOORequest(..)
-             , RA(..), Dec(..) -- only needed for WWT experiments
+             , fromTimeKS
+             , tooTime
+             , fromRA, fromDec -- only needed for WWT experiments
              , toCycle
              , fromMissionLongLink
              , getConstellationName
@@ -176,8 +177,8 @@ setupLocation ScienceObs{..} =
       jsSettings = mconcat [
         -- note; do not want RA/Dec HTML conversion here; treat as
         -- plain numbers!
-        "var scienceObs = {ra: ", toHtml (_unRA soRA),
-        ", dec: ", toHtml (_unDec soDec),
+        "var scienceObs = {ra: ", toHtml (fromRA soRA),
+        ", dec: ", toHtml (fromDec soDec),
         ", roll: ", toHtml soRoll,
         ", instrument: '", toHtml soInstrument, "'",
         ", name: '", toHtml soTarget, "'",
@@ -382,7 +383,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
                            fromMissionLongLink (toMission mission)
                            
       toJ (l,v) = keyVal "Joint with:"
-                  (missToLink l <> " for " <> toHtml (_toKS v) <> " ks")
+                  (missToLink l <> " for " <> toHtml (fromTimeKS v) <> " ks")
                   
       jvs = getJointObs so
 
@@ -408,7 +409,7 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
           _ -> Nothing
         
       too = case soTOO of
-        Just t  -> keyVal "Turnaround time:" (tooLinkSearch (Just (trType t)))
+        Just t  -> keyVal "Turnaround time:" (tooLinkSearch (Just (tooTime t)))
         Nothing -> mempty
 
       -- the "chip" display depends on whether this has been archived or

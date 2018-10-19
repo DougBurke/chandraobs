@@ -75,14 +75,22 @@ import Types (ConShort(..)
              , Instrument(..)
              , JointMission
              , Grating(..)
-             , ObsIdVal(..)
+               
+             , ObsIdVal
+             , fromObsId
+               
              , PropCategory
              , Proposal(..)
              , PropType
              , Record
              , RestrictedRecord
-             , SimbadType(..)
-             , TargetName(..)
+               
+             , SimbadType
+             , fromSimbadType
+               
+             , TargetName
+             , fromTargetName
+               
              , TOORequestTime
              , recordTarget
              , recordObsId
@@ -105,7 +113,7 @@ obsURI :: ObsIdVal -> AttributeValue
 obsURI = textValue . obsURIString
 
 obsURIString :: ObsIdVal -> T.Text
-obsURIString (ObsIdVal oi) = "/obsid/" <> showInt oi
+obsURIString oi = "/obsid/" <> showInt (fromObsId oi)
 
 -- | Show the schedule around the given date.
 --
@@ -164,10 +172,11 @@ vToValue ViewSequence = "sequenceSummary"
 -- sequence number.
 --
 viewerURI :: ViewerOption -> ObsIdVal -> AttributeValue
-viewerURI opt ObsIdVal{..} =
+viewerURI opt oid =
   let base = "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem="
       optVal = vToValue opt
-  in textValue (base <> optVal <> "&obsid=" <> showInt fromObsId)
+      oidstr = showInt (fromObsId oid)
+  in textValue (base <> optVal <> "&obsid=" <> oidstr)
 
 obsIdLink :: ObsIdVal -> AttributeValue
 obsIdLink = viewerURI ViewDetails
@@ -350,10 +359,10 @@ categoryLinkSearch cat lbl =
 --   search.
 --
 targetSearch :: TargetName -> AttributeValue
-targetSearch TN{..} =
+targetSearch tn =
   -- since the target name could contain any character, ensure this
   -- is encoded
-  let qry = queryTextToQuery [("target", Just fromTargetName)]
+  let qry = queryTextToQuery [("target", Just (fromTargetName tn))]
       uriBS = "/search/name" <> renderQuery True qry
   in H.unsafeByteStringValue uriBS
      

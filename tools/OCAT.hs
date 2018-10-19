@@ -233,8 +233,8 @@ getConstellation ra dec = do
   
   withSystemTempFile "in.coords" $ \inName inHdl ->
     withSystemTempFile "out.constellation" $ \outName outHdl -> do
-      let long = _unRA ra
-          lat = _unDec dec
+      let long = fromRA ra
+          lat = fromDec dec
           coords = T.pack (show long) <> " " <> T.pack (show lat)
           cstr = "prop_precess from j/deg to con p0: "
                  <> inName <> ": " <> outName
@@ -295,23 +295,23 @@ toWrapperE f k m = do
                        <> " -> " <> emsg)
 
 toSequenceE :: OCAT -> Either T.Text Sequence
-toSequenceE = toWrapperE Sequence "SEQ_NUM"
+toSequenceE = toWrapperE unsafeToSequence "SEQ_NUM"
 
 toPropNumE :: OCAT -> Either T.Text PropNum
-toPropNumE = toWrapperE PropNum "PR_NUM"
+toPropNumE = toWrapperE toPropNum "PR_NUM"
 
 toObsIdE :: OCAT -> Either T.Text ObsIdVal
-toObsIdE = toWrapperE ObsIdVal "OBSID"
+toObsIdE = toWrapperE unsafeToObsIdVal "OBSID"
 
 toTimeKS :: OCAT -> T.Text -> Maybe TimeKS
-toTimeKS m k = toWrapper TimeKS k m
+toTimeKS m k = toWrapper unsafeToTimeKS k m
 
 toTimeKSE :: OCAT -> T.Text -> Either T.Text TimeKS
-toTimeKSE m k = toWrapperE TimeKS k m
+toTimeKSE m k = toWrapperE unsafeToTimeKS k m
 
 -- A value of 0.0 is converted to @Nothing@.
 toJointTime :: OCAT -> T.Text -> Maybe TimeKS
-toJointTime m k = toTimeKS m k >>= \t -> if t <= TimeKS 0.0 then Nothing else Just t
+toJointTime m k = toTimeKS m k >>= \t -> if isZeroKS t then Nothing else Just t
 
 toText :: OCAT -> T.Text -> Maybe T.Text
 toText m lbl = either (const Nothing) Just (toTextE m lbl)
@@ -330,7 +330,7 @@ toReadE :: Read a => OCAT -> T.Text -> Either T.Text a
 toReadE m lbl = toWrapperE id lbl m
 
 toCT :: OCAT -> T.Text -> Maybe ChandraTime
-toCT m lbl = ChandraTime <$> toUTC m lbl
+toCT m lbl = toChandraTime <$> toUTC m lbl
 
 {-
 toCTE :: OCAT -> L.ByteString -> Either T.Text ChandraTime
@@ -362,7 +362,7 @@ toRAE :: OCAT -> Either T.Text RA
 toRAE mm = do
   let tR txt = 
         let (h:m:s:_) = map (read . T.unpack) (T.splitOn " " txt)
-        in RA (15.0 * (h + (m + s/60.0) / 60.0))
+        in toRA (15.0 * (h + (m + s/60.0) / 60.0))
 
   raVal <- lookupE "RA" mm
   return (tR raVal)
@@ -377,7 +377,7 @@ toDecE mm = do
                                   | c == '+'  -> (1, cs)
                                   | otherwise -> (1, lbs) -- should not happen but just in case
                      _ -> (0, "0 0 0") -- if it's empty we have a problem
-        in Dec (sval * (abs d + (m + s/60.0) / 60.0))
+        in toDec (sval * (abs d + (m + s/60.0) / 60.0))
 
   decVal <- lookupE "Dec" mm
   return (tD decVal)
@@ -465,7 +465,7 @@ toSOE m con = do
   sTime <- if status == Discarded
            then Right Nothing
            else case M.lookup "START_DATE" m of
-             Just sd -> Just . ChandraTime <$> textToUTCE sd
+             Just sd -> Just . toChandraTime <$> textToUTCE sd
              Nothing -> Right Nothing
   
   appExp <- toTimeKSE m "APP_EXP"
@@ -531,7 +531,7 @@ toSOE m con = do
         Nothing -> []
         Just xs -> map Telescope (T.splitOn ", " xs)
       -}
-      multiTelObs = maybe [] ((:[]) . Telescope)
+      multiTelObs = maybe [] ((:[]) . toTelescope)
                     (toText m "MULTITEL_OBS")
       
   -- NOTE: error out here in case of an invalid conversion;
@@ -557,7 +557,7 @@ toSOE m con = do
     , soProposal = pNum
     , soStatus = status
     , soObsId = obsid
-    , soTarget = TN target
+    , soTarget = toTargetName target
     , soStartTime = sTime
     , soApprovedTime = appExp
     , soObservedTime = obsExp
@@ -639,7 +639,7 @@ ocatToNonScience m = do
     nsStatus = status
     -- , nsName = name
     , nsObsId = obsid
-    , nsTarget = TN target
+    , nsTarget = toTargetName target
     , nsStartTime = toCT m "START_DATE"
     , nsTime = rTime
     , nsRa = ra
@@ -873,7 +873,7 @@ addOverlaps f os = do
 dumpScienceObs :: ScienceObs -> IO ()
 dumpScienceObs ScienceObs{..} = do
   T.putStrLn "------ dump"
-  print (_unSequence soSequence)
+  print (fromSequence soSequence)
   T.putStrLn (fromObsIdStatus soStatus)
   print (fromObsId soObsId)
   T.putStrLn (fromTargetName soTarget)
@@ -909,7 +909,7 @@ dumpScienceObs ScienceObs{..} = do
 
   print soJointWith
   let joint lbl val =
-        let tval = T.pack (show (fmap _toKS val))
+        let tval = T.pack (show (fmap fromTimeKS val))
         in T.putStrLn ("Joint " <> lbl <> " " <> tval)
   joint "HST" soJointHST
   joint "NOAO" soJointNOAO
@@ -921,7 +921,7 @@ dumpScienceObs ScienceObs{..} = do
   joint "SWIFT" soJointSWIFT
   joint "NUSTAR" soJointNUSTAR
 
-  T.putStrLn (maybe "No TOO constraint" trValue soTOO)
+  T.putStrLn (maybe "No TOO constraint" tooValue soTOO)
   T.putStrLn (showRA soRA)
   T.putStrLn (showDec soDec)
   T.putStrLn ("which is in constellation: " <> fromConShort soConstellation)

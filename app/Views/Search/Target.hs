@@ -15,7 +15,7 @@ import Data.Monoid ((<>), mconcat)
 import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import Types (RestrictedSchedule, TargetName(..))
+import Types (RestrictedSchedule, TargetName, toTargetName, fromTargetName)
 import Utils (getScienceTimeRestricted, getNumObsRestricted)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardRestrictedSchedulePage,
@@ -35,10 +35,12 @@ targetPage ::
 targetPage targetName fullNames sched =
   let hdrTitle = "Chandra observations of " <> H.toHtml officialName
 
+      allNames = mconcat (intersperse ", " (fmap fromTargetName fullNames))
+      
       -- not ideal with the mapping to/from TargetName
       officialName = case fullNames of
         [] -> targetName
-        _ -> TN (mconcat (intersperse ", " (fmap fromTargetName fullNames)))
+        _ -> toTargetName allNames
 
       pageTitle = toHtml officialName
       mainBlock = renderMatches officialName sched
