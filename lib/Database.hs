@@ -168,6 +168,14 @@ import Database.Groundhog.Postgresql
 
 import Formatting hiding (now)
 
+import Sorted (SortedList
+              , emptySL
+              , unsafeToSL
+              , toSL
+              , fromSL
+              , mergeSL
+              , StartTimeOrder
+              , ExposureTimeOrder)
 import Types
 import Instances ()
 

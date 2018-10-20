@@ -20,8 +20,8 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (jsScript, cssLink)
 import Layout (defaultMeta, jqueryMeta, renderLinks, renderFooter)
-import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..)
-             , SortedList, StartTimeOrder)
+import Sorted (SortedList, StartTimeOrder)
+import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..))
 import Utils (HtmlContext(..))       
 import Views.Record (CurrentPage(..), renderStuff, twitterDiv
                     , mainNavBar, obsNavBar

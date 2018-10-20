@@ -46,6 +46,7 @@ library
                   Database
                   Git
                   Instances
+                  Sorted
                   Types
 
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates

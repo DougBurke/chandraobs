@@ -47,6 +47,10 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
 import Layout (defaultMeta
               , renderLinks
               , renderFooter)
+import Sorted (StartTimeOrder
+              , SortedList
+              , fromSL, lengthSL)
+       
 import Types (Record, ScienceObs(..), NonScienceObs(..)
              , SimbadInfo(..)
              , Proposal(..)
@@ -56,10 +60,8 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , ConLong(..)
              , ObsIdStatus(Discarded)
              , SimbadLoc(SimbadCfA)
-             , SortedList, StartTimeOrder
              , TargetName, SIMCategory
              , zeroKS
-             , fromSL, lengthSL
              , getObsStatus
              , toSIMBADLink
              , getJointObs

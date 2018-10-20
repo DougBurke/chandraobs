@@ -148,6 +148,10 @@ import Database (NumObs, NumSrc, SIMKey
 -- import Git (gitCommitId)
 
 import Layout (getFact, renderLinks)
+import Sorted (SortedList
+              , nullSL, fromSL, mergeSL, unsafeToSL
+              , StartTimeOrder, ExposureTimeOrder)
+
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , PropNum
              , fromPropNum
@@ -159,7 +163,6 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              -- , PropType(..)
              , SIMCategory
              , SimbadTypeInfo
-             , SortedList, StartTimeOrder, ExposureTimeOrder
              , TargetName(..)
              , TimeKS
              , unsafeToTimeKS
@@ -183,7 +186,6 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
 
              , fromSimbadType
              , toSimbadType
-             , nullSL, fromSL, mergeSL, unsafeToSL
              , showExpTime
              , handleMigration
              , labelToRT
