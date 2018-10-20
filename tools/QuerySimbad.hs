@@ -68,7 +68,22 @@ import Database (updateLastModified
                 , insertIfUnknown
                 , putIO
                 , runDb)
-import Types
+import Types (SimbadMatch(..)
+             , SimbadNoMatch(..)
+             , SimbadInfo(..)
+             , SimbadLoc(..)
+             , simbadBase
+             , SimbadType
+             , toSimbadType
+             , SIMCategory
+             , TargetName
+             , fromTargetName
+             , toTargetName
+             , _2
+             , Field(SmnTargetField, SmnLastCheckedField,
+                     SmmTargetField,
+                     SoTargetField)
+             )
 
 userAgent :: Header
 userAgent = ("User-Agent", "chandraobs dburke@cfa.harvard.edu")

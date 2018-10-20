@@ -9,7 +9,7 @@ import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
 import Database (getObsInfo, reportSize, runDb)
-import Types
+import Types (ObsInfo(..))
 
 main :: IO ()
 main = do

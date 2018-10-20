@@ -74,7 +74,18 @@ import Formatting (int, sformat)
 
 import Text.Parsec
 
-import Types
+import Types (ScheduleItem(..)
+             , TimeKS
+             , unsafeToTimeKS
+             , ChandraTime
+             , toCTime, endCTime
+             , RA
+             , toRA
+             , Dec
+             , toDec
+             , Instrument, Grating
+             , unsafeToObsIdVal
+             )
 
 type Parser = Parsec String ()
 

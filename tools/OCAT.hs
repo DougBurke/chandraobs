@@ -192,7 +192,58 @@ import Text.HTML.TagSoup (innerText
 import Text.Read (readMaybe)
 
 import Database (updateLastModified)
-import Types
+import Types (ObsIdVal
+             , unsafeToObsIdVal
+             , fromObsId
+             , ObsIdStatus(..)
+             , toObsIdStatus
+             , fromObsIdStatus
+             , ScienceObs(..)
+             , NonScienceObs(..)
+             , Sequence
+             , unsafeToSequence
+             , fromSequence
+             , Proposal(..)
+             , PropNum
+             , toPropNum
+             , fromPropNum
+             , TimeKS
+             , unsafeToTimeKS
+             , fromTimeKS
+             , isZeroKS
+             , showExpTime
+             , showCTime
+             , ChandraTime
+             , toChandraTime
+             , RA
+             , toRA
+             , fromRA
+             , showRA
+             , Dec
+             , toDec
+             , fromDec
+             , showDec
+             , Instrument
+             , toInstrument
+             , Grating
+             , toGrating
+             , toTelescope
+             , ChipStatus(..)
+             , toChipStatus
+             , fromChipStatus
+             , ConShort
+             , toConShort
+             , fromConShort
+             , Constraint
+             , toConstraint
+             , fromConstraint
+             , ProposalAbstract(..)
+             , MissingProposalAbstract(..)
+             , tooValue
+             , toTOORequest
+             , toTargetName
+             , fromTargetName
+             )
 
 userAgent :: Header
 userAgent = ("User-Agent", "chandraobs dburke@cfa.harvard.edu")
