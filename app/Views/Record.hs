@@ -239,6 +239,8 @@ mainNavBar cp =
             <> li (instA CPInstruments)
             <> li (viewA CPView)
 
+      awayPara = mempty
+
       {-
        - This could be picked up from the database (i.e. have a table
        - with message and time-range to display, but leave that thought
@@ -246,13 +248,13 @@ mainNavBar cp =
       awayPara = (p ! A.style "clear: both; text-align: center;")
                  ("I am on vacation so the site is not being updated. "
                   <> "Please come back on August 6th.")
-      -}
-      -- awayPara = mempty
+
       awayPara = (p ! A.style "clear: both; text-align: center;")
                  ("Chandra is currently being "
                   <> (a ! href "https://www.nasa.gov/feature/chandra-operations-resume-after-cause-of-safe-mode-identified")
                   "checked out after going into a safe mode"
                   <> " recently. Updates to the schedule are expected soon!.")
+      -}
 
   in (nav ! customAttribute "role" "navigation")
      (ul lis <> awayPara)
