@@ -267,7 +267,7 @@ getObsCatQuery :: [ObsIdVal] -> String
 getObsCatQuery oids = 
   let ois = map (show . fromObsId) oids
       oitxt = intercalate "," ois
-  in "http://cda.harvard.edu/srservices/ocatDetails.do?obsid="
+  in "https://cda.cfa.harvard.edu/srservices/ocatDetails.do?obsid="
      <> oitxt <> "&format=text"
 
 -- | Return the constellation name for this position. The code exits if
@@ -1001,7 +1001,7 @@ addProposal ::
 addProposal pnum = do
   
   let req = NHC.parseRequest_ baseLoc
-      baseLoc = "http://cda.cfa.harvard.edu/srservices/propAbstract.do"
+      baseLoc = "https://cda.cfa.harvard.edu/srservices/propAbstract.do"
 
       -- It is easier to query by obsid, as the obsid does not
       -- have to be 0-padded (I think), but leave as the

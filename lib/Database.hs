@@ -2108,9 +2108,9 @@ getProposalObjectMapping = do
 --   have been canceled or removed, but are still in the system.
 --   These can be identified as having nsName /= "unknown" but
 --   in the past. A query like
---   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52472
+--   https://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52472
 --   returns no data, but it does for
---   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=53718
+--   https://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=53718
 --
 --   For now, a simple solution is used to filter them out,
 --   which is to remove any record which has a start time before

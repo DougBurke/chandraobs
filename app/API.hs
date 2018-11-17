@@ -173,7 +173,7 @@ vToValue ViewSequence = "sequenceSummary"
 --
 viewerURI :: ViewerOption -> ObsIdVal -> AttributeValue
 viewerURI opt oid =
-  let base = "http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem="
+  let base = "https://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem="
       optVal = vToValue opt
       oidstr = showInt (fromObsId oid)
   in textValue (base <> optVal <> "&obsid=" <> oidstr)

@@ -342,7 +342,7 @@ publicImageURL obsid inst =
         HRCI -> "hrc"
         HRCS -> "hrc"
 
-  in "http://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
+  in "https://cda.cfa.harvard.edu/chaser/viewerImage.do?obsid="
      <> obsidTxt <> "&filename=" <> instTxt
      <> "f" <> obsidTxt
      <> "N001_full_img2.jpg&filetype=loresimg_jpg"

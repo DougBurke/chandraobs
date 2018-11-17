@@ -98,7 +98,7 @@ showInt = sformat int
 --   record go from "Observed" to "Archived"? Note that
 --   there are records from 2000 which have an "observed"
 --   status - e.g.
---   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=37
+--   https://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=37
 --
 --   This algorithm needs updating - e.g. may want to occasionally
 --   check the observed science observations to see if they

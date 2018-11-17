@@ -67,7 +67,7 @@ renderProposal title Proposal{..} mAbs sched =
       changed).
 
       getAbstract ProposalAbstract {..} =
-        let url = "http://cda.cfa.harvard.edu/srservices/propAbstract.do"
+        let url = "https://cda.cfa.harvard.edu/srservices/propAbstract.do"
                   <> "?propNum="
                   <> toValue (paNum)
         in p "The proposal abstract is:"

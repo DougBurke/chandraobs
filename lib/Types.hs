@@ -1240,7 +1240,7 @@ showStartTime Nothing   = "unscheduled"
 -- | Represent a non-science/cal observation.
 --
 --   There appear to be obsids - e.g. 52323
---   http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52323
+--   https://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=52323
 --   which claim to be observed but have no start_date field.
 --   I am going to assume that these are essentially rejected/discarded
 --   but that the OCAT isn't updated.

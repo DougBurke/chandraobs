@@ -12,7 +12,7 @@ Aim:
 
 Use the CXC interface to get the proposal abstract:
 
-  http://cda.cfa.harvard.edu/srservices/propAbstract.do
+  https://cda.cfa.harvard.edu/srservices/propAbstract.do
 
 with obsid=xxx, propNum=xxx, or both. The response is HTML.
 
@@ -23,11 +23,11 @@ it is based on bibcode, which is not a value tracked by ocat).
 It looks like leading 0's need to be given if the propNum argument
 is given, since
 
- http://cda.cfa.harvard.edu/srservices/propAbstract.do?propNum=2200112
+ https://cda.cfa.harvard.edu/srservices/propAbstract.do?propNum=2200112
 
 fails, but
 
- http://cda.cfa.harvard.edu/srservices/propAbstract.do?propNum=02200112
+ https://cda.cfa.harvard.edu/srservices/propAbstract.do?propNum=02200112
 
 succeeds.
 
