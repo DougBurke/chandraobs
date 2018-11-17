@@ -29,7 +29,9 @@ help:
 	@echo "   showdocker  - docker command to build the image"
 	@echo "   builddocker - build docker image"
 	@echo "   cleandocker - build docker image (with no cache)"
-	@echo "   rundocker   - run docker image"
+	@echo "   rundocker   - run docker image (local)"
+	@echo ""
+	@echo "   runheroku   - build/run Heroku docker image loclly"
 	@echo "   pushdocker  - push docker image to Heroku"
 	@echo ""
 	@echo "   buildredirect - build docker image for redirect"
@@ -83,6 +85,17 @@ rundocker:
 	@echo "### Running ${APP} docker image locally"
 	@echo "##"
 	@sudo docker run -it --network host registry.heroku.com/${APP}/web
+
+runheroku:
+	@echo "### Build and run Heroku docker image locally"
+	@echo "##"
+	@echo "## [will also push it to Heroku but not release it]"
+	@echo "## [not sure I understand the Heroku docker integration..]"
+	@echo "##"
+	@echo "## ${APP}"
+	@echo "##"
+	@sudo heroku container:push web --app ${APP} --arg SOURCE_VERSION=${SOURCE_VERSION}
+	@sudo heroku container:run web --app ${APP}
 
 pushdocker:
 	@echo "### Pushing docker image to Heroku"
