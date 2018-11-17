@@ -4,15 +4,13 @@
 # but all mistakes are mine
 #
 
-FROM heroku/heroku:16
+FROM heroku/heroku:18
 
 ENV LANG C.UTF-8
 
-# Remove some packages we do not need (an incomplete list)
+# Remove some packages we do not need.
 #
-# Also includes packages needed to install Stack. An alternative approach
-# is to use the FP complete ubuntu repository and install from there, but
-# it's not clear that is really any "better"
+# Also includes packages needed to install Stack.
 #
 # Final installation is for Postgres
 #
@@ -38,19 +36,11 @@ RUN apt-get remove -y --assume-yes \
   gnupg \
   libpq-dev
 
-# Alternative approach to installing Stack
-# (not tried)
-#
-#   RUN wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | apt-key add -
-#   RUN echo 'deb http://download.fpcomplete.com/ubuntu trusty main' | tee /etc/apt/sources.list.d/fpco.list
-#   RUN apt-get update && apt-get install stack -y
-
 # Remove apt caches to reduce the size of our container.
 RUN rm -rf /var/lib/apt/lists/*
 
 # Install stack to /opt/stack/bin.
 RUN mkdir -p /opt/stack/bin
-# RUN curl -L https://www.stackage.org/stack/linux-x86_64-static | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
 RUN curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
 
 RUN mkdir -p /opt/chandraobs/src
@@ -115,13 +105,14 @@ RUN apt-get remove -y --assume-yes \
   bzip2 \
   perl \
   python2.7 \
-  python3.5 \
+  python3.6 \
   mysql-common \
   openssh-client \
   openssh-server \
   fonts-dejavu-core \
-  sgml-base \
-  tcpd \
+  gsfonts \
+  rsync \
+  mtools \
   && apt-get autoremove -y --assume-yes \
   && apt-get purge -y --assume-yes \
   && apt-get clean \
