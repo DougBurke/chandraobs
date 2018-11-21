@@ -258,6 +258,26 @@ executable addobsidlist
   else
     buildable:  False
 
+executable listmissingobsids
+  main-is:             ListMissingObsids.hs
+  hs-source-dirs:      tools/
+                                              
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     , groundhog
+     -- , groundhog-postgresql
+     , text
+
+  else
+    buildable:  False
+
 executable querysimbad
   main-is:             QuerySimbad.hs
   hs-source-dirs:      tools/
