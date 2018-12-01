@@ -239,7 +239,7 @@ mainNavBar cp =
             <> li (instA CPInstruments)
             <> li (viewA CPView)
 
-      awayPara = mempty
+      -- awayPara = mempty
 
       {-
        - This could be picked up from the database (i.e. have a table
@@ -255,6 +255,12 @@ mainNavBar cp =
                   "checked out after going into a safe mode"
                   <> " recently. Updates to the schedule are expected soon!.")
       -}
+
+      centeredP = (p ! A.style "clear: both; text-align: center;")
+      awayPara = centeredP
+                 ("We are currently moving hardware around, which means that "
+                  <> "updates to the scheduling and processing information "
+                  <> "will be delayed for the first week in December.")
 
   in (nav ! customAttribute "role" "navigation")
      (ul lis <> awayPara)
