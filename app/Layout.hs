@@ -574,7 +574,7 @@ renderWWT ScienceObs{..} =
 
       warningDiv =
         (H.p H.! class_ "nowwt")
-        ("It appears that the javascript needed to display the " <>
+        ("It appears that the JavaScript code needed to display the " <>
          "World Wide Telescope has not loaded. If you are using the " <>
          "https version of the site, please try visiting the " <>
          (a H.! href httpHref) "http version of this page " <>

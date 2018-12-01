@@ -320,8 +320,10 @@ makeScheduleRestricted RestrictedSchedule {..} =
         <> maybe [] ((:[]) . dataRow "doing") rrDoing
         <> map (dataRow "todo") rrToDo
 
+      -- TODO: need to improve this message
+      --
       svgBlock = do
-        noJSPara "The map of the observations requires javascript, but it appears that it is not available."
+        noJSPara "The map of the observations requires JavaScript, but it appears that it is not available (or the page is taking some time to load)."
         
         (div ! id "map") ""
         toJSVarArr "obsinfo" obsInfo
