@@ -22,6 +22,7 @@ help:
 	@echo "   help        - this page"
 	@echo ""
 	@echo "   stack       - stack build (incl. tools)"
+	@echo "   showstack   - show the stack build command (incl. tools)"
 	@echo ""
 	@echo "   cleardb     - clear database on Heroku"
 	@echo "   pushdb      - push database to Heroku"
@@ -45,6 +46,13 @@ stack:
 	@echo "## Note: redirectserver is not built"
 	@echo "##"
 	@stack build --flag chandraobs:tools --flag chandraobs:server --flag chandraobs:-redirectserver
+
+showstack:
+	@echo "### Build chandraobs via stack"
+	@echo "##"
+	@echo "## Note: redirectserver is not built"
+	@echo "##"
+	@echo "stack build --flag chandraobs:tools --flag chandraobs:server --flag chandraobs:-redirectserver"
 
 cleardb:
 	@echo "### Clearing database on Heroku"
