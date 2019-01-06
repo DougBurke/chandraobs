@@ -77,7 +77,6 @@ import System.IO (hFlush, stderr)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
 
-import Web.Heroku (dbConnParams)
 import Web.Scotty
 
 import Cache (Cache, CacheKey
@@ -216,28 +215,19 @@ production p = def { verbose = 0
 development :: Options
 development = def
 
--- | @True@ for production/heroku, otherwise local
-getDbConnStr :: Bool -> IO String
-getDbConnStr False = return dbConnStr
-getDbConnStr _ = do
-  cparams <- dbConnParams
-  return $ T.unpack $ foldr (\(k,v) s ->
-                        s <> (k <> "=" <> v <> " ")) "" cparams
-
 uerror :: T.Text -> IO ()
 uerror msg = do
   T.hPutStrLn stderr ("ERROR: " <> msg)
   hFlush stderr
   exitFailure
 
--- I use the presence of the PORT environment variable to decide
--- between production/heroku and test environments. This is for
--- *both* the port to run Scotty on and the database to use, so
+-- The behavior depends on the presence of two environment variables,
+-- that are handled separately:
 --
---   env var PORT exists: use this port number and use DATABASE_URL
---     env var for database (assumed to be on Heroku)
---
---   otherwise, run on port=3000 and use the local postgresql instance
+--   PORT - the port number to run on (if not given it defaults to
+--          3000)
+--   DATABASE_URL  - the database to use (if on Heroku) otherswise
+--                   use a local setup.
 --
 -- The Scotty documentation suggests calling setFdCacheDuration on the
 -- settings field, to change the value from 0, but do not really
@@ -253,8 +243,8 @@ main = do
 
         _ -> Right development
 
-  connStr <- getDbConnStr (isJust mports)
- 
+  connStr <- dbConnStr
+
   case eopts of
     Left emsg -> uerror emsg
     Right opts -> 

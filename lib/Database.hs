@@ -166,6 +166,10 @@ import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
                                 distinct)
 import Database.Groundhog.Postgresql
 
+import System.Environment (lookupEnv)
+
+import Web.Heroku (dbConnParams)
+
 import Formatting hiding (now)
 
 import Sorted (SortedList
@@ -2638,9 +2642,23 @@ getDataBaseInfo = do
                      
 
 -- | Hard-coded connection string for the database connection.
-dbConnStr :: String
--- dbConnStr = "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
-dbConnStr = "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
+--
+--   If the DATABASE_URL is available, use that (Heroku-like set up)
+--   otherwise use a local value.
+--
+dbConnStr :: IO String
+-- dbConnStr = pure "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
+-- dbConnStr = pure "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
+dbConnStr = do
+  murl <- lookupEnv "DATABASE_URL"
+  case murl of
+    Nothing -> pure "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
+
+    Just _ -> do
+      cparams <- dbConnParams
+      pure $ T.unpack $ foldr (\(k,v) s ->
+                        s <> (k <> "=" <> v <> " ")) "" cparams
+
 
 -- | Run an action against the database. This includes a call to
 --   `handleMigration` before the action is run.
@@ -2651,8 +2669,9 @@ dbConnStr = "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
 runDb ::
   (MonadBaseControl IO m, MonadIO m)
   => Action Postgresql a -> m a
-runDb act =
-  withPostgresqlConn dbConnStr (runDbConn (handleMigration >> act))
+runDb act = do
+  connStr <- liftIO dbConnStr
+  withPostgresqlConn connStr (runDbConn (handleMigration >> act))
 
 -- Return the time the db call took (including migration and setting
 -- up/closing the connection) in seconds.
@@ -2661,8 +2680,9 @@ timeDb ::
   (MonadBaseControl IO m, MonadIO m)
   => Action Postgresql a -> m (a, Double)
 timeDb act = do
+  connStr <- liftIO dbConnStr
   t1 <- liftIO getCurrentTime
-  ans <- withPostgresqlConn dbConnStr (runDbConn (handleMigration >> act))
+  ans <- withPostgresqlConn connStr (runDbConn (handleMigration >> act))
   t2 <- liftIO getCurrentTime
   let diff = t2 `diffUTCTime` t1
   return (ans, realToFrac diff)
