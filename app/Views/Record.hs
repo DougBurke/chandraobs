@@ -732,8 +732,21 @@ renderTwitter :: Html
 renderTwitter = 
   (div ! class_ "tweetstream") (
     a ! class_ "twitter-timeline"
-      ! href "https://twitter.com/chandraxray" 
-      ! dataAttribute "widget-id" "469095554312450049" $ "Tweets by @chandraxray"   )
-  <>
-  script "!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','twitter-wjs');"
+      ! href "https://twitter.com/chandraxray?ref_src=twsrc%5Etfw"
+      ! dataAttribute "width" "520"
+      ! dataAttribute "height" "650"
+      ! dataAttribute "theme" "light" $ "Tweets by chandraxray"
+  ) <>
+  (script ! async "true"
+          ! src "https://platform.twitter.com/widgets.js"
+          ! charset "utf-8" $ "")
 
+{-
+Different widget given by
+
+    a ! class_ "twitter-follow-button"
+      ! href "https://twitter.com/chandraxray?ref_src=twsrc%5Etfw"
+      ! dataAttribute "show-count" "false" $ "Follow @chandraxray"
+
+No idea what this looks like
+-}
