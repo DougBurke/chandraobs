@@ -1,0 +1,97 @@
+# This is based on the webserver Dockerfile
+#
+
+FROM heroku/heroku:18
+
+ENV LANG C.UTF-8
+
+# Remove some packages we do not need.
+#
+# Also includes packages needed to install Stack.
+#
+# Final installation is for Postgres
+#
+RUN apt-get remove -y --assume-yes \
+  ghostscript \
+  imagemagick \
+  geoip-database \
+  ruby \
+  rake \
+  && apt-get autoremove -y --assume-yes \
+  && apt-get update \
+  && apt-get upgrade -y --assume-yes \
+  && apt-get install -y --assume-yes \
+  g++ \
+  gcc \
+  libc6-dev \
+  libffi-dev \
+  libgmp-dev \
+  make \
+  xz-utils \
+  zlib1g-dev \
+  git \
+  gnupg \
+  libpq-dev
+
+# Remove apt caches to reduce the size of our container.
+RUN rm -rf /var/lib/apt/lists/*
+
+# Install stack to /opt/stack/bin.
+RUN mkdir -p /opt/stack/bin
+RUN curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
+
+RUN mkdir -p /opt/chandraobs/src
+RUN mkdir -p /opt/chandraobs/bin
+WORKDIR /opt/chandraobs/src
+
+# Copy over files in stages to avoid unnescessary rebuilds; the assumption
+# is that stack.yaml changes less than the cabal file, which is less than
+# the code itself.
+#
+ENV PATH "$PATH:/opt/stack/bin:/opt/chandraobs/bin"
+
+COPY ./stack.yaml /opt/chandraobs/src/stack.yaml
+RUN stack --no-terminal setup
+
+COPY ./chandraobs.cabal /opt/chandraobs/src/chandraobs.cabal
+
+# Install dependencies and check they are okay
+ENV FLAGS --flag chandraobs:-server --flag chandraobs:-redirectserver --flag chandraobs:tools
+
+RUN stack --no-terminal test --only-dependencies ${FLAGS}
+
+# Use this to pass in the GIT commit id; it is named this to match the
+# heroku slug set up.
+ARG SOURCE_VERSION
+ENV SOURCE_VERSION ${SOURCE_VERSION}
+
+COPY . /opt/chandraobs/src
+
+RUN stack --no-terminal build ${FLAGS}
+RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
+
+# Report the ghc and stack versions (after the build so it gets reported
+# each time)
+RUN stack exec ghc -- --version
+RUN stack --version
+
+# Remove unneeded files
+#
+# Note: copy over the CIAO installation code and files
+#
+RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
+RUN cp -r /opt/chandraobs/src/ciao /opt/chandraobs
+RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
+
+RUN useradd -ms /bin/bash tools
+RUN chown -R tools:tools /opt/chandraobs
+USER tools
+# ENV PATH "$PATH:/opt/chandraobs/bin"
+
+WORKDIR /opt/chandraobs
+
+# install CIAO (do at end to not mess up the build and so CIAO is installed
+#   as the user, not root)
+#
+RUN cd ciao \
+  && bash ciao-install --batch --install-only --system ubuntu --prefix /opt/chandraobs

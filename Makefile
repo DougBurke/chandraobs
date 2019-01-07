@@ -9,10 +9,12 @@
 
 APP=chandraobservatory
 REDIRECT_APP=chandraobs-devel
-# DBGAPP=chandraobs-devel-cedar-14
 
 # HOMEDB=chandraobs
 HOMEDB=chandraobs2
+
+PORT=3000
+DATABASE_URL:=$(shell heroku config:get --app ${APP} DATABASE_URL)
 
 # How portable is this?
 SOURCE_VERSION:=$(shell git rev-parse HEAD)
@@ -28,12 +30,14 @@ help:
 	@echo "   pushdb      - push database to Heroku"
 	@echo ""
 	@echo "   showdocker  - docker command to build the image"
-	@echo "   builddocker - build docker image"
+	@echo "   builddocker - build docker image (webserver)"
 	@echo "   cleandocker - build docker image (with no cache)"
-	@echo "   rundocker   - run docker image (local)"
+	@echo "   rundocker   - run docker image (webserver; heroku db)"
 	@echo ""
-	@echo "   runheroku   - build/run Heroku docker image loclly"
-	@echo "   pushdocker  - push docker image to Heroku"
+	@echo "   buildtools  - build docker image (tools; needs CIAO tools)"
+	@echo "   runtools    - run docker image (tools; heroku db)"
+	@echo ""
+	@echo "   pushdocker  - push docker image to Heroku (webserver)"
 	@echo ""
 	@echo "   buildredirect - build docker image for redirect"
 	@echo "   runredirect   - run docker image for redirect"
@@ -89,26 +93,33 @@ cleandocker:
 	@echo "##"
 	@sudo docker build --no-cache -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
 
-rundocker:
-	@echo "### Running ${APP} docker image locally"
-	@echo "##"
-	@sudo docker run -it --network host registry.heroku.com/${APP}/web
-
-runheroku:
-	@echo "### Build and run Heroku docker image locally"
-	@echo "##"
-	@echo "## [will also push it to Heroku but not release it]"
-	@echo "## [not sure I understand the Heroku docker integration..]"
+buildtools:
+	@echo "### Making docker image: tools (needs CIAO tools)"
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo heroku container:push web --app ${APP} --arg SOURCE_VERSION=${SOURCE_VERSION}
-	@sudo heroku container:run web --app ${APP}
+	@sudo docker build -t ${APP}.tools --file Dockerfile.tools --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
+
+rundocker:
+	@echo "### Running ${APP} docker image locally"
+	@echo "##"
+	@echo "## ${APP}"
+	@echo "## PORT=${PORT}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@echo "##"
+	@sudo docker run -it --network host --env PORT=${PORT} --env DATABASE_URL=${DATABASE_URL} registry.heroku.com/${APP}/web
+
+runtools:
+	@echo "### Running docker image: tools"
+	@echo "##"
+	@echo "## ${APP}"
+	@echo "## PORT=${PORT}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@echo "##"
+	@sudo docker run -it --env PORT=${PORT} --env DATABASE_URL=${DATABASE_URL} ${APP}.tools /bin/bash
 
 pushdocker:
 	@echo "### Pushing docker image to Heroku"
-	@echo "##"
-	@echo "## [will also build it]"
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"

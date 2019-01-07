@@ -8,3 +8,6 @@ dist-newstyle/
 
 lib/Git.hs
 static/about/index.html
+
+# used to set up CIAO installation for tools Docker image 
+ciao/
