@@ -53,7 +53,7 @@ import API (obsURIString
             , jointLinkSearch
             , constraintLinkSearch
             , cssLink)
-import Layout (defaultMeta, skymapMeta, renderFooter, noJSPara)
+import Layout (defaultMeta, skymapMeta, noJSPara)
 import Types (ObsIdVal(..), Grating(..)
              , ChandraTime, toChandraTime, fromChandraTime
              , Constraint(..), ConShort(..)
@@ -93,7 +93,7 @@ import Utils (showTimeDeltaFwd, showTimeDeltaBwd
              , toJSVarArr
              )
 
-import Views.Record (CurrentPage(..), mainNavBar)
+import Views.Record (CurrentPage(..), singleColBody)
 
 -- | Convert the obsname of a record to an identifier
 --   used in the HTML to identify riw/object.
@@ -640,10 +640,7 @@ baseSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad mcss =
     head hdr
     <>
     (body ! onload jsLoad)
-      (mainNavBar navLoc
-       <> (div ! id "schedule") bodyBlock
-       <> renderFooter
-      )
+      (singleColBody navLoc ((div ! id "schedule") bodyBlock))
 
 -}
 
@@ -688,10 +685,7 @@ baseRestrictedSchedulePage sched navLoc hdrTitle pageTitle explain jsLoad mcss =
     head hdr
     <>
     (body ! onload jsLoad)
-      (mainNavBar navLoc
-       <> (div ! id "schedule") bodyBlock
-       <> renderFooter
-      )
+      (singleColBody navLoc ((div ! id "schedule") bodyBlock))
 
 
 -- | Default page for the explore menu.
@@ -738,9 +732,7 @@ extraExplorePage mJS mCSSPage hdrTitle bodyBlock mIdName =
 
       idVal = fromMaybe "schedule" mIdName
 
-      bdy = mainNavBar CPExplore
-            <> (div ! id idVal) bodyBlock
-            <> renderFooter
+      bdy = singleColBody CPExplore ((div ! id idVal) bodyBlock)
 
       bodyCon = case mJS of
         Just (jsLoad, _) -> body ! onload jsLoad

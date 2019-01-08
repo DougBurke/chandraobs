@@ -19,11 +19,11 @@ import Text.Blaze.Html5.Attributes hiding (item, title)
 import API (cssLink)
 import Database (DBInfo)
 import Git (fromCommitId, gitCommitId)
-import Layout (defaultMeta, renderFooter)
+import Layout (defaultMeta)
 import Utils (showInt)
 import Types (toChandraTime, showCTime, showExpTime)
 import Views.Record (CurrentPage(..)
-                    , mainNavBar)
+                    , singleColBody)
 
 {-
 aboutPage :: 
@@ -45,15 +45,13 @@ aboutPage dbInfo =
           )
     <>
     body
-     (mainNavBar CPAbout
-      <> (div ! class_ "explanation")
-      (introSection
-       <> orbitSection
-       <> dbSection dbInfo
-       <> changelog
-       <> furtherSection)
-      <> renderFooter
-     )
+     (singleColBody CPAbout
+       ((div ! class_ "explanation")
+               (introSection
+                <> orbitSection
+                <> dbSection dbInfo
+                <> changelog
+                <> furtherSection)))
 
 
 alink :: AttributeValue -> Html -> Html

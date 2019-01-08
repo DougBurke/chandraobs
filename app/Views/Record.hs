@@ -6,9 +6,9 @@
 module Views.Record (CurrentPage(..)
                      , recordPage
                      , renderStuff
-                     , twitterDiv
-                     , mainNavBar
                      , obsNavBar
+                     , singleColBody
+                     , withTwitterBody
 
                      , noObsIdParas
                      ) where
@@ -114,13 +114,11 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
             )
     <>
     (body ! onload initialize)
-     (mainNavBar CPOther
-      <> (div ! id "mainBar") 
+     (withTwitterBody CPOther
+       ((div ! id "mainBar") 
          (obsNavBar StaticHtml mObs oi
-          <> renderStuff StaticHtml cTime thisObs dbInfo
-          <> imgLinks)
-      <> twitterDiv)
-      <> renderFooter
+         <> renderStuff StaticHtml cTime thisObs dbInfo
+         <> imgLinks)))
 
 -- | A redesign of the page.
 --
@@ -212,6 +210,29 @@ data CurrentPage =
   CPIndex | CPSchedule | CPExplore | CPAbout | CPInstruments | CPView | CPOther
   deriving Eq
 
+-- | Create a "single-column" page body layout.
+--
+singleColBody ::
+  CurrentPage
+  -> Html  -- ^ The body contents (will be wrapped in a main tag)
+  -> Html
+singleColBody cp bdy =
+  mainNavBar cp
+  <> main bdy
+  <> renderFooter
+
+-- | Show Twitter to the right of the "main" body.
+--
+withTwitterBody ::
+  CurrentPage
+  -> Html  -- ^ The body contents (will be wrapped in a main tag)
+  -> Html
+withTwitterBody cp bdy =
+  mainNavBar cp
+  <> (main bdy <> twitterDiv)
+  <> renderFooter
+
+
 -- | Display the main navigation bar.
 mainNavBar :: CurrentPage -> Html
 mainNavBar cp = 
@@ -262,8 +283,8 @@ mainNavBar cp =
                   <> "will be delayed for the first week in December.")
       -}
 
-  in (nav ! customAttribute "role" "navigation")
-     (ul lis <> awayPara)
+  in header ((nav ! customAttribute "role" "navigation")
+             (ul lis <> awayPara))
 
 -- | Display the observation navigation bar.
 --
@@ -726,7 +747,7 @@ nonSciencePara (mTimes, cTime) NonScienceObs{..} obsStatus =
   in p (cts obsStatus)
 
 twitterDiv :: Html
-twitterDiv = (div ! id "otherBar") renderTwitter
+twitterDiv = aside ((div ! id "otherBar") renderTwitter)
 
 renderTwitter :: Html
 renderTwitter = 

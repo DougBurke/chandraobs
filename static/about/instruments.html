@@ -7,22 +7,27 @@
   <link href="/css/main.css" type="text/css" rel="stylesheet" title="Default" media="all">
  </head>
  <body>
-  <nav role="navigation">
-   <ul>
-    <li><a id='home' href="/index.html">What is Chandra doing now?</a></li>
-    <li><a id='sched' href="/schedule/index.html">Schedule</a></li>
-    <li><a id='expl' href="/search/index.html">Explore</a></li>
-    <li><a id='about' href="/about/index.html">About</a></li>
-    <li><a id='insts' class="chosen" href="/about/instruments.html">Instruments</a></li>
-    <li><a id='views' href="/about/views.html">Views</a></li>
-   </ul>
-  </nav>
+  <header>
+   <nav role="navigation">
+    <ul>
+     <li><a id='home' href="/index.html">What is Chandra doing now?</a></li>
+     <li><a id='sched' href="/schedule/index.html">Schedule</a></li>
+     <li><a id='expl' href="/search/index.html">Explore</a></li>
+     <li><a id='about' href="/about/index.html">About</a></li>
+     <li><a id='insts' class="chosen" href="/about/instruments.html">Instruments</a></li>
+     <li><a id='views' href="/about/views.html">Views</a></li>
+    </ul>
+   </nav>
+  </header>
 
+  <main>
   <div class="explanation">
    <h1>Instruments on the Chandra X-Ray Observatory</h1>
 
+   <!--
    <p><strong>TODO:</strong> add example images.</p>
-
+   -->
+   
    <p>
      There are two detectors on Chandra - 
      <a href="#ACIS">ACIS</a> and <a href="#HRC">HRC</a> -
@@ -226,8 +231,10 @@
    <p>
     The <abbr title="High Resolution Camera">HRC</abbr> instrument 
     on the Chandra X-ray Observatory contains
-    Micro Channel Plates that detect X-ray photons
-    by ... <strong>TODO: finish this!</strong>
+    Micro Channel Plates that are sensitive to X-ray photons.
+    <!--
+     by ... <strong>TODO: finish this!</strong>
+    -->
    </p>
 
    <h3 id="HRC-I">HRC-I</h3>
@@ -291,7 +298,9 @@
      home page.
    </p>
   </div>
+  </main>
 
+  <footer>
   <p id="banner">
     The 'What is Chandra doing now?' web site is developed by
     the Science Data Systems group of the
@@ -300,5 +309,6 @@
     educational purposes and should not be relied on for
     scientific use.
   </p>
+  </footer>
  </body>
 </html>

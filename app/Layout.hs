@@ -134,7 +134,7 @@ jqueryMeta =
 -- | The standard footer; needs to match up with the html files in static/.
 renderFooter :: Html
 renderFooter =
-  H.p H.! A.id "banner" $
+  H.footer $ H.p H.! A.id "banner" $
     mconcat [
       "The 'What is Chandra doing now?' web site is developed by "
       , "the Science Data Systems group of the "

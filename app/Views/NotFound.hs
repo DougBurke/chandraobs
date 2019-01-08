@@ -16,9 +16,9 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (cssLink)
-import Layout (defaultMeta, renderFooter)
-import Views.Record (CurrentPage(..), twitterDiv
-                    , mainNavBar)
+import Layout (defaultMeta)
+import Views.Record (CurrentPage(..)
+                    , withTwitterBody)
 
 notFoundPage :: Html -> Html
 notFoundPage fact =
@@ -28,11 +28,7 @@ notFoundPage fact =
           (cssLink "/css/main.css" ! A.title "Default")
           )
     <>
-    body
-     (mainNavBar CPOther
-      <> notFoundDiv fact
-      <> twitterDiv)
-     <> renderFooter
+    body (withTwitterBody CPOther (notFoundDiv fact))
 
 notFoundDiv :: Html -> Html
 notFoundDiv fact = (div ! id "mainBar") (notFoundParas fact)

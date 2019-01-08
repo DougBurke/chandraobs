@@ -39,8 +39,7 @@ import API (typeLinkSearch
            , categoryLinkSearch
            , jsScript , cssLink)
 import Layout (defaultMeta, d3Meta
-              , dquote, floatableTable
-              , renderFooter)
+              , dquote, floatableTable)
 import Types (RestrictedSchedule
              , SimbadType
              , fromSimbadType
@@ -58,7 +57,7 @@ import Utils (getNumObsRestricted
              , getScienceTimeRestricted
              , toJSVarObj
              )
-import Views.Record (CurrentPage(..), mainNavBar)
+import Views.Record (CurrentPage(..), singleColBody)
 import Views.Render (standardRestrictedSchedulePage
                     , standardExplorePage)
 
@@ -93,10 +92,8 @@ dependencyPage objs =
           )
     <>
     (body ! onload "createTree(typeinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") (renderDependency objs)
-      <> renderFooter
-     )
+     (singleColBody CPExplore
+      ((div ! id "explorebox") (renderDependency objs)))
 
 -- TODO: combine with Schedule.schedPage
 

@@ -23,8 +23,8 @@ import Text.Blaze.Html5.Attributes hiding (title)
 import API (basicTypeLinkSearch
            , categoryLinkSearch
            , jsScript, cssLink)
-import Layout (defaultMeta, dquote, d3Meta, renderFooter, noJSPara)
-import Views.Record (CurrentPage(..), mainNavBar)
+import Layout (defaultMeta, dquote, d3Meta, noJSPara)
+import Views.Record (CurrentPage(..), singleColBody)
 
 indexPage :: Html
 indexPage =
@@ -40,10 +40,7 @@ indexPage =
           )
     <>
     (body ! onload jsLoad)
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") renderMatches
-      <> renderFooter
-     )
+     (singleColBody CPExplore ((div ! id "explorebox") renderMatches))
 
 renderMatches :: Html
 renderMatches = 

@@ -38,7 +38,6 @@ import API (instLinkSearch
            , gratLinkAbout
            , cssLink, jsScript)
 import Layout (defaultMeta, d3Meta
-              , renderFooter
               , standardTable)
 import Types (RestrictedSchedule
              , TimeKS
@@ -51,7 +50,7 @@ import Utils (getNumObsRestricted
              , getScienceTimeRestricted
              , toJSVarObj
              )
-import Views.Record (CurrentPage(..), mainNavBar)
+import Views.Record (CurrentPage(..), singleColBody)
 import Views.Render (standardRestrictedSchedulePage
                     , standardExplorePage)
 
@@ -183,7 +182,7 @@ renderTypes insts grats igs =
       <> tbl "Instrument & Grating" igLinkSearch igs)
 
 
--- Experimental
+-- Experimental; TODO can this use xxxExplorePage
 
 breakdownPage ::
   M.Map (Instrument, Grating) TimeKS
@@ -200,10 +199,8 @@ breakdownPage total perDay =
           )
     <>
     (body ! onload "createBreakdown(seriesinfo);")
-     (mainNavBar CPExplore
-      <> (div ! id "explorebox") (renderBreakdown total perDay)
-      <> renderFooter
-     )
+     (singleColBody CPExplore
+      ((div ! id "explorebox") (renderBreakdown total perDay)))
 
 renderBreakdown ::
   M.Map (Instrument, Grating) TimeKS

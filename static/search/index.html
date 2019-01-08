@@ -13,6 +13,7 @@
   <link href="/css/search.css" type="text/css" rel="stylesheet">
  </head>
  <body>
+  <header>
   <nav role="navigation">
    <ul>
     <li><a id='home'  href="/index.html">What is Chandra doing now?</a></li>
@@ -23,7 +24,9 @@
     <li><a id='views' href="/about/views.html">Views</a></li>
    </ul>
   </nav>
+  </header>
 
+  <main>
   <div id="explorebox">
     <h2>Explore the observations made by Chandra</h2>
 
@@ -106,6 +109,8 @@
     <tt>NGC404</tt> will be different.
   </p>
   </div>
+  </main>
+  
   <script>
     // from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
 function fixedEncodeURIComponent(str) {
@@ -158,7 +163,8 @@ function selected(prefix) {
     close: selected("/proposal/")
     });
 </script>
-  
+
+  <footer>
   <p id="banner">
     The 'What is Chandra doing now?' web site is developed by
     the Science Data Systems group of the
@@ -167,5 +173,7 @@ function selected(prefix) {
     educational purposes and should not be relied on for
     scientific use.
   </p>
+  </footer>
+  
  </body>
 </html>

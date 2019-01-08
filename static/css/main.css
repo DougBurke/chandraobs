@@ -26,7 +26,13 @@ p.wwt a:hover {
 }
 
 /* restore margin, at least for divs and paragraphs */
+/*
 body > div , body > p {
+  margin: 0.5em;
+}
+*/
+
+main > div , aside > div {
   margin: 0.5em;
 }
 

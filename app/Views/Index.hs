@@ -19,12 +19,12 @@ import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (jsScript, cssLink)
-import Layout (defaultMeta, jqueryMeta, renderLinks, renderFooter)
+import Layout (defaultMeta, jqueryMeta, renderLinks)
 import Sorted (SortedList, StartTimeOrder)
 import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..))
 import Utils (HtmlContext(..))       
-import Views.Record (CurrentPage(..), renderStuff, twitterDiv
-                    , mainNavBar, obsNavBar
+import Views.Record (CurrentPage(..), renderStuff
+                    , withTwitterBody, obsNavBar
                     , noObsIdParas)
 
 noObsIdPage :: Html -> Html
@@ -35,11 +35,7 @@ noObsIdPage fact =
           (cssLink "/css/main.css" ! A.title "Default")
           )
     <>
-    body
-     (mainNavBar CPOther
-      <> noObsIdDiv fact
-      <> twitterDiv)
-    <> renderFooter
+    body (withTwitterBody CPOther (noObsIdDiv fact))
 
 noObsIdDiv :: Html -> Html
 noObsIdDiv fact = (div ! id "mainBar") (noObsIdParas fact)
@@ -52,11 +48,7 @@ noDataPage fact =
           (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>
-    body
-     (mainNavBar CPOther
-      <> noDataDiv fact
-      <> twitterDiv)
-    <> renderFooter
+    body (withTwitterBody CPOther (noDataDiv fact))
 
 noDataDiv :: Html -> Html
 noDataDiv fact = (div ! id "mainBar") (noDataParas fact)
@@ -117,10 +109,8 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
           )
     <>
     (body ! onload initialize)
-     (mainNavBar CPIndex
-      <> (div ! id "mainBar") 
-         (obsNavBar StaticHtml (Just currentObs) oi
-          <> renderStuff StaticHtml cTime currentObs dbInfo
-          <> imgLinks)
-      <> twitterDiv)
-      <> renderFooter
+     (withTwitterBody CPIndex
+      ((div ! id "mainBar") 
+        (obsNavBar StaticHtml (Just currentObs) oi
+       <> renderStuff StaticHtml cTime currentObs dbInfo
+       <> imgLinks)))
