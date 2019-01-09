@@ -36,17 +36,14 @@ RUN apt-get remove -y --assume-yes \
 # Remove apt caches to reduce the size of our container.
 RUN rm -rf /var/lib/apt/lists/*
 
-# Install stack to /opt/stack/bin.
 RUN mkdir -p /opt/stack/bin
-RUN curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
-
 RUN mkdir -p /opt/chandraobs/src
 RUN mkdir -p /opt/chandraobs/bin
-WORKDIR /opt/chandraobs/src
 
-RUN useradd -ms /bin/bash tools \
- && chown -R tools:tools /opt/chandraobs
-USER tools
+# Install stack to /opt/stack/bin.
+RUN curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
+
+WORKDIR /opt/chandraobs/src
 
 # Copy over files in stages to avoid unnescessary rebuilds; the assumption
 # is that stack.yaml changes less than the cabal file, which is less than
@@ -85,7 +82,13 @@ RUN stack --no-terminal build ${FLAGS} \
 
 WORKDIR /opt/chandraobs
 
+RUN useradd -ms /bin/bash tools \
+ && chown -R tools:tools /opt/chandraobs \
+ && chown -R tools:tools /opt/stack
+USER tools
+
 # install CIAO (as user, not root)
 #
 RUN cd install \
-  && bash ciao-install --batch --install-only --system ubuntu --prefix /opt/chandraobs
+  && bash ciao-install --batch --install-only --system ubuntu --prefix /opt/chandraobs \
+  && echo ". /opt/chandraobs/ciao-4.11/bin/ciao.bash" > ~/.bash_aliases
