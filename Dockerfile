@@ -68,7 +68,12 @@ RUN stack --no-terminal test --only-dependencies ${FLAGS}
 ARG SOURCE_VERSION
 ENV SOURCE_VERSION ${SOURCE_VERSION}
 
-COPY . /opt/chandraobs/src
+# Only copy over what we need
+COPY autogen/ /opt/chandraobs/src/autogen/
+COPY ./Setup.hs /opt/chandraobs/src
+COPY ./configure /opt/chandraobs/src
+COPY lib/ /opt/chandraobs/src/lib/
+COPY app/ /opt/chandraobs/src/app/
 
 RUN stack --no-terminal build ${FLAGS}
 RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
@@ -78,8 +83,12 @@ RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
 RUN stack exec ghc -- --version
 RUN stack --version
 
+# Copy over the static code (do this after the build so that simple changes
+# don't trigger a re-build).
+#
+COPY static/ /opt/chandraobs/static/
+
 # Remove unneeded files
-RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
 RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
 
 # do not remove gnupg just yet as used by apt; also adding in packages

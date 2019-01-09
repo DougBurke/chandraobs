@@ -44,6 +44,10 @@ RUN mkdir -p /opt/chandraobs/src
 RUN mkdir -p /opt/chandraobs/bin
 WORKDIR /opt/chandraobs/src
 
+RUN useradd -ms /bin/bash tools \
+ && chown -R tools:tools /opt/chandraobs
+USER tools
+
 # Copy over files in stages to avoid unnescessary rebuilds; the assumption
 # is that stack.yaml changes less than the cabal file, which is less than
 # the code itself.
@@ -65,33 +69,23 @@ RUN stack --no-terminal test --only-dependencies ${FLAGS}
 ARG SOURCE_VERSION
 ENV SOURCE_VERSION ${SOURCE_VERSION}
 
-COPY . /opt/chandraobs/src
-
-RUN stack --no-terminal build ${FLAGS}
-RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
-
-# Report the ghc and stack versions (after the build so it gets reported
-# each time)
-RUN stack exec ghc -- --version
-RUN stack --version
-
-# Remove unneeded files
+# Try and copy only what we need, and do so in the reverse frequency of
+# expected "change"
 #
-# Note: copy over the CIAO installation code and files
-#
-RUN cp -r /opt/chandraobs/src/static /opt/chandraobs
-RUN cp -r /opt/chandraobs/src/ciao /opt/chandraobs
-RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
+COPY ciao/ /opt/chandraobs/install/
 
-RUN useradd -ms /bin/bash tools
-RUN chown -R tools:tools /opt/chandraobs
-USER tools
-# ENV PATH "$PATH:/opt/chandraobs/bin"
+COPY autogen/ /opt/chandraobs/src/autogen/
+COPY ./Setup.hs /opt/chandraobs/src
+COPY ./configure /opt/chandraobs/src
+COPY tools/ /opt/chandraobs/src/tools/
+COPY lib/ /opt/chandraobs/src/lib/
+
+RUN stack --no-terminal build ${FLAGS} \
+ && stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
 
 WORKDIR /opt/chandraobs
 
-# install CIAO (do at end to not mess up the build and so CIAO is installed
-#   as the user, not root)
+# install CIAO (as user, not root)
 #
-RUN cd ciao \
+RUN cd install \
   && bash ciao-install --batch --install-only --system ubuntu --prefix /opt/chandraobs

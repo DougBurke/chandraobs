@@ -113,10 +113,9 @@ runtools:
 	@echo "### Running docker image: tools"
 	@echo "##"
 	@echo "## ${APP}"
-	@echo "## PORT=${PORT}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@echo "##"
-	@sudo docker run -it --env PORT=${PORT} --env DATABASE_URL=${DATABASE_URL} ${APP}.tools /bin/bash
+	@sudo docker run -it --env DATABASE_URL=${DATABASE_URL} ${APP}.tools /bin/bash
 
 pushdocker:
 	@echo "### Pushing docker image to Heroku"
