@@ -10,8 +10,10 @@
 APP=chandraobservatory
 REDIRECT_APP=chandraobs-devel
 
+# Support for using a local postgres instance is currently off the table.
+#
 # HOMEDB=chandraobs
-HOMEDB=chandraobs2
+# HOMEDB=chandraobs2
 
 PORT=3000
 DATABASE_URL:=$(shell heroku config:get --app ${APP} DATABASE_URL)
@@ -27,7 +29,7 @@ help:
 	@echo "   showstack   - show the stack build command (incl. tools)"
 	@echo ""
 	@echo "   cleardb     - clear database on Heroku"
-	@echo "   pushdb      - push database to Heroku"
+	@echo "   pushdb      - push database to Heroku (currently unused)"
 	@echo ""
 	@echo "   showdocker  - docker command to build the image"
 	@echo "   builddocker - build docker image (webserver)"
@@ -66,9 +68,10 @@ cleardb:
 	-@heroku pg:reset DATABASE_URL --confirm ${APP} --app ${APP}
 
 pushdb:	cleardb
+	@echo "ERROR - pushdb is currently unused"; exit 1
 	@echo "### Pushing database to Heroku"
 	@echo "##"
-	@echo "## To ${APP}"
+	@echo "## To ${APP} From ${HOMEDB}"
 	@echo "##"
 	-@PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 heroku pg:push ${HOMEDB} DATABASE_URL --app ${APP}
 
