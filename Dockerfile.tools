@@ -36,13 +36,12 @@ RUN apt-get remove -y --assume-yes \
 # Remove apt caches to reduce the size of our container.
 RUN rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /opt/stack/bin
-RUN mkdir -p /opt/chandraobs/src
-RUN mkdir -p /opt/chandraobs/bin
-
 # Install stack to /opt/stack/bin.
+RUN mkdir -p /opt/stack/bin
 RUN curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C /opt/stack/bin '*/stack'
 
+RUN mkdir -p /opt/chandraobs/src
+RUN mkdir -p /opt/chandraobs/bin
 WORKDIR /opt/chandraobs/src
 
 # Copy over files in stages to avoid unnescessary rebuilds; the assumption
