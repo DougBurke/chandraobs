@@ -31,9 +31,12 @@ if [ -f $search ] ; then
     basedir=`pwd`/
 else if [ -f ../../../../../$search ] ; then
          basedir=../../../../../
-     else
-         echo "*** WARNING: $search not found";
-         exit 1;
+     else if [ -f ../../../../../../$search ] ; then
+	     basedir=../../../../../../
+         else
+             echo "*** WARNING: $search not found";
+             exit 1;
+          fi
      fi
 fi
 

@@ -6,6 +6,8 @@ dist/
 dist-newstyle/
 .stack-work/
 
+.ghc.environment.*
+
 lib/Git.hs
 static/about/index.html
 
