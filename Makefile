@@ -28,6 +28,10 @@ help:
 	@echo "   stack       - stack build (incl. tools)"
 	@echo "   showstack   - show the stack build command (incl. tools)"
 	@echo ""
+	@echo "   cabcurrent  - cabal run getcurrent"
+	@echo "   cabupdate   - cabal run updateschedule"
+	@echo "   cabget      - cabal run updateschedule"
+	@echo ""
 	@echo "   cleardb     - clear database on Heroku"
 	@echo "   pushdb      - push database to Heroku (currently unused)"
 	@echo ""
@@ -59,6 +63,27 @@ showstack:
 	@echo "## Note: redirectserver is not built"
 	@echo "##"
 	@echo "stack build --flag chandraobs:tools --flag chandraobs:server --flag chandraobs:-redirectserver"
+
+cabcurrent:
+	@echo "### run getcurrent on production db via cabal"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@DATABASE_URL=${DATABASE_URL} cabal v2-run getcurrent
+
+cabupdate:
+	@echo "### run updateschedule on production db via cabal"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@DATABASE_URL=${DATABASE_URL} cabal v2-run updateschedule
+
+cabget:
+	@echo "### run getschedule on production db via cabal"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@DATABASE_URL=${DATABASE_URL} cabal v2-run getschedule
 
 cleardb:
 	@echo "### Clearing database on Heroku"
