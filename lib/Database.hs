@@ -89,6 +89,9 @@ module Database ( getCurrentObs
                 , insertOrReplace
                 , insertIfUnknown
 
+                 -- , maybeSelect
+                 -- , maybeProject
+                
                 , updateLastModified
                 , getLastModified
 
@@ -2663,8 +2666,8 @@ dbConnStr = do
 -- | Run an action against the database. This includes a call to
 --   `handleMigration` before the action is run.
 --
---   This is *NOT* for production use, as it relies on the contents
---   of `dbConnStr` to define the database to use.
+--   It now supports access to the production database (in earlier
+--   versions it was hard-wired to only use a local database).
 --
 runDb ::
   (MonadBaseControl IO m, MonadIO m)

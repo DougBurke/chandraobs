@@ -54,7 +54,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Either (partitionEithers)
 import Data.Foldable (toList)
 import Data.List (isPrefixOf)
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (catMaybes, fromJust, listToMaybe)
 import Data.Monoid ((<>))
 import Data.Sequence ((|>), (><))
 import Data.Text.Encoding (decodeUtf8)
@@ -68,7 +68,11 @@ import Database.Groundhog (PersistBackend
                           , project
                           , select
                           , selectAll)
-import Database.Groundhog.Postgresql (SqlDb, Conn, in_, insert_)
+import Database.Groundhog.Postgresql (SqlDb
+                                     , Cond(CondEmpty)
+                                     , Conn
+                                     , Order(Desc)
+                                     , in_, insert_, limitTo, orderBy)
 
 import Numeric.Natural
 
@@ -1039,6 +1043,25 @@ updateScheduleFromPage tNow schedList = do
       liftIO exitFailure
 
 
+-- What is the last schedule page that was processed (not necessarily
+-- the latest schedule page)?
+--
+-- This ignores the "Error" field in the short-term-schedule page
+--
+reportLastSchedule :: IO ()
+reportLastSchedule = do
+  mtag <- runDb (listToMaybe <$>
+                 project StsTagField
+                  (CondEmpty
+                    `orderBy` [Desc StsCheckedField]
+                    `limitTo` 1))
+                                                          
+  case mtag of
+    Just tag -> T.putStrLn ("# Last schedule added to database: "
+                            <> fromShortTermTag tag)
+    _ -> pure ()
+    
+
 -- | Extract any new schedule information and add it to the
 --   system.
 --
@@ -1049,6 +1072,13 @@ run ::
   Natural  -- ^ The maximum number of schedule pages to process.
   -> IO ()
 run nmax = do
+  -- report the last version before trying to access the web site so that
+  -- we check the DB connection works, and so that we can be told what
+  -- the last schedule is even if there's a problem downloading the
+  -- latest version.
+  --
+  reportLastSchedule
+  
   schedList <- downloadScheduleList
   when (Seq.null schedList)
     (hPutStrLn stderr "No pages read in!" >> exitFailure)
