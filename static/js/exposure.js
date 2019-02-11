@@ -147,8 +147,18 @@ var createPlot = (function () {
         let colors = d3.scale.category10()
             .domain(tags);
 
+	// Special case the "all" tag so that it has its own color
+	let getColor = (tag) => {
+	    if (tag === "all") {
+		return "black";
+	    } else {
+		return colors(tag);
+	    }
+	};
+	
         for (const cycle of tags) {
             let lbl;
+	    var color;
             if (cycle === "all") {
                 lbl = "All cycles";
             } else {
@@ -164,7 +174,7 @@ var createPlot = (function () {
             /*
               .attr("clip-path", "url(#clip)")
             */
-                .style("stroke", colors(cycle))
+                .style("stroke", getColor(cycle))
                 .attr("title", lbl)
                 .attr("d", line(plotInfo[cycle].length))
                 .on("mouseover", highlightCycle(plotInfo, cycle))
@@ -182,7 +192,7 @@ var createPlot = (function () {
             .attr("class", (cycle) => {
                 return "legend legend" + cycle;
             })
-            .style("fill", colors)
+            .style("fill", getColor)
             .text((cycle) => {
                 return makeLabel(plotInfo, cycle);
             });
