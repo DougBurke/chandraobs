@@ -525,8 +525,10 @@ renderWWT ScienceObs{..} =
                         (H.div H.! A.id "resizeWWTArea")
                         (selectBackground <>
                           switchConstellation <>
-                          switchBoundaries))
-                              
+                          switchBoundaries <>
+                          switchNearbyFOVs)
+                      )
+
             -- click handlers for these elements added by JS
             --
             resize = (H.div H.! A.id "resizeButtons")
@@ -561,6 +563,8 @@ renderWWT ScienceObs{..} =
               "Hide Constellations"
             switchBoundaries = (button "toggleBoundaries")
               "Hide Boundaries"
+            switchNearbyFOVs = (button "toggleNearbyFOVs")
+              "Hide Nearby FOVs"
                                 
         in (H.div H.! A.id "WorldWideTelescopeControlHost") innerCts
 

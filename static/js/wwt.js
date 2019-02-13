@@ -17,8 +17,7 @@ var wwt = (function (base) {
     var displayCrosshairs = true;
     var displayConstellations = true;
     var displayBoundaries = true;
-
-    /* var displayFOV = true; */
+    var displayNearbyFOVs = true;
 
     /*
      * No longer trying to store the position
@@ -26,7 +25,13 @@ var wwt = (function (base) {
      */
 
     var startFOV = 5;
-    // var fovAnnotation;
+
+    // Store the polygons for the FOV regions:
+    //  - the selected observation
+    //  - nearby observations
+    //
+    var fovAnnotation;
+    var nearbyFOVs = [];
 
     var paneMimeType = "application/x-pane+json";
 
@@ -51,6 +56,16 @@ var wwt = (function (base) {
         displayBoundaries = !displayBoundaries;
         wwt.settings.set_showConstellationBoundries(displayBoundaries);
         return displayBoundaries;
+    }
+
+    function toggleNearbyFOVs() {
+        displayNearbyFOVs = !displayNearbyFOVs;
+	if (displayNearbyFOVs) {
+	    showNearbyFOVs();
+	} else {
+	    hideNearbyFOVs();
+	}
+        return displayNearbyFOVs;
     }
 
     // Used by click handlers to set the label appropriately and call the
@@ -98,6 +113,10 @@ var wwt = (function (base) {
     //
     // The linewidth depends on if this is a "real" observation
     // or an unobserverd or discarded one (thinner).
+    //
+    // This needs review now that we are also adding nearby
+    // observations to the display (as some of this work is
+    // wasted).
     //
     function fovSettings(obsdata) {
         let color, linewidth;
@@ -198,13 +217,38 @@ var wwt = (function (base) {
 		console.log("FAILED nearbyfov call");
 	    })
 	    .always(() => {
-		// draw current FOV on top
-		addFOV(obsdata, true);
+		// draw current FOV after the others so it's
+		// on top.
+		//
+		fovAnnotation = addFOV(obsdata, true);
             });
     }
 
+    // This is for nearby FOVs
     function addFOVs(rsp) {
-	rsp.forEach((obsdata) => { addFOV(obsdata, false); });
+	// Only show the toggle option if we have any nearby FOVs
+	if (rsp.length > 0) {
+	    document.getElementById('toggleNearbyFOVs')
+	        .style.display = 'block';
+	}
+
+	rsp.forEach((obsdata) => {
+	    nearbyFOVs.push(addFOV(obsdata, false));
+	});
+    }
+
+    function hideNearbyFOVs() {
+	nearbyFOVs.forEach((fov) => {
+	    wwt.removeAnnotation(fov);
+	});
+    }
+
+    function showNearbyFOVs() {
+	wwt.removeAnnotation(fovAnnotation);
+	nearbyFOVs.forEach((fov) => {
+	    wwt.addAnnotation(fov);
+	});
+	wwt.addAnnotation(fovAnnotation);
     }
     
     // draw on the FOV
@@ -251,7 +295,8 @@ var wwt = (function (base) {
             fov.addPoint(p[0], p[1]);
         }
         wwt.addAnnotation(fov);
-        // fovAnnotation = fov;
+
+	return fov;
     }
 
     function wwtReadyFunc(obsdata) {
@@ -301,12 +346,21 @@ var wwt = (function (base) {
             .addEventListener("click", (e) => {
                 handleToggle(e.target, "Boundaries", toggleBoundaries);
             });
+        document.getElementById("toggleNearbyFOVs")
+            .addEventListener("click", (e) => {
+                handleToggle(e.target, "Nearby FOVs", toggleNearbyFOVs);
+            });
+
+	// hide the toggle nearby FOVs until we've loaded any
+	document.getElementById('toggleNearbyFOVs')
+	    .style.display = 'none';
 
         // Handle the show/hide button. The click handler is assigned
         // to the div containing the two buttons.
         //
         const hide = document.getElementById("resizeHide");
         const show = document.getElementById("resizeShow");
+
         const contents = document.getElementById("resizeWWTArea");
         hide.style.display = "block";
         show.style.display = "none";
