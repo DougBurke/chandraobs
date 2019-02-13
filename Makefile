@@ -31,6 +31,7 @@ help:
 	@echo "   cabcurrent  - cabal run getcurrent"
 	@echo "   cabupdate   - cabal run updateschedule"
 	@echo "   cabget      - cabal run updateschedule"
+	@echo "   cabweb      - cabal run webserver"
 	@echo ""
 	@echo "   cleardb     - clear database on Heroku"
 	@echo "   pushdb      - push database to Heroku (currently unused)"
@@ -84,6 +85,13 @@ cabget:
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@DATABASE_URL=${DATABASE_URL} cabal v2-run getschedule
+
+cabweb:
+	@echo "### run webserver on production db via cabal"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@DATABASE_URL=${DATABASE_URL} cabal v2-run webserver
 
 cleardb:
 	@echo "### Clearing database on Heroku"
