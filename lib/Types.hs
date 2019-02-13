@@ -253,7 +253,10 @@ module Types ( ObsIdVal
 
              -- , PersistEntity(..)
              , Field(..)
-               
+
+             -- utility routines
+             , maybeFromText
+             
              ) where
 
 import qualified Data.ByteString.Char8 as B8
@@ -914,9 +917,13 @@ instance H.ToValue PropNum where
 --   when serializing to/from the database. A simple
 --   absolute tolerance is used.
 --
+--   There's an Ord instance for Dec but not RA, since it currently
+--   isn't needed.
+--
 newtype RA = RA { _unRA :: Double } 
 
 newtype Dec = Dec { _unDec :: Double } 
+  deriving Ord
 
 -- | Currently no validation.
 --

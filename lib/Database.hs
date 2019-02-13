@@ -79,6 +79,10 @@ module Database ( getCurrentObs
 
                   -- Highly experimental
                 , getTimeline
+
+                , NormSep
+                , fromNormSep
+                , findNearbyObs
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -2404,6 +2408,123 @@ getExposureValues = do
 
   return out
 
+
+-- **EXPERIMENT**
+--
+-- What are the nearby (spatially coincident) observations?
+-- Ideally we'd use spatial extensions in Postgres to do this
+-- calculation, but for now do the filtering here.
+--
+-- Should we cache the observation data (it's about 20000 items)
+-- so that there doesn't need to be a DB query here?
+--
+
+type Roll = Double
+
+-- ^ The normalized separation (how far away in units of the search
+--   radius).
+--
+newtype NormSep = NS { fromNormSep :: Double }
+
+{- not needed just yet
+toNormSep :: Double -> Maybe NormSep
+toNormSep x = if x >= 0 && x <= 1.0 then Just (NS x) else Nothing
+-}
+
+findNearbyObs ::
+  DbSql m
+  => ObsIdVal
+  -- ^ The observation we are searching around; it is not returned
+  --   in the results
+  -> (RA, Dec)
+  -- ^ center of search area (expected to be the location of the
+  --   observation but this isn't a requirement)
+  -> Double
+  -- ^ Maximum radius in degrees from the search center
+  -> m [(NormSep, RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
+  -- ^ The first field is the separation (divided by rmax) from the
+  --   given center.
+  --
+findNearbyObs obsid0 (ra0,dec0) rmax = do
+  let fields = (SoRAField, SoDecField, SoRollField, SoInstrumentField
+               , SoTargetField, SoObsIdField, SoStatusField)
+
+      -- could add a simple ra/dec box to reduce the data returned by
+      -- the search, but that requires thinking about for RA.
+      -- The dec check is relatively easy.
+      --
+      d0 = fromDec dec0
+      dMin = toDec (max (d0 - rmax) (-90))
+      dMax = toDec (min (d0 + rmax) (90))
+      
+      cond = isValidScienceObs
+             &&. SoObsIdField /=. obsid0
+             &&. SoDecField <=. dMax
+             &&. SoDecField >=. dMin
+      
+  nearObs <- project fields cond
+
+  let addSepn (ra, dec, roll, inst, target, obsid, obsstatus) =
+        let sepn = sphericalSeparation ra0 dec0 ra dec
+        in (NS (sepn / rmax), ra, dec, roll, inst, target, obsid, obsstatus)
+        
+  let isNear (sepn, _, _, _, _, _, _, _) = fromNormSep sepn <= 1.0
+  
+  pure (filter isNear (map addSepn nearObs))
+
+
+-- | Return the separation, in degrees, between the two locations.
+sphericalSeparation :: RA -> Dec -> RA -> Dec -> Double
+sphericalSeparation ra0 dec0 ra1 dec1 =
+  let toRad x = x * pi / 180.0
+
+      p0 = sphereToCartesian (toRad (fromRA ra0)) (toRad (fromDec dec0))
+      p1 = sphereToCartesian (toRad (fromRA ra1)) (toRad (fromDec dec1))
+
+      sepn = cartesianSeparation p0 p1
+
+   in sepn  * 180.0 / pi
+
+
+-- Not highly typed
+type V3 = (Double, Double, Double)
+
+-- Based on the SLALIB routine SLA_DCS2C
+-- https://github.com/scottransom/pyslalib/blob/c6178c2a9a1d6fadaa2e7dc50ada7be
+--
+sphereToCartesian :: Double -> Double -> V3
+sphereToCartesian long lat =
+  let clat = cos lat
+  in (cos long * clat, sin long * clat, sin lat)
+
+
+-- Based on the SLALIB routines SLA_DSEP and SLA_DSEPV
+-- https://github.com/scottransom/pyslalib/blob/c6178c2a9a1d6fadaa2e7dc50ada7bebb5e633a7/dsep.f
+-- https://github.com/scottransom/pyslalib/blob/c6178c2a9a1d6fadaa2e7dc50ada7bebb5e633a7/dsepv.f
+--
+cartesianSeparation :: V3 -> V3 -> Double
+cartesianSeparation v0 v1 =
+  let cp = crossV3 v0 v1
+      s = sqrt (sumV3 cp cp)
+      c = sumV3 v0 v1
+  in atan2 s c
+
+
+-- Cross product
+-- https://en.wikipedia.org/wiki/Cross_product
+--
+crossV3 :: V3 -> V3 -> V3
+crossV3 (a1, a2, a3) (b1, b2, b3) =
+  let x = a2 * b3 - a3 * b2
+      y = a3 * b1 - a1 * b3
+      z = a1 * b2 - a2 * b1
+  in (x, y, z)
+
+
+-- Multiply and sum
+sumV3 :: V3 -> V3 -> Double
+sumV3 (a1, a2, a3) (b1, b2, b3) = sum [a1 * b1, a2 * b2, a3 * b3]
+  
   
 putIO :: MonadIO m => T.Text -> m ()
 putIO = liftIO . T.putStrLn

@@ -26,7 +26,7 @@ var wwt = (function (base) {
      */
 
     var startFOV = 5;
-    var fovAnnotation;
+    // var fovAnnotation;
 
     var paneMimeType = "application/x-pane+json";
 
@@ -91,15 +91,10 @@ var wwt = (function (base) {
     // Return the color to use for the FOV; this depends on
     // whether the observation has been done, is running,
     // or is yet to be observed. The same colors as the
-    // main display can be used. At least that's the plan,
-    // but the problem is that we currently don't have
-    // the information to determine if an observation is
-    // currently being run (it can be added but needs some
-    // work). So at present running observations are
-    // displayed as the "TODO" color.
+    // main display can be used.
     //
-    // The "running" color should be: rgba(245,245,245,0.8)
-    // #F5F5F5
+    // The "running" color should be rgba(245,245,245,0.8)
+    // aka #F5F5F5 but we currently don't have that information
     //
     // The linewidth depends on if this is a "real" observation
     // or an unobserverd or discarded one (thinner).
@@ -188,7 +183,33 @@ var wwt = (function (base) {
         return p1;
     }
 
-    function addFOV(obsdata) {
+    // Query for nearby FOVs and display them
+    //
+    function addNearbyFOV(obsdata) {
+
+	$.ajax({url: '/api/nearbyfov',
+		data: {obsid: obsdata.obsid,
+		       ra: obsdata.ra,
+		       dec: obsdata.dec
+		      },
+		dataType: 'json'})
+	    .done(addFOVs)
+	    .fail((xhr, status, e) => {
+		console.log("FAILED nearbyfov call");
+	    })
+	    .always(() => {
+		// draw current FOV on top
+		addFOV(obsdata, true);
+            });
+    }
+
+    function addFOVs(rsp) {
+	rsp.forEach((obsdata) => { addFOV(obsdata, false); });
+    }
+    
+    // draw on the FOV
+    //
+    function addFOV(obsdata, current=false) {
 
         const settings = fovSettings(obsdata);
 
@@ -198,28 +219,41 @@ var wwt = (function (base) {
         // Unfortunately these do not do much with the WWT
         // at present, but left in for now.
         //
-        fov.set_id("fov");
+        fov.set_id("ObsId " + obsdata.obsid);
         fov.set_label(obsdata.name);
         fov.set_showHoverLabel(true);
 
         // fov.set_lineColor("0x8800FFFF");
         // fov.set_lineColor("green");
 
-        fov.set_lineColor(settings.color);
-        fov.set_lineWidth(settings.linewidth);
+        // fov.set_lineColor(settings.color);
+        // fov.set_lineWidth(settings.linewidth);
 
-        //fov.set_opacity(0.6);
-        fov.set_opacity(1.0);
+	if (current) {
+            fov.set_lineColor(settings.color);
+            fov.set_lineWidth(4);
+            fov.set_opacity(1.0);
 
-        for(const p of points) {
+	} else {
+            fov.set_lineColor('gray');
+	    // fov.set_lineWidth(settings.linewidth);
+	    fov.set_lineWidth(2);
+
+	    // use the separation to determine the opacity;
+	    // for now a linear scaling from the center, and assume
+	    // that separation is 0 to 1. Perhaps should ensure a
+	    // minimum opacity (rather than allow to go to 0)?
+	    //
+            fov.set_opacity(0.8 * (1.0 - obsdata.separation));
+	}
+
+        for (const p of points) {
             fov.addPoint(p[0], p[1]);
         }
         wwt.addAnnotation(fov);
-        fovAnnotation = fov;
+        // fovAnnotation = fov;
     }
 
-    function hackColor(color) { fovAnnotation.set_lineColor(color); }
-    
     function wwtReadyFunc(obsdata) {
         // raPos = obsdata.ra;
         // decPos = obsdata.dec;
@@ -228,7 +262,8 @@ var wwt = (function (base) {
             wwt.settings.set_showConstellationFigures(displayConstellations);
             wwt.settings.set_showConstellationBoundries(displayBoundaries);
             wwt.hideUI(true);
-            addFOV(obsdata);
+	    addNearbyFOV(obsdata);
+            // addFOV(obsdata, true);
             wwt.gotoRaDecZoom(obsdata.ra, obsdata.dec, startFOV, false);
         };
     }
@@ -460,8 +495,9 @@ var wwt = (function (base) {
      * need to take place. It is assumed to be called when the
      * WWT "view" is selected (i.e. shown to the user).
      *
-     * The initialization is done here so it si "on demand" rather
-     * than whenever the page loads, as it is a bit heavyweight.
+     * The initialization is done here so it is "on demand" rather
+     * than whenever the page loads, as it is a bit heavyweight
+     * (this is not the main view on the page)
      *
      * The argument should be an object with the following
      * fields: ra, dec, roll, instrument, and name.
@@ -501,7 +537,6 @@ var wwt = (function (base) {
             setLocation: setLocation,
             resetStatus: resetStatus
 
-            , hackColor: hackColor   // very temporary...
            };
     
 })(base);
