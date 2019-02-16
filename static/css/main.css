@@ -354,6 +354,27 @@ div#WorldWideTelescopeControlHost {
   z-index: 100;
 }
 
+#obspane {
+  background-color: rgba(255, 255, 255, 0.6);
+  border: 1px solid #D9D9D9;
+  border-radius: 0.5em;
+  cursor: move;
+  right: 1em;
+  padding: 0.5em;
+  position: absolute;
+  top: 1em;
+  z-index: 100;
+  width: 15em;   /* trial and error */
+}
+
+.clickable {
+  background: #F55;  /* want an orangey-red */
+  border-radius: 50%;
+  float: right;
+  height: 1em;
+  width: 1em;
+}
+
 #resizeButtons {
     float: left;
 }

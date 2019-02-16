@@ -516,7 +516,13 @@ renderWWT ScienceObs{..} =
               (H.div
                 H.! A.id "wwtusercontrol"
                 H.! A.draggable "true") buttons
-      
+              <>
+              -- the pane for the observation details
+              (H.div
+                H.! A.id "obspane"
+                H.! A.style "display: none"
+                H.! A.draggable "true") ""
+              
             -- Dislike the number of ids here; resizeWWTArea should really
             -- be a class, I think.
             --

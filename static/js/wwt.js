@@ -31,7 +31,13 @@ var wwt = (function (base) {
     var nearbyFOVs = [];
     var nearbyObsData = [];
 
-    var paneMimeType = "application/x-pane+json";
+    var highlightedFOV = null;
+    
+    // color of the other FOVs and of the user-selected FOV
+    const otherFOVcolor = 'gray';
+    const highlightedFOVcolor = 'orange';
+    
+    const paneMimeType = "application/x-pane+json";
 
     // true means that the area has been collapsed, false means that it
     // is being shown
@@ -256,6 +262,82 @@ var wwt = (function (base) {
 		nearbyObsData.push(obsdata);
 	    }
 	});
+
+	// It would make things a lot easier if the annotation Clicked
+	// event really was fired.
+	//
+	/***
+	wwt.add_annotationClicked((obj, eventArgs) => {
+	    console.log("----> annotation clicked");
+	});
+	***/
+
+	// only add the click support if other observations are loaded
+	//
+	wwt.add_clicked((obj, eventArgs) => {
+	    let ra = eventArgs.get_RA();
+	    if (ra < 0) { ra += 360.0; }
+	    const dec = eventArgs.get_dec();
+	    identifyNearestObsIds(obsdata0, ra, dec);
+	});
+    }
+
+    // Could be lazy and just call the server to find out the nearest
+    // observations, excluding the current observation.
+    //
+    function identifyNearestObsIds(obsdata0, ra, dec) {
+
+	// unhighlight any previously-selected FOV
+	//
+	if (highlightedFOV !== null) {
+	    highlightedFOV.set_lineColor(otherFOVcolor);
+	    highlightedFOV = null;
+	}
+
+	const host = document.getElementById('obspane');
+	if (host === null) {
+	    console.log("INTERNAL ERROR: no #obspane element");
+	}
+	
+	// Search out to the approximate screen size
+	const maxSep = wwt.get_fov();
+
+	var seps = [];
+	for (var i = 0; i < nearbyObsData.length; i++) {
+	    const obsdata = nearbyObsData[i];
+	    if (obsdata.obsid === obsdata0.obsid) { return; }
+	    
+	    const sep = separation(ra, dec, obsdata.ra, obsdata.dec);
+	    if (sep <= maxSep) {
+		seps.push([sep, i]);
+	    }
+	}
+
+	// Hide the previous obs info, if set.
+	if (seps.length === 0) {
+	    if (host !== null) {
+		host.style.display = 'none';
+	    }
+	    return;
+	}
+	
+	// Sort on the separation (first item; could sort by name or obsid
+	// as a secondary step but not sure it's worth it).
+	//
+	seps.sort(function (a, b) { if (a[0] < b[0]) { return -1; }
+				    else if (a[0] > b[0]) { return 1; }
+				    else { return 0; } });
+    
+	
+        // Highlight selected FOV
+        //
+	const idx = seps[0][1];
+	highlightedFOV = nearbyFOVs[idx];
+	highlightedFOV.set_lineColor(highlightedFOVcolor);
+
+	if (host !== null) {
+	    addObsPane(host, nearbyObsData[idx]);
+	}
     }
 
     function hideNearbyFOVs() {
@@ -270,6 +352,52 @@ var wwt = (function (base) {
 	    wwt.addAnnotation(fov);
 	});
 	wwt.addAnnotation(fovAnnotation);
+    }
+
+    // TODO: remove the highlighted FOV
+    //
+    function clearHighlightedObs() {
+	const host = document.getElementById('obspane');
+	if (host === null) { return; }
+
+	host.style.display = 'none';
+
+	if (highlightedFOV !== null) {
+	    highlightedFOV.set_lineColor(otherFOVcolor);
+	    highlightedFOV = null;
+	}
+    }
+    
+    // Add a panel providing information on the selected observation
+    //
+    function addObsPane(host, obsdata) {
+	var desc = '';
+
+	const cleanName = encodeURIComponent(obsdata.name);
+	
+	// Could link to a bunch of different information here, but for now
+	// keep it simple.
+	//
+        desc += "<span class='clickable' onclick='wwt.clearHighlightedObs();'></span>";
+
+	desc += '<table><tbody>';
+	desc += '<tr><td>Target:</td><td>' +
+	    '<a href="/search/name?target=' + cleanName + '">' + obsdata.name + '</td></tr>';
+	desc += '<tr><td>ObsId:</td><td>';
+	desc += '<a href="/obsid/' + obsdata.obsid + '">' +
+	    obsdata.obsid + '</a></td></tr>';
+	desc += '<tr><td>Instrument:</td><td>' + obsdata.instrument + '</td></tr>';
+	desc += '<tr><td>Status:</td><td>' + obsdata.status + '</td></tr>';
+	desc += '</tbody></table>'
+
+	host.innerHTML = desc;
+
+	// ensure the border matches the color used for the highlighting, although
+	// transparency/alpha setting likely to be different.
+	//
+	host.style.borderColor = highlightedFOVcolor;
+	
+	host.style.display = 'block';
     }
     
     // draw on the FOV
@@ -300,7 +428,7 @@ var wwt = (function (base) {
             fov.set_opacity(1.0);
 
 	} else {
-            fov.set_lineColor('gray');
+            fov.set_lineColor(otherFOVcolor);
 	    // fov.set_lineWidth(settings.linewidth);
 	    fov.set_lineWidth(2);
 
@@ -419,6 +547,8 @@ var wwt = (function (base) {
         canvas.addEventListener("dragover", (e) => { e.preventDefault(); })
 
         document.getElementById("wwtusercontrol")
+            .addEventListener("dragstart", (e) => { dragStartPane(e); });
+        document.getElementById("obspane")
             .addEventListener("dragstart", (e) => { dragStartPane(e); });
 
         document.getElementById("imagechoice")
@@ -573,7 +703,22 @@ var wwt = (function (base) {
         wwt.setForegroundOpacity(100.0);
     }
     
-    
+    // Return the angular sepration between the two points
+    // Based on https://en.wikipedia.org/wiki/Great-circle_distance
+    // and not worrying about rounding errors
+    //
+    // Input arguments are in degrees, as is the
+    // return value.
+    //
+    function separation(ra1, dec1, ra2, dec2) {
+        var lat1 = dec1 * Math.PI / 180.0;
+        var lat2 = dec2 * Math.PI / 180.0;
+        var dlon = Math.abs(ra1 - ra2) * Math.PI / 180.0;
+        
+        var term = Math.sin(lat1) * Math.sin(lat2) +
+            Math.cos(lat1) * Math.cos(lat2) * Math.cos(dlon);
+        return Math.acos(term) * 180.0 / Math.PI;
+    }
     /*
      * Sets the location of WWT, including any intialization that may
      * need to take place. It is assumed to be called when the
@@ -619,8 +764,10 @@ var wwt = (function (base) {
 
             // newer API
             setLocation: setLocation,
-            resetStatus: resetStatus
+            resetStatus: resetStatus,
 
+	    clearHighlightedObs: clearHighlightedObs,
+	    
            };
     
 })(base);
