@@ -83,6 +83,7 @@ module Database ( getCurrentObs
                 , NormSep
                 , fromNormSep
                 , findNearbyObs
+                , findAllObs
                   
                 , insertScienceObs
                 , insertNonScienceObs
@@ -2455,7 +2456,7 @@ findNearbyObs obsid0 (ra0,dec0) rmax = do
       --
       d0 = fromDec dec0
       dMin = toDec (max (d0 - rmax) (-90))
-      dMax = toDec (min (d0 + rmax) (90))
+      dMax = toDec (min (d0 + rmax) 90)
       
       cond = isValidScienceObs
              &&. SoObsIdField /=. obsid0
@@ -2471,6 +2472,19 @@ findNearbyObs obsid0 (ra0,dec0) rmax = do
   let isNear (sepn, _, _, _, _, _, _, _) = fromNormSep sepn <= 1.0
   
   pure (filter isNear (map addSepn nearObs))
+
+
+-- ^ Return all the "valid" observations so that they can be
+--   drawn as FOVs
+--
+findAllObs ::
+  DbSql m
+  => m [(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
+findAllObs = do
+  let fields = (SoRAField, SoDecField, SoRollField, SoInstrumentField
+               , SoTargetField, SoObsIdField, SoStatusField)
+
+  project fields isValidScienceObs
 
 
 -- | Return the separation, in degrees, between the two locations.

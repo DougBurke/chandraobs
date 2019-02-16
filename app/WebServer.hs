@@ -140,6 +140,7 @@ import Database (NumObs, NumSrc, SIMKey
                 , getExposureValues
 
                 , findNearbyObs
+                , findAllObs
                 , NormSep
                 , fromNormSep
                 
@@ -441,9 +442,11 @@ webapp cm scache cache = do
           -- display.
           --
           rmax = 4.0 :: Double
-          
+
       apiNearbyFOV (liftSQL . getData) obsid ra dec)
     
+    get "/api/allfov" (apiAllFOV (liftSQL findAllObs))
+
     -- for now always return JSON; need a better success/failure
     -- set up.
     --
@@ -1044,6 +1047,27 @@ apiNearbyFOV getData wobsid wra wdec = do
                , "obsid" .= fromObsId obsid
                ]
         
+  json (map conv ans)
+
+
+apiAllFOV ::
+  (ActionM [(RA, Dec, Roll, Instrument
+            , TargetName, ObsIdVal, ObsIdStatus)])
+  -> ActionM ()
+apiAllFOV getData = do
+  ans <- getData
+
+  -- need to convert to a JSON map
+  let conv (ra, dec, roll, inst, tname, obsid, ostatus) =
+        object [ "ra" .= fromRA ra
+               , "dec" .= fromDec dec
+               , "roll" .= roll
+               , "instrument" .= fromInstrument inst
+               , "name" .= tname  -- has a ToJSON instance we can use
+               , "status" .= fromObsIdStatus ostatus
+               , "obsid" .= fromObsId obsid
+               ]
+
   json (map conv ans)
 
 

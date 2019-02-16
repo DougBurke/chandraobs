@@ -564,7 +564,7 @@ renderWWT ScienceObs{..} =
             switchBoundaries = (button "toggleBoundaries")
               "Hide Boundaries"
             switchNearbyFOVs = (button "toggleNearbyFOVs")
-              "Hide Nearby FOVs"
+              "Hide other FOVs"
                                 
         in (H.div H.! A.id "WorldWideTelescopeControlHost") innerCts
 

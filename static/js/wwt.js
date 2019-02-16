@@ -29,6 +29,7 @@ var wwt = (function (base) {
     //
     var fovAnnotation;
     var nearbyFOVs = [];
+    var nearbyObsData = [];
 
     var paneMimeType = "application/x-pane+json";
 
@@ -203,13 +204,22 @@ var wwt = (function (base) {
     //
     function addNearbyFOV(obsdata) {
 
+	/***
 	$.ajax({url: '/api/nearbyfov',
 		data: {obsid: obsdata.obsid,
 		       ra: obsdata.ra,
 		       dec: obsdata.dec
 		      },
 		dataType: 'json'})
-	    .done(addFOVs)
+        ***/
+
+	// if do go with allfov may want to exclude obsid from the list
+	// when displaying them
+	//
+	$.ajax({url: '/api/allfov',
+		dataType: 'json'})
+	
+	    .done((rsp) => { addFOVs(obsdata, rsp); })
 	    .fail((xhr, status, e) => {
 		console.log("FAILED nearbyfov call");
 	    })
@@ -220,16 +230,31 @@ var wwt = (function (base) {
             });
     }
 
-    // This is for nearby FOVs
-    function addFOVs(rsp) {
+    // We do not add in the current FOV here since we want to always
+    // do that, even if the "get other FOV" query fails.
+    //
+    function addFOVs(obsdata0, rsp) {
 	// Only show the toggle option if we have any nearby FOVs
-	if (rsp.length > 0) {
-	    document.getElementById('toggleNearbyFOVs')
-	        .style.display = 'block';
-	}
+	if (rsp.length === 0) { return; }
 
+	// Making this appear is visually distracting, since it makes
+	// the container expand to fit the new content. It would perhaps
+	// be nice to animate this - although if we switch to showing
+	// all FOVs then we can assume there's always going to be a
+	// button so no need to show it here.
+	//
+	/***
+	document.getElementById('toggleNearbyFOVs')
+	    .style.display = 'block';
+	***/
+	
+	// We want to exclude the current observation
+	//
 	rsp.forEach((obsdata) => {
-	    nearbyFOVs.push(addFOV(obsdata, false));
+	    if (obsdata.obsid !== obsdata0.obsid) {
+		nearbyFOVs.push(addFOV(obsdata, false));
+		nearbyObsData.push(obsdata);
+	    }
 	});
     }
 
@@ -284,7 +309,9 @@ var wwt = (function (base) {
 	    // that separation is 0 to 1. Perhaps should ensure a
 	    // minimum opacity (rather than allow to go to 0)?
 	    //
-            fov.set_opacity(0.8 * (1.0 - obsdata.separation));
+            // fov.set_opacity(0.8 * (1.0 - obsdata.separation));
+
+	    fov.set_opacity(0.5); // for ALL fovs
 	}
 
         for (const p of points) {
@@ -347,12 +374,16 @@ var wwt = (function (base) {
             });
         document.getElementById("toggleNearbyFOVs")
             .addEventListener("click", (e) => {
-                handleToggle(e.target, "Nearby FOVs", toggleNearbyFOVs);
+                handleToggle(e.target, "other FOVs", toggleNearbyFOVs);
             });
 
 	// hide the toggle nearby FOVs until we've loaded any
+	// [no loger used with the "show all" approach
+	//
+	/***
 	document.getElementById('toggleNearbyFOVs')
 	    .style.display = 'none';
+	***/
 
         // Handle the show/hide button. The click handler is assigned
         // to the div containing the two buttons.
