@@ -293,6 +293,10 @@ var wwt = (function (base) {
     //
     function identifyNearestObsIds(obsdata0, ra, dec) {
 
+	// only do anything if the FOVs are being displayed
+	//
+	if (!displayNearbyFOVs) { return; }
+
 	// unhighlight any previously-selected FOV
 	//
 	if (highlightedFOV !== null) {
