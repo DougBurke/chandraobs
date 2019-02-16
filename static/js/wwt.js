@@ -64,11 +64,17 @@ var wwt = (function (base) {
 
     function toggleNearbyFOVs() {
         displayNearbyFOVs = !displayNearbyFOVs;
+
+	// As can take some time, would like to set up a spinner
+	// here, or some-other means of indicating to the user that
+	// work is being done.
+	//
 	if (displayNearbyFOVs) {
 	    showNearbyFOVs();
 	} else {
 	    hideNearbyFOVs();
 	}
+
         return displayNearbyFOVs;
     }
 
@@ -340,18 +346,34 @@ var wwt = (function (base) {
 	}
     }
 
+    // Hide the obsid display, if set
+    //
     function hideNearbyFOVs() {
+	const host = document.getElementById('obspane');
+	if (host !== null) {
+	    host.style.display = 'none';
+	}
+
 	nearbyFOVs.forEach((fov) => {
 	    wwt.removeAnnotation(fov);
 	});
     }
 
+    // Show the obsid display if selected
+    //
     function showNearbyFOVs() {
 	wwt.removeAnnotation(fovAnnotation);
 	nearbyFOVs.forEach((fov) => {
 	    wwt.addAnnotation(fov);
 	});
 	wwt.addAnnotation(fovAnnotation);
+
+	if (highlightedFOV !== null) {
+	    const host = document.getElementById('obspane');
+	    if (host !== null) {
+		host.style.display = 'block';
+	    }
+	}
     }
 
     // TODO: remove the highlighted FOV
@@ -504,14 +526,6 @@ var wwt = (function (base) {
             .addEventListener("click", (e) => {
                 handleToggle(e.target, "other FOVs", toggleNearbyFOVs);
             });
-
-	// hide the toggle nearby FOVs until we've loaded any
-	// [no loger used with the "show all" approach
-	//
-	/***
-	document.getElementById('toggleNearbyFOVs')
-	    .style.display = 'none';
-	***/
 
         // Handle the show/hide button. The click handler is assigned
         // to the div containing the two buttons.
