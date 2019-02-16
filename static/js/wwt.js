@@ -497,7 +497,7 @@ var wwt = (function (base) {
         base.hide_nojs();
         wwt = wwtlib.WWTControl.initControl("WWTCanvas");
 
-        wwt.loadImageCollection("chandra.wtml");
+        wwt.loadImageCollection("/chandra.wtml");
         
         base.hide_class("nowwt");
         wwt.add_ready(wwtReadyFunc(obsdata));
