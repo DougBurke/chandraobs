@@ -4,12 +4,9 @@
  * and
  * http://www.worldwidetelescope.org/docs/worldwidetelescopewebcontrolscriptreference.html
  *
- * note that wwt.goto() is actually wwt.gotoRaDecZoom()
  */
 
 "use strict";
-
-var dummy;
 
 var wwt = (function (base) {
     
@@ -217,8 +214,7 @@ var wwt = (function (base) {
 		console.log("FAILED nearbyfov call");
 	    })
 	    .always(() => {
-		// draw current FOV after the others so it's
-		// on top.
+		// draw current FOV after the others so it's on top.
 		//
 		fovAnnotation = addFOV(obsdata, true);
             });
@@ -300,15 +296,18 @@ var wwt = (function (base) {
     }
 
     function wwtReadyFunc(obsdata) {
-        // raPos = obsdata.ra;
-        // decPos = obsdata.dec;
         return function () {
             wwt.settings.set_showCrosshairs(displayCrosshairs);
             wwt.settings.set_showConstellationFigures(displayConstellations);
             wwt.settings.set_showConstellationBoundries(displayBoundaries);
+
+	    // coordinate grid
+	    wwt.settings.set_showEquatorialGridText(true);
+	    wwt.settings.set_showGrid(true);
+
             wwt.hideUI(true);
 	    addNearbyFOV(obsdata);
-            // addFOV(obsdata, true);
+
             wwt.gotoRaDecZoom(obsdata.ra, obsdata.dec, startFOV, false);
         };
     }
