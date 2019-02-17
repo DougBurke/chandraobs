@@ -127,8 +127,8 @@ import Database (NumObs, NumSrc, SIMKey
                 , fetchConstraints
                 , fetchConstraint
                   
-                -- , findNameMatch
-                -- , findProposalNameMatch
+                , findNameMatch
+                , findProposalNameMatch
                 , findTarget
                   
                 , getProposalObjectMapping
@@ -163,7 +163,7 @@ import Sorted (SortedList
 
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , PropNum
-             -- , fromPropNum
+             , fromPropNum
              -- , NonScienceObs(..)
              , ScienceObs(..)
              , ObsInfo(..)
@@ -532,6 +532,9 @@ webapp cm scache cache = do
 
     get "/api/search/dtype" (apiSearchDtype (liftSQL fetchObjectTypes))
 
+    -}
+
+
     -- note that this is different from /api/simbad/name since it
     -- is a search, rather than exact match
     --
@@ -548,8 +551,6 @@ webapp cm scache cache = do
     
     get "/api/search/proposal" (apiSearchProposal
                                 (dbQuery "term" findProposalNameMatch))
-
-    -}
 
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
@@ -1185,14 +1186,13 @@ apiSearchDtype getData = do
   matches <- getData
   json (SearchTypes.renderDependencyJSON matches)
 
+-}
+
 
 apiSearchName ::
   ActionM (String, ([TargetName], [TargetName]))
   -> ActionM ()
 apiSearchName getData = do
-
-  debug "/api/search/name"
-
   (_, (exact, other)) <- getData
   -- for now, flatten out the response
   -- TODO: should also remove excess spaces, but this requires some
@@ -1204,9 +1204,6 @@ apiSearchProposal ::
   ActionM (String, [(T.Text, PropNum)])
   -> ActionM ()
 apiSearchProposal getData = do
-
-  debug "/api/search/proposal"
-
   (_, matches) <- getData
   -- for now, explicitly convert the PropNum field to an integer
   -- for easy serialization, but maybe this should be the default
@@ -1216,7 +1213,6 @@ apiSearchProposal getData = do
                                   , "number" .= fromPropNum pnum ]
   json out
 
--}
 
 apiMappings ::
   ActionM UTCTime

@@ -60,8 +60,8 @@ module Database ( getCurrentObs
                 , fetchConstraints
                 , fetchConstraint
                   
-                -- , findNameMatch
-                -- , findProposalNameMatch
+                , findNameMatch
+                , findProposalNameMatch
                 , findTarget
                 -- , findRecord
                   
@@ -158,7 +158,7 @@ import Control.Monad (filterM, forM, forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
--- import Data.Char (toUpper)
+import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
@@ -1892,8 +1892,6 @@ findObsStatusTypes =
   countUp <$> project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
 
 
-{-
-
 -- | Try supporting "name matching". This is complicated by the fact
 --   that there are both the target names (soTarget) and the
 --   SIMBAD-matched names (smmTarget) that could be searched. 
@@ -1935,8 +1933,6 @@ findProposalNameMatch instr =
   in project (PropNameField, PropNumField)
      ((upper PropNameField `like` matchStr) `orderBy` [Asc PropNameField])
 
-
--}
 
 -- | Find observations of the given target. The input name is searched - using a
 --   case-insensitive match - against both the observation target name and
