@@ -170,10 +170,8 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , RA
              , Dec
              , ObsIdStatus
-             , maybeFromText
-             , toObsIdValStr
-             , fromRA, toRA
-             , fromDec, toDec
+             , fromRA
+             , fromDec
              , fromObsIdStatus
              
              -- , PropType(..)
@@ -1003,68 +1001,16 @@ logMsg :: T.Text -> ActionM ()
 logMsg = const (return ())
 
 
+-- | Attempt to support cache controll access to the JSON data
+--   in this resource.
+--
+
+
 -- TODO: define a data type to represent the JSON response, so that
 --       there's a "defined" success/error reporting structure.
 --
 
--- don't want orphan instances, so newtype
---
-newtype WebObsId = WObsId { fromWebObsId :: ObsIdVal }
-newtype WebRA = WRA { fromWebRA :: RA }
-newtype WebDec = WDec { fromWebDec :: Dec }
-
-instance Parsable WebObsId where
-  parseParam = maybe (Left "invalid obsid") (Right . WObsId) . toObsIdValStr . L.toStrict
-
--- Hmmm, don't appear to ghave any validators for RA and Dec
--- so add some here. Only support decimal degrees.
---
-instance Parsable WebRA where
-  parseParam = maybe (Left "invalid RA") (Right . WRA) . validateRA
-
-instance Parsable WebDec where
-  parseParam = maybe (Left "invalid Dec") (Right . WDec) . validateDec
-
-validateRA :: L.Text -> Maybe RA
-validateRA = maybeFromText toRA (\r -> r >= 0 && r < 360) . L.toStrict
-
-validateDec :: L.Text -> Maybe Dec
-validateDec = maybeFromText toDec (\d -> d >= -90 && d <= 90) . L.toStrict
-  
-
 type Roll = Double
-
-{-
-apiNearbyFOV ::
-  ((ObsIdVal, (RA, Dec))
-    -> ActionM [(NormSep, RA, Dec, Roll, Instrument
-                , TargetName, ObsIdVal, ObsIdStatus)])
-  -> WebObsId
-  -> WebRA
-  -> WebDec
-  -> ActionM ()
-apiNearbyFOV getData wobsid wra wdec = do
-  let obsid0 = fromWebObsId wobsid
-      ra0 = fromWebRA wra
-      dec0 = fromWebDec wdec
-      
-  ans <- getData (obsid0, (ra0, dec0))
-
-  -- need to convert to a JSON map
-  let conv (sepn, ra, dec, roll, inst, tname, obsid, ostatus) =
-        object [ "separation" .= fromNormSep sepn
-               , "ra" .= fromRA ra
-               , "dec" .= fromDec dec
-               , "roll" .= roll
-               , "instrument" .= fromInstrument inst
-               , "name" .= tname  -- has a ToJSON instance we can use
-               , "status" .= fromObsIdStatus ostatus
-               , "obsid" .= fromObsId obsid
-               ]
-        
-  json (map conv ans)
-
--}
 
 apiAllFOV ::
   ActionM ([(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
