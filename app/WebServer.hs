@@ -1002,6 +1002,11 @@ logMsg = const (return ())
 -- | Attempt to support cache controll access to the JSON data
 --   in this resource.
 --
+--   If the query has an ETag then use it, otherwise check on the
+--   last-modified date. This means that the last-modified date
+--   can be the same but the cache hit fails (if the ETag is different).
+--   This is different to my reading of wai-middleware-cache.
+--
 cacheApiQuery ::
   ToJSON a
   => (UTCTime -> ETag)
@@ -1020,8 +1025,12 @@ cacheApiQuery toETag getLastMod getData = do
       qryETag = readHeader "If-None-Match"
 
   lastModUTC <- getLastMod
-  let isNotModified = (Just etag == qryETag) || (Just lastMod == qryLastMod)
+  let -- isNotModified = (Just etag == qryETag) || (Just lastMod == qryLastMod)
 
+      isNotModified = case qryETag of
+                        Just e -> etag == e
+                        Nothing -> Just lastMod == qryLastMod
+                        
       lastMod = timeToRFC1123 lastModUTC
       etag = fromETag (toETag lastModUTC)
 
