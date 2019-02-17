@@ -139,17 +139,19 @@ import Database (NumObs, NumSrc, SIMKey
                   
                 , getExposureValues
 
-                , findNearbyObs
+                -- , findNearbyObs
                 , findAllObs
-                , NormSep
-                , fromNormSep
+                -- , NormSep
+                -- , fromNormSep
+                , getLastModifiedFixed
                 
                 , getDataBaseInfo
                   
                 , dbConnStr
 
                 )
--- import Git (gitCommitId)
+
+import Git (gitCommitId)
 
 import Layout (getFact, renderLinks)
 import Sorted (SortedList
@@ -218,7 +220,7 @@ import Utils (HtmlContext(..)
              , showInt
              , isChandraImageViewable
              , publicImageURL
-             -- , makeETag
+             , makeETag
              )
 
 production :: 
@@ -430,6 +432,7 @@ webapp cm scache cache = do
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
+    {-
     get "/api/nearbyfov" (do
       obsid <- param "obsid"
       ra <- param "ra"
@@ -444,8 +447,19 @@ webapp cm scache cache = do
           rmax = 4.0 :: Double
 
       apiNearbyFOV (liftSQL . getData) obsid ra dec)
+    -}
     
     get "/api/allfov" (apiAllFOV (liftSQL findAllObs))
+
+    -- is adding HEAD support, and including modified info, sensible?
+    addroute HEAD "/api/allfov"
+      (do
+          lastMod <- liftSQL getLastModifiedFixed
+
+          setHeader "Last-Modified" (timeToRFC1123 lastMod)
+          setHeader "ETag" (makeETag gitCommitId "/api/allfov" lastMod)
+
+          standardResponse)
 
     -- for now always return JSON; need a better success/failure
     -- set up.
@@ -1020,6 +1034,7 @@ validateDec = maybeFromText toDec (\d -> d >= -90 && d <= 90) . L.toStrict
 
 type Roll = Double
 
+{-
 apiNearbyFOV ::
   ((ObsIdVal, (RA, Dec))
     -> ActionM [(NormSep, RA, Dec, Roll, Instrument
@@ -1049,13 +1064,14 @@ apiNearbyFOV getData wobsid wra wdec = do
         
   json (map conv ans)
 
+-}
 
 apiAllFOV ::
-  (ActionM [(RA, Dec, Roll, Instrument
-            , TargetName, ObsIdVal, ObsIdStatus)])
+  ActionM ([(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
+          , UTCTime)
   -> ActionM ()
 apiAllFOV getData = do
-  ans <- getData
+  (ans, lastMod) <- getData
 
   -- need to convert to a JSON map
   let conv (ra, dec, roll, inst, tname, obsid, ostatus) =
@@ -1067,6 +1083,16 @@ apiAllFOV getData = do
                , "status" .= fromObsIdStatus ostatus
                , "obsid" .= fromObsId obsid
                ]
+
+  -- This data doesn't change often, so can be cached. Not 100%
+  -- convinced I'm doing the right thing here, but seems to work.
+  --
+  -- Using the last-modified date isn't technically correct, since
+  -- the code could have been updated since, but it is likely only
+  -- to cause a problem in my development environment.
+  --
+  setHeader "Last-Modified" (timeToRFC1123 lastMod)
+  setHeader "ETag" (makeETag gitCommitId "/api/allfov" lastMod)
 
   json (map conv ans)
 

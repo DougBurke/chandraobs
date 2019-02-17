@@ -80,9 +80,9 @@ module Database ( getCurrentObs
                   -- Highly experimental
                 , getTimeline
 
-                , NormSep
-                , fromNormSep
-                , findNearbyObs
+                -- , NormSep
+                -- , fromNormSep
+                -- , findNearbyObs
                 , findAllObs
                   
                 , insertScienceObs
@@ -99,6 +99,7 @@ module Database ( getCurrentObs
                 
                 , updateLastModified
                 , getLastModified
+                , getLastModifiedFixed
 
                 , getInvalidObsIds
                 , addInvalidObsId
@@ -2137,7 +2138,7 @@ getTimeline ::
         [Proposal])
 getTimeline = do
 
-  lastMod <- toChandraTime . fromMaybe dummyLastMod <$> getLastModified
+  lastMod <- toChandraTime <$> getLastModifiedFixed
   
   obs <- project scienceTimeline
          (isValidScienceObs `orderBy` [Asc SoStartTimeField])
@@ -2190,7 +2191,7 @@ addLastMod ::
   -- ^ The time value is set to @dummyLastMod@ if no last-modified
   --   field is found in the database.
 addLastMod out = do
-  lastMod <- fromMaybe dummyLastMod <$> getLastModified
+  lastMod <- getLastModifiedFixed
   return (out, lastMod)
 
   
@@ -2422,15 +2423,19 @@ getExposureValues = do
 
 type Roll = Double
 
+{-
 -- ^ The normalized separation (how far away in units of the search
 --   radius).
 --
 newtype NormSep = NS { fromNormSep :: Double }
+-}
 
 {- not needed just yet
 toNormSep :: Double -> Maybe NormSep
 toNormSep x = if x >= 0 && x <= 1.0 then Just (NS x) else Nothing
 -}
+
+{-
 
 findNearbyObs ::
   DbSql m
@@ -2473,20 +2478,24 @@ findNearbyObs obsid0 (ra0,dec0) rmax = do
   
   pure (filter isNear (map addSepn nearObs))
 
+-}
+
 
 -- ^ Return all the "valid" observations so that they can be
---   drawn as FOVs
+--   drawn as FOVs, along with the date the database was last
+--   updated
 --
 findAllObs ::
   DbSql m
-  => m [(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
+  => m ([(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
+       , UTCTime)
 findAllObs = do
   let fields = (SoRAField, SoDecField, SoRollField, SoInstrumentField
                , SoTargetField, SoObsIdField, SoStatusField)
 
-  project fields isValidScienceObs
+  project fields isValidScienceObs >>= addLastMod
 
-
+{-
 -- | Return the separation, in degrees, between the two locations.
 sphericalSeparation :: RA -> Dec -> RA -> Dec -> Double
 sphericalSeparation ra0 dec0 ra1 dec1 =
@@ -2539,7 +2548,9 @@ crossV3 (a1, a2, a3) (b1, b2, b3) =
 sumV3 :: V3 -> V3 -> Double
 sumV3 (a1, a2, a3) (b1, b2, b3) = sum [a1 * b1, a2 * b2, a3 * b3]
   
-  
+-}
+
+
 putIO :: MonadIO m => T.Text -> m ()
 putIO = liftIO . T.putStrLn
 
@@ -2716,7 +2727,8 @@ updateLastModified lastMod = do
   deleteAll (undefined :: MetaData)
   insert_ new
   
--- | When was the database last modified?
+-- | When was the database last modified.
+--
 getLastModified :: PersistBackend m => m (Maybe UTCTime)
 getLastModified =
   listToMaybe
@@ -2724,6 +2736,11 @@ getLastModified =
   project MdLastModifiedField (CondEmpty
                                `orderBy` [Desc MdLastModifiedField]
                                `limitTo` 1)
+
+getLastModifiedFixed :: PersistBackend m => m UTCTime
+getLastModifiedFixed = fromMaybe dummyLastMod <$> getLastModified
+
+
 {-
   my type-fu was not strong enough to work out to
   let maybeProject accept a condition including restrictions (in this
