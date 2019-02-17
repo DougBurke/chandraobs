@@ -25,7 +25,9 @@ module Utils (
        
      -- , makeCodeLink
 
+     , ETag
      , makeETag
+     , fromETag
      , timeToRFC1123
 
      , fromDay
@@ -361,6 +363,9 @@ makeCodeLink =
   in (H.a H.! A.href (H.toValue uri))
 -}
 
+newtype ETag = ET { fromETag :: LT.Text }
+
+
 -- | What is the etag for a resource?
 --
 --   This is intended for resources that depend on the database.
@@ -374,7 +379,7 @@ makeETag ::
   CommitId      -- ^ commit identifier
   -> T.Text     -- ^ the resource path (local, not absolute)
   -> UTCTime    -- ^ the last-modified date of the database
-  -> LT.Text
+  -> ETag
 makeETag cid path lastMod =
   let cval = fromCommitId cid
       -- Only use a small subset of the commit id as it should
@@ -394,7 +399,7 @@ makeETag cid path lastMod =
       pathTxt = showInt (T.length path)
       dquot = "\""
       txt = dquot <> T.take 8 cval <> pathTxt <> time <> dquot
-  in LT.fromStrict txt
+  in ET (LT.fromStrict txt)
 
 -- | Perhaps should use HTTPDate here, but unsure about the
 -- conversion from UTCTime to HTTPDate. The format for

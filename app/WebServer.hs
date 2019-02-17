@@ -44,7 +44,7 @@ import qualified Views.Schedule as Schedule
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
-import Data.Aeson(Value, (.=), object)
+import Data.Aeson(ToJSON, Value, (.=), object)
 import Data.Default (def)
 import Data.List (nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
@@ -61,7 +61,9 @@ import Database.Groundhog.Postgresql (Postgresql(..)
 
 -- import Network.HTTP.Date (HTTPDate, epochTimeToHTTPDate, formatHTTPDate)
 import Network.HTTP.Types (StdMethod(HEAD)
-                          , status404, status503)
+                          , notModified304
+                          , notFound404
+                          , serviceUnavailable503)
 -- import Network.Wai.Middleware.RequestLogger
 import Network.Wai.Middleware.Static (CacheContainer
                                      , CachingStrategy(PublicStaticCaching)
@@ -74,7 +76,7 @@ import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
 
-import Text.Blaze.Html.Renderer.Text (renderHtml)
+-- import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
 
 import Web.Scotty
@@ -82,7 +84,7 @@ import Web.Scotty
 import Cache (Cache, CacheKey
              , fromCacheData, getFromCache, makeCache, toCacheKey)
 import Database (NumObs, NumSrc, SIMKey
-                , findRecord
+                -- , findRecord
                 , getCurrentObs, getObsInfo
                 , getObsId
                 , getSchedule
@@ -91,9 +93,9 @@ import Database (NumObs, NumSrc, SIMKey
                 , makeScheduleRestricted
                   
                 , getProposalInfo
-                , getProposalFromNumber
-                , getRelatedObs
-                , getObsFromProposal
+                -- , getProposalFromNumber
+                -- , getRelatedObs
+                -- , getObsFromProposal
                 , getSimbadInfo
                 , getTimeline
 
@@ -125,8 +127,8 @@ import Database (NumObs, NumSrc, SIMKey
                 , fetchConstraints
                 , fetchConstraint
                   
-                , findNameMatch
-                , findProposalNameMatch
+                -- , findNameMatch
+                -- , findProposalNameMatch
                 , findTarget
                   
                 , getProposalObjectMapping
@@ -153,15 +155,17 @@ import Database (NumObs, NumSrc, SIMKey
 
 import Git (gitCommitId)
 
-import Layout (getFact, renderLinks)
+import Layout (getFact)
+-- import Layout (getFact, renderLinks)
 import Sorted (SortedList
               , nullSL, fromSL, mergeSL, unsafeToSL
               , StartTimeOrder, ExposureTimeOrder)
 
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , PropNum
-             , fromPropNum
-             , NonScienceObs(..), ScienceObs(..)
+             -- , fromPropNum
+             -- , NonScienceObs(..)
+             , ScienceObs(..)
              , ObsInfo(..)
              , unsafeToObsIdVal
              , fromObsId
@@ -210,15 +214,16 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromInstrument
              , fromGrating
              , fromPropType
-             , recordObsId
+             -- , recordObsId
              )
-import Utils (HtmlContext(..)
-             , fromBlaze, standardResponse
+import Utils (fromBlaze, standardResponse
              , timeToRFC1123
              , showInt
              , isChandraImageViewable
              , publicImageURL
+             , ETag
              , makeETag
+             , fromETag
              )
 
 production :: 
@@ -430,34 +435,18 @@ webapp cm scache cache = do
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
-    {-
-    get "/api/nearbyfov" (do
-      obsid <- param "obsid"
-      ra <- param "ra"
-      dec <- param "dec"
-      let getData (a, b) = findNearbyObs a b rmax
-          -- what's a good radius to use? don't really
-          -- want to make it user configuerable
-          -- ~ 4 degrees is nearly large enough to show the largest connected
-          -- region (Sgr A*) and fits the starting size for the WWT
-          -- display.
-          --
-          rmax = 4.0 :: Double
-
-      apiNearbyFOV (liftSQL . getData) obsid ra dec)
-    -}
-    
-    get "/api/allfov" (apiAllFOV (liftSQL findAllObs))
+    get "/api/allfov" (apiAllFOV
+                        (liftSQL getLastModifiedFixed)
+                        (liftSQL findAllObs))
 
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
           lastMod <- liftSQL getLastModifiedFixed
+          let etag = makeETag gitCommitId "/api/allfov" lastMod
 
           setHeader "Last-Modified" (timeToRFC1123 lastMod)
-          setHeader "ETag" (makeETag gitCommitId "/api/allfov" lastMod)
-
-          standardResponse)
+          setHeader "ETag" (fromETag etag))
 
     -- for now always return JSON; need a better success/failure
     -- set up.
@@ -466,6 +455,8 @@ webapp cm scache cache = do
     -- excessive here; probably just need the preceeding and
     -- next obsid values (if any), but leave as is for now.
     --
+    {-
+
     get "/api/current" (apiCurrent (liftSQL getCurrentObs))
 
     -- TODO: this is completely experimental
@@ -558,10 +549,14 @@ webapp cm scache cache = do
     get "/api/search/proposal" (apiSearchProposal
                                 (dbQuery "term" findProposalNameMatch))
 
+    -}
+
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
     --
-    get "/api/mappings" (apiMappings (liftSQL getProposalObjectMapping))
+    get "/api/mappings" (apiMappings
+                          (liftSQL getLastModifiedFixed)
+                          (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
@@ -572,7 +567,9 @@ webapp cm scache cache = do
     get "/api/timeline" (apiTimeline (liftSQL getTimeline))
 
     -- highly experimental
-    get "/api/exposures" (apiExposures (liftSQL getExposureValues))
+    get "/api/exposures" (apiExposures
+                           (liftSQL getLastModifiedFixed)
+                           (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
 
@@ -965,7 +962,7 @@ webapp cm scache cache = do
       mobs <- snd <$> queryObsidParam
       case mobs of
         Just _ -> standardResponse
-        _      -> next -- status status404
+        _      -> next -- status notFound404
 
     -- TODO: is this actually correct?
     addroute HEAD "/obsid/:obsid/wwt" redirectObsid
@@ -975,14 +972,14 @@ webapp cm scache cache = do
     get "/404.html" $ do
       fact <- liftIO getFact
       fromBlaze $ NotFound.notFoundPage fact
-      status status404
+      status notFound404
 
     notFound $ redirect "/404.html"
     -}
 
     notFound $ do
       fact <- liftIO getFact
-      status status404
+      status notFound404
       fromBlaze (NotFound.notFoundPage fact)
 
 -- | Exception handler. We should log the error.
@@ -991,7 +988,7 @@ errHandle txt = do
   liftIO (L.putStrLn ("Error string: " <> txt))
   -- Can we change the HTTP status code? The following does not seem to
   -- work.
-  status status503
+  status serviceUnavailable503
   fromBlaze NotFound.errPage
 
 
@@ -1001,9 +998,52 @@ logMsg :: T.Text -> ActionM ()
 logMsg = const (return ())
 
 
+
 -- | Attempt to support cache controll access to the JSON data
 --   in this resource.
 --
+cacheApiQuery ::
+  ToJSON a
+  => (UTCTime -> ETag)
+  -- ^ Create the ETag for this resource, based on the last-updated
+  --   value from the database.
+  -> ActionM UTCTime
+  -- ^ Returns the last-modified time oto use
+  -> ActionM (a, UTCTime)
+  -- ^ Returns the data to convert and the last-modified time (which
+  --   could have changed since the original query).
+  -> ActionM ()
+cacheApiQuery toETag getLastMod getData = do
+  hdrs <- headers
+  let readHeader = flip lookup hdrs
+      qryLastMod = readHeader "If-Modified-Since"
+      qryETag = readHeader "If-None-Match"
+
+  lastModUTC <- getLastMod
+  let isNotModified = (Just etag == qryETag) || (Just lastMod == qryLastMod)
+
+      lastMod = timeToRFC1123 lastModUTC
+      etag = fromETag (toETag lastModUTC)
+
+      notModified = do
+        setHeader "Last-Modified" lastMod
+        setHeader "ETag" etag
+        status notModified304
+
+      modified = do
+        -- since the lastMod date could have changed since we last requested
+        -- it, requery for it.
+        --
+        (ans, lastMod') <- getData
+
+        setHeader "Last-Modified" (timeToRFC1123 lastMod')
+        setHeader "ETag" ((fromETag . toETag) lastMod')
+
+        json ans
+
+  setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
+  setHeader "Vary" "Accept-Encoding"
+  if isNotModified then notModified else modified
 
 
 -- TODO: define a data type to represent the JSON response, so that
@@ -1012,39 +1052,54 @@ logMsg = const (return ())
 
 type Roll = Double
 
+-- Do we really gain much from enforcing a 304 here?
+-- In tests with chromium we get a 304 from the initial run but then
+-- subsequent requests return the data from the on-disk cache but still
+-- report a 200
+--
+-- Useful resources
+--   https://www.mnot.net/cache_docs/
+--   http://dev.mobify.com/blog/beginners-guide-to-http-cache-headers/
+--
 apiAllFOV ::
-  ActionM ([(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
-          , UTCTime)
+  ActionM UTCTime
+  -> ActionM ([(RA, Dec, Roll, Instrument, TargetName, ObsIdVal, ObsIdStatus)]
+             , UTCTime)
   -> ActionM ()
-apiAllFOV getData = do
-  (ans, lastMod) <- getData
+apiAllFOV getLastMod getData =
+  let toETag = makeETag gitCommitId "/api/allfov"
 
-  -- need to convert to a JSON map
-  let conv (ra, dec, roll, inst, tname, obsid, ostatus) =
-        object [ "ra" .= fromRA ra
-               , "dec" .= fromDec dec
-               , "roll" .= roll
-               , "instrument" .= fromInstrument inst
-               , "name" .= tname  -- has a ToJSON instance we can use
-               , "status" .= fromObsIdStatus ostatus
-               , "obsid" .= fromObsId obsid
-               ]
+      getData' = do
+        (ans, lastMod) <- getData
 
-  -- This data doesn't change often, so can be cached. Not 100%
-  -- convinced I'm doing the right thing here, but seems to work.
-  --
-  -- Using the last-modified date isn't technically correct, since
-  -- the code could have been updated since, but it is likely only
-  -- to cause a problem in my development environment.
-  --
-  setHeader "Last-Modified" (timeToRFC1123 lastMod)
-  setHeader "ETag" (makeETag gitCommitId "/api/allfov" lastMod)
+        -- need to convert to a JSON map
+        let conv (ra, dec, roll, inst, tname, obsid, ostatus) =
+              object [ "ra" .= fromRA ra
+                     , "dec" .= fromDec dec
+                     , "roll" .= roll
+                     , "instrument" .= fromInstrument inst
+                     , "name" .= tname  -- has a ToJSON instance we can use
+                     , "status" .= fromObsIdStatus ostatus
+                     , "obsid" .= fromObsId obsid
+                     ]
 
-  json (map conv ans)
+        return (map conv ans, lastMod)
+
+  in cacheApiQuery toETag getLastMod getData'
+
+
+{-
+
+debug :: T.Text -> ActionM ()
+debug msg = liftAndCatchIO (T.putStrLn ("<< " <> msg <> " >>"))
+
 
 
 apiCurrent :: ActionM (Maybe Record) -> ActionM ()
 apiCurrent getData = do
+
+  debug "/api/current"
+
   -- note: this is creating/throwing away a bunch of info that could be useful
   mrec <- getData
   let rval o = json ("Success" :: T.Text, fromObsId o)
@@ -1056,6 +1111,9 @@ apiCurrent getData = do
 
 apiObsId :: ActionM (Int, Maybe ObsInfo) -> ActionM ()
 apiObsId getData = do
+
+  debug "/api/obsid"
+
   (obsid, mobs) <- getData
   case mobs of
     Just v -> json ("Success" :: T.Text, v)
@@ -1064,6 +1122,9 @@ apiObsId getData = do
 
 apiSimbadName :: ActionM (TargetName, Maybe SimbadInfo) -> ActionM ()
 apiSimbadName getData = do
+
+  debug "/api/simbad/name/"
+
   (name, msim) <- getData
   case msim of
     Just sim -> json ("Success" :: T.Text, sim)
@@ -1072,6 +1133,9 @@ apiSimbadName getData = do
 
 apiProposal :: ActionM (PropNum, Maybe Proposal) -> ActionM ()
 apiProposal getData = do
+
+  debug "/api/proposal/"
+
   (propNum, mres) <- getData
   case mres of
     Just res -> json ("Success" :: T.Text, res)
@@ -1082,6 +1146,9 @@ apiRelatedPropNumObsId ::
   ActionM (SortedList StartTimeOrder ScienceObs)
   -> ActionM ()
 apiRelatedPropNumObsId getData = do
+
+  debug "/api/related/:propnum/:obsid"
+
   res <- getData 
   -- hmmm, can't tell between an unknown propnum/obsid
   -- pair and an observation with no related observations.
@@ -1091,7 +1158,10 @@ apiRelatedPropNumObsId getData = do
 apiRelatedPropNum ::
   ActionM (PropNum, SortedList StartTimeOrder ScienceObs)
   -> ActionM ()
-apiRelatedPropNum getData = do     
+apiRelatedPropNum getData = do
+
+  debug "/api/related/:propnum"
+
   res <- snd <$> getData
   -- hmmm, can't tell between an unknown propnum
   -- and an observation with no related observations.
@@ -1100,6 +1170,9 @@ apiRelatedPropNum getData = do
 
 apiSearchDtype :: ActionM [(SimbadTypeInfo, Int)] -> ActionM ()
 apiSearchDtype getData = do
+
+  debug "/api/search/dtype"
+
   matches <- getData
   json (SearchTypes.renderDependencyJSON matches)
 
@@ -1108,6 +1181,9 @@ apiSearchName ::
   ActionM (String, ([TargetName], [TargetName]))
   -> ActionM ()
 apiSearchName getData = do
+
+  debug "/api/search/name"
+
   (_, (exact, other)) <- getData
   -- for now, flatten out the response
   -- TODO: should also remove excess spaces, but this requires some
@@ -1119,6 +1195,9 @@ apiSearchProposal ::
   ActionM (String, [(T.Text, PropNum)])
   -> ActionM ()
 apiSearchProposal getData = do
+
+  debug "/api/search/proposal"
+
   (_, matches) <- getData
   -- for now, explicitly convert the PropNum field to an integer
   -- for easy serialization, but maybe this should be the default
@@ -1128,70 +1207,58 @@ apiSearchProposal getData = do
                                   , "number" .= fromPropNum pnum ]
   json out
 
+-}
 
 apiMappings ::
-  ActionM (M.Map (SIMCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
+  ActionM UTCTime
+  -> ActionM (M.Map (SIMCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
   -> ActionM ()
-apiMappings getData = do
-  (mapping, lastMod) <- getData
+apiMappings getLastMod getData =
+  let toETag = makeETag gitCommitId "/api/mappings"
 
-  let names = M.keys mapping
-      propNames = nub (map fst names)
-      simKeys = nub (map (keyToPair . snd) names)
-      simNames = map fst simKeys
+      getData' = do
+        (mapping, lastMod) <- getData
 
-      -- remove the object that would be created by the
-      -- ToJSON instance of SimbadType
-      toPair (k, v) = k .= fromSimbadType v
-      symbols = map toPair simKeys
+        let names = M.keys mapping
+            propNames = nub (map fst names)
+            simKeys = nub (map (keyToPair . snd) names)
+            simNames = map fst simKeys
+
+            -- remove the object that would be created by the
+            -- ToJSON instance of SimbadType
+            toPair (k, v) = k .= fromSimbadType v
+            symbols = map toPair simKeys
       
-      -- Need to provide unique numeric identifiers than
-      -- can be used to index into the 'nodes' array.
-      --
-      nprop = length propNames
-      zero = 0 :: Int
-      propMap = M.fromList (zip propNames [zero..])
-      simMap = M.fromList (zip simNames [nprop, nprop+1..])
+            -- Need to provide unique numeric identifiers than
+            -- can be used to index into the 'nodes' array.
+            --
+            nprop = length propNames
+            zero = 0 :: Int
+            propMap = M.fromList (zip propNames [zero..])
+            simMap = M.fromList (zip simNames [nprop, nprop+1..])
   
-      makeName n = object [ "name" .= n ]
-      getVal n m = fromJust (M.lookup n m)
+            makeName n = object [ "name" .= n ]
+            getVal n m = fromJust (M.lookup n m)
       
-      makeLink ((prop,skey), (texp, nsrc, nobs)) =
-        let stype = fst (keyToPair skey)
-        in object [ "source" .= getVal prop propMap
-                  , "target" .= getVal stype simMap
-                  , "totalExp" .= fromTimeKS texp
-                  , "numSource" .= nsrc
-                  , "numObs" .= nobs ]
+            makeLink ((prop,skey), (texp, nsrc, nobs)) =
+              let stype = fst (keyToPair skey)
+              in object [ "source" .= getVal prop propMap
+                        , "target" .= getVal stype simMap
+                        , "totalExp" .= fromTimeKS texp
+                        , "numSource" .= nsrc
+                        , "numObs" .= nobs ]
 
-      out = object [
-        "nodes" .= map makeName (propNames ++ simNames)
-        , "links" .= map makeLink (M.toList mapping)
-        , "proposals" .= propNames
-        , "simbadNames" .= simNames
-        , "simbadMap" .= object symbols
-        ]
+            out = object [
+              "nodes" .= map makeName (propNames ++ simNames)
+              , "links" .= map makeLink (M.toList mapping)
+              , "proposals" .= propNames
+              , "simbadNames" .= simNames
+              , "simbadMap" .= object symbols
+              ]
 
-  -- If the code is not changed then the last-modified date
-  -- of the database is sufficient. However, there's no guarantee
-  -- that there isn't a change in the serialization code (e.g. above
-  -- or at a lower level, such as a type or type class), so I
-  -- should use an ETag. This also helps to handle the case where
-  -- the database is updated within a second (which, given the
-  -- current set up, is only an issue for the test server since
-  -- the "production" one on Heroku is not updated in the
-  -- same manner).
-  --
-  -- However, initial testing suggests that setting the ETag
-  -- doesn't work, whereas Last-Modified does. So for now go
-  -- with the working-but-technically-broken version.
-  --
-  -- Should I add some middleware that handles these checks for
-  -- these resources?
-  setHeader "Last-Modified" (timeToRFC1123 lastMod)
-  -- setHeader "ETag" (makeETag gitCommitId "/api/mappings" lastMod)
-  
-  json out
+        return (out, lastMod)
+
+  in cacheApiQuery toETag getLastMod getData'
  
 
 -- IF we remove the current time from the conversion of
@@ -1217,6 +1284,8 @@ apiTimeline ::
            [Proposal])
   -> ActionM ()
 apiTimeline getData = do
+
+  -- debug "/api/timeline"
 
   (stline, nstline, simbadMap, props) <- getData
   tNow <- liftIO getCurrentTime
@@ -1257,24 +1326,33 @@ apiTimeline getData = do
 
 
 apiExposures ::
-  ActionM [(T.Text, SortedList ExposureTimeOrder TimeKS)]
+  ActionM UTCTime
+  -> ActionM [(T.Text, SortedList ExposureTimeOrder TimeKS)]
   -> ActionM ()
-apiExposures getData = do
-  pairs <- getData
-  let toPair (cyc, vals) =
-        let ts = map fromTimeKS (fromSL vals)
-            allTime = showExpTime (unsafeToTimeKS (sum ts))
-        in 
-          cyc .= object
-          [ "cycle" .= cyc
-          , "units" .= ("ks" :: T.Text)
-          , "length" .= length ts
-          , "totalTime" .= allTime
-          , "times" .= ts
-          ]
+apiExposures getLastMod getData =
+  let toETag = makeETag gitCommitId "/api/exposures"
 
-      out = object (map toPair pairs)
-  json out
+      getData' = do
+        -- TODO: exposure query should return the last-modified date
+        pairs <- getData
+        lastMod <- getLastMod
+
+        let toPair (cyc, vals) =
+              let ts = map fromTimeKS (fromSL vals)
+                  allTime = showExpTime (unsafeToTimeKS (sum ts))
+              in cyc .= object
+                 [ "cycle" .= cyc
+                 , "units" .= ("ks" :: T.Text)
+                 , "length" .= length ts
+                 , "totalTime" .= allTime
+                 , "times" .= ts
+                 ]
+
+            out = object (map toPair pairs)
+
+        return (out, lastMod)
+
+  in cacheApiQuery toETag getLastMod getData'
 
 
 obsidOnly ::
@@ -1305,7 +1383,7 @@ proposal getData getSched = do
     Just prop -> do
       sched <- getSched (fmap Right matches)
       fromBlaze (Proposal.matchPage prop mabs sched)
-    _         -> next -- status status404
+    _         -> next -- status notFound404
 
 
 searchTypeUnId ::
@@ -1329,7 +1407,7 @@ searchType getData getSched = do
       sched <- getSched (fmap Right ms)
       fromBlaze (SearchTypes.matchPage typeInfo sched)
           
-    _ -> next -- status status404
+    _ -> next -- status notFound404
   
 
 searchTypeNone :: ActionM [(SimbadTypeInfo, Int)] -> ActionM ()

@@ -28,10 +28,10 @@ module Database ( getCurrentObs
                 , makeScheduleRestricted
 
                 , getProposal
-                , getProposalFromNumber
+                -- , getProposalFromNumber
                 , getProposalObs
-                , getRelatedObs
-                , getObsFromProposal
+                -- , getRelatedObs
+                -- , getObsFromProposal
                 , getProposalInfo
                 , reportSize
                 , getSimbadInfo
@@ -60,10 +60,10 @@ module Database ( getCurrentObs
                 , fetchConstraints
                 , fetchConstraint
                   
-                , findNameMatch
-                , findProposalNameMatch
+                -- , findNameMatch
+                -- , findProposalNameMatch
                 , findTarget
-                , findRecord
+                -- , findRecord
                   
                 , getProposalObjectMapping
 
@@ -158,7 +158,7 @@ import Control.Monad (filterM, forM, forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
-import Data.Char (toUpper)
+-- import Data.Char (toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
@@ -1854,6 +1854,7 @@ getRelatedObs propNum obsId =
            &&. isValidScienceObs)
           `orderBy` [Asc SoStartTimeField])
 
+{-
 -- | Return the observations we know about for the given proposal
 --   (that are not discarded). This includes unscheduled observations.
 --
@@ -1867,6 +1868,7 @@ getObsFromProposal propNum =
            SoStatusField /=. Discarded)
           `orderBy` [Asc SoStartTimeField])
 
+-}
 -- | A combination of `getProposal` and `getProposalObs`.
 --
 getProposalInfo ::
@@ -1889,6 +1891,8 @@ findObsStatusTypes :: PersistBackend m => m [(ObsIdStatus, Int)]
 findObsStatusTypes =
   countUp <$> project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
 
+
+{-
 
 -- | Try supporting "name matching". This is complicated by the fact
 --   that there are both the target names (soTarget) and the
@@ -1916,6 +1920,7 @@ findNameMatch instr = do
              (distinct (upper SmiNameField `like` matchStr))
   return (targets, simbads)
 
+
 -- | Find proposals whose titles match the given string
 findProposalNameMatch ::
   DbSql m
@@ -1930,6 +1935,8 @@ findProposalNameMatch instr =
   in project (PropNameField, PropNumField)
      ((upper PropNameField `like` matchStr) `orderBy` [Asc PropNameField])
 
+
+-}
 
 -- | Find observations of the given target. The input name is searched - using a
 --   case-insensitive match - against both the observation target name and
