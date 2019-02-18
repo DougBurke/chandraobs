@@ -180,6 +180,14 @@ cleanupName s =
 --      (although for this example it doesn't matter
 --       since there doesn't appear to be a match)
 --
+--   *) removes "[...]" if "[" is not the first charactre since this is
+--      often used in CAL observations - e.g. "E0102-72[S2,-120,-5,0,0]"
+--      although there is '0532-710 [N206]' but this doesn't resolve
+--      in SIMBAD as the full name anyway.
+--
+--      This rule probably simplifies a bunch of other tests, but
+--      have not evaluated them yet.
+--
 --   It could be that a multi-pass system is really needed
 --   to deal with names that include nebula or filament
 --   that potentially could be a valid identifier.
@@ -188,7 +196,8 @@ cleanupName s =
 --
 cleanTargetName :: TargetName -> TargetName
 cleanTargetName tgtName =
-  let tgt = fromTargetName tgtName
+  let tgt = removeSquareBrackets tgtName
+
       lc = T.toLower
 
       isOffset x = any (`T.isSuffixOf` x)
@@ -201,8 +210,15 @@ cleanTargetName tgtName =
 
     -- special case names used by CAL
     [n] | lc n `elem` ["arlac", "arlac,hrc-s,ao2", "arlac,hrc-i,ao2a"] -> "Ar Lac"
+
     [n] | isOffset n -> toTargetName (removeOffset n)
           
+    -- HDF NORTH is one where we don't want to remove the compass
+    -- direction (although doesn't really make a difference to the
+    -- search).
+    --
+    [a, b] | a == "HDF" && b == "NORTH" -> "HDF NORTH"
+
     [n, _, ao] | lc n == "vega," && lc ao == "ao2" -> "Vega"
     
     toks -> let (ltok:rtoks) = reverse toks
@@ -251,6 +267,21 @@ compassDirs = ["ne", "se", "sw", "nw"
               , "north", "east", "south", "west"
               , "northeast", "southeast", "northwest", "southwest"]
 
+
+-- Only clean cases like "xx [sdfsfsf" (no check for trailing ']');
+-- we don't yet have any with multiple '[' characters, but leave
+-- them in if we find them.
+--
+removeSquareBrackets :: TargetName -> T.Text
+removeSquareBrackets tgtName =
+  let orig = fromTargetName tgtName
+
+      firstChar = maybe ' ' fst (T.uncons orig)
+      cleaned = case T.split (== '[') orig of
+        [x, _] -> T.strip x
+        _ -> orig
+
+  in if firstChar == '[' then orig else cleaned
 
 -- Note that I choose to use a text-based format for returning the data,
 -- rather than a VoTable, since it's easier to create a parser for the
