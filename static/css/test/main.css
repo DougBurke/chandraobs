@@ -1,0 +1,183 @@
+
+body {
+    font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+    margin: 0;
+    overflow: hidden;
+}
+
+/*
+ * The "top" bar
+ */
+div#control {
+    position: fixed;
+    top: 0;
+}
+
+div#control ul {
+    list-style-type: none;
+    padding-left: 0.5em;
+}
+
+div#control ul li {
+    /* float: left; */
+}
+
+li#control-location {
+    background: white;
+    padding: 0.2em;
+}
+
+/*
+ * Text explaining the current (or selected) observation.
+ * Should the border color change to reflect the observation state?
+ */
+
+div.statusPane {
+    background: rgb(255, 255, 255, 0.6);
+    /* border-color: white; */
+    /* border-radius: 0.5em; */
+    /* border-style: solid; */
+    /* border-width: 2px; */
+    padding-left: 0.5em;  /* if this changes, need to change margin-right/left in controlElements */
+    padding-right: 0.5em;
+    position: fixed;
+}
+
+/* should get re-integrated into the list above, but leave out for now
+ * (was broken out as was re-using the above settings for other panes
+ *  but currently not).
+ */
+div.statusPane {
+    bottom: 2em;
+    left: 2em;
+    width: 25em;
+    max-height: 20em;
+}
+
+div.content div {
+    overflow: auto;
+}
+
+/* location of window-UI-like elements */
+
+div.controlElements {
+    background: rgba(255, 255, 255, 0.7);
+    height: 1em;
+
+    /* extend across the full "window"; should be -1 * #statusBar.padding */
+    margin-left: -0.5em;
+    margin-right: -0.5em;
+
+    padding-bottom: 0.3em;
+    padding-right: 0.3em;
+    padding-top: 0.3em;
+}
+
+span.title {
+    color: rgba(3, 3, 3, 1.0);
+    float: left;
+    font-weight: bold;
+    padding-left: 0.5em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+/* CSS window "widgets" */
+
+.closable {
+    background: #F55;  /* orangey-red ish */
+    border-radius: 50%;
+    cursor: pointer;
+    float: right;
+    height: 1em;
+    width: 1em;
+}
+
+/* hideable and showable are assumed to be attached to this */
+.switchable {
+    cursor: pointer;
+    float: right;
+    height: 0;
+    margin-right: 0.2em;
+    width: 0;
+}
+
+/* down-pointing triangle */
+.hideable {
+    border-left: 0.5em solid transparent;
+    border-right: 0.5em solid transparent;
+    border-top: 1em solid #F55;
+}
+
+/* up-pointing triangle */
+.showable {
+    border-bottom: 1em solid #F55;
+    border-left: 0.5em solid transparent;
+    border-right: 0.5em solid transparent;
+}
+
+/* Style the list */
+
+ul.sections {
+    /* float: left; */
+    /* display: contents; */
+    list-style-type: none;
+    margin-top: 0.5em; /* want this to be similar to statusPane.margin.left */
+    overflow: auto;
+    padding-left: 0;
+}
+
+ul.sections li {
+    background: rgba(255, 255, 255, 0.7);
+    border-right: 2px solid #AAA;
+    float: left;
+    /* height: 1em; */
+    margin-right: 0;
+    padding: 0 0.5em;
+}
+
+ul.sections li a {
+    color: rgba(3, 3, 3, 0.5);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: all 0.5s ease;
+}
+
+ul.sections li:last-child {
+    border-right: none;
+}
+
+ul.sections li:hover a {
+    /* color or background */
+    color: rgba(3, 3, 3, 1);
+}
+
+ul.sections li.active a {
+    font-weight: bold;
+    color: rgba(3, 3, 3, 1);
+}
+
+div.content div p:first-child {
+    margin-top: 0.5em;
+}
+
+/* fake a button; why, when we have HTML buttons? */
+
+.button {
+    background-color: rgba(217, 83, 79, 0.8);  /* red-ish */
+    border: 1px solid rgb(212, 63, 58);
+    border-radius: 0.5em;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 0.4em;
+    padding: 0.5em;
+    text-align: center;
+    vertical-align: middle;
+    /* width: 100%; */
+}
+
+.button:hover {
+    background-color: rgba(210, 35, 45, 0.8);
+    border-color: rgb(172, 41, 37);
+}

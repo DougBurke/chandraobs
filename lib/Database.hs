@@ -63,7 +63,7 @@ module Database ( getCurrentObs
                 , findNameMatch
                 , findProposalNameMatch
                 , findTarget
-                -- , findRecord
+                , findRecord
                   
                 , getProposalObjectMapping
 
@@ -95,7 +95,7 @@ module Database ( getCurrentObs
                 , insertIfUnknown
 
                  -- , maybeSelect
-                 -- , maybeProject
+                , maybeProject
                 
                 , updateLastModified
                 , getLastModified
@@ -2808,14 +2808,15 @@ dbConnStr :: IO String
 -- dbConnStr = pure "user=postgres password=postgres dbname=chandraobs host=127.0.0.1"
 -- dbConnStr = pure "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
 dbConnStr = do
+
+  let toStr pars = T.unpack (foldr (\(k,v) s ->
+                                      s <> (k <> "=" <> v <> " ")) "" pars)
+
   murl <- lookupEnv "DATABASE_URL"
   case murl of
     Nothing -> pure "user=postgres password=postgres dbname=chandraobs2 host=127.0.0.1"
 
-    Just _ -> do
-      cparams <- dbConnParams
-      pure $ T.unpack $ foldr (\(k,v) s ->
-                        s <> (k <> "=" <> v <> " ")) "" cparams
+    Just _ -> toStr <$> dbConnParams
 
 
 -- | Run an action against the database. This includes a call to

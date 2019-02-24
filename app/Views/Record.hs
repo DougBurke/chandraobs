@@ -10,6 +10,8 @@ module Views.Record (CurrentPage(..)
                      , singleColBody
                      , withTwitterBody
 
+                     , renderRelatedObs
+
                      , noObsIdParas
                      ) where
 
@@ -404,6 +406,10 @@ vowels = "aeiou"
 -- | Display information for a \"science\" observation.
 --
 -- TODO: send HtmlContext to details display
+--
+-- Note: the information content now depends on the HtmlContext; in particular
+--       the "related observatios" are not included with a Dynamic context.
+--
 targetInfo ::
   HtmlContext
   -> UTCTime    -- current time
@@ -553,14 +559,9 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         <> toHtml (showTimeDeltaBwd eTime cTime)
         <> reason
 
-      nmatches = lengthSL matches
-      suffix = if nmatches == 1 then "" else "s"
-      otherMatches | nmatches == 0 = mempty
-                   | otherwise = " See related observation"
-                                 <> suffix
-                                 <> ": "
-                                 <> groupProposal ctx soTarget matches
-                                 <> "."
+      otherMatches = case ctx of
+        DynamicHtml -> mempty
+        StaticHtml -> relatedObservationsText ctx soTarget matches
 
       sciencePara = p (cts obsStatus
                        <> " "
@@ -651,6 +652,40 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
   in if soStatus == Discarded
      then discardedPara
      else sciencePara <> constraintsPara <> tooPara
+
+
+-- | Report the related observation, or observations.
+--
+--   The text is *not* placed within a container (e.g. a p
+--   element).
+--
+relatedObservationsText ::
+  HtmlContext
+  -> TargetName
+  -> SortedList StartTimeOrder ScienceObs
+  -> Html
+relatedObservationsText ctx targetName matches =
+  let nmatches = lengthSL matches
+      suffix = if nmatches == 1 then "" else "s"
+
+  in if nmatches == 0
+     then mempty
+     else " See related observation"  -- note leading space
+          <> suffix
+          <> ": "
+          <> groupProposal ctx targetName matches
+          <> "."
+
+-- | Return a paragraph representing the related observations.
+--
+renderRelatedObs ::
+  TargetName
+  -> SortedList StartTimeOrder ScienceObs
+  -> Maybe Html
+renderRelatedObs targetName matches =
+  if lengthSL matches == 0
+  then Nothing
+  else Just (p (relatedObservationsText DynamicHtml targetName matches))
 
 -- | How best to indicate a discarded observation? Should there be some
 --   mention of the ObsId and target?

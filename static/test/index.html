@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en-US">
+ <head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
+  <link rel="icon" type="image/gif" href="/img/cxc.gif">
+  <title>What is Chandra doing now? [experiment]</title>
+  <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script src="http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"></script>
+  <script src="/js/test/main.js"></script>
+  <script src="/js/test/draggable.js"></script>
+  <link href="/css/test/main.css" type="text/css"
+	rel="stylesheet" title="Default" media="all">
+ </head>
+ <body onload="main.initialize();" onresize="main.resize();">
+
+   <main>
+     <div id="WorldWideTelescopeControlHost">
+       <div id="WWTCanvas">
+       </div>
+
+       <div style="position: fixed; top: 1em; right: 0.5em;">
+	 <span style="background: rgba(217,83,79,0.8); border-radius: 0.5em; color: white; padding: 0.5em;">EXPERIMENT: all things may change!</span>
+       </div>
+
+       <!-- maybe nav? -->
+       <div id="control">
+	 <ul>
+	   <li id="control-location">
+	   </li>
+	   <li id="control-image">
+	     <select name="imagechoice" id="imagechoice"class="button">
+	       <option value="planck-cmb">CMB (Planck)</option>
+	       <option value="vlss">Radio (VLSS; δ≳-40°)</option>
+	       <option value="wise">IR (WISE)</option>
+	       <option value="2mass-image">IR (2MASS)</option>
+	       <option value="dss" selected>Optical (DSS)</option>
+	       <option value="halpha">Optical (Hα)</option>
+	       <option value="rass">X-ray (RASS)</option>
+	       <option value="fermi3">Gamma (Fermi)</option>
+	     </select>
+	   </li>
+	 </ul>
+       </div>
+       
+     </div>
+   </main>
+
+ </body>
+</html>

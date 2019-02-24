@@ -9,6 +9,7 @@ module Layout (
   , d3Meta
   , jqueryMeta
   , renderLinks
+  , renderObsIdDetails
   , renderFooter
   , getFact
   , dquote
@@ -579,6 +580,9 @@ renderWWT ScienceObs{..} =
          "not available.")
 
       -- NOTE: this hard-codes the URL of the site, which is not ideal
+      --       in particular http over https (although at present WWT
+      --       isn't available over https so that is okay).
+      --
       httpHref = "http://chandraobservatory.herokuapp.com" <>
                  obsURI soObsId
 

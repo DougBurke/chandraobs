@@ -22,6 +22,9 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as L
 
+import qualified Text.Blaze.Html5 as H5
+import qualified Text.Blaze.Html5.Attributes as A5
+
 import qualified About
 import qualified Views.Index as Index
 import qualified Views.NotFound as NotFound
@@ -56,6 +59,7 @@ import Database.Groundhog.Postgresql (Postgresql(..)
                                      , Conn
                                      , PersistBackend
                                      , SqlDb
+                                     , (==.)
                                      , runDbConn
                                      , withPostgresqlPool)
 
@@ -76,7 +80,7 @@ import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
 
--- import Text.Blaze.Html.Renderer.Text (renderHtml)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
 
 import Web.Scotty
@@ -84,7 +88,7 @@ import Web.Scotty
 import Cache (Cache, CacheKey
              , fromCacheData, getFromCache, makeCache, toCacheKey)
 import Database (NumObs, NumSrc, SIMKey
-                -- , findRecord
+                , findRecord
                 , getCurrentObs, getObsInfo
                 , getObsId
                 , getSchedule
@@ -146,16 +150,17 @@ import Database (NumObs, NumSrc, SIMKey
                 -- , NormSep
                 -- , fromNormSep
                 , getLastModifiedFixed
+
+                , maybeProject
                 
                 , getDataBaseInfo
                   
                 , dbConnStr
-
                 )
 
 import Git (gitCommitId)
 
-import Layout (getFact)
+import Layout (getFact, renderObsIdDetails)
 -- import Layout (getFact, renderLinks)
 import Sorted (SortedList
               , nullSL, fromSL, mergeSL, unsafeToSL
@@ -164,7 +169,7 @@ import Sorted (SortedList
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , PropNum
              , fromPropNum
-             -- , NonScienceObs(..)
+             , NonScienceObs(..)
              , ScienceObs(..)
              , ObsInfo(..)
              , unsafeToObsIdVal
@@ -202,6 +207,8 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , ScienceTimeline
              , EngineeringTimeline
 
+             , Field(PaAbstractField, PaNumField)
+
              , fromSimbadType
              , toSimbadType
              , showExpTime
@@ -214,7 +221,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromInstrument
              , fromGrating
              , fromPropType
-             -- , recordObsId
+             , recordObsId
              )
 import Utils (fromBlaze, standardResponse
              , timeToRFC1123
@@ -224,6 +231,7 @@ import Utils (fromBlaze, standardResponse
              , ETag
              , makeETag
              , fromETag
+             , HtmlContext(DynamicHtml)
              )
 
 production :: 
@@ -246,7 +254,7 @@ uerror msg = do
 --
 --   PORT - the port number to run on (if not given it defaults to
 --          3000)
---   DATABASE_URL  - the database to use (if on Heroku) otherswise
+--   DATABASE_URL  - the database to use (if on Heroku) otherwise
 --                   use a local setup.
 --
 -- The Scotty documentation suggests calling setFdCacheDuration on the
@@ -403,6 +411,10 @@ mCSToLC Nothing = "none"
 mCSToLC (Just ck) = csToLC ck
 
 
+-- TODO: could add a generic ETag for any non-static resource, based on git commit,
+--       path element, and last-modified time from the DB. Which would allow a generic
+--       304-handler for any resource.
+--
 webapp ::
   Pool Postgresql
   -> CacheContainer
@@ -455,11 +467,11 @@ webapp cm scache cache = do
     -- excessive here; probably just need the preceeding and
     -- next obsid values (if any), but leave as is for now.
     --
-    {-
 
     get "/api/current" (apiCurrent (liftSQL getCurrentObs))
 
     -- TODO: this is completely experimental
+    --       add support for cache
     --
     get "/api/page/:obsid" $ do
       obsid <- param "obsid"
@@ -479,27 +491,60 @@ webapp cm scache cache = do
       
       jsobj <- case (mobs, mDbInfo) of
         (Just obs, Just dbInfo) -> do
+
           let thisObs = oiCurrentObs obs
               -- oiCurrentObs is badly named; it is really the
               -- "focus" observation.
               --
-              obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
-              (msimbad, (mprop, _)) = dbInfo
 
+              (msimbad, (mprop, matches)) = dbInfo
+              -- (msimbad, (mprop, _)) = dbInfo
+
+          mpropText <- case thisObs of
+            Left _ -> pure Nothing
+            Right so -> liftSQL (maybeProject PaAbstractField (PaNumField ==. soProposal so))
+
+          let obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
+
+              mDetails = either (const Nothing) Just
+                (renderObsIdDetails mprop msimbad <$> thisObs)
+
+              -- could add number of observations we know about this proposal
+              mProposal = case mpropText of
+                Just prop -> Just ((H5.div H5.! A5.class_ "abstract")
+                                    (H5.p (H5.toHtml prop)))
+                _ -> Nothing
+
+              mRelated = case thisObs of
+                Left _ -> Nothing
+                Right so -> Record.renderRelatedObs (soTarget so) matches
+
+              {-
               imgLinks = either
                          (const mempty)
                          (renderLinks cTime mprop msimbad)
                          thisObs
 
               navBar = Record.obsNavBar DynamicHtml (Just thisObs) obs
+              -}
 
-          return (object ["status" .= ("success" :: T.Text)
+              objItems = ["status" .= ("success" :: T.Text)
                          , "observation" .= renderHtml obshtml
+                         {-
                          , "imglinks" .= renderHtml imgLinks
                          , "navbar" .= renderHtml navBar
+                         -}
+                         , "ra" .= fromRA (either nsRa soRA thisObs)
+                         , "dec" .= fromDec (either nsDec soDec thisObs)
                          , "isCurrent" .= (mCurrentObsId == Just obsid)
-                         ])
-      
+                         ]
+                         -- TODO: mapMaybe
+                         ++ maybe [] (\h -> ["details" .= renderHtml h]) mDetails
+                         ++ maybe [] (\h -> ["related" .= renderHtml h]) mRelated
+                         ++ maybe [] (\h -> ["proposal" .= renderHtml h]) mProposal
+
+          return (object objItems)
+
         _  -> do
           fact <- liftIO getFact
           let nohtml = Index.noDataDiv fact
@@ -507,7 +552,10 @@ webapp cm scache cache = do
                          , "error" .= renderHtml nohtml])
 
       json jsobj
-      
+
+
+    {-
+
     get "/api/obsid/:obsid" (apiObsId queryObsidParam)
 
     -- break down the monolithic queries into separate ones, which may or may not
@@ -1103,12 +1151,10 @@ apiAllFOV getLastMod getData =
 debug :: T.Text -> ActionM ()
 debug msg = liftAndCatchIO (T.putStrLn ("<< " <> msg <> " >>"))
 
-
+-}
 
 apiCurrent :: ActionM (Maybe Record) -> ActionM ()
 apiCurrent getData = do
-
-  debug "/api/current"
 
   -- note: this is creating/throwing away a bunch of info that could be useful
   mrec <- getData
@@ -1122,13 +1168,13 @@ apiCurrent getData = do
 apiObsId :: ActionM (Int, Maybe ObsInfo) -> ActionM ()
 apiObsId getData = do
 
-  debug "/api/obsid"
-
   (obsid, mobs) <- getData
   case mobs of
     Just v -> json ("Success" :: T.Text, v)
     _ -> json ("Unknown ObsId" :: T.Text, obsid)
 
+
+{-
 
 apiSimbadName :: ActionM (TargetName, Maybe SimbadInfo) -> ActionM ()
 apiSimbadName getData = do

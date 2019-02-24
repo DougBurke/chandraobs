@@ -270,7 +270,9 @@ var wwt = (function (base) {
 	});
 
 	// It would make things a lot easier if the annotation Clicked
-	// event really was fired.
+	// event really was fired. However, this would then be
+	// limited to clicking *ON* the FOV, so there's something
+	// to be said for the "nearest click" approach.
 	//
 	/***
 	wwt.add_annotationClicked((obj, eventArgs) => {
@@ -737,6 +739,7 @@ var wwt = (function (base) {
             Math.cos(lat1) * Math.cos(lat2) * Math.cos(dlon);
         return Math.acos(term) * 180.0 / Math.PI;
     }
+
     /*
      * Sets the location of WWT, including any intialization that may
      * need to take place. It is assumed to be called when the
