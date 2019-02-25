@@ -212,3 +212,19 @@ div.content div p:first-child {
     background-color: rgba(210, 35, 45, 0.8);
     border-color: rgb(172, 41, 37);
 }
+
+/*
+ * Warning and error styles
+ */
+div.server-problem , div.no-current-response {
+    background: rgba(255, 255, 255, 1.0);
+    border: 2px solid orange;
+    left: 50%;
+    max-width: 50em;
+    padding: 1em;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    -webkit-transform: translate(-50%, -50%);
+}

@@ -20,6 +20,16 @@ const main = (function() {
     const defaultFieldSize = 2.0;
     
     var wwt;
+
+    // Return the WWT div, or null (which indicates a serious problem).
+    //
+    function getHost() {
+	const host = document.querySelector('#WorldWideTelescopeControlHost');
+	if (host === null) {
+	    console.log('INTERNAL ERROR: #WorldWideTelescopeControlHost not found!');
+	}
+	return host;
+    }
     
     var noServerPara =
         '<p class="noserver">' +
@@ -32,11 +42,17 @@ const main = (function() {
         '</p>';
     
     function serverGoneByBy() {
-        /* changeCurrentStatus(false); */
-	/***
-        $( '#mainBar' ).html(noServerPara);
-	***/
-	alert("It looks like the web server has shut down."); // TODO
+	const host = getHost();
+	if (host === null) {
+	    alert("Things are not as I expect them to be.\nAll I can suggest doing is re-loading the page.");
+	    return;
+	}
+
+	const div = document.createElement('div');
+	div.setAttribute('class', 'server-problem');
+
+	div.innerHTML = noServerPara;
+	host.appendChild(div);
     }
 
     // Sent the div for the whole pain
@@ -134,10 +150,8 @@ const main = (function() {
     // displayed at a time.
     //
     function unselectObsIds() {
-	const host = document.querySelector('#WorldWideTelescopeControlHost');
+	const host = getHost();
 	if (host === null) {
-	    // not much to do but bail out
-	    console.log('INTERNAL ERROR: unable to find #WorldWideTelescopeControlHost');
 	    return;
 	}
 
@@ -248,10 +262,8 @@ const main = (function() {
 	    dataType: "json"
         }).done(function (rsp) {
 
-	    const host = document.querySelector('#WorldWideTelescopeControlHost');
+	    const host = getHost();
 	    if (host === null) {
-		// not much to do but bail out
-		console.log('INTERNAL ERROR: unable to find #WorldWideTelescopeControlHost');
 		return;
 	    }
 
@@ -361,6 +373,7 @@ const main = (function() {
 	    host.appendChild(pane);
 	    
         }).fail(function(xhr, status, e) {
+	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
         });
     }
@@ -375,16 +388,28 @@ const main = (function() {
 		showTimeline(rsp[1]);
 		
             } else {
-                /* changeCurrentStatus(false); */
-		/***
-                $( '#mainBar' ).html('<p class="unknownerror">' +
-                                     'There has been an error somewhere ' +
-                                     'and I do not know what to do :-(' +
-                                     '</p>');
-		***/
-		alert("There has been an error somewhere and I do not know what to do :-("); // TODO
+		console.log("WARNING: /api/current returned " + rsp[0]);
+		console.log(rsp);
+
+		const host = getHost();
+		if (host === null) {
+		    alert("I can not find out what Chandra is doing\n" +
+			  "and strange things are afoot at the Circle K\n" +
+			  "- err I mean the web page - and I do not\n" +
+			  "know what to do!");
+		    return;
+		}
+
+		const div = document.createElement('div');
+		div.setAttribute('class', 'no-current-response');
+
+		div.innerHTML = "<p>There was a problem and I was unable " +
+		    "to find out what Chandra is doing now.</p>";
+
+		host.appendChild(div);
             }
         }).fail(function(xhr, status, e) {
+	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
         });
     }
@@ -747,7 +772,7 @@ const main = (function() {
 
 		// Set up the drag handlers
 		//
-		const host = document.querySelector('#WorldWideTelescopeControlHost');
+		const host = getHost();
 		host.addEventListener('dragover',
 				      event => event.preventDefault());
 		host.addEventListener('drop',
