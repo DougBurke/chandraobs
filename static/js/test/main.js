@@ -341,18 +341,6 @@ const main = (function() {
 		    el.addEventListener('click', e => showObsId(obsid));
 		});
 
-		// Hack external links to force opening in a new tab.
-		// This should probably be done by the server, but
-		// easier to do here at the moment, although having to
-		// white-list the URLs we want to change
-		//
-		content.querySelectorAll('a').forEach((el) => {
-		    if (el.href.startsWith('https://cda.cfa') ||
-			el.href.startsWith('http://simbad')) {
-			el.target = "_blank";
-		    }
-		});
-
 		wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, false);
 
 		// Set up the display now everything has been added.

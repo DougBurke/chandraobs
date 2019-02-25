@@ -83,7 +83,8 @@ import Types (ChipStatus(..)
              , fromObsId
              , fromObsIdStatus
              )
-import Utils (cleanJointName
+import Utils (HtmlContext(..)
+             , cleanJointName
              , isChandraImageViewable
              , publicImageURL
              , showInt)
@@ -304,7 +305,7 @@ renderLinks tNow mprop msimbad so@ScienceObs{..} =
         link "DSS" "dss" (not showChandraImage) <>
         link "PSPC" "pspc" False <>
         link "RASS" "rass" False <>
-        renderObsIdDetails mprop msimbad so <>
+        renderObsIdDetails StaticHtml mprop msimbad so <>
         renderWWT so
 
       -- The Chandra images are not guaranteed to be square, so
@@ -350,11 +351,12 @@ renderLinks tNow mprop msimbad so@ScienceObs{..} =
 --   to the CDA site, not a page on our site).
 --
 renderObsIdDetails ::
-  Maybe Proposal
+  HtmlContext
+  -> Maybe Proposal
   -> Maybe SimbadInfo
   -> ScienceObs
   -> Html
-renderObsIdDetails mprop msimbad so@ScienceObs{..} =
+renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
   let name = soTarget
       inst = soInstrument
       grat = soGrating
@@ -368,9 +370,17 @@ renderObsIdDetails mprop msimbad so@ScienceObs{..} =
 
       keyVal k v = tr (left k <> " " <> right v)
 
-      oLink = a H.! href (obsIdLink soObsId) $ toHtml soObsId
-      sLink = a H.! href (seqLink soObsId)   $ toHtml soSequence
-      pLink = a H.! href ("/proposal/" <> H.toValue soProposal) $ toHtml soProposal
+      toLink url =
+        let tag = a H.! href url
+        in case ctx of
+          StaticHtml -> tag
+          DynamicHtml -> tag H.! A.target "_blank"
+
+      oLink = toLink (obsIdLink soObsId) (toHtml soObsId)
+      sLink = toLink (seqLink soObsId)   (toHtml soSequence)
+
+      pLink = (a H.! href ("/proposal/" <> H.toValue soProposal))
+              (toHtml soProposal)
 
        -- rely on the ToMarkup instance of TimeKS
       expLink = case soObservedTime of

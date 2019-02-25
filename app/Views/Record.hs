@@ -469,12 +469,19 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         let slink = H.toValue (toSIMBADLink sloc smiName)
             sloc = SimbadCfA  -- TODO: allow configurable, either by the app, or
                               --       by the user
+
+            simLink =
+              let tag = a ! href slink
+              in case ctx of
+                StaticHtml -> tag
+                DynamicHtml -> tag ! A.target "_blank"
+
         in " is "
            <> typeLinkSearch smiType3 (cleanupSIMBADType smiType)
            <> ". "
            <> subArrayTxt
            <> "More information on the target can be found at "
-           <> (a ! href slink) "SIMBAD"
+           <> simLink "SIMBAD"
            <> ". "
 
       abstxt = case obsStatus of

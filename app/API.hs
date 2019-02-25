@@ -325,7 +325,8 @@ typeLinkSearch ::
   -> Html
 typeLinkSearch st lbl = 
   let iLink = H.unsafeByteStringValue (typeLinkURI st)
-  in (a H.! href iLink) (toHtml lbl)
+      atag = a H.! href iLink
+  in atag (toHtml lbl)
 
 typeDLinkSearch ::
   H.ToMarkup a
