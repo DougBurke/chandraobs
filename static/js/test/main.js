@@ -418,10 +418,19 @@ const main = (function() {
     //
     function wwtReadyFunc() {
 
-	// Set up the background button
-	document.querySelector('#imagechoice')
-	    .addEventListener('change', e => changeBackground(e.target.value)); 
-	
+	// Set up buttons
+	const ichoice = document.querySelector('#imagechoice');
+	if (ichoice !== null) {
+	    ichoice.addEventListener('change',
+				     e => changeBackground(e.target.value));
+	}
+
+	const search = document.querySelector('#searchengine');
+	if (search !== null) {
+	    search.addEventListener('change',
+				    e => searchNear(e.target.value));
+	}
+
 	createFOVs();
 	showCurrent();
 	
@@ -832,6 +841,84 @@ const main = (function() {
         }
         wwt.setForegroundImageByName(fullName);
         wwt.setForegroundOpacity(opacity);
+    }
+
+    // Search near the current location in a particular (external)
+    // database.
+    //
+    // For now use a 2 arcminute radius.
+    //
+    // The UI isn't ideal here; have a "select database" style
+    // option as a label/value, so do nothing if this is selected.
+    //
+    function searchNear(database, rmax=2) {
+	if (database === 'unselected') {
+	    return;
+	}
+
+	const ra = 15.0 * wwt.getRA();
+	const dec = wwt.getDec();
+
+	var url = null;
+	if (database === 'ned') {
+
+	    const raElems = raToTokens(ra);
+	    const decElems = decToTokens(dec);
+
+	    const raStr = i2(raElems.hours) + "h" +
+		  i2(raElems.minutes) + "m" +
+		  f2(raElems.seconds, 2) + "s";
+
+	    var decSign;
+	    if (dec < 0.0) { decSign = "-"; } else { decSign = "+"; }
+
+	    const decStr = decSign +
+		  i2(decElems.degrees) + "d" +
+		  i2(decElems.minutes) + "'" +
+		  f2(decElems.seconds, 1) + '"';
+
+	    /*** I can not get the "new" version to work, in that it
+                 seems to not submit the actual search
+
+	    url = 'https://ned.ipac.caltech.edu/conesearch?search_type=Near%20Position%20Search&iau_style=liberal&coordinates=' +
+		raStr + '%20' + decStr +
+		'&radius=1&in_csys=Equatorial&in_equinox=J2000.0&in_csys_IAU=Equatorial&in_equinox_IAU=B1950&z_constraint=Unconstrained&z_unit=z&ot_include=ANY&nmp_op=ANY&hconst=67.8&omegam=0.308&omegav=0.692&wmap=4&corr_z=1&out_csys=Same%20as%20Input&out_equinox=Same%20as%20Input&obj_sort=Distance%20to%20search%20center';
+	    ***/
+
+	    url = 'https://ned.ipac.caltech.edu/cgi-bin/objsearch?search_type=Near+Position+Search&in_csys=Equatorial&in_equinox=J2000.0' +
+		'&lon=' + raStr +
+		'&lat=' + decStr +
+		'&radius=' + rmax.toString() +
+		'&hconst=73&omegam=0.27&omegav=0.73&corr_z=1&z_constraint=Unconstrained&z_value1=&z_value2=&z_unit=z&ot_include=ANY&nmp_op=ANY&out_csys=Equatorial&out_equinox=J2000.0&obj_sort=Distance+to+search+center&of=pre_text&zv_breaker=30000.0&list_limit=5&img_stamp=YES';
+
+	} else if (database === 'simbad') {
+	    url = "http://simbad.harvard.edu/simbad/sim-coo?Coord=" +
+		ra.toString() + "+" +
+		dec.toString() + "&CooFrame=FK5&CooEpoch=2000" +
+		"&CooEqui=2000&CooDefinedFrames=none" +
+		"&Radius=" + rmax.toString() +
+		"&Radius.unit=arcmin" +
+		"&submit=submit+query&CoordList=";
+	} else {
+	    console.log("INTERNAL ERROR: unknown search database '" +
+			database + "'");
+	}
+
+	if (url !== null) {
+	    window.open(url);
+	}
+
+	// Reset the search option. I don't think this triggers
+	// this routine, but if it does it should short-cut immediately.
+	//
+	// Assume we want the first option
+	const option = document.querySelector('#searchengine option');
+	if (option === null) {
+	    console.log("INTERNAL ERROR #searchengine not found");
+	    return;
+	}
+
+	option.selected = true;
     }
 
     // Convert RA (in degrees) into hour, minutes, seconds. The
