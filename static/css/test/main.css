@@ -27,6 +27,37 @@ li#control-location {
     padding: 0.2em;
 }
 
+div#timeline {
+    display: none;
+    position: fixed;
+    text-align: center;
+    top: 3em;
+    width: 100%;
+}
+
+div#timeline span {
+    background: white;
+    padding: 0.2em 0.5em;
+    text-align: center;
+}
+
+div#timeline span span.previous {
+    font-size: larger;
+    padding: 0;
+    padding-right: 0.2em;
+}
+
+div#timeline span span.next {
+    font-size: larger;
+    padding: 0;
+    padding-left: 0.2em;
+}
+
+div#timeline a {
+    cursor: pointer;
+    text-decoration: none;
+}
+
 /*
  * Text explaining the current (or selected) observation.
  * Should the border color change to reflect the observation state?

@@ -43,10 +43,10 @@ const main = (function() {
     function addCloseButton(parent) {
 	const el = document.createElement('span');
 	el.setAttribute('class', 'closable');
-	el.onclick = () => {
+	el.addEventListener('click', () => {
 	    parent.style.display = 'none';
 	    resetFOV();
-	};
+	});
 	return el;
     }
 
@@ -57,7 +57,7 @@ const main = (function() {
 	const el = document.createElement('span');
 	el.classList.add('switchable');
 	el.classList.add('hideable');
-	el.onclick = () => {
+	el.addEventListener('click', () => {
 	    if (el.classList.contains('hideable')) {
 		parent.style.display = 'none';
 		el.classList.remove('hideable');
@@ -67,7 +67,7 @@ const main = (function() {
 		el.classList.remove('showable');
 		el.classList.add('hideable');
 	    }
-	};
+	});
 	return el;
     }
 
@@ -95,7 +95,7 @@ const main = (function() {
 	const a = document.createElement('a');
 	a.setAttribute('href', '#');
 	a.textContent = label;
-	a.onclick = () => {
+	a.addEventListener('click', () => {
 
 	    parent.querySelectorAll('div.content > div')
 		.forEach(el => el.style.display = 'none');
@@ -105,7 +105,7 @@ const main = (function() {
 	
 	    div.style.display = 'block';
 	    li.classList.add('active');
-	};
+	});
 
 	li.appendChild(a);
 	
@@ -147,15 +147,98 @@ const main = (function() {
 	resetFOV();
     }
 
+    // Display the "current" timeline; this is an experiment to see
+    // how things work together and will need to be expanded.
+    //
+    function showTimeline(running) {
+
+	const host = document.querySelector('#timeline');
+	if (host === null) {
+	    console.log("Internal error: unable to find #timeline");
+	    return;
+	}
+
+	// TODO: need to clear out previous settings
+
+	// current shouldn't be null, but makes it easier to repeat code.
+	//
+	const current = host.querySelector('#current');
+	if (running.current !== null) {
+	    current.appendChild(document.createTextNode('Current: '));
+	    current.setAttribute('data-obsid', running.current);
+
+	    const acurrent = document.createElement('a');
+	    acurrent.html = '#';
+	    acurrent.innerText = running.current.toString();
+	    acurrent.addEventListener('click', e => showObsId(running.current));
+	    current.appendChild(acurrent);
+	} else {
+	    current.innerHTML = document.createTextNode('Current: unknown');
+	    current.removeAttribute('data-obsid');
+	}
+
+	const prev = host.querySelector('#previous');
+	if (running.previous !== null) {
+	    prev.setAttribute('data-obsid', running.previous);
+
+	    const pspan = document.createElement('span');
+	    pspan.setAttribute('class', 'previous');
+	    pspan.innerHTML = '&#171;'; // <<
+	    prev.appendChild(pspan);
+
+	    const aprev = document.createElement('a');
+	    aprev.html = '#';
+	    aprev.innerText = running.previous.toString();
+	    aprev.addEventListener('click', e => showObsId(running.previous));
+	    prev.appendChild(aprev);
+	} else {
+	    prev.innerHTML = document.createTextNode('Previous: unknown');
+	    prev.removeAttribute('data-obsid');
+	}
+
+	const next = host.querySelector('#next');
+	if (running.next !== null) {
+	    next.setAttribute('data-obsid', running.next);
+
+	    const anext = document.createElement('a');
+	    anext.html = '#';
+	    anext.innerText = running.next.toString();
+	    anext.addEventListener('click', e => showObsId(running.next));
+	    next.appendChild(anext);
+
+	    const nspan = document.createElement('span');
+	    nspan.setAttribute('class', 'next');
+	    nspan.innerHTML = '&#187;'; // >>
+	    next.appendChild(nspan);
+
+	} else {
+	    next.innerHTML = document.createTextNode('Next: unknown');
+	    next.removeAttribute('data-obsid');
+	}
+
+	host.style.display = 'block';
+    }
+
     function showObsId(obsid) {
 
 	unselectObsIds();
-	selectFOV(obsid);
+	selectFOV(obsid);  // ignore return value for now
 		
 	const idVal = 'obsid-' + obsid;
 
 	const foundPane = document.querySelector('#' + idVal);
 	if (foundPane !== null) {
+
+	    const ra = foundPane.getAttribute('data-ra');
+	    const dec = foundPane.getAttribute('data-dec');
+
+	    if ((ra !== null) && (dec !== null)) {
+		wwt.gotoRaDecZoom(ra, dec, defaultFieldSize, false);
+	    }
+
+	    // TODO: need to pan to the observation if it is an
+	    //       engineering observation (ie has no FOV).
+	    //
 	    foundPane.style.display = 'block';
 	    return;
 	}
@@ -175,9 +258,18 @@ const main = (function() {
 	    const pane = document.createElement('div');
 	    pane.setAttribute('class', 'statusPane');
 	    pane.setAttribute('id', idVal);
+
+	    // Note: add ra and dec to the pane, since we can then
+	    //       extract it from the pane rather than searching
+	    //       around from it (which can be awkward for engineering
+	    //       observations).
+	    //
+	    pane.setAttribute('data-ra', rsp.ra);
+	    pane.setAttribute('data-dec', rsp.dec);
 	    
 	    pane.draggable = true;
-	    pane.ondragstart = (event) => draggable.startDrag(event);
+	    pane.addEventListener('dragstart',
+				  event => draggable.startDrag(event));
 
 	    const controlElements = document.createElement('div');
 	    controlElements.setAttribute('class', 'controlElements');
@@ -260,30 +352,6 @@ const main = (function() {
 			el.target = "_blank";
 		    }
 		});
-		
-		/***
-                var h = rsp.navbar + rsp.observation + rsp.imglinks;
-                $mainBar.html(h);
-                
-                // changeCurrentStatus(rsp.isCurrent);
-                
-                var $nav = $( '#obslinks' );
-                var $p = $nav.find( 'li.prevLink' );
-                var $n = $nav.find( 'li.nextLink');
-
-                $p.click(function (e) { showObsId($p.data('obsid')); });
-                $n.click(function (e) { showObsId($n.data('obsid')); });
-
-                // indicate that these are clickable
-                $p.css('cursor', 'pointer');
-                $n.css('cursor', 'pointer');
-
-                //
-                // Prepare WWT widget for the new page. It does not
-                // seem to be working.
-                //
-                wwt.resetStatus();
-		*/
 
 		wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, false);
 
@@ -315,7 +383,8 @@ const main = (function() {
             dataType: "json"
         }).done(function(rsp) {
             if (rsp[0] === 'Success') {
-                showObsId(rsp[1]);
+                showObsId(rsp[1]['current']);
+		showTimeline(rsp[1]);
 		
             } else {
                 /* changeCurrentStatus(false); */
@@ -331,31 +400,6 @@ const main = (function() {
             serverGoneByBy();
         });
     }
-
-    // Based on https://developers.google.com/web/fundamentals/primers/promises
-    //
-    function get(url) {
-	return new Promise(function(resolve, reject) {
-	    var req = new XMLHttpRequest();
-	    req.open('GET', url);
-
-	    req.onload = function() {
-		if (req.status == 200) {
-		    resolve(req.response);
-		}
-		else {
-		    reject(Error(req.statusText));
-		}
-	    };
-
-	    req.onerror = function() {
-		reject(Error("Network Error"));
-	    };
-
-	    req.send();
-	});
-    }
-
 
     // This assumes that the FOVs have been loaded.
     //
@@ -538,17 +582,19 @@ const main = (function() {
 	showObsId(obsdatas[idx].obsid);
     }
 
+    // Returns if a FOV could be found or not.
+    //
     function selectFOV(obsid) {
 
 	if (fovRegions === null) {
 	    console.log("*** ALERT: asked to show fov for " + obsid + " but no data loaded!");
-	    return;
+	    return false;
 	}
 
-	var idx = obsdatas.findIndex(obsdata => obsdata.obsid === obsid);
+	const idx = obsdatas.findIndex(obsdata => obsdata.obsid === obsid);
 	if (idx < 0) {
 	    // Assume that this is a non-science observation.
-	    return;
+	    return false;
 	}
 
 	const fov = fovRegions[idx];
@@ -571,6 +617,7 @@ const main = (function() {
 	wwt.removeAnnotation(fov);
 	wwt.addAnnotation(fov);
 
+	return true;
     }
     
     /*
@@ -706,13 +753,17 @@ const main = (function() {
 
 		// The following is taken from ADS all-sky-survey, not entirely
 		// sure if needed here.
-		canvas.onmouseout = e => wwtlib.WWTControl.singleton.onMouseUp(e);
+		//
+		canvas.addEventListener('mouseout',
+					event => wwtlib.WWTControl.singleton.onMouseUp(event));
 
 		// Set up the drag handlers
 		//
 		const host = document.querySelector('#WorldWideTelescopeControlHost');
-		host.ondragover = (event) => event.preventDefault();
-		host.ondrop = (event) => draggable.stopDrag(event);
+		host.addEventListener('dragover',
+				      event => event.preventDefault());
+		host.addEventListener('drop',
+				      event => draggable.stopDrag(event));
 
 	    })
 	    .fail((xhr, status, e) => {

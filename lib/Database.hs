@@ -432,7 +432,6 @@ findRecord t = do
   ys <- select (((NsStartTimeField <=. Just tval) &&. notNsDiscarded)
                 `orderBy` [Desc NsStartTimeField]
                 `limitTo` 1)
-
   return (identifyLatestRecord xs ys)
 
 findRecordRestricted ::

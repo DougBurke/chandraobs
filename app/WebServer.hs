@@ -89,7 +89,8 @@ import Cache (Cache, CacheKey
              , fromCacheData, getFromCache, makeCache, toCacheKey)
 import Database (NumObs, NumSrc, SIMKey
                 , findRecord
-                , getCurrentObs, getObsInfo
+                , getCurrentObs
+                , getObsInfo
                 , getObsId
                 , getSchedule
                 , getScheduleDate
@@ -468,7 +469,7 @@ webapp cm scache cache = do
     -- next obsid values (if any), but leave as is for now.
     --
 
-    get "/api/current" (apiCurrent (liftSQL getCurrentObs))
+    get "/api/current" (apiCurrent (liftSQL getObsInfo))
 
     -- TODO: this is completely experimental
     --       add support for cache
@@ -1153,15 +1154,22 @@ debug msg = liftAndCatchIO (T.putStrLn ("<< " <> msg <> " >>"))
 
 -}
 
-apiCurrent :: ActionM (Maybe Record) -> ActionM ()
+apiCurrent :: ActionM (Maybe ObsInfo) -> ActionM ()
 apiCurrent getData = do
 
   -- note: this is creating/throwing away a bunch of info that could be useful
-  mrec <- getData
-  let rval o = json ("Success" :: T.Text, fromObsId o)
-  case mrec of
-    Just (Left ns) -> rval (nsObsId ns)
-    Just (Right so) -> rval (soObsId so)
+  mobs <- getData
+
+  -- strip out the ObsId type
+  let toObsId = fromObsId . recordObsId
+
+  case mobs of
+    Just obs -> json ("Success" :: T.Text,
+                      object [ "current" .= toObsId (oiCurrentObs obs)
+                             , "previous" .= (toObsId <$> oiPrevObs obs)
+                             , "next" .= (toObsId <$> oiNextObs obs)
+                             ])
+
     _ -> json ("Failed" :: T.Text)
 
 
