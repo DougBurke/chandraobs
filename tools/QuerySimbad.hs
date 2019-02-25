@@ -52,7 +52,21 @@ import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
-import Database.Groundhog.Postgresql
+-- Perhaps should import most (all?) of these from Database.Groudhog,
+-- but it would require adding groundhog to the stanza for this tool
+-- in the cabal file, and I don't want to do that just now.
+--
+import Database.Groundhog.Postgresql (PersistBackend, AutoKey, DefaultKey
+                                     , Order(Asc), Cond(CondEmpty)
+                                     , (==.)
+                                     , select
+                                     , project
+                                     , get
+                                     , delete
+                                     , replace
+                                     , insertByAll
+                                     , orderBy
+                                     , distinctOn)
 
 import Formatting (int, sformat)
 
@@ -65,6 +79,7 @@ import System.IO (hPutStrLn, stderr)
 import Text.Read (readMaybe)
 
 import Database (updateLastModified
+                , maybeSelect
                 , insertIfUnknown
                 , putIO
                 , runDb)
@@ -532,10 +547,9 @@ updateDB sloc mndays f = do
           --
           when cleanFlag $ do
             -- display what we are deleting, as a check
-            mans <- select ((SmnTargetField ==. smiName si)
-                            `limitTo` 1)
+            mans <- maybeSelect (SmnTargetField ==. smiName si)
             case mans of
-              (SimbadNoMatch {..}:_) -> do
+              (Just SimbadNoMatch {..}) -> do
                 let stxt = "Target: <"
                            <> fromTargetName smnTarget
                            <> "> search term: <"
@@ -545,7 +559,7 @@ updateDB sloc mndays f = do
                 liftIO (T.putStrLn ("&&&&& deleting " <> stxt))
                 delete (SmnTargetField ==. smiName si)
 
-              _ -> return ()
+              Nothing -> return ()
       
         _ -> do
           blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)

@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- MonoLocalBinds is suggested by ghc 8.2 insertIfUnknown/insertOrReplace.
 -- The constraints can't be simplified since Databsae.Groundhog.Instances
@@ -94,7 +95,7 @@ module Database ( getCurrentObs
                 , insertOrReplace
                 , insertIfUnknown
 
-                 -- , maybeSelect
+                , maybeSelect
                 , maybeProject
                 
                 , updateLastModified
@@ -169,10 +170,12 @@ import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
                  , diffUTCTime -- debugging
                  )
 
-import Database.Groundhog.Core (Action, PersistEntity, EntityConstr,
-                                Field, Projection',
-                                DbDescriptor, RestrictionHolder,
-                                distinct)
+import Database.Groundhog.Core (Action, PersistEntity, EntityConstr
+                               , Field, Projection'
+                               , DbDescriptor, RestrictionHolder
+                               , HasSelectOptions
+                               , HasLimit, HFalse
+                               , distinct)
 import Database.Groundhog.Postgresql
 
 import System.Environment (lookupEnv)
@@ -366,33 +369,35 @@ notNsDiscarded ::
   => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
 notNsDiscarded = NsStatusField /=. Discarded
 
--- | Given two lists of observations, which are assumed to have 0 or 1
---   elements in, identify which is the latest (has the largest start
---   time) or earliest.
+-- | Given two possible observations (one science, one engineering),
+--   identify which is the latest (has the largest start time) or earliest.
 --
 --   These should be consolidated (earliest and latest versions).
 --
 --   If there are no valid observations, return Nothing.
 --
 identifyLatestRecord ::
-  [ScienceObs]
-  -> [NonScienceObs]
+  Maybe ScienceObs
+  -> Maybe NonScienceObs
   -> Maybe Record
 identifyLatestRecord = identifyHelper soStartTime nsStartTime (>)
 
 identifyLatestRestrictedRecord ::
-  [RestrictedSO]
-  -> [RestrictedNS]
+  Maybe RestrictedSO
+  -> Maybe RestrictedNS
   -> Maybe RestrictedRecord
 identifyLatestRestrictedRecord = identifyHelper rsoStartTime rnsStartTime (>)
 
-
 identifyEarliestRecord ::
-  [ScienceObs]
-  -> [NonScienceObs]
+  Maybe ScienceObs
+  -> Maybe NonScienceObs
   -> Maybe Record
 identifyEarliestRecord = identifyHelper soStartTime nsStartTime (<)
 
+-- I wonder if this could be simplified by just using the Maybe Ord
+-- instance (ie do not need to special case the options)? Does
+-- Nothing behave the way we would want in this scenario?
+--
 identifyHelper ::
   Ord c
   => (a -> c)
@@ -400,17 +405,15 @@ identifyHelper ::
   -> (Maybe c -> Maybe c -> Bool)
   -- ^ ordering option; if True pick the first (a), otherwise
   --   b
-  -> [a]
-  -> [b]
+  -> Maybe a
+  -> Maybe b
   -> Maybe (Either b a)
-identifyHelper _ _ _ [] [] = Nothing
-identifyHelper _ _ _ (x:_) [] = Just (Right x)
-identifyHelper _ _ _ [] (y:_) = Just (Left y)
-identifyHelper px py ord xs ys =
+identifyHelper _ _ _ Nothing Nothing = Nothing
+identifyHelper _ _ _ (Just x) Nothing = Just (Right x)
+identifyHelper _ _ _ Nothing (Just y) = Just (Left y)
+identifyHelper px py ord mx my =
   -- rely on Ord instance of Maybe for the comparison
-  let mx = listToMaybe xs
-      my = listToMaybe ys
-      ox = px <$> mx
+  let ox = px <$> mx
       oy = py <$> my
   in if ord ox oy then Right <$> mx else Left <$> my
 
@@ -424,33 +427,34 @@ findRecord ::
   => UTCTime
   -> m (Maybe Record)
 findRecord t = do
-  let tval = toChandraTime t
-  xs <- select (((SoStartTimeField <=. Just tval)
-                 &&. isValidScienceObs)
-                `orderBy` [Desc SoStartTimeField]
-                `limitTo` 1)
-  ys <- select (((NsStartTimeField <=. Just tval) &&. notNsDiscarded)
-                `orderBy` [Desc NsStartTimeField]
-                `limitTo` 1)
-  return (identifyLatestRecord xs ys)
+  let tval = Just (toChandraTime t)
+
+  mScience <- maybeSelect (((SoStartTimeField <=. tval)
+                            &&. isValidScienceObs)
+                           `orderBy` [Desc SoStartTimeField])
+  mNonScience <- maybeSelect (((NsStartTimeField <=. tval)
+                                &&. notNsDiscarded)
+                              `orderBy` [Desc NsStartTimeField])
+                 
+  return (identifyLatestRecord mScience mNonScience)
 
 findRecordRestricted ::
   DbSql m
   => UTCTime
   -> m (Maybe RestrictedRecord)
 findRecordRestricted t = do
-  let tval = toChandraTime t
-  xs <- project restrictedScience
-        (((SoStartTimeField <=. Just tval)
-          &&. isValidScienceObs)
-         `orderBy` [Desc SoStartTimeField]
-         `limitTo` 1)
-  ys <- project restrictedNonScience
-        (((NsStartTimeField <=. Just tval) &&. notNsDiscarded)
-         `orderBy` [Desc NsStartTimeField]
-         `limitTo` 1)
+  let tval = Just (toChandraTime t)
+  
+  mScience <- maybeProject restrictedScience
+              (((SoStartTimeField <=. tval)
+                &&. isValidScienceObs)
+               `orderBy` [Desc SoStartTimeField])
+  mNonScience <- maybeProject restrictedNonScience
+                 (((NsStartTimeField <=. tval)
+                   &&. notNsDiscarded)
+                  `orderBy` [Desc NsStartTimeField])
 
-  return (identifyLatestRestrictedRecord xs ys)
+  return (identifyLatestRestrictedRecord mScience mNonScience)
 
 -- | Return information on this obsid, if known about. This includes
 --   discarded and non-scheduled observations.
@@ -464,26 +468,32 @@ findObsId oi = do
       ans <- findNonScience oi
       return (Left <$> ans)
 
--- | Select a single item (the condition is assumed to return
---   at most one item, but this is enforced by this query).
+-- | Select a single item (the first returned by the query).
 --
 maybeSelect ::
-  (EntityConstr v c,
-   PersistBackend m)
-  => Cond (Conn m) (RestrictionHolder v c)
+  (EntityConstr v c
+  , HasSelectOptions opts conn (RestrictionHolder v c)
+  , HasLimit opts ~ HFalse
+  , PersistBackend m
+  , Conn m ~ conn)
+  => opts
   -> m (Maybe v)
 maybeSelect cond = listToMaybe <$> select (cond `limitTo` 1)
+
 
 maybeProject ::
   (PersistBackend m
   , PersistEntity v
   , Projection' p (Conn m) (RestrictionHolder v c) a
   , EntityConstr v c
-  )
+  , HasSelectOptions opts conn (RestrictionHolder v c)
+  , HasLimit opts ~ HFalse
+  , Conn m ~ conn)
   => p
-  -> Cond (Conn m) (RestrictionHolder v c)
+  -> opts
   -> m (Maybe a)
 maybeProject out cond = listToMaybe <$> project out (cond `limitTo` 1)
+
 
 
 -- | Return information on this non-science observation. This includes
@@ -518,18 +528,18 @@ getNextObs ::
   -> Maybe ChandraTime
   -> m (Maybe Record)
 getNextObs _ Nothing = return Nothing  
-getNextObs oid (Just t) = do
-  xs <- select (((SoStartTimeField >. Just t)
-                 &&. (SoObsIdField /=. oid)
-                 &&. isValidScienceObs)
-                `orderBy` [Asc SoStartTimeField]
-                `limitTo` 1)
-  ys <- select (((NsStartTimeField >. Just t)
-                 &&. (NsObsIdField /=. oid)
-                 &&. notNsDiscarded)
-                `orderBy` [Asc NsStartTimeField]
-                `limitTo` 1)
-  return (identifyEarliestRecord xs ys)
+getNextObs oid mt = do
+
+  mScience <- maybeSelect (((SoStartTimeField >. mt)
+                            &&. (SoObsIdField /=. oid)
+                            &&. isValidScienceObs)
+                           `orderBy` [Asc SoStartTimeField])
+  mNonScience <- maybeSelect (((NsStartTimeField >. mt)
+                               &&. (NsObsIdField /=. oid)
+                               &&. notNsDiscarded)
+                              `orderBy` [Asc NsStartTimeField])
+  
+  return (identifyEarliestRecord mScience mNonScience)
 
 
 -- | Return the last observation to have started before the given time,
@@ -544,19 +554,19 @@ getPrevObs ::
   -> Maybe ChandraTime
   -> m (Maybe Record)
 getPrevObs _ Nothing = return Nothing  
-getPrevObs oid (Just t) = do
-  xs <- select (((SoStartTimeField <. Just t)
-                 &&. (SoObsIdField /=. oid)
-                 &&. isValidScienceObs)
-                `orderBy` [Desc SoStartTimeField]
-                `limitTo` 1)
-  ys <- select (((NsStartTimeField <. Just t)
-                 &&. (NsObsIdField /=. oid)
-                 &&. notNsDiscarded)
-                `orderBy` [Desc NsStartTimeField]
-                `limitTo` 1)
-  return (identifyLatestRecord xs ys)
+getPrevObs oid mt = do
 
+  mScience <- maybeSelect (((SoStartTimeField <. mt)
+                            &&. (SoObsIdField /=. oid)
+                            &&. isValidScienceObs)
+                           `orderBy` [Desc SoStartTimeField])
+  mNonScience <- maybeSelect (((NsStartTimeField <. mt)
+                               &&. (NsObsIdField /=. oid)
+                               &&. notNsDiscarded)
+                              `orderBy` [Desc NsStartTimeField])
+  
+  return (identifyLatestRecord mScience mNonScience)
+  
 
 -- | Find the current observation and the previous/next ones.
 --
@@ -1055,10 +1065,11 @@ getSimbadInfo ::
   => TargetName   -- ^ target name (not the actual SIMBAD search term)
   -> m (Maybe SimbadInfo)
 getSimbadInfo target = do
-  keys <- project SmmInfoField ((SmmTargetField ==. target) `limitTo` 1)
-  case keys of
-    [key] -> get key
-    _ -> return Nothing
+  mkey <- maybeProject SmmInfoField (SmmTargetField ==. target)
+  case mkey of
+    Just key -> get key
+    Nothing -> pure Nothing
+
 
 -- | Return all observations of the given SIMBAD type (excluding
 --   discarded). This restricts to the type only (i.e. no descendents).
@@ -1109,9 +1120,9 @@ fetchSIMBADType stype = do
   --       or perhaps switch to a graph databse.
   -- 
   -- split into two steps for now
-  mtype <- project SmiTypeField ((SmiType3Field ==. stype) `limitTo` 1)
+  mtype <- maybeProject SmiTypeField (SmiType3Field ==. stype)
   case mtype of
-    [ltype] -> do
+    Just ltype -> do
       keys <- project AutoKeyField (SmiType3Field ==. stype)
       sos <- forM keys $ \key -> do
         targets <- project SmmTargetField (SmmInfoField ==. key)
@@ -1129,7 +1140,7 @@ fetchSIMBADType stype = do
           ys = toSL rsoStartTime xs
       return (Just ((stype, ltype), ys))
 
-    _ -> return Nothing
+    Nothing -> return Nothing
 
 
 
@@ -2703,20 +2714,29 @@ insertIfUnknown o cond = do
 --   supplied constraint.
 --
 --   It is required that the condition only matches 0 or 1 rows,
+--   since any rows matching the condition will be deleted,
 --   but there is no check that this is true.
 --
 insertOrReplace ::
-  (PersistBackend m, PersistEntity v, Eq v, EntityConstr v c)
-  => Cond (Conn m) (RestrictionHolder v c)
+  (PersistBackend m
+  , PersistEntity v
+  , Eq v
+  , EntityConstr v c
+  , HasSelectOptions opts conn (RestrictionHolder v c)
+  , HasLimit opts ~ HFalse
+  -- I thought HasSelectOptions implied the following, but apparently not
+  , opts ~ Cond conn (RestrictionHolder v c)
+  , Conn m ~ conn)
+  => opts
   -> v
   -> m ()
 insertOrReplace cond newVal = do
-  ans <- select (cond `limitTo` 1)
-  case ans of
-    (oldVal:_) -> when (oldVal /= newVal) $ do
-                                delete cond
-                                insert_ newVal
-    _ -> insert_ newVal
+  mAns <- maybeSelect cond
+  case mAns of
+    (Just oldVal) -> when
+                     (oldVal /= newVal)
+                     (delete cond >> insert_ newVal)
+    Nothing -> insert_ newVal
 
 -- | Update the last-modified field with the time.
 --
@@ -2733,11 +2753,8 @@ updateLastModified lastMod = do
 --
 getLastModified :: PersistBackend m => m (Maybe UTCTime)
 getLastModified =
-  listToMaybe
-  <$>
-  project MdLastModifiedField (CondEmpty
-                               `orderBy` [Desc MdLastModifiedField]
-                               `limitTo` 1)
+  maybeProject MdLastModifiedField (CondEmpty
+                                    `orderBy` [Desc MdLastModifiedField])
 
 getLastModifiedFixed :: PersistBackend m => m UTCTime
 getLastModifiedFixed = fromMaybe dummyLastMod <$> getLastModified

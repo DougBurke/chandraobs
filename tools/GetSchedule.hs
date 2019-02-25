@@ -54,7 +54,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Either (partitionEithers)
 import Data.Foldable (toList)
 import Data.List (isPrefixOf)
-import Data.Maybe (catMaybes, fromJust, listToMaybe)
+import Data.Maybe (catMaybes, fromJust)
 import Data.Monoid ((<>))
 import Data.Sequence ((|>), (><))
 import Data.Text.Encoding (decodeUtf8)
@@ -72,7 +72,7 @@ import Database.Groundhog.Postgresql (SqlDb
                                      , Cond(CondEmpty)
                                      , Conn
                                      , Order(Desc)
-                                     , in_, insert_, limitTo, orderBy)
+                                     , in_, insert_, orderBy)
 
 import Numeric.Natural
 
@@ -90,7 +90,8 @@ import Text.Parsec ((<?>), parse, spaces, try)
 import Text.Read (readMaybe)
 
 import Database (runDb, getInvalidObsIds, updateLastModified
-                 , insertProposal)
+                 , insertProposal
+                 , maybeProject)
 import OCAT (OCAT, isScienceObsE, noDataInOCAT
             , queryOCAT, ocatToScience, ocatToNonScience
             , addProposal
@@ -1050,11 +1051,8 @@ updateScheduleFromPage tNow schedList = do
 --
 reportLastSchedule :: IO ()
 reportLastSchedule = do
-  mtag <- runDb (listToMaybe <$>
-                 project StsTagField
-                  (CondEmpty
-                    `orderBy` [Desc StsCheckedField]
-                    `limitTo` 1))
+  mtag <- runDb (maybeProject StsTagField
+                  (CondEmpty `orderBy` [Desc StsCheckedField]))
                                                           
   case mtag of
     Just tag -> T.putStrLn ("# Last schedule added to database: "
