@@ -419,6 +419,7 @@ const main = (function() {
     function wwtReadyFunc() {
 
 	// Set up buttons
+	//
 	const ichoice = document.querySelector('#imagechoice');
 	if (ichoice !== null) {
 	    ichoice.addEventListener('change',
@@ -431,6 +432,42 @@ const main = (function() {
 				    e => searchNear(e.target.value));
 	}
 
+        // TODO: should this check that the name is not blank/empty?
+	//
+	const tfind = document.querySelector("#targetFind");
+	if (tfind !== null) {
+	    tfind
+		.addEventListener("click", () => { findTargetName(); });
+	}
+
+        /* Allow the user to start the search by hitting enter in the
+         * search text box. The search button is only active when
+         * there is text.
+         */
+	const tname = document.querySelector("#targetName");
+	if (tname !== null) {
+	    tname
+		.addEventListener("keyup",
+				  (e) => {
+                                      const val = tname.value.trim();
+                                      const button = document.querySelector("#targetFind");
+
+                                      // Ensure the submit button is only enabled when there is
+                                      // any text.
+                                      if (val === "") {
+					  button.disabled = true;
+					  return;
+				      } else if (button.disabled) {
+					  button.disabled = false;
+				      };
+
+                                      if (e.keyCode !== 13) { return; }
+                                      button.click();
+				  });
+	}
+
+	// Set up the main display
+	//
 	createFOVs();
 	showCurrent();
 	
@@ -749,7 +786,264 @@ const main = (function() {
 	***/
 	
     }
-    
+
+
+    // Is this a positive (including 0) float?
+    // No exponential notation supported here.
+    //
+    const posFloatRegex = /^(\+)?([0-9]+)?(\.[0-9]+)?$/;
+    function posFloat(s) {
+	return posFloatRegex.test(s);
+    }
+
+    // How about supporting negative numbers
+    const anyFloatRegex = /^(\-|\+)?([0-9]+)?(\.[0-9]+)?$/;
+    function anyFloat(s) {
+	return anyFloatRegex.test(s);
+    }
+
+    // Convert a number to a RA (in decimal degrees). Supported input
+    // are:
+    //    decimal degrees
+    //    hours(int) [ :h] minutes(float) [:m]
+    //    hours(int) [ :h] minutes(float) [:m] seconds(float) [:s]
+    // where white space is allowed between the tokens
+    //
+    // There is no requirement that the labels match - e.g. at present
+    //   23h 45:23
+    //   23h 45.23
+    //   23 45:23
+    // are all supported.
+    //
+    // No guarantee on error checking, or nice, clean code.
+    //
+    const hourRegex = /^(\d\d?)\s*[:hH]?\s*(.*)$/;
+    const minRegex = /^(\d\d?(\.[\d]*)?)\s*[:mM]?\s*(.*)$/;
+    const secRegex = /^(\d\d?(\.[\d]*)?)\s*[sS]$/;
+
+    function strToRA(str) {
+	var sval = str.trim();
+
+	if (posFloat(sval)) {
+	    var ra = parseFloat(sval);
+	    if ((ra < 0) | (ra > 360.0)) {
+		return null;
+	    }
+	    return ra;
+	}
+
+	// Separators can be ' ', ':', 'h', 'm', 's' although
+	// some of these are positional (h/m/s)
+	//
+	const hr = hourRegex.exec(sval);
+	if (hr === null) {
+	    return null;
+	}
+
+	// Could use parseInt here
+	const h = parseFloat(hr[1]);
+	if ((h < 0.0) || (h > 24.0)) {
+	    return null;
+	}
+
+	// now look for minutes
+	sval = hr[2];
+
+	if (sval.trim() === "") {
+	    return 15.0 * h;
+	}
+
+	if (posFloat(sval)) {
+	    var m = parseFloat(sval);
+	    if ((m < 0.0) || (m > 60.0)) {
+		return null;
+	    }
+	    return 15.0 * (h + (m / 60.0));
+	}
+
+	const mr = minRegex.exec(sval);
+	if (mr === null) {
+	    return null;
+	}
+
+	m = parseFloat(mr[1]);
+	if ((m < 0.0) || (m > 60.0)) {
+	    return null;
+	}
+
+	// now look for seconds
+	sval = mr[3];
+
+	if (sval.trim() === "") {
+	    return 15.0 * (h + (m / 60.0));
+	}
+
+	if (posFloat(sval)) {
+	    var s = parseFloat(sval);
+	    if ((s < 0.0) || (s > 60.0)) {
+		return null;
+	    }
+	    return 15.0 * (h + (m + (s / 60.0)) / 60.0);
+	}
+
+	const sr = secRegex.exec(sval);
+	if (sr === null) {
+	    return null;
+	}
+
+	s = parseFloat(sr[1]);
+	if ((s < 0.0) || (s > 60.0)) {
+	    return null;
+	}
+
+        return 15.0 * (h + (m + (s / 60.0)) / 60.0);
+    }
+
+    // Convert a number to a Dec (in decimal degrees). Supported input
+    // are:
+    //    decimal degrees
+    //    (+-)degrees(int) [ :d] minutes(float) [:m']
+    //    (+-)degrees(int) [ :d] minutes(float) [:m'] arcseconds(float) [:s"]
+    // where white space is allowed between the tokens
+    //
+    // There is no requirement that the labels match - e.g. at present
+    //   23d 45:23
+    //   23d 45.23
+    //   23 45:23
+    // are all supported.
+    //
+    // No guarantee on error checking.
+    //
+    const degRegex = /^(\d\d?)\s*[:dD]?\s*(.*)$/;
+    const dminRegex = /^(\d\d?(\.[\d]*)?)\s*[:mM']?\s*(.*)$/;
+    const dsecRegex = /^(\d\d?(\.[\d]*)?)\s*[sS"]$/;
+
+    function strToDec(str) {
+	var sval = str.trim();
+
+	if (anyFloat(sval)) {
+	    var dec = parseFloat(sval);
+	    if ((dec < -90) || (dec > 90.0)) {
+		return null;
+	    }
+	    return dec;
+	}
+
+	var sign = 1.0;
+	if (sval.startsWith('-')) {
+	    sign = -1.0;
+	    sval = sval.slice(1).trim();
+	} else if (sval.startsWith('+')) {
+	    sval = sval.slice(1).trim();
+	}
+
+	// Separators can be ' ', ':', 'd', 'm', 's', ' and "" although
+	// some of these are positional (e.g. d/m/s)
+	//
+	const dr = degRegex.exec(sval);
+	if (dr === null) {
+	    return null;
+	}
+
+	// Note that for a negative value to appear
+	// here there must be something like '--' or '+-', which is
+	// invalid, hence the positive check
+	const d = parseFloat(dr[1]);
+	if ((d < 0.0) || (d > 90.0)) {
+	    return null;
+	}
+
+	// now look for minutes
+	sval = dr[2];
+
+	if (sval.trim() === "") {
+	    return sign * d;
+	}
+
+	if (posFloat(sval)) {
+	    var m = parseFloat(sval);
+	    if ((m < 0.0) || (m > 60.0)) {
+		return null;
+	    }
+	    return sign * (d + (m / 60.0));
+	}
+
+	const mr = dminRegex.exec(sval);
+	if (mr === null) {
+	    return null;
+	}
+
+	m = parseFloat(mr[1]);
+	if ((m < 0.0) || (m > 60.0)) {
+	    return null;
+	}
+
+	// now look for seconds
+	sval = mr[3];
+
+	if (sval.trim() === "") {
+	    return sign * (d + (m / 60.0));
+	}
+
+	if (posFloat(sval)) {
+	    var s = parseFloat(sval);
+	    if ((s < 0.0) || (s > 60.0)) {
+		return null;
+	    }
+	    return sign * (d + (m + (s / 60.0)) / 60.0);
+	}
+
+	const sr = dsecRegex.exec(sval);
+	if (sr === null) {
+	    return null;
+	}
+
+	s = parseFloat(sr[1]);
+	if ((s < 0.0) || (s > 60.0)) {
+	    return null;
+	}
+
+        return sign * (d + (m + (s / 60.0)) / 60.0);
+    }
+
+
+    // click handler for targetFind.
+    // - get user-selected name
+    // - is it a position; if so jump to it
+    // - otherwise send it to the lookUP service
+    //
+    function findTargetName() {
+        var target = document.querySelector("#targetName").value;
+	if (target.trim() === "") {
+	    // this should not happen, but just in case
+	    console.log("Unexpected targetName=[" + target + "]");
+	    return;
+	}
+
+	// For now use a single comma as a simple indicator that we have
+	// a location, and not a target name.
+	//
+	const toks = target.split(",");
+
+	if (toks.length === 2) {
+	    const ra = strToRA(toks[0]);
+	    if (ra !== null) {
+		const dec = strToDec(toks[1]);
+		if (dec !== null) {
+
+		    const zoom = wwt.get_fov();
+		    wwt.gotoRaDecZoom(ra, dec, zoom);
+		    return;
+		}
+	    }
+	}
+
+	// Got this far, assume the input was a name to be resolved.
+	//
+        lookup.lookupName(target);
+    }
+
+
     function initialize() {
 
 	resize();
@@ -1014,7 +1308,12 @@ const main = (function() {
 	    // make it easier to debug/explore things
 	    showObsId: showObsId,
 	    changeBackground: changeBackground,
+
+	    // This is currently needed by the lookup module, which is
+	    // not a great design.
+	    //
 	    getWWT: () => { return wwt; },
+	    getHost: getHost,
 	   };
 
 })();

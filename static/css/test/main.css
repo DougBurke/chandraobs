@@ -27,6 +27,10 @@ li#control-location {
     padding: 0.2em;
 }
 
+li#control-goto {
+    padding: 0.3em 0;
+}
+
 div#timeline {
     display: none;
     position: fixed;
@@ -216,9 +220,23 @@ div.content div p:first-child {
 /*
  * Warning and error styles
  */
-div.server-problem , div.no-current-response {
+div.server-problem , div.no-current-response , div.lookup-failure {
     background: rgba(255, 255, 255, 1.0);
     border: 2px solid orange;
+    font-size: larger;
+    left: 50%;
+    max-width: 50em;
+    padding: 1em;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    -webkit-transform: translate(-50%, -50%);
+}
+
+div.lookup-success {
+    background: rgba(255, 255, 255, 1.0);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     left: 50%;
     max-width: 50em;
     padding: 1em;

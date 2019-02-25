@@ -8,6 +8,7 @@
   <script src="http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"></script>
   <script src="/js/test/main.js"></script>
   <script src="/js/test/draggable.js"></script>
+  <script src="/js/test/lookup.js"></script>
   <link href="/css/test/main.css" type="text/css"
 	rel="stylesheet" title="Default" media="all">
  </head>
@@ -49,6 +50,17 @@
 	       <option value='ned'>NED</option>
 	       <option value='simbad'>SIMBAD</option>
 	     </select>
+	   </li>
+
+	   <li id="control-goto">
+             <label for="targetName">
+	       <input type="text" id="targetName" placeholder="Enter Name or Position...">
+	     </label>
+	     <button type="submit" id="targetFind" disabled>
+	       Search
+	     </button>
+	   </li>
+
 	 </ul>
        </div>
 
