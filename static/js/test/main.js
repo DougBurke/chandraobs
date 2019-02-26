@@ -219,8 +219,8 @@ const main = (function() {
 	    next.removeAttribute('data-obsid');
 	}
 
-	// Using grid
-	host.style.display = 'grid';
+	// Using grid - this has already been done by wwtReadyFunc
+	// host.style.display = 'grid';
     }
 
     function showObsId(obsid) {
@@ -478,6 +478,15 @@ const main = (function() {
 
 	// Set up the location field
 	showLocation();
+
+	// Display the control elements. Should probably be in a
+	// single structure to make this easier (and to ensure things
+	// don't overlap).
+	//
+	['control', 'location'].forEach((n) => {
+	    document.querySelector('#' + n).style.display = 'block';
+	});
+	document.querySelector('#timeline').style.display = 'grid';
     }
 
 

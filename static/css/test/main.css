@@ -9,6 +9,7 @@ body {
  * The "top" bar
  */
 div#control {
+    display: none;
     position: fixed;
     top: 0;
 }
@@ -55,6 +56,7 @@ div#timeline span.timeline-title {
 
 div#location {
     background: white;
+    display: none;
     padding: 0.2em;
     position: absolute;
     right: 1em;
