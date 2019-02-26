@@ -97,11 +97,15 @@ div.statusPane {
     bottom: 2em;
     left: 2em;
     width: 25em;
+    /*** apply the max height to the "contents" div, not this window,
+         since this makes it easier to ensure we get a scroll bar.
     max-height: 20em;
+    ***/
 }
 
 div.content div {
     overflow: auto;
+    max-height: 15em;
 }
 
 /* location of window-UI-like elements */

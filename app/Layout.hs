@@ -506,7 +506,11 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       -- ignore the thead element
       tbl = table (tbody tblRows)
 
-  in (addClass "inactive" H.div H.! A.id "Details") tbl
+      container = H.div H.! A.id "Details"
+
+  in case ctx of
+       StaticHtml -> (addClass "inactive" container) tbl
+       DynamicHtml -> container tbl
 
 
 -- | Create the div to contain the WWT view.
