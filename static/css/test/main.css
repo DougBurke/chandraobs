@@ -86,7 +86,7 @@ div.statusPane {
     /* border-width: 2px; */
     padding-left: 0.5em;  /* if this changes, need to change margin-right/left in controlElements */
     padding-right: 0.5em;
-    position: fixed;
+    position: absolute;
 }
 
 /* should get re-integrated into the list above, but leave out for now
