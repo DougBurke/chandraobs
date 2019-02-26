@@ -19,20 +19,19 @@
        <div id="WWTCanvas">
        </div>
 
-       <div style="position: fixed; top: 1em; right: 0.5em;">
-	 <span style="background: rgba(217,83,79,0.8); border-radius: 0.5em; color: white; padding: 0.5em;">EXPERIMENT: all things may change!</span>
+       <div style="position: fixed; bottom: 1em; right: 0.5em; background: rgba(217,83,79,0.8); border-radius: 0.5em; color: white; padding: 0.5em; text-align: center;">
+	   EXPERIMENTAL INTERFACE
+	   <br/>
+	   all things may change!
        </div>
 
        <!-- maybe nav? -->
        <div id="control">
 	 <ul>
-	   <li id="control-location">
-	     00<sup>h</sup> 00<sup>m</sup> 00.00<sup>s</sup>
-	     +00° 00' 00.0"
-	   </li>
 	   <li id="control-image">
-	     <select name="imagechoice" id="imagechoice"
-		     class="button">
+	     <!-- try without restyling for a while
+		  class="button" -->
+	     <select name="imagechoice" id="imagechoice">
 	       <option value="planck-cmb">CMB (Planck)</option>
 	       <option value="vlss">Radio (VLSS; δ≳-40°)</option>
 	       <option value="wise">IR (WISE)</option>
@@ -43,15 +42,6 @@
 	       <option value="fermi3">Gamma (Fermi)</option>
 	     </select>
 	   </li>
-	   <li id="control-search">
-	     <select name="searchengine" id="searchengine"
-		     class="button">
-	       <option value='unselected' selected>Search</option>
-	       <option value='ned'>NED</option>
-	       <option value='simbad'>SIMBAD</option>
-	     </select>
-	   </li>
-
 	   <li id="control-goto">
              <label for="targetName">
 	       <input type="text" id="targetName" placeholder="Enter Name or Position...">
@@ -65,9 +55,29 @@
        </div>
 
        <div id="timeline">
+	 <span class="timeline-title">&#171; Previous</span>
+	 <span class="timeline-title">Current observation</span>
+	 <span class="timeline-title">Next &#187;</span>
 	 <span id="previous"></span>
 	 <span id="current"></span>
 	 <span id="next"></span>
+       </div>
+
+       <div id="location">
+	 <div id="location-value">
+	   00<sup>h</sup> 00<sup>m</sup> 00.00<sup>s</sup>
+	   +00° 00' 00.0"
+	 </div>
+	 <div id="location-options">
+	   <!-- FOR NOW do not re-style these buttons -->
+	   <span>Search nearby in </span>
+	   <button type="submit" id="search-ned">
+	     NED
+	   </button>
+	   <button type="submit" id="search-simbad">
+	     SIMBAD
+	   </button>
+	 </div>
        </div>
 
      </div>

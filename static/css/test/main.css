@@ -22,21 +22,18 @@ div#control ul li {
     /* float: left; */
 }
 
-li#control-location {
-    background: white;
-    padding: 0.2em;
-}
-
 li#control-goto {
     padding: 0.3em 0;
 }
 
+/* center this horizontally */
 div#timeline {
     display: none;
-    position: fixed;
-    text-align: center;
-    top: 3em;
-    width: 100%;
+    grid-template-columns: repeat(3, 1fr);
+    left: 50%;
+    position: absolute;
+    top: 1em;
+    transform: translate(-50%, 0);
 }
 
 div#timeline span {
@@ -45,21 +42,33 @@ div#timeline span {
     text-align: center;
 }
 
-div#timeline span span.previous {
-    font-size: larger;
-    padding: 0;
-    padding-right: 0.2em;
-}
-
-div#timeline span span.next {
-    font-size: larger;
-    padding: 0;
-    padding-left: 0.2em;
-}
-
 div#timeline a {
     cursor: pointer;
     text-decoration: none;
+}
+
+div#timeline span.timeline-title {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+/* Location of the cross hair (to some approximation during slews) */
+
+div#location {
+    background: white;
+    padding: 0.2em;
+    position: absolute;
+    right: 1em;
+    top: 1em;
+}
+
+div#location-value {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    padding-bottom: 0.2em;
+    text-align: center;
+}
+
+div#location-options {
+    padding-top: 0.2em;
 }
 
 /*

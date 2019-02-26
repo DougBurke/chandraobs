@@ -178,7 +178,6 @@ const main = (function() {
 	//
 	const current = host.querySelector('#current');
 	if (running.current !== null) {
-	    current.appendChild(document.createTextNode('Current: '));
 	    current.setAttribute('data-obsid', running.current);
 
 	    const acurrent = document.createElement('a');
@@ -187,7 +186,7 @@ const main = (function() {
 	    acurrent.addEventListener('click', e => showObsId(running.current));
 	    current.appendChild(acurrent);
 	} else {
-	    current.innerHTML = document.createTextNode('Current: unknown');
+	    current.innerHTML = document.createTextNode('unknown');
 	    current.removeAttribute('data-obsid');
 	}
 
@@ -195,18 +194,13 @@ const main = (function() {
 	if (running.previous !== null) {
 	    prev.setAttribute('data-obsid', running.previous);
 
-	    const pspan = document.createElement('span');
-	    pspan.setAttribute('class', 'previous');
-	    pspan.innerHTML = '&#171;'; // <<
-	    prev.appendChild(pspan);
-
 	    const aprev = document.createElement('a');
 	    aprev.html = '#';
 	    aprev.innerText = running.previous.toString();
 	    aprev.addEventListener('click', e => showObsId(running.previous));
 	    prev.appendChild(aprev);
 	} else {
-	    prev.innerHTML = document.createTextNode('Previous: unknown');
+	    prev.innerHTML = document.createTextNode('unknown');
 	    prev.removeAttribute('data-obsid');
 	}
 
@@ -220,17 +214,13 @@ const main = (function() {
 	    anext.addEventListener('click', e => showObsId(running.next));
 	    next.appendChild(anext);
 
-	    const nspan = document.createElement('span');
-	    nspan.setAttribute('class', 'next');
-	    nspan.innerHTML = '&#187;'; // >>
-	    next.appendChild(nspan);
-
 	} else {
-	    next.innerHTML = document.createTextNode('Next: unknown');
+	    next.innerHTML = document.createTextNode('unknown');
 	    next.removeAttribute('data-obsid');
 	}
 
-	host.style.display = 'block';
+	// Using grid
+	host.style.display = 'grid';
     }
 
     function showObsId(obsid) {
@@ -426,10 +416,16 @@ const main = (function() {
 				     e => changeBackground(e.target.value));
 	}
 
-	const search = document.querySelector('#searchengine');
-	if (search !== null) {
-	    search.addEventListener('change',
-				    e => searchNear(e.target.value));
+	// NED/SIMBAD seatch buttons
+	//
+	const search_ned = document.querySelector('#search-ned');
+	if (search_ned !== null) {
+	    search_ned.addEventListener('click', () => searchNear('ned'));
+	}
+
+	const search_sim = document.querySelector('#search-simbad');
+	if (search_sim !== null) {
+	    search_sim.addEventListener('click', () => searchNear('simbad'));
 	}
 
         // TODO: should this check that the name is not blank/empty?
@@ -1287,7 +1283,7 @@ const main = (function() {
     function showLocation() {
 
 	// Should really cache this
-	const location = document.querySelector('#control-location');
+	const location = document.querySelector('#location-value');
 	
 	const ra = 15.0 * wwt.getRA();
 	const dec = wwt.getDec();
