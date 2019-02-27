@@ -73,6 +73,23 @@ identifyType CAL =
      <> "calibration data itself can often also be used for scientific "
      <> "studies as well.")
   
+identifyType CCT =
+  p (tstrong "Cool Catalog Target"
+     <> " is a set of targets which are spread out across the sky in "
+     <> "locations that allow Chandra to 'cool off'. This has become "
+     <> "necessary as Chandra begins to show its age, and is no longer "
+     <> "able to regulate its temperature as well as it could at launch. "
+     <> "The CCT list was recently (2018) created to provide targets "
+     <> "that the Chandra planners could select if the 'thermal profile' "
+     <> "of the schedule indicates that Chandra would get too warm "
+     <> "(that is, it is still cold by our standards, but warmer than "
+     <> "the instrument scientists want Chandra to get) and needs to "
+     <> "cool down. These observations are relatively short, and "
+     <> "there is no guarantee that a particular observation will be "
+     <> "done, so are mainly useful for survey-style observational "
+     <> "programmes, where data on some objects can be useful, rather "
+     <> "than programmes that require oservations of particular objects.")
+
 identifyType DDT =
   p (tstrong "Director's Discretionary Time"
      <> " is used for observing events which "
@@ -143,11 +160,11 @@ renderTypes pmap =
     p ("Chandra proposals, as well as being split up by "
       <> (a ! href "/search/category/") "category"
       <> ", also have a type, which is used to indicate "
-      <> "the origin of the proposal. There are five types:"
+      <> "the origin of the proposal. There are six types:"
       )
 
     let wrapper = (div ! class_ "term") . identifyType 
-    mapM_ wrapper [CAL, DDT, GO, GTO, TOO]
+    mapM_ wrapper [CAL, CCT, DDT, GO, GTO, TOO]
 
     standardTable $ do
       thead $ tr $ do

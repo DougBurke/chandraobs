@@ -2006,7 +2006,8 @@ data Proposal = Proposal {
   , propCategory :: PropCategory
   , propType :: T.Text
     -- TODO: change to use the PropType enumeration, but
-    -- that has implications on the database
+    -- that has implications on the database, especially
+    -- as the set of types has increased with time
   , propCycle :: T.Text
     -- Should this be an enumeration? It is "open ended",
     -- in that there's no fixed end value.
@@ -2077,17 +2078,21 @@ data MissingProposalAbstract = MissingProposalAbstract {
 
 -- | Enumeration for the different proposal categories.
 --   This is not currently used in the database - e.g. for
---   the Proposal type - but should be.
+--   the Proposal type - but should be. Although, as it is not
+--   a fixed list, i.e. the cotents have changed over time,
+--   leaving it stored in the database as a free-form
+--   value has its benefits.
 --
 --   The Ord instance is for convenience.
 data PropType =
-  CAL | DDT | GO | GTO | TOO
+  CAL | CCT | DDT | GO | GTO | TOO
   deriving (Eq, Ord)
 
 -- | For now the conversion is case sensitive, and
 --   only supports the short-form.
 toPropType :: T.Text -> Maybe PropType
 toPropType "CAL" = Just CAL
+toPropType "CCT" = Just CCT
 toPropType "DDT" = Just DDT
 toPropType "GO" = Just GO
 toPropType "GTO" = Just GTO
@@ -2096,6 +2101,7 @@ toPropType _ = Nothing
 
 fromPropType :: PropType -> T.Text
 fromPropType CAL = "CAL"
+fromPropType CCT = "CCT"
 fromPropType DDT = "DDT"
 fromPropType GO = "GO"
 fromPropType GTO = "GTO"
@@ -2106,6 +2112,7 @@ instance Parsable PropType where
 
 toPropTypeLabel :: PropType -> T.Text
 toPropTypeLabel CAL = "Calibration Observation"
+toPropTypeLabel CCT = "Catalog Cool Target"
 toPropTypeLabel DDT = "Director's Discretionary Time"
 toPropTypeLabel GO = "General Observer"
 toPropTypeLabel GTO = "Guaranteed-Time Observation"
