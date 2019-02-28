@@ -170,10 +170,28 @@ const main = (function() {
 	}
     }
 
-    function setTimelineElement(host, idName, obsdata) {
-	const node = host.querySelector(idName);
+    function changeText(host, selector, text) {
+	const elem = host.querySelector(selector);
+	if (elem === null) {
+	    console.log("Internal error: no match for '" + selector + "'");
+	    return;
+	}
+
+	removeChildren(elem);  // is this needed?
+	elem.innerText = text;
+
+    }
+
+    function setTimelineElement(host, selector, obsdata) {
+	const node = host.querySelector(selector);
+	if (node === null) {
+	    console.log("Internal error: unable to find '" + selector + "'");
+	    return;
+	}
+
+	removeChildren(node);
+
 	if (obsdata !== null) {
-	    removeChildren(node);
 	    node.setAttribute('data-obsid', obsdata.obsid);
 
 	    const link = document.createElement('a');
@@ -208,19 +226,21 @@ const main = (function() {
 	setTimelineElement(host, '#timeline-previous', obsdata.previous);
 	setTimelineElement(host, '#timeline-next', obsdata.next);
 
-	// Handle the Current / Seleted span (what to do when the object
-	// has not been selected)
+	// Reset the labels. We only need to do this for the selected
+	// case (and maybe not even then), but change them anyway in the
+	// hope that it will lead to a repaint to avoid visual artfacts
+	// seen during testing. It hasn't helped, so remove for now.
 	//
-	const span = host.querySelector('#timeline-selected-label');
-	if (span !== null) {
-	    let txt;
-	    if (obsdata.isCurrent) {
-		txt = 'Current';
-	    } else {
-		txt = 'Selected';
-	    }
-	    span.innerText = txt + ' observation';
+	// changeText(host, '#timeline-prev-label', '« Previous'); // &#171
+	// changeText(host, '#timeline-next-label', 'Next »'); // &#187
+
+	let label;
+	if (obsdata.isCurrent) {
+	    label = 'Current';
+	} else {
+	    label = 'Selected';
 	}
+	changeText(host, '#timeline-selected-label', label + ' observation');
 
 	// I want the whole timeline box to be redrawn, since the sizes
 	// may have changed (and I am not using fixed width/height
