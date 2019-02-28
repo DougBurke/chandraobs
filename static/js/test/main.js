@@ -1306,25 +1306,51 @@ const main = (function() {
     // This is an experiment.
 
     var lastLoc = "";
-	
+    var lastFOV = "";
+
     function showLocation() {
 
-	// Should really cache this
+	// Should really cache these
 	const location = document.querySelector('#location-value');
+	const fovloc = document.querySelector('#location-fov-value');
 	
 	const ra = 15.0 * wwt.getRA();
 	const dec = wwt.getDec();
 
 	const newLoc = raToHTML(ra) + " " + decToHTML(dec);
 	if (lastLoc !== newLoc) {
+	    removeChildren(location);
 	    location.innerHTML = newLoc;
 	    lastLoc = newLoc;
+	}
+
+	let fov = wwt.get_fov();
+	let newFOV;
+	if (fov >= 1) {
+	    newFOV = fov.toFixed(1) + "°";
+	} else {
+	    fov *= 60.0;
+	    if (fov >= 1) {
+		newFOV = fov.toFixed(1) + "'";
+	    } else {
+		fov *= 60.0;
+		if (fov >= 1) {
+		    newFOV = fov.toFixed(1) + "''";
+		} else {
+		    newFOV = "please zoom out!";
+		}
+	    }
+	}
+	if (lastFOV !== newFOV) {
+	    removeChildren(fovloc);
+	    fovloc.innerText = newFOV;
+	    lastFOV = newFOV;
 	}
 
 	// Set the new timer
 	window.setTimeout(showLocation, 1000);
     }
-    
+
     return {initialize: initialize,
 	    resize: resize,
 

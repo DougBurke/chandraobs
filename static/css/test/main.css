@@ -63,13 +63,30 @@ div#location {
     top: 1em;
 }
 
-div#location-value {
+/***
+div#location-value , div#location-options {
     border-bottom: 1px solid rgba(0, 0, 0, 0.4);
     padding-bottom: 0.2em;
+}
+***/
+
+div#location-value , div#location-options {
+    padding-bottom: 0.2em;
+}
+
+div#location-options {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+div#location-value {
     text-align: center;
 }
 
 div#location-options {
+    padding-top: 0.2em;
+}
+
+div#location-fov {
     padding-top: 0.2em;
 }
 
