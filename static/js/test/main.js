@@ -446,12 +446,25 @@ const main = (function() {
     //
     function wwtReadyFunc() {
 
-	// Set up buttons
+	// Change background
 	//
 	const ichoice = document.querySelector('#imagechoice');
 	if (ichoice !== null) {
 	    ichoice.addEventListener('change',
 				     e => changeBackground(e.target.value));
+	}
+
+	// Do we have to support going fullscreen?
+	if (hasFullScreen()) {
+	    const fscreen = document.querySelector('#control-fullscreen');
+	    if (fscreen !== null) {
+		const toggle = fscreen.querySelector('#togglefullscreen');
+		if (toggle !== null) {
+		    fscreen.style.display = 'list-item';
+		    toggle.addEventListener('click',
+					    () => toggleFullScreen(toggle));
+		}
+	    }
 	}
 
 	// NED/SIMBAD seatch buttons
@@ -740,15 +753,20 @@ const main = (function() {
 	return false;
     }
 
-    function startFullScreen() {
+    function startFullScreen(toggle) {
+	if (toggle === null) {
+	    console.log("Internal error: somehow called startFullScreen when no #togglefullscreen");
+	    return;
+	}
+
 	const el = document.body;
 	for (var name of ['requestFullScreen',
 			  'mozRequestFullScreen',
 			  'webkitRequestFullScreen',
 			  'msRequestFullScreen']) {
 	    if (name in el) {
-		document.getElementById('togglefullscreen').innerHTML =
-		    'Normal screen';
+		removeChildren(toggle);
+		toggle.innerHTML = 'Normal screen';
 		el[name]();
 		return;
 	    }
@@ -756,24 +774,31 @@ const main = (function() {
 	console.log("UNEXPECTED: failed to call startFullScreen");
     }
 
-    function stopFullScreen() {
+    function stopFullScreen(toggle) {
+	if (toggle === null) {
+	    console.log("Internal error: somehow called stopFullScreen when no #togglefullscreen");
+	    return;
+	}
+
 	const el = document;
 	for (var name of ['cancelFullScreen',
 			  'mozCancelFullScreen',
 			  'webkitCancelFullScreen',
 			  'msExitFullscreen']) {
 	    if (name in el) {
-		document.getElementById('togglefullscreen').innerHTML =
-		    'Full screen';
+		removeChildren(toggle);
+		toggle.innerHTML = 'Full screen';
 		el[name]();
-		return; }
+		return;
+	    }
         }
 	alert("Eek! Unable to cancel full screen.\nTry hitting Escape.");
     }
 
     var fullscreen = false;
     var entering_fullscreen = false;
-    function toggleFullScreen() {
+
+    function toggleFullScreen(toggle) {
         var fn;
         if (fullscreen) {
 	    fn = stopFullScreen;
@@ -787,7 +812,7 @@ const main = (function() {
 	// mode.
 	//
         fullscreen = !fullscreen;
-	fn();
+	fn(toggle);
     }
 
 
@@ -811,23 +836,25 @@ const main = (function() {
             div.style.height = hstr;
         }
 
-	/***
-	// Try to work out if the user has exited full-screen mode
-	//
-	const el = document.getElementById('togglefullscreen');
-	if (fullscreen) {
+	const toggle = document.querySelector('#togglefullscreen');
+	if (toggle === null) {
+	    console.log("Internal error: in resize but no #togglefullscreen");
+	    return;
+	}
 
+	if (fullscreen) {
 	    if (entering_fullscreen) {
 		entering_fullscreen = false;
 	    } else {
-		el.innerHTML = 'Full screen';
+		removeChildren(toggle);
+		toggle.innerHTML = 'Full screen';
 		fullscreen = false;
 	    }
-	} else if (el.innerHTML !== 'Full screen') {
-	    el.innerHTML = 'Full screen';
+	} else if (toggle.innerHTML !== 'Full screen') {
+	    removeChildren(toggle);
+	    toggle.innerHTML = 'Full screen';
 	}
-	***/
-	
+
     }
 
 
@@ -1106,9 +1133,11 @@ const main = (function() {
 		 * since it is a less-than-ideal UI. Is this the best place
 		 * for it; perhaps within wwtReadyFunc?
 		 */
-		const canvas = document.getElementById("WWTCanvas");
-		canvas.addEventListener("mousewheel", e => e.preventDefault());
-		canvas.addEventListener("DOMMouseScroll", e => e.preventDefault());
+		const canvas = document.querySelector("#WWTCanvas");
+		canvas.addEventListener("mousewheel",
+					e => e.preventDefault());
+		canvas.addEventListener("DOMMouseScroll",
+					e => e.preventDefault());
 
 		// The following is taken from ADS all-sky-survey, not entirely
 		// sure if needed here.
