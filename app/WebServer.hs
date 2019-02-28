@@ -223,6 +223,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromGrating
              , fromPropType
              , recordObsId
+             , recordTarget
              )
 import Utils (fromBlaze, standardResponse
              , timeToRFC1123
@@ -477,15 +478,17 @@ webapp cm scache cache = do
     get "/api/page/:obsid" $ do
       obsid <- param "obsid"
 
+      -- TODO: rethink this once I know what information I actually need
+      --
       cTime <- liftIO getCurrentTime
       dbans <- liftSQL (do
-                           a <- getObsId obsid
+                           mobs <- getObsId obsid
                            -- do I need all of findRecord
                            b <- findRecord cTime
-                           c <- case a of
+                           c <- case mobs of
                              Just o -> Just <$> getDBInfo (oiCurrentObs o)
                              Nothing -> return Nothing
-                           return (a, b, c))
+                           return (mobs, b, c))
 
       let (mobs, mCurrent, mDbInfo) = dbans
           mCurrentObsId = recordObsId <$> mCurrent
@@ -494,12 +497,7 @@ webapp cm scache cache = do
         (Just obs, Just dbInfo) -> do
 
           let thisObs = oiCurrentObs obs
-              -- oiCurrentObs is badly named; it is really the
-              -- "focus" observation.
-              --
-
               (msimbad, (mprop, matches)) = dbInfo
-              -- (msimbad, (mprop, _)) = dbInfo
 
           mpropText <- case thisObs of
             Left _ -> pure Nothing
@@ -520,29 +518,24 @@ webapp cm scache cache = do
                 Left _ -> Nothing
                 Right so -> Record.renderRelatedObs (soTarget so) matches
 
-              {-
-              imgLinks = either
-                         (const mempty)
-                         (renderLinks cTime mprop msimbad)
-                         thisObs
+              toObs r = object [ "obsid" .= fromObsId (recordObsId r)
+                               , "target" .= recordTarget r
+                               ]
 
-              navBar = Record.obsNavBar DynamicHtml (Just thisObs) obs
-              -}
+              mKV k v = [k .= renderHtml v]
 
               objItems = ["status" .= ("success" :: T.Text)
-                         , "observation" .= renderHtml obshtml
-                         {-
-                         , "imglinks" .= renderHtml imgLinks
-                         , "navbar" .= renderHtml navBar
-                         -}
+                         , "overview" .= renderHtml obshtml
                          , "ra" .= fromRA (either nsRa soRA thisObs)
                          , "dec" .= fromDec (either nsDec soDec thisObs)
                          , "isCurrent" .= (mCurrentObsId == Just obsid)
+                         , "observation" .= toObs thisObs
+                         , "previous" .= (toObs <$> oiPrevObs obs)
+                         , "next" .= (toObs <$> oiNextObs obs)
                          ]
-                         -- TODO: mapMaybe
-                         ++ maybe [] (\h -> ["details" .= renderHtml h]) mDetails
-                         ++ maybe [] (\h -> ["related" .= renderHtml h]) mRelated
-                         ++ maybe [] (\h -> ["proposal" .= renderHtml h]) mProposal
+                         ++ maybe [] (mKV "details") mDetails
+                         ++ maybe [] (mKV "related") mRelated
+                         ++ maybe [] (mKV "proposal") mProposal
 
           return (object objItems)
 

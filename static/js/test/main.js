@@ -161,10 +161,42 @@ const main = (function() {
 	resetFOV();
     }
 
-    // Display the "current" timeline; this is an experiment to see
-    // how things work together and will need to be expanded.
+    // Based on
+    // https://stackoverflow.com/questions/3955229/remove-all-child-elements-of-a-dom-node-in-javascript
     //
-    function showTimeline(running) {
+    function removeChildren(node) {
+	while (node.firstChild) {
+	    node.removeChild(node.firstChild);
+	}
+    }
+
+    function setTimelineElement(host, idName, obsdata) {
+	const node = host.querySelector(idName);
+	if (obsdata !== null) {
+	    removeChildren(node);
+	    node.setAttribute('data-obsid', obsdata.obsid);
+
+	    const link = document.createElement('a');
+	    link.html = '#';
+	    link.innerText = obsdata.target;
+	    link.addEventListener('click',
+				  e => showObsId(obsdata.obsid));
+	    node.appendChild(link);
+
+	} else {
+	    node.innerHTML = document.createTextNode('unknown');
+	    node.removeAttribute('data-obsid');
+	}
+    }
+
+    // What is the selected/previous/next settings.
+    //
+    // The obsdata argument is expected to have
+    //    isCurrent  - boolean
+    //    obsid - integer
+    //    previous / next - null or integer
+    //
+    function showTimeline(obsdata) {
 
 	const host = document.querySelector('#timeline');
 	if (host === null) {
@@ -172,62 +204,43 @@ const main = (function() {
 	    return;
 	}
 
-	// TODO: need to clear out previous settings
+	setTimelineElement(host, '#timeline-selected', obsdata.observation);
+	setTimelineElement(host, '#timeline-previous', obsdata.previous);
+	setTimelineElement(host, '#timeline-next', obsdata.next);
 
-	// current shouldn't be null, but makes it easier to repeat code.
+	// Handle the Current / Seleted span (what to do when the object
+	// has not been selected)
 	//
-	const current = host.querySelector('#current');
-	if (running.current !== null) {
-	    current.setAttribute('data-obsid', running.current);
-
-	    const acurrent = document.createElement('a');
-	    acurrent.html = '#';
-	    acurrent.innerText = running.current.toString();
-	    acurrent.addEventListener('click', e => showObsId(running.current));
-	    current.appendChild(acurrent);
-	} else {
-	    current.innerHTML = document.createTextNode('unknown');
-	    current.removeAttribute('data-obsid');
+	const span = host.querySelector('#timeline-selected-label');
+	if (span !== null) {
+	    let txt;
+	    if (obsdata.isCurrent) {
+		txt = 'Current';
+	    } else {
+		txt = 'Selected';
+	    }
+	    span.innerText = txt + ' observation';
 	}
 
-	const prev = host.querySelector('#previous');
-	if (running.previous !== null) {
-	    prev.setAttribute('data-obsid', running.previous);
-
-	    const aprev = document.createElement('a');
-	    aprev.html = '#';
-	    aprev.innerText = running.previous.toString();
-	    aprev.addEventListener('click', e => showObsId(running.previous));
-	    prev.appendChild(aprev);
-	} else {
-	    prev.innerHTML = document.createTextNode('unknown');
-	    prev.removeAttribute('data-obsid');
-	}
-
-	const next = host.querySelector('#next');
-	if (running.next !== null) {
-	    next.setAttribute('data-obsid', running.next);
-
-	    const anext = document.createElement('a');
-	    anext.html = '#';
-	    anext.innerText = running.next.toString();
-	    anext.addEventListener('click', e => showObsId(running.next));
-	    next.appendChild(anext);
-
-	} else {
-	    next.innerHTML = document.createTextNode('unknown');
-	    next.removeAttribute('data-obsid');
-	}
-
-	// Using grid - this has already been done by wwtReadyFunc
-	// host.style.display = 'grid';
+	// I want the whole timeline box to be redrawn, since the sizes
+	// may have changed (and I am not using fixed width/height
+	// elements, or a grid, which I probably should).
+	//
+	// I am going to blindly use
+	// https://gist.github.com/paulirish/5d52fb081b3570c81e3a
+	// the "wrong way" (ie pick one of these elements to try
+	// and force a redraw), but not 100% convinced it's going to work.
+	// And it doesn't appear to.
+	//
+	host.offsetParent;
+	
     }
 
     function showObsId(obsid) {
 
 	unselectObsIds();
 	selectFOV(obsid);  // ignore return value for now
-		
+
 	const idVal = 'obsid-' + obsid;
 
 	const foundPane = document.querySelector('#' + idVal);
@@ -257,18 +270,12 @@ const main = (function() {
 		return;
 	    }
 
+	    showTimeline(rsp);
+
 	    const pane = document.createElement('div');
 	    pane.setAttribute('class', 'statusPane');
 	    pane.setAttribute('id', idVal);
 
-	    // Note: add ra and dec to the pane, since we can then
-	    //       extract it from the pane rather than searching
-	    //       around from it (which can be awkward for engineering
-	    //       observations).
-	    //
-	    pane.setAttribute('data-ra', rsp.ra);
-	    pane.setAttribute('data-dec', rsp.dec);
-	    
 	    pane.draggable = true;
 	    pane.addEventListener('dragstart',
 				  event => draggable.startDrag(event));
@@ -293,6 +300,14 @@ const main = (function() {
 
             if (rsp.status === 'success') {
 
+		// Note: add ra and dec to the pane, since we can then
+		//       extract it from the pane rather than searching
+		//       around from it (which can be awkward for engineering
+		//       observations).
+		//
+		pane.setAttribute('data-ra', rsp.ra);
+		pane.setAttribute('data-dec', rsp.dec);
+
 		// We create the tabs and then decide whether to
 		// add it to the main element (we don't for engineering
 		// observations as only have a details tab).
@@ -307,8 +322,8 @@ const main = (function() {
 		//
 		var statusLi = null;
 		var ntabs = 0;
-		
-		[['observation', 'Status'],
+
+		[['overview', 'Status'],
 		 ['related', 'Related'],
 		 ['details', 'Details'],
 		 ['proposal', 'Proposal']].forEach((x) => {
@@ -319,7 +334,7 @@ const main = (function() {
 			 tabs.appendChild(vals.li);
 			 content.appendChild(vals.content);
 
-			 if (field === 'observation') { statusLi = vals.a; }
+			 if (field === 'overview') { statusLi = vals.a; }
 			 ntabs += 1;
 		     }
 		 });
@@ -355,13 +370,17 @@ const main = (function() {
 
 		const err = document.createElement('div');
 		err.setAttribute('class', 'error');
-		err.innerHTML = rsp.error;
+		if (typeof rsp.error !== 'undefined') {
+		    err.innerHTML = rsp.error;
+		} else {
+		    err.innerHTML = "<p>An unknown error occurred.</p>";
+		}
 
 		main.appendChild(err);
             }
 
 	    host.appendChild(pane);
-	    
+
         }).fail(function(xhr, status, e) {
 	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
@@ -375,7 +394,6 @@ const main = (function() {
         }).done(function(rsp) {
             if (rsp[0] === 'Success') {
                 showObsId(rsp[1]['current']);
-		showTimeline(rsp[1]);
 		
             } else {
 		console.log("WARNING: /api/current returned " + rsp[0]);
