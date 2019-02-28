@@ -108,6 +108,12 @@ div.content div {
     max-height: 15em;
 }
 
+/* These two are only really needed if the content overflows vertically */
+
+div.content div p , div#Details {
+    padding-right: 0.5em;
+}
+
 /* location of window-UI-like elements */
 
 div.controlElements {
