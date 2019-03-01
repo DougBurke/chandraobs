@@ -1115,37 +1115,48 @@ const main = (function() {
 	    return;
 	}
 
-        lookup.lookupName(target,
+	// disable both; note that on success both get re-enabled,
+	// which is okay because the user-entered target is still
+	// in the box (ie has content), so targetFind can be enabled.
+	//
+	const targetName = document.querySelector('#targetName');
+	const targetFind = document.querySelector('#targetFind');
+
+	targetName.setAttribute('disabled', 'disabled');
+	targetFind.setAttribute('disabled', 'disabled');
+
+	lookup.lookupName(target,
 			  (ra, dec) => {
 			      const zoom = wwt.get_fov();
 			      wwt.gotoRaDecZoom(ra, dec, zoom);
+			      host.removeChild(spin);
+
+			      targetName.removeAttribute('disabled');
+			      targetFind.removeAttribute('disabled');
 			  },
-			  (emsg) => reportLookupFailure(host, emsg));
+			  (emsg) => reportLookupFailure(host,
+							targetName, targetFind,
+							emsg));
     }
 
-    // TODO: need a close-error-window function
+    // TODO: improve styling
     //
-    function reportLookupFailure(host, msg) {
+    function reportLookupFailure(host, targetName, targetFind, msg) {
+
+	targetName.removeAttribute('disabled');
+	targetFind.removeAttribute('disabled');
 
 	const pane = document.createElement('div');
 	pane.setAttribute('class', 'lookup-failure');
-        pane.innerHTML = msg;
-	//
-        //  '<button type="button" class="close" ' +
-        //  'onclick="wwt.hideElement(' + "'targetFailure'" +
-        //  '); wwt.setTargetName(' + "''" + ');">X</button><div>' +
-        //  msg + '</div>';
-	
-	host.appendChild(pane);
 
-	/***
-	if (typeof close === 'undefined') { close = true; }
-        if (close) {
-	    // hide the pane in 4 seconds
-            window.setTimeout(() => pane.style.display = 'none',
-			      4000);
-        }
-	***/
+	const close = addCloseButton(pane);
+	pane.appendChild(close);
+	
+	const div = document.createElement('div');
+        div.innerHTML = msg;
+
+	pane.appendChild(div);
+	host.appendChild(pane);
 
     }
 
