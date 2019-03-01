@@ -1,6 +1,14 @@
 // Experiment with a WWT-based main display
 //
-
+// TODO:
+//   there should probably only be one spinner "active" at a time, but
+//   if they are located at the same location it probably isn't a problem
+//   (unless the background is transparent or the animation "jumps" when
+//   adding the new one on top of the old one).
+//
+//   Use a consistent naming scheme, as have FOV for the WWT FoV and
+//   for the polygon representing an observation.
+//
 const main = (function() {
 
     // How are FOVs to be drawn (for the "not-selected" case)
@@ -258,6 +266,12 @@ const main = (function() {
 
     function showObsId(obsid) {
 
+	const host = getHost();
+	if (host === null) {
+	    // if this has happened then lots of things are wrong
+	    return;
+	}
+
 	unselectObsIds();
 	selectFOV(obsid);  // ignore return value for now
 
@@ -279,17 +293,16 @@ const main = (function() {
 	    foundPane.style.display = 'block';
 	    return;
 	}
+
+	const spin = spinner.createSpinner();
+	host.appendChild(spin);
 	
         $.ajax({
 	    url: "/api/page/" + obsid,
 	    dataType: "json"
         }).done(function (rsp) {
 
-	    const host = getHost();
-	    if (host === null) {
-		return;
-	    }
-
+	    host.removeChild(spin);
 	    showTimeline(rsp);
 
 	    const pane = document.createElement('div');
@@ -402,31 +415,37 @@ const main = (function() {
 	    host.appendChild(pane);
 
         }).fail(function(xhr, status, e) {
+	    host.removeChild(spin);
+
 	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
         });
     }
 
     function showCurrent() {
+
+	const host = getHost();
+	if (host === null) {
+	    // no way to sensibly handle this
+	    return;
+	}
+
+	const spin = spinner.createSpinner();
+	host.appendChild(spin);
+
         $.ajax({
             url: "/api/current",
             dataType: "json"
         }).done(function(rsp) {
+
+	    host.removeChild(spin);
+
             if (rsp[0] === 'Success') {
                 showObsId(rsp[1]['current']);
 		
             } else {
 		console.log("WARNING: /api/current returned " + rsp[0]);
 		console.log(rsp);
-
-		const host = getHost();
-		if (host === null) {
-		    alert("I can not find out what Chandra is doing\n" +
-			  "and strange things are afoot at the Circle K\n" +
-			  "- err I mean the web page - and I do not\n" +
-			  "know what to do!");
-		    return;
-		}
 
 		const div = document.createElement('div');
 		div.setAttribute('class', 'no-current-response');
@@ -437,6 +456,8 @@ const main = (function() {
 		host.appendChild(div);
             }
         }).fail(function(xhr, status, e) {
+	    host.removeChild(spin);
+
 	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
         });
@@ -1115,6 +1136,9 @@ const main = (function() {
 	    return;
 	}
 
+	const spin = spinner.createSpinner();
+	host.appendChild(spin);
+
 	// disable both; note that on success both get re-enabled,
 	// which is okay because the user-entered target is still
 	// in the box (ie has content), so targetFind can be enabled.
@@ -1134,14 +1158,16 @@ const main = (function() {
 			      targetName.removeAttribute('disabled');
 			      targetFind.removeAttribute('disabled');
 			  },
-			  (emsg) => reportLookupFailure(host,
+			  (emsg) => reportLookupFailure(host, spin,
 							targetName, targetFind,
 							emsg));
     }
 
     // TODO: improve styling
     //
-    function reportLookupFailure(host, targetName, targetFind, msg) {
+    function reportLookupFailure(host, spin, targetName, targetFind, msg) {
+
+	host.removeChild(spin);
 
 	targetName.removeAttribute('disabled');
 	targetFind.removeAttribute('disabled');
