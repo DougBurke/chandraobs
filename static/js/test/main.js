@@ -1110,9 +1110,44 @@ const main = (function() {
 
 	// Got this far, assume the input was a name to be resolved.
 	//
-        lookup.lookupName(target);
+	const host = getHost();
+	if (host === null) {
+	    return;
+	}
+
+        lookup.lookupName(target,
+			  (ra, dec) => {
+			      const zoom = wwt.get_fov();
+			      wwt.gotoRaDecZoom(ra, dec, zoom);
+			  },
+			  (emsg) => reportLookupFailure(host, emsg));
     }
 
+    // TODO: need a close-error-window function
+    //
+    function reportLookupFailure(host, msg) {
+
+	const pane = document.createElement('div');
+	pane.setAttribute('class', 'lookup-failure');
+        pane.innerHTML = msg;
+	//
+        //  '<button type="button" class="close" ' +
+        //  'onclick="wwt.hideElement(' + "'targetFailure'" +
+        //  '); wwt.setTargetName(' + "''" + ');">X</button><div>' +
+        //  msg + '</div>';
+	
+	host.appendChild(pane);
+
+	/***
+	if (typeof close === 'undefined') { close = true; }
+        if (close) {
+	    // hide the pane in 4 seconds
+            window.setTimeout(() => pane.style.display = 'none',
+			      4000);
+        }
+	***/
+
+    }
 
     function initialize() {
 
@@ -1273,18 +1308,6 @@ const main = (function() {
 	if (url !== null) {
 	    window.open(url);
 	}
-
-	// Reset the search option. I don't think this triggers
-	// this routine, but if it does it should short-cut immediately.
-	//
-	// Assume we want the first option
-	const option = document.querySelector('#searchengine option');
-	if (option === null) {
-	    console.log("INTERNAL ERROR #searchengine not found");
-	    return;
-	}
-
-	option.selected = true;
     }
 
     // Convert RA (in degrees) into hour, minutes, seconds. The

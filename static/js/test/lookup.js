@@ -1,6 +1,9 @@
 // Query the LookUP service for converting Astronomical names to
 // RA/Dec values.
 //
+// Switching from hard-coded success/error handling to a more-callback-based
+// approach.
+//
 const lookup = (() => {
 
     var lup_httpRequest;
@@ -15,55 +18,58 @@ const lookup = (() => {
 	    .replace(/%0A/g, '\n');
     }
 
-    function lookupName(objectName){
+    // Look up the name and if there is a success call
+    // callback(ra, dec) and error handler (string argument,
+    // representing HTML for the message).
+    //
+    function lookupName(objectName, callback, errhandle){
 
         lup_httpRequest = new XMLHttpRequest();
         if (!lup_httpRequest) {
-	    console.log("INTERNAL ERROR: unable to create request");
+	    errhandle("INTERNAL ERROR: unable to create request");
 	    return;
         }
 
         var src = 'http://www.strudel.org.uk/lookUP/json/?name=' +
             cleanQueryValue(objectName);
 
-        lup_httpRequest.onreadystatechange = nameResponse(objectName);
+        lup_httpRequest.onreadystatechange = nameResponse(objectName,
+							  callback,
+							  errhandle);
         lup_httpRequest.open('GET', src);
         lup_httpRequest.send();
     }
 
-    function nameResponse(objectname) {
+    function nameResponse(objectname, callback, errhandle) {
 
         return function(d) {
             if (lup_httpRequest.readyState === XMLHttpRequest.DONE) {
                 if (lup_httpRequest.status === 200) {
                     var response = JSON.parse(lup_httpRequest.responseText);
-                    processLookUP(objectname, response);
+                    processLookUP(objectname, callback, errhandle, response);
                 } else {
-                    reportLookupFailure('There was a problem calling the lookUP service.');
+		    errhandle('There was a problem calling the lookUP service.');
                 }
             }
         }
     }
 
-    function processLookUP(objectname, d) {
+    function processLookUP(objectname, callback, errhandle, d) {
 
 	if(typeof d=="undefined" || (d.type && d.type=="error")) {
-            reportLookupFailure('There was a problem querying the lookUP service.');
+	    errhandle('There was a problem querying the lookUP service.');
             return;
         }
 
 	if(d.target && d.target.suggestion) {
             var msg = "<p>Target '" + objectname + "' not found.</p><p>Did you mean '" +
                 d.target.suggestion + "'?</p>";
-            reportLookupFailure(msg);
+            errhandle(msg);
             return;
         }
 
 	if(d.ra) {
-	    // TODO: should pass around the WWT object in the lookup call
-	    const wwt = main.getWWT();
-	    const zoom = wwt.get_fov();
-	    wwt.gotoRaDecZoom(d.ra.decimal, d.dec.decimal, zoom);
+	    callback(d.ra.decimal, d.dec.decimal);
             return;
         }
 
@@ -75,57 +81,9 @@ const lookup = (() => {
         } else {
             msg = "Target '" + objectname + "' not found.";
         }
-        reportLookupFailure(msg);
+	errhandle(msg);
     }
     
-    function reportLookupSuccess(msg, close) {
-	const host = main.getHost();
-	if (host === null) {
-	    return;
-	}
-	
-	const pane = document.createElement('div');
-	pane.setAttribute('class', 'lookup-success');
-	pane.innerHTML = msg;
-
-	host.appendChild(pane);
-	
-	if (typeof close === 'undefined') { close = true; }
-        if (close) {
-	    // hide the pane in 4 seconds
-            window.setTimeout(() => pane.style.display = 'none',
-			      4000);
-        }
-
-    }
-
-    function reportLookupFailure(msg, close) {
-	const host = main.getHost();
-	if (host === null) {
-	    return;
-	}
-	
-	const pane = document.createElement('div');
-	pane.setAttribute('class', 'lookup-failure');
-        pane.innerHTML = msg;
-	/***
-            '<button type="button" class="close" ' +
-            'onclick="wwt.hideElement(' + "'targetFailure'" +
-            '); wwt.setTargetName(' + "''" + ');">X</button><div>' +
-            msg + '</div>';
-	***/
-	
-	host.appendChild(pane);
-
-	if (typeof close === 'undefined') { close = true; }
-        if (close) {
-	    // hide the pane in 4 seconds
-            window.setTimeout(() => pane.style.display = 'none',
-			      4000);
-        }
-	
-    }
-
     return { lookupName: lookupName };
     
 })();
