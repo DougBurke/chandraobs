@@ -467,6 +467,10 @@ const main = (function() {
     //
     function wwtReadyFunc() {
 
+	// Start with the DSS (keep as background).
+	//
+	wwt.setBackgroundImageByName(wtml[dss]);
+
 	// Change background
 	//
 	const ichoice = document.querySelector('#imagechoice');
@@ -1266,6 +1270,11 @@ const main = (function() {
 
     // Change the "background" image being displayed by WWT.
     //
+    // This is "background" for the app, since WWT has its own concept
+    // of foreground/background, to allow you to overlay a partially-opaque
+    // foreground on the background.
+    //
+    // function changeBackground(background, opacity=50.0) {
     function changeBackground(background, opacity=100.0) {
 	if (background === "dss") {
 	    wwt.setForegroundOpacity(0.0);
