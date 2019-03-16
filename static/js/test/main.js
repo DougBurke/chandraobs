@@ -332,38 +332,29 @@ const main = (function() {
 
 	    // Set up links to the preceeding and next observation.
 	    //
+	    const timeline = document.createElement('div');
+	    timeline.setAttribute('class', 'timeline');
+
+	    const previous = document.createElement('span');
+	    previous.setAttribute('class', 'previousobs');
+
+	    const next = document.createElement('span');
+	    next.setAttribute('class', 'nextobs');
+
+	    main.appendChild(timeline);
+	    timeline.appendChild(previous);
+	    timeline.appendChild(next);
+
 	    if ('previous' in rsp) {
-		const prevObs = document.createElement('div');
-		prevObs.classList.add('timeline');
-		prevObs.classList.add('previousobs');
-
-		const span1 = addSpan(textNode("\253 Previous"));
-		span1.setAttribute('class', 'label');
-		
-		const span2 = addSpan(obsidLink(rsp.previous.obsid,
-						rsp.previous.target));
-		span2.setAttribute('class', 'link');
-
-		prevObs.appendChild(span1);
-		prevObs.appendChild(span2);
-		main.appendChild(prevObs);
+		previous.appendChild(obsidLink(rsp.previous.obsid,
+					       rsp.previous.target));
+		previous.appendChild(textNode(" \253"));
 	    }
 
 	    if ('next' in rsp) {
-		const nextObs = document.createElement('div');
-		nextObs.classList.add('timeline');
-		nextObs.classList.add('nextobs');
-
-		const span1 = addSpan(obsidLink(rsp.next.obsid,
-						rsp.next.target));
-		span1.setAttribute('class', 'link');
-
-		const span2 = addSpan(textNode("Next \273"));
-		span2.setAttribute('class', 'label');
-		
-		nextObs.appendChild(span1);
-		nextObs.appendChild(span2);
-		main.appendChild(nextObs);
+		next.appendChild(textNode("\273 "));
+		next.appendChild(obsidLink(rsp.next.obsid,
+					   rsp.next.target));
 	    }
 
 	    // We create the tabs and then decide whether to

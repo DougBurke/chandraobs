@@ -200,25 +200,32 @@ span.title {
  * which needs to interact visually with .sections
  */
 div.timeline {
-    background: rgba(255, 255, 255, 0.7);
     margin-bottom: 2px;
     margin-top: 2px;
-    padding-bottom: 0.2em;
-    padding-top: 0.2em;
+    padding-bottom: 0;
+    padding-top: 0;
     display: flex;
 }
 
-div.timeline span.link {
+div.timeline span {
+    background: rgba(255, 255, 255, 0.7);
     flex: 1 1 auto;
-    text-align: center;
+    padding-bottom: 0.2em;
+    padding-top: 0.2em;
+    width: 50%;
 }
 
-div.timeline span.label {
-    flex: 0 1 auto;
+span.previousobs {
+    margin-right: 1px;
+    padding-right: 0.2em;
+    text-align: right;
 }
 
-div.nextobs {
+span.nextobs {
+    margin-left: 1px;
+    padding-left: 0.2em;
 }
+
 
 .timeline a {
     color: rgba(3, 3, 3, 0.5);
@@ -241,12 +248,14 @@ ul.sections {
     margin-top: 0;
     overflow: auto;
     padding-left: 0;
+    text-align: center;
 }
 
 ul.sections li {
     background: rgba(255, 255, 255, 0.7);
     border-right: 2px solid #AAA;
-    float: left;
+    display: inline-block;
+    /* float: left;*/
     /* height: 1em; */
     margin-right: 0;
     padding: 0.2em 0.5em;
