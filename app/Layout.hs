@@ -510,7 +510,7 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       container = H.div H.! A.id "Details"
 
   in case ctx of
-       StaticHtml -> (addClass "inactive" container) tbl
+       StaticHtml -> addClass "inactive" container tbl
        DynamicHtml -> container tbl
 
 
@@ -581,11 +581,11 @@ renderWWT ScienceObs{..} =
                        H.! A.type_ "button"
                        H.! A.id name
                        
-            switchConstellation = (button "toggleConstellation")
+            switchConstellation = button "toggleConstellation"
               "Hide Constellations"
-            switchBoundaries = (button "toggleBoundaries")
+            switchBoundaries = button "toggleBoundaries"
               "Hide Boundaries"
-            switchNearbyFOVs = (button "toggleNearbyFOVs")
+            switchNearbyFOVs = button "toggleNearbyFOVs"
               "Hide other FOVs"
                                 
         in (H.div H.! A.id "WorldWideTelescopeControlHost") innerCts

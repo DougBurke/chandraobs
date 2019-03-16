@@ -61,7 +61,7 @@ matchPage pType sched =
      mainBlock jsLoad cssPage
 
 tstrong :: Html -> Html
-tstrong = (strong ! class_ "label")
+tstrong = strong ! class_ "label"
 
 -- | Text describing the proposal type.
 identifyType :: PropType -> Html
