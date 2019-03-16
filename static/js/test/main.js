@@ -469,7 +469,7 @@ const main = (function() {
 
 	// Start with the DSS (keep as background).
 	//
-	wwt.setBackgroundImageByName(wtml[dss]);
+	wwt.setBackgroundImageByName(wtml['dss']);
 
 	// Change background
 	//
