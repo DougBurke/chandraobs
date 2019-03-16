@@ -17,13 +17,14 @@ import Data.List (sortBy)
 import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
-import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (cycleLinkSearch)
 import Layout (standardTable)
 import Types (RestrictedSchedule
              , Cycle, fromCycle, allCycles)
-import Utils (getNumObsRestricted
+import Utils (HtmlContext(StaticHtml)
+             , toLink
+             , getNumObsRestricted
              , getScienceTimeRestricted)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardRestrictedSchedulePage
@@ -77,7 +78,7 @@ renderMatches cycle sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (a ! href "/schedule") "schedule view"
+        <> (toLink StaticHtml "/schedule") "schedule view"
         <> ".")
 
 
@@ -90,7 +91,7 @@ renderList ::
 renderList cycles = 
   let toRow (cycle, n) =
         tr $ do
-          td (cycleLinkSearch cycle)
+          td (cycleLinkSearch StaticHtml cycle)
           td (toHtml n)
 
       scycles = sortBy (compare `on` fst) cycles

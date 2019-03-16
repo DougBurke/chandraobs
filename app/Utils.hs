@@ -5,6 +5,8 @@
 
 module Utils (
      HtmlContext(..)
+     , toLink
+     
      , fromBlaze
      , standardResponse
      , showTimeDeltaFwd
@@ -86,6 +88,15 @@ import Types (ScienceObs(..)
 --   of a page.
 --
 data HtmlContext = StaticHtml | DynamicHtml deriving Eq
+
+-- | If a dynamic link force opening in a new tab.
+--
+toLink :: HtmlContext -> H.AttributeValue -> H.Html -> H.Html
+toLink ctx url =
+  let tag = H.a H.! A.href url
+  in case ctx of
+       StaticHtml -> tag
+       DynamicHtml -> tag H.! A.target "_blank"
 
 -- | Convert Blaze's HTML to a HTML page.
 fromBlaze :: H.Html -> ActionM ()

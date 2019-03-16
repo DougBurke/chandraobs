@@ -24,7 +24,9 @@ import API (basicTypeLinkSearch
            , categoryLinkSearch
            , jsScript, cssLink)
 import Layout (defaultMeta, dquote, d3Meta, noJSPara)
+import Utils (HtmlContext(StaticHtml), toLink)
 import Views.Record (CurrentPage(..), singleColBody)
+
 
 indexPage :: Html
 indexPage =
@@ -48,9 +50,9 @@ renderMatches =
     h2 "Breaking down the time spent in each Chandra category"
 
     p ("The left-hand column shows the "
-       <> (a ! href "/search/category/") "proposal categories"
+       <> (toLink StaticHtml "/search/category/") "proposal categories"
        <> " and the right-hand column the "
-       <> (a ! href "/search/type/") "SIMBAD types"
+       <> (toLink StaticHtml "/search/type/") "SIMBAD types"
        <> " for the objects observed by Chandra. "
        <> "The connections between the two indicate the amount of time "
        <> "spent observing these sources; they can be selected to view "
@@ -67,10 +69,10 @@ renderMatches =
        <> dquote (basicTypeLinkSearch Nothing)
        <> " category; as you can see, there are a lot of them! "
        <> "This group also contains all the "
-       <> categoryLinkSearch "SOLAR SYSTEM" ("Solar System" :: T.Text)
+       <> categoryLinkSearch StaticHtml "SOLAR SYSTEM" ("Solar System" :: T.Text)
        <> " observations, since SIMBAD does not include solar-system objects in its "
        <> "database. The format used for this display is known as a "
-       <> (a ! href "http://en.wikipedia.org/wiki/Sankey_diagram") "Sankey diagram"
+       <> (toLink StaticHtml "http://en.wikipedia.org/wiki/Sankey_diagram") "Sankey diagram"
        <> ". The bands at the left and right can be dragged vertically "
        <> "to aid visibility in case the layout algorithm does not "
        <> "do a good job. As a reminder, this is intended for "

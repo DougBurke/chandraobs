@@ -30,9 +30,10 @@ import Types (RestrictedSchedule, ConShort(..), TimeKS
               , getConstellationNameStr
               , getConstellationNameStr
               , showExpTime)
-import Utils (getNumObsRestricted
+import Utils (HtmlContext(StaticHtml)
+             , getNumObsRestricted
              , getScienceTimeRestricted
-             -- , toJSVarObj
+               -- , toJSVarObj
              )
 import Views.Record (CurrentPage(..))
 import Views.Render (extraRestrictedSchedulePage
@@ -113,7 +114,7 @@ renderList ::
 renderList cons = 
   let toRow (con,t) =
         tr $ do
-          td (constellationLinkSearch con (conLabel con))
+          td (constellationLinkSearch StaticHtml con (conLabel con))
           td (toHtml (showExpTime t))
 
       conLabel = getConstellationNameStr

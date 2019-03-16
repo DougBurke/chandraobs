@@ -19,7 +19,7 @@ import Text.Blaze.Html5.Attributes hiding (title)
 
 import API (jsScript, nameLinkSearch, scheduleOnDate)
 import Layout (d3Meta)
-import Utils (toJSVarObj, fromDay)
+import Utils (HtmlContext(StaticHtml), toLink, toJSVarObj, fromDay)
 import Views.Render (extraExplorePage)
 
 indexPage ::
@@ -68,15 +68,15 @@ renderMatches cts =
         ]
 
       deployLink = 
-        (a ! href "http://chandra.harvard.edu/about/deployment.html")
+        (toLink StaticHtml "http://chandra.harvard.edu/about/deployment.html")
         "on July 23, 1999"
 
-      arLacSearchLink = nameLinkSearch "ArLac" (Just "Ar Lac")
+      arLacSearchLink = nameLinkSearch StaticHtml "ArLac" (Just "Ar Lac")
 
       arLacSchedLink =
         let uri = scheduleOnDate day 1
             day = fromGregorian 2015 9 26
-        in (a ! href uri)
+        in (toLink StaticHtml uri)
            "the twenty-one observations on September 26, 2015"
       
       paraBlocks = 
@@ -107,7 +107,7 @@ renderMatches cts =
            <> "where it stops observing, makes sure all the instruments "
            <> "are stowed, and ensures it is in an orientation that can "
            <> "contact the "
-           <> (a ! href "https://eyes.nasa.gov/dsn/dsn.html")
+           <> (toLink StaticHtml "https://eyes.nasa.gov/dsn/dsn.html")
            "Deep-Space Network"
            <> " - but it could also be due to missing data in the "
            <> "database used by this web site.")

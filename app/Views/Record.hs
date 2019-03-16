@@ -74,6 +74,7 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , recordObsId, showExpTime
              )
 import Utils (HtmlContext(..)
+             , toLink
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
@@ -364,7 +365,7 @@ groupProposal ctx tName matches =
       sobs = sortOn fst obs
       grps = groupBy ((==) `on` fst) sobs
 
-      toLink o =
+      mklink o =
         let uri = case ctx of
               StaticHtml -> obsURI o
               DynamicHtml -> "#"
@@ -374,7 +375,7 @@ groupProposal ctx tName matches =
               ! dataAttribute "obsid" (toValue o))
            lbl
 
-      addCommas xs = mconcat (intersperse ", " (P.map (toLink . snd) xs))
+      addCommas xs = mconcat (intersperse ", " (P.map (mklink . snd) xs))
                      
       tgtLinks [] = mempty -- should not happen
       tgtLinks xs@(x:_) = toHtml (fst x) <> " (" <> addCommas xs <> ")"
@@ -420,7 +421,7 @@ targetInfo ::
 targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) = 
   let mTimes = getTimes (Right so)
       obsStatus = getObsStatus mTimes cTime 
-      targetName = nameLinkSearch soTarget Nothing
+      targetName = nameLinkSearch ctx soTarget Nothing
       lenVal = toHtml (showExpTime (fromMaybe soApprovedTime soObservedTime))
 
       -- The search using the alternative name could well return different
@@ -443,7 +444,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
         Just con -> let conStr = fromConLong con
                     in "The target" <> otherName
                        <> " is located in the constellation "
-                       <> constellationLinkSearch soConstellation conStr
+                       <> constellationLinkSearch ctx soConstellation conStr
                        <> if hasSimbad then " and " else mempty
         _ -> "The target "
 
@@ -470,18 +471,12 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
             sloc = SimbadCfA  -- TODO: allow configurable, either by the app, or
                               --       by the user
 
-            simLink =
-              let tag = a ! href slink
-              in case ctx of
-                StaticHtml -> tag
-                DynamicHtml -> tag ! A.target "_blank"
-
         in " is "
-           <> typeLinkSearch smiType3 (cleanupSIMBADType smiType)
+           <> typeLinkSearch ctx smiType3 (cleanupSIMBADType smiType)
            <> ". "
            <> subArrayTxt
            <> "More information on the target can be found at "
-           <> simLink "SIMBAD"
+           <> toLink ctx slink "SIMBAD"
            <> ". "
 
       abstxt = case obsStatus of
@@ -500,7 +495,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
 
       reason = case mproposal of
         Just prop ->
-          let proplink = proposalLink prop Nothing
+          let proplink = proposalLink ctx prop Nothing
                 <> endSentence (propName prop)
           in (if obsStatus == Unscheduled
               then "It is part of the proposal "
@@ -511,11 +506,11 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
              <> "."
 
       instInfo = mconcat [
-                  "by ", instLinkSearch soInstrument,
+                  "by ", instLinkSearch ctx soInstrument,
                    if soGrating == NONE
                    then mempty
                    else " and the "
-                        <> gratLinkSearch soGrating
+                        <> gratLinkSearch ctx soGrating
                    ]
 
       -- For now ignore the "turnaround" time value, since it's
@@ -616,6 +611,9 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       -- invariant in the database, but this gives flexibility in
       -- case new missions are added).
       --
+      -- TODO: need to add HtmlContext, but fromMissionLongLin is in
+      --       lib/Types not app/API!
+      --
       missToLink mission = maybe (toHtml mission)
                            fromMissionLongLink (toMission mission)
 
@@ -647,8 +645,6 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
            <> jvals <> ". However, it does not necessarily mean "
            <> "that the observations " <> verb2
            <> " done at the same time!"
-           
-
 
       -- if there are constriants and a joint observation then the
       -- paragraph does not read well.

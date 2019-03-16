@@ -87,7 +87,8 @@ import Types (ObsIdVal(..), Grating(..)
              , rnsTarget
                
              , toMission)
-import Utils (showTimeDeltaFwd, showTimeDeltaBwd
+import Utils (HtmlContext(StaticHtml)
+             , showTimeDeltaFwd, showTimeDeltaBwd
              , cleanJointName
              , showInt
              , toJSVarArr
@@ -142,10 +143,10 @@ makeScheduleRestricted RestrictedSchedule {..} =
   let instVal r = fromMaybe "n/a" $ do
         inst <- rrecordInstrument r
         grat <- rrecordGrating r
-        return (instLinkSearch inst
+        return (instLinkSearch StaticHtml inst
                 <> if grat == NONE
                    then mempty
-                   else " with " <> gratLinkSearch grat)
+                   else " with " <> gratLinkSearch StaticHtml grat)
 
       -- TODO: add in a sortvalue for this column so that "n/a" and "" can be
       --       moved before or after the other types. As I have now decided
@@ -155,7 +156,7 @@ makeScheduleRestricted RestrictedSchedule {..} =
       --       "n/a" now.
       linkToSimbad (Left _) = ""
       linkToSimbad (Right so) = case M.lookup (rsoTarget so) rrSimbad of
-        Just si -> typeDLinkSearch (smiType3 si) (smiType si)
+        Just si -> typeDLinkSearch StaticHtml (smiType3 si) (smiType si)
         Nothing -> basicTypeLinkSearch Nothing
 
       -- convert UTCTime to an integer. If there's no time then replace
@@ -188,13 +189,13 @@ makeScheduleRestricted RestrictedSchedule {..} =
 
       showTOO (Left _) = "n/a"
       -- showTOO (Right ScienceObs{..}) = maybe "n/a" tooLinkSearch soTOO
-      showTOO (Right so) = tooLinkSearch (tooTime `fmap` rsoTOO so)
+      showTOO (Right so) = tooLinkSearch StaticHtml (tooTime `fmap` rsoTOO so)
 
       -- for now just the short form
       showConstellation (Left _)   = "n/a"
       showConstellation (Right so) =
         let con = rsoConstellation so
-        in constellationLinkSearch con (fromConShort con)
+        in constellationLinkSearch StaticHtml con (fromConShort con)
 
       score NoConstraint = 0
       score Preferred    = 1

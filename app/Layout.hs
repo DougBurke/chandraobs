@@ -49,6 +49,7 @@ import Text.Blaze.Html5.Attributes (alt
 import Text.Blaze.Internal (Attributable)
 
 import API (categoryLinkSearch
+           , constellationLinkSearch
            , cycleLinkSearch
            , instLinkSearch
            , nameLinkSearch
@@ -64,7 +65,6 @@ import Types (ChipStatus(..)
              , Constraint(..)
              , fromConLong
                
-             , ConShort(..)
              , Grating(..)
              , Instrument(..)
              , ObsIdStatus(Discarded)
@@ -84,6 +84,7 @@ import Types (ChipStatus(..)
              , fromObsIdStatus
              )
 import Utils (HtmlContext(..)
+             , toLink
              , cleanJointName
              , isChandraImageViewable
              , publicImageURL
@@ -360,7 +361,7 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
   let name = soTarget
       inst = soInstrument
       grat = soGrating
-      instInfo = instLinkSearch inst <>
+      instInfo = instLinkSearch ctx inst <>
                  if grat == NONE
                  then mempty
                  else ", " <> toHtml grat
@@ -370,16 +371,10 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
 
       keyVal k v = tr (left k <> " " <> right v)
 
-      toLink url =
-        let tag = a H.! href url
-        in case ctx of
-          StaticHtml -> tag
-          DynamicHtml -> tag H.! A.target "_blank"
+      oLink = toLink ctx (obsIdLink soObsId) (toHtml soObsId)
+      sLink = toLink ctx (seqLink soObsId)   (toHtml soSequence)
 
-      oLink = toLink (obsIdLink soObsId) (toHtml soObsId)
-      sLink = toLink (seqLink soObsId)   (toHtml soSequence)
-
-      pLink = (a H.! href ("/proposal/" <> H.toValue soProposal))
+      pLink = toLink ctx ("/proposal/" <> H.toValue soProposal)
               (toHtml soProposal)
 
        -- rely on the ToMarkup instance of TimeKS
@@ -389,6 +384,8 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
 
       -- NOTE: can this be cleared up now that I have a better
       -- understanding of the jointwith and exposure-time fields?
+      --
+      -- TODO: add ctx to this
       --
       missToLink mission = maybe (toHtml mission)
                            fromMissionLongLink (toMission mission)
@@ -414,13 +411,13 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
         in mconcat (map f (filter ((/= NoConstraint) . snd) (zip clbls cvals)))
 
       conLink con = 
-        let uri = H.toValue ("/search/constellation/" <> fromConShort con)
-        in case getConstellationName con of
-          Just ln -> Just ((a H.! href uri) (toHtml (fromConLong ln)))
+        case getConstellationName con of
+          Just ln -> Just (constellationLinkSearch ctx con (fromConLong ln))
           _ -> Nothing
         
       too = case soTOO of
-        Just t  -> keyVal "Turnaround time:" (tooLinkSearch (Just (tooTime t)))
+        Just t  -> keyVal "Turnaround time:"
+                   (tooLinkSearch ctx (Just (tooTime t)))
         Nothing -> mempty
 
       -- the "chip" display depends on whether this has been archived or
@@ -449,22 +446,22 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       -- bundle several items into a single line
       propInfo Proposal {..} =
         let p0 = toHtml propType
-            plink n = propTypeLink n Nothing
+            plink n = propTypeLink ctx n Nothing
             ptype = maybe p0 plink (toPropType propType)
 
             cycLink = case toCycle propCycle of
-              Just cyc -> cycleLinkSearch cyc
+              Just cyc -> cycleLinkSearch ctx cyc
               Nothing -> "Cycle " <> toHtml propCycle
               
         in 
           keyVal "Proposal:"
           (cycLink <> ", "
            <> ptype <> ", "
-           <> categoryLinkSearch propCategory propCategory
+           <> categoryLinkSearch ctx propCategory propCategory
           )
 
       simbadInfo SimbadInfo {..} =
-        keyVal "SIMBAD Type:" (typeDLinkSearch smiType3 smiType)
+        keyVal "SIMBAD Type:" (typeDLinkSearch ctx smiType3 smiType)
       
       discardRows = [ tr (addClass "note" td
                           "Note: the observation was discarded")
@@ -479,7 +476,7 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
         mconcat discardRows
         <>
         mconcat
-          [ keyVal "Target:" (nameLinkSearch name Nothing)
+          [ keyVal "Target:" (nameLinkSearch ctx name Nothing)
           , maybe mempty simbadInfo msimbad
           , keyVal "Observation Details:" oLink
           , keyVal "Sequence Summary:" sLink

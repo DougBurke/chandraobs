@@ -46,7 +46,9 @@ import Types (RestrictedSchedule
              , showExpTime, addTimeKS
              , fromInstrument, fromGrating
              )
-import Utils (getNumObsRestricted
+import Utils (HtmlContext(StaticHtml)
+             , toLink
+             , getNumObsRestricted
              , getScienceTimeRestricted
              , toJSVarObj
              )
@@ -113,7 +115,7 @@ renderInstMatches inst sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (a ! href "/schedule") "schedule view"
+        <> (toLink StaticHtml "/schedule") "schedule view"
         <> ".")
 
 
@@ -131,7 +133,7 @@ renderGratMatches grat sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (a ! href "/schedule") "schedule view"
+        <> (toLink StaticHtml "/schedule") "schedule view"
         <> ".")
 
 
@@ -151,7 +153,7 @@ renderIGMatches (inst, grat) sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (a ! href "/schedule") "schedule view"
+        <> (toLink StaticHtml "/schedule") "schedule view"
         <> ".")
     
 
@@ -177,8 +179,8 @@ renderTypes insts grats igs =
   in div 
      (p ("There are several ways to view the configurations: by "
          <> "instrument, grating, or both.")
-      <> tbl "Instrument" instLinkSearch insts
-      <> tbl "Grating" gratLinkSearch grats
+      <> tbl "Instrument" (instLinkSearch StaticHtml) insts
+      <> tbl "Grating" (gratLinkSearch StaticHtml) grats
       <> tbl "Instrument & Grating" igLinkSearch igs)
 
 
@@ -257,7 +259,7 @@ renderBreakdown total perDay =
         , "series" .= series
         ]
 
-      calLink = (a ! href "/search/calendar/")
+      calLink = (toLink StaticHtml "/search/calendar/")
       
   in div $ do
     p ("A " <> em "very" <> " unofficial breakdown of the time spent "
@@ -272,7 +274,7 @@ renderBreakdown total perDay =
     p ("The plots show the total number of observing hours "
        <> em "started" <> " in each day, for each detector on Chandra (so this "
        <> "combines both "
-       <> (a ! href "/about/instruments.html#grating") "grating"
+       <> (toLink StaticHtml "/about/instruments.html#grating") "grating"
        <> " and non-grating observations). It does "
        <> strong "not" <> " include non-science observations. "
        <> "Note that if an "
@@ -290,8 +292,8 @@ renderBreakdown total perDay =
        <> calLink "calendar view"
        <> ".")
 
-    tbl "Instrument" instLinkSearch insts
-    tbl "Grating" gratLinkSearch grats
+    tbl "Instrument" (instLinkSearch StaticHtml) insts
+    tbl "Grating" (gratLinkSearch StaticHtml) grats
     tbl "Instrument & Grating" igLinkSearch igs
 
     toJSVarObj "seriesinfo" json

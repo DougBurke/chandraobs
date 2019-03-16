@@ -20,7 +20,7 @@ import Types (Proposal(..), ProposalAbstract(..)
              , RestrictedSchedule
              , rsoObsId
              )
-import Utils (rschedToList, showInt)
+import Utils (HtmlContext(StaticHtml), rschedToList, showInt)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardRestrictedSchedulePage)
 
@@ -43,7 +43,7 @@ renderProposal ::
   -> RestrictedSchedule
   -> Html
 renderProposal title Proposal{..} mAbs sched =
-  let catLink = categoryLinkSearch propCategory propCategory
+  let catLink = categoryLinkSearch StaticHtml propCategory propCategory
 
       obsList = rights (rschedToList sched)
       nobs = length obsList
