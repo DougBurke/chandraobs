@@ -58,6 +58,7 @@ import API (categoryLinkSearch
            , propTypeLink
            , tooLinkSearch
            , typeDLinkSearch
+           , fromMissionLongLink
            , seqLink
            , cssLink, jsScript
            )
@@ -75,7 +76,6 @@ import Types (ChipStatus(..)
              , tooTime
              , fromRA, fromDec -- only needed for WWT experiments
              , toCycle
-             , fromMissionLongLink
              , getConstellationName
              , getJointObs
              , toMission
@@ -387,8 +387,12 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       --
       -- TODO: add ctx to this
       --
-      missToLink mission = maybe (toHtml mission)
-                           fromMissionLongLink (toMission mission)
+      -- this code is a bit ugly because I haven't provided a good
+      -- API for the mission info (to many functions returning a
+      -- Maybe)
+      --
+      missToLink mission = maybe (toHtml mission) id
+        (toMission mission >>= fromMissionLongLink ctx)
                            
       toJ (l,v) = keyVal "Joint with:"
                   (missToLink l <> " for " <> toHtml (fromTimeKS v) <> " ks")

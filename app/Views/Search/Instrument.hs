@@ -115,7 +115,7 @@ renderInstMatches inst sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (toLink StaticHtml "/schedule") "schedule view"
+        <> toLink StaticHtml "/schedule" "schedule view"
         <> ".")
 
 
@@ -133,7 +133,7 @@ renderGratMatches grat sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (toLink StaticHtml "/schedule") "schedule view"
+        <> toLink StaticHtml "/schedule" "schedule view"
         <> ".")
 
 
@@ -153,7 +153,7 @@ renderIGMatches (inst, grat) sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (toLink StaticHtml "/schedule") "schedule view"
+        <> toLink StaticHtml "/schedule" "schedule view"
         <> ".")
     
 
@@ -259,7 +259,7 @@ renderBreakdown total perDay =
         , "series" .= series
         ]
 
-      calLink = (toLink StaticHtml "/search/calendar/")
+      calLink = toLink StaticHtml "/search/calendar/"
       
   in div $ do
     p ("A " <> em "very" <> " unofficial breakdown of the time spent "
@@ -274,7 +274,7 @@ renderBreakdown total perDay =
     p ("The plots show the total number of observing hours "
        <> em "started" <> " in each day, for each detector on Chandra (so this "
        <> "combines both "
-       <> (toLink StaticHtml "/about/instruments.html#grating") "grating"
+       <> toLink StaticHtml "/about/instruments.html#grating" "grating"
        <> " and non-grating observations). It does "
        <> strong "not" <> " include non-science observations. "
        <> "Note that if an "

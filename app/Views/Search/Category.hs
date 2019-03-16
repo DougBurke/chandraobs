@@ -88,7 +88,7 @@ renderTypes cats =
        <> "data" <> sup "1" <> " - and a technical justification, "
        <> "in order to justify the observation length and choice "
        <> "of "
-       <> (toLink StaticHtml "/about/instruments.html")
+       <> toLink StaticHtml "/about/instruments.html"
        "Chandra instrumentation"
        <> ". The Astronomer choses which category best fits her "
        <> "science case, and submits the proposal; it is this "
@@ -111,10 +111,10 @@ renderTypes cats =
        <> "so there are often many more unhappy than happy Astronomers "
        <> "when the results are announced! The abstracts for successful "
        <> "proposals can be read by following the "
-       <> (toLink StaticHtml "/proposal/14400832") "proposal link"
+       <> toLink StaticHtml "/proposal/14400832" "proposal link"
        <> " for an observation, and then selecting the proposal title "
        <> "- in this example I chose "
-       <> (toLink StaticHtml (abstractLink (unsafeToObsIdVal 14662)))
+       <> toLink StaticHtml (abstractLink (unsafeToObsIdVal 14662))
        "An X-ray binary candidate with potential extended emission"
        <> "."
       )
@@ -181,7 +181,7 @@ renderMatches cat scienceTime nobs =
         -- assume the schedule is all science observations
         <> toHtml nobs
         <> ". The format is the same as used in the "
-        <> (toLink StaticHtml "/schedule") "schedule view"
+        <> toLink StaticHtml "/schedule" "schedule view"
         <> "."
         )
         
@@ -208,7 +208,7 @@ renderComboMatches cat mtype sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (toLink StaticHtml "/schedule") "schedule view"
+        <> toLink StaticHtml "/schedule" "schedule view"
         <> "."
         )
 

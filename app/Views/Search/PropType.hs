@@ -126,10 +126,10 @@ identifyType TOO =
   p (tstrong "Target of Opportunity Observations"
      <> " are for Scientific proposals of "
      <> "time-varying phenomena, such as "
-     <> (toLink StaticHtml "https://en.wikipedia.org/wiki/Gamma-ray_burst")
+     <> toLink StaticHtml "https://en.wikipedia.org/wiki/Gamma-ray_burst"
      "Gamma-Ray Bursts"
      <> " or "
-     <> (toLink StaticHtml "https://en.wikipedia.org/wiki/Flare_star")
+     <> toLink StaticHtml "https://en.wikipedia.org/wiki/Flare_star"
      "an X-ray flaring star"
      <> sup "1"
      <> " that can be predicted (in that, a proposal can be written to "
@@ -160,7 +160,7 @@ renderTypes pmap =
 
   in do
     p ("Chandra proposals, as well as being split up by "
-      <> (toLink StaticHtml "/search/category/") "category"
+      <> toLink StaticHtml "/search/category/" "category"
       <> ", also have a type, which is used to indicate "
       <> "the origin of the proposal. There are six types:"
       )
@@ -180,7 +180,7 @@ renderTypes pmap =
     (p ! class_ "footnote")
       (sup "1"
        <> " Our Sun, "
-       <> (toLink StaticHtml "https://xrt.cfa.harvard.edu/xpow/")
+       <> toLink StaticHtml "https://xrt.cfa.harvard.edu/xpow/"
        "which is X-ray variable"
        <> ", is so bright in X-rays "
        <> "that it can not be observed with Chandra because it would "
@@ -211,5 +211,5 @@ renderMatches ptype sched =
        -- assume the schedule is all science observations
        <> toHtml (getNumObsRestricted sched)
        <> ". The format is the same as used in the "
-       <> (toLink StaticHtml "/schedule") "schedule view"
+       <> toLink StaticHtml "/schedule" "schedule view"
        <> ".")

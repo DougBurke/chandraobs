@@ -147,7 +147,7 @@ renderMatches lbl sched children =
   let scienceTime = getScienceTimeRestricted sched
       nobs = toHtml (getNumObsRestricted sched)
       schedLink = ", and the format used here is the same as that of the "
-                  <> (toLink StaticHtml "/schedule") "schedule view"
+                  <> toLink StaticHtml "/schedule" "schedule view"
                   <> "."
 
       -- TODO: rewrite, re-position, and make links
@@ -189,7 +189,7 @@ renderMatches lbl sched children =
              , childTxt
              , ". The object type is based on the target name created by the "
              , "observer, and is often not sufficient to identify it in "
-             , (toLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "SIMBAD"
+             , toLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X" "SIMBAD"
              , ", which is why not all observations have a type (it is also "
              , "true that the Chandra field of view is large enough to contain "
              , "more objects than just the observation target!). "
@@ -204,7 +204,7 @@ nameInfo :: H.Html
 nameInfo =
   "The target names set by the proposal writers were used to identify " <>
   "the object types using " <>
-  (toLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X") "the SIMBAD database"
+  toLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X" "the SIMBAD database"
   <> ". "
 
 -- | Render the list of object types, and include a link to the "unidentified"
@@ -227,7 +227,7 @@ renderTypes objs =
                       th (toHtml lbl))
 
       unidRow =
-        td ((toLink StaticHtml "/search/type/unidentified") unidLabel) <>
+        td (toLink StaticHtml "/search/type/unidentified" unidLabel) <>
         (td ! A.title (toValue lbl)) "lots"
         
       tableBody = 
@@ -247,7 +247,7 @@ renderTypes objs =
         <> "that is, those sources that are near-enough to the target to also "
         <> "be observed by Chandra). The table below does not indicate the "
         <> "SIMBAD hierarchy; to see how these object types are related visit "
-        <> (toLink StaticHtml "/search/dtype/") "the SIMBAD dendogram view"
+        <> toLink StaticHtml "/search/dtype/" "the SIMBAD dendogram view"
         <> "."
       
   in div (p pText
@@ -348,7 +348,7 @@ renderDependency objs =
         <> "incomplete (and does not include so-called serendipitous sources, "
         <> "that is, those sources that are near-enough to the target to also "
         <> "be observed by Chandra). The "
-        <> (toLink StaticHtml "https://en.wikipedia.org/wiki/Dendrogram") "dendogram view"
+        <> toLink StaticHtml "https://en.wikipedia.org/wiki/Dendrogram" "dendogram view"
         <> " is used to show the SIMBAD hierarchy. Selecting a circle will "
         <> "close or open the children of the item (i.e. those types that are "
         <> "more specific than the selected item); a filled circle shows that "
@@ -360,7 +360,7 @@ renderDependency objs =
         <> "objects. "
         <> "For a simpler view, which just lists the SIMBAD types but does "
         <> "not show the hierarchy, is available at "
-        <> (toLink StaticHtml "/search/type/") "the SIMBAD types view"
+        <> toLink StaticHtml "/search/type/" "the SIMBAD types view"
         <> "."
 
   in div (p pText <> svgBlock)

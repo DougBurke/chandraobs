@@ -68,7 +68,7 @@ renderMatches cts =
         ]
 
       deployLink = 
-        (toLink StaticHtml "http://chandra.harvard.edu/about/deployment.html")
+        toLink StaticHtml "http://chandra.harvard.edu/about/deployment.html"
         "on July 23, 1999"
 
       arLacSearchLink = nameLinkSearch StaticHtml "ArLac" (Just "Ar Lac")
@@ -76,7 +76,7 @@ renderMatches cts =
       arLacSchedLink =
         let uri = scheduleOnDate day 1
             day = fromGregorian 2015 9 26
-        in (toLink StaticHtml uri)
+        in toLink StaticHtml uri
            "the twenty-one observations on September 26, 2015"
       
       paraBlocks = 
@@ -107,7 +107,7 @@ renderMatches cts =
            <> "where it stops observing, makes sure all the instruments "
            <> "are stowed, and ensures it is in an orientation that can "
            <> "contact the "
-           <> (toLink StaticHtml "https://eyes.nasa.gov/dsn/dsn.html")
+           <> toLink StaticHtml "https://eyes.nasa.gov/dsn/dsn.html"
            "Deep-Space Network"
            <> " - but it could also be due to missing data in the "
            <> "database used by this web site.")

@@ -43,6 +43,9 @@ module API (scheduleOnDate
            , jointLinkSearch
            , constraintLinkSearch
              
+           , fromMissionAboutLink
+           , fromMissionLongLink
+
            , jsScript
            , cssLink
 
@@ -99,6 +102,8 @@ import Types (ConShort(..)
              , rrecordObsId
                
              , fromMission
+             , getMissionInfo
+             
              , fromPropType
              , toPropTypeLabel
              , rtToLabel
@@ -138,7 +143,7 @@ linkToRecordA ::
   -> Html
 linkToRecordA f r = 
   let uri = obsURI (recordObsId r)
-  in (toLink StaticHtml uri) (toHtml (f r))
+  in toLink StaticHtml uri (toHtml (f r))
 
 linkToRecord :: Record -> Html
 linkToRecord = linkToRecordA recordTarget
@@ -150,7 +155,7 @@ linkToRestrictedRecordA ::
   -> Html
 linkToRestrictedRecordA f r = 
   let uri = obsURI (rrecordObsId r)
-  in (toLink StaticHtml uri) (toHtml (f r))
+  in toLink StaticHtml uri (toHtml (f r))
 
 linkToRestrictedRecord :: RestrictedRecord -> Html
 linkToRestrictedRecord = linkToRestrictedRecordA rrecordTarget
@@ -193,14 +198,14 @@ propTypeLink :: HtmlContext -> PropType -> Maybe T.Text -> Html
 propTypeLink ctx propType mlbl =
   let lbl = fromMaybe (toPropTypeLabel propType) mlbl
       pLink = "/search/proptype/" <> H.toValue (fromPropType propType)
-  in (toLink ctx pLink) (toHtml lbl)
+  in toLink ctx pLink (toHtml lbl)
 
 
 proposalLink :: HtmlContext -> Proposal -> Maybe T.Text -> Html
 proposalLink ctx Proposal{..} mlbl =
   let lbl = fromMaybe propName mlbl
       uri = "/proposal/" <> H.toValue propNum
-  in (toLink ctx uri) (toHtml lbl)
+  in toLink ctx uri (toHtml lbl)
 
      
 -- | Link to the TOO category. See also `tooLinkSearchLong`.
@@ -217,7 +222,7 @@ tooLinkSearchLong ctx too lbl =
   let ttype = maybe "none" (T.toLower . rtToLabel) too
       uri = "/search/turnaround/" <> ttype
       uriVal = textValue uri
-  in (toLink ctx uriVal) (toHtml lbl)
+  in toLink ctx uriVal (toHtml lbl)
 
 
 -- Note that there is a slight difference in the instrument and grating
@@ -231,13 +236,13 @@ tooLinkSearchLong ctx too lbl =
 instLinkSearch :: HtmlContext -> Instrument -> Html
 instLinkSearch ctx inst = 
   let iLink = "/search/instrument/" <> H.toValue inst
-  in (toLink ctx iLink) (toHtml inst)
+  in toLink ctx iLink (toHtml inst)
 
 -- | Add in a link to the grating search page.
 gratLinkSearch :: HtmlContext -> Grating -> Html
 gratLinkSearch ctx grat = 
   let gLink = "/search/grating/" <> H.toValue (show grat)
-  in (toLink ctx gLink) (toHtml grat)
+  in toLink ctx gLink (toHtml grat)
 
 -- | Add in a link to the combined instrument+grating search page.
 igLinkSearch :: (Instrument, Grating) -> Html
@@ -245,14 +250,14 @@ igLinkSearch (inst, grat) =
   let linkVal = "/search/instgrat/" <> H.toValue frag
       frag = show inst ++ "-" ++ show grat
       lbl = toHtml inst <> " with " <> toHtml grat
-  in (toLink StaticHtml linkVal) lbl
+  in toLink StaticHtml linkVal lbl
 
 -- | Add in a link to a "what is this" page for the
 --   instrument.
 instLinkAbout :: Instrument -> Html
 instLinkAbout inst = 
   let iLink = "/about/instruments.html#" <> H.toValue inst
-  in (toLink StaticHtml iLink) (toHtml inst)
+  in toLink StaticHtml iLink (toHtml inst)
 
 -- | Add in a link to a "what is this" page for the
 --   grating.
@@ -260,7 +265,7 @@ gratLinkAbout :: Grating -> Html
 gratLinkAbout NONE = "no grating"
 gratLinkAbout grat = 
   let linkVal = "/about/instruments.html#" <> H.toValue (show grat)
-  in (toLink StaticHtml linkVal) ("the " <> toHtml grat)
+  in toLink StaticHtml linkVal ("the " <> toHtml grat)
 
 {-
 -- | Link to the general instruments page
@@ -278,8 +283,7 @@ constellationLinkSearch ::
   -> Html
 constellationLinkSearch ctx con lbl = 
   let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
-      alink = toLink ctx iLink
-  in alink (toHtml lbl)
+  in toLink ctx iLink (toHtml lbl)
 
 -- | Link to the given search (apart from for the "All" cycles,
 --   which we currently don't support in the schedule view since
@@ -294,7 +298,7 @@ cycleLinkSearch ctx cyc =
       lbl = fromCycle cyc
   in if lbl == "all"
      then "All cycles"
-     else (toLink ctx iLink) (toHtml ("Cycle " <> lbl))
+     else toLink ctx iLink (toHtml ("Cycle " <> lbl))
 
 
 data TypeOption = TypeLink | TypeDLink deriving Eq
@@ -329,7 +333,7 @@ typeLinkSearch ::
   -> Html
 typeLinkSearch ctx st lbl = 
   let iLink = H.unsafeByteStringValue (typeLinkURI st)
-  in (toLink ctx iLink) (toHtml lbl)
+  in toLink ctx iLink (toHtml lbl)
 
 typeDLinkSearch ::
   H.ToMarkup a
@@ -339,13 +343,13 @@ typeDLinkSearch ::
   -> Html
 typeDLinkSearch ctx st lbl = 
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
-  in (toLink ctx iLink) (toHtml lbl)
+  in toLink ctx iLink (toHtml lbl)
 
 -- | Should this be a wrapper around typeLinkSearch or
 --   typeDLinkSearch?
 basicTypeLinkSearch :: Maybe SimbadType -> Html
 basicTypeLinkSearch Nothing =
-  (toLink StaticHtml "/search/type/unidentified") "Unidentified"
+  toLink StaticHtml "/search/type/unidentified" "Unidentified"
 basicTypeLinkSearch (Just s) =
   let txt = fromMaybe "unknown SIMBAD type" (simbadTypeToDesc s)
   in typeLinkSearch StaticHtml s txt
@@ -359,7 +363,7 @@ categoryLinkSearch ::
   -> Html
 categoryLinkSearch ctx cat lbl = 
   let iLink = "/search/category/" <> H.toValue cat
-  in (toLink ctx iLink) (toHtml lbl)
+  in toLink ctx iLink (toHtml lbl)
 
 -- | Search for the given target. This is an exact (case insensitive)
 --   search.
@@ -382,7 +386,7 @@ nameLinkSearch ::
   -> Html
 nameLinkSearch ctx tgt mlbl =
   let lbl = fromMaybe (fromTargetName tgt) mlbl
-  in (toLink ctx (targetSearch tgt)) (toHtml lbl)
+  in toLink ctx (targetSearch tgt) (toHtml lbl)
     
 jointLink :: JointMission -> AttributeValue
 jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
@@ -390,16 +394,35 @@ jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
 -- | Create a link to the mission.
 jointLinkSearch :: JointMission -> Html
 jointLinkSearch jm =
-  (toLink StaticHtml (jointLink jm)) (toHtml (fromMission jm))
+  toLink StaticHtml (jointLink jm) (toHtml (fromMission jm))
 
 -- | Link to the constraint search.
 constraintLinkSearch :: Maybe ConstraintKind -> Html
 constraintLinkSearch (Just cs) =
   let uri = textValue ("/search/constraints/" <> csToLC cs)
-  in (toLink StaticHtml uri) (toHtml (csToLabel cs))
+  in toLink StaticHtml uri (toHtml (csToLabel cs))
 constraintLinkSearch Nothing =
   let uri = textValue "/search/constraints/none"
-  in (toLink StaticHtml uri) "None"
+  in toLink StaticHtml uri "None"
+
+
+-- | Link to the search page.
+--
+fromMissionLongLink :: HtmlContext -> JointMission -> Maybe H.Html
+fromMissionLongLink ctx m =
+  case getMissionInfo m of
+    Just (shortName, longName, _) ->
+      let url = H.toValue ("/search/joint/" <> shortName)
+      in Just (toLink ctx url (toHtml longName))
+    Nothing -> Nothing
+    
+
+-- | Link to a page about the mission.
+fromMissionAboutLink :: JointMission -> Maybe H.Html
+fromMissionAboutLink m =
+  case getMissionInfo m of
+    Just (_, longName, url) -> Just (toLink StaticHtml url (toHtml longName))
+    Nothing -> Nothing
 
 
 jsScript :: AttributeValue -> Html

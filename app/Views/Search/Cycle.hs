@@ -78,7 +78,7 @@ renderMatches cycle sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> (toLink StaticHtml "/schedule") "schedule view"
+        <> toLink StaticHtml "/schedule" "schedule view"
         <> ".")
 
 

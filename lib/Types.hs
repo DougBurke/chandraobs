@@ -76,8 +76,9 @@ module Types ( ObsIdVal
              , includesMission
              , splitToMission
              , getJointObs
-             , fromMissionAboutLink
-             , fromMissionLongLink
+
+             , MissionInfo
+             , getMissionInfo
 
              , RA
              , toRA
@@ -219,7 +220,7 @@ module Types ( ObsIdVal
              , SimbadLoc(..)
              , simbadBase
              , toSIMBADLink
-               
+
              , MetaData
              , toMetaData
                -- mdLastModified isn't used anywhere, but is used by
@@ -265,7 +266,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
 import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Arrow (first)
 import Control.Monad ((>=>))
@@ -1682,14 +1682,17 @@ vmissionMap =
   ]
 
 toMission :: T.Text -> Maybe JointMission
-toMission m = lookup m vmissionMap
+toMission = flip lookup vmissionMap
 
 instance Parsable JointMission where
   parseParam = helpParse "mission name" toMission
 
 -- Hmmm, lose the ability for the compiler to catch a missing
 -- value like this.
-missionMap :: [(JointMission, (T.Text, T.Text, H.AttributeValue))]
+
+type MissionInfo = (T.Text, T.Text, H.AttributeValue)
+
+missionMap :: [(JointMission, MissionInfo)]
 missionMap =
   [ (HST, ("HST", "Hubble Space Telescope (HST)"
           , "https://www.nasa.gov/mission_pages/hubble/main/index.html"))
@@ -1711,6 +1714,10 @@ missionMap =
              , "http://www.nustar.caltech.edu/"))
   ]
 
+getMissionInfo :: JointMission -> Maybe MissionInfo
+getMissionInfo = flip lookup missionMap
+
+
 fromMission :: JointMission -> T.Text
 fromMission m = case lookup m missionMap of
   Just x -> _1 x
@@ -1721,22 +1728,6 @@ fromMissionLong m = case lookup m missionMap of
   Just x -> _2 x
   Nothing -> error "Internal error: missing mission fromMissionLong"
 
--- | Link to the search page.
---
---   This should really be in Utils.
---
-fromMissionLongLink :: JointMission -> H.Html
-fromMissionLongLink m = case lookup m missionMap of
-  Just x -> let url = H.toValue ("/search/joint/" <> _1 x)
-            in (H.a H.! A.href url) (H.toHtml (_2 x))
-  Nothing -> error "Internal error: missing mission fromMissionLongLink"
-
--- | Link to a page about the mission.
-fromMissionAboutLink :: JointMission -> H.Html
-fromMissionAboutLink m = case lookup m missionMap of
-  Just x -> (H.a H.! A.href (_3 x)) (H.toHtml (_2 x))
-  Nothing -> error "Internal error: missing mission fromMissionAboutLink"
-
 -- | Does the list of Joint-with observatories include
 --   the mission.
 --
@@ -1744,6 +1735,7 @@ includesMission :: JointMission -> T.Text -> Bool
 includesMission m = case lookup m missionMap of
   Just x -> T.isInfixOf (_1 x)
   Nothing -> error "Internal error: missing mission includesMission"
+
 
 -- | Convert the joint-with field into a list of missions.
 --

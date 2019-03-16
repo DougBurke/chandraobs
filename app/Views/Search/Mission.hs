@@ -5,8 +5,8 @@
 module Views.Search.Mission (indexPage, matchPage)
        where
 
--- import qualified Prelude as P
-import Prelude (($), Int, Maybe(..), compare, fst)
+import qualified Prelude as P
+import Prelude (($), Int, Maybe(..), compare, fst, maybe)
 
 import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
@@ -19,13 +19,14 @@ import Data.List (sortBy)
 import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (map, title)
-import Text.Blaze.Html5.Attributes hiding (title)
 
+import API (fromMissionLongLink, fromMissionAboutLink)
 import Layout (floatableTable)
 import Types (RestrictedSchedule, JointMission
-             , fromMission, fromMissionLong
-             , fromMissionLongLink, fromMissionAboutLink)
-import Utils (getNumObsRestricted
+             , fromMission, fromMissionLong)
+import Utils (HtmlContext(StaticHtml)
+             , toLink
+             , getNumObsRestricted
              , getScienceTimeRestricted
              )
 import Views.Record (CurrentPage(..))
@@ -63,8 +64,11 @@ renderMissions ::
   -> Html
 renderMissions jms = 
   let toRow (jm,n) = tr $ do
-                    td (fromMissionLongLink jm)
+                    td (missToLink jm)
                     (td ! A.title (toValue lbl)) (toHtml n)
+
+      missToLink m = maybe "Another observatory" P.id
+        (fromMissionLongLink StaticHtml m)
 
       lbl = "Number of observations" :: T.Text
       sjms = sortBy (compare `on` fst) jms
@@ -81,7 +85,7 @@ renderMissions jms =
        <> "not. The set of missions for which joint proposals "
        <> "are available changes over time, as new facilities become available "
        <> "and others are decomissioned or "
-       <> (a ! href "https://en.wikipedia.org/wiki/Suzaku_(satellite)")
+       <> toLink StaticHtml "https://en.wikipedia.org/wiki/Suzaku_(satellite)"
        "are turned off."
       )
       
@@ -100,17 +104,22 @@ renderMatches ::
   -> Html
 renderMatches ms sched = 
   let scienceTime = getScienceTimeRestricted sched
+
+      -- not ideal if mission lookup fails, but it shouldn't
+      
+      missLink = maybe "another observatory" ("the " <>)
+        (fromMissionAboutLink ms)
       
   in -- TODO: improve English here
     p ("This page shows Chandra observations of objects which had "
-       <> "joint observations with the "
-       <> fromMissionAboutLink ms
+       <> "joint observations with "
+       <> missLink
        <> scienceTime
        <> ". These observations may be simultaneous, but often "
        <> "they are not. "
        -- assume the schedule is all science observations
        <> toHtml (getNumObsRestricted sched)
        <> ". The format is the same as used in the "
-       <> (a ! href "/schedule") "schedule view"
+       <> toLink StaticHtml "/schedule" "schedule view"
        <> ".")
     

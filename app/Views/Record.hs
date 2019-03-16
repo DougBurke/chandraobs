@@ -16,7 +16,7 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (>), (==), (/=), (&&)
+import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (>>=)
                , Eq, Either(..), Maybe(..), String
                , const, either, elem, filter, fst, length, map
                , maybe, null, otherwise, snd, splitAt, uncurry
@@ -44,6 +44,7 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , nameLinkSearch
            , constellationLinkSearch
            , proposalLink
+           , fromMissionLongLink
            , obsURI
            , jsScript, cssLink)
 import Layout (defaultMeta
@@ -70,7 +71,7 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , getJointObs
              , getConstellationName
              , similarName
-             , toMission, fromMissionLongLink
+             , toMission
              , recordObsId, showExpTime
              )
 import Utils (HtmlContext(..)
@@ -611,11 +612,8 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       -- invariant in the database, but this gives flexibility in
       -- case new missions are added).
       --
-      -- TODO: need to add HtmlContext, but fromMissionLongLin is in
-      --       lib/Types not app/API!
-      --
-      missToLink mission = maybe (toHtml mission)
-                           fromMissionLongLink (toMission mission)
+      missToLink mission = maybe (toHtml mission) P.id
+        (toMission mission >>= fromMissionLongLink ctx)
 
       toJ (l, tks) = missToLink l
                      <> " (for " <> toHtml (showExpTime tks)
