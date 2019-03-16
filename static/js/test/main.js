@@ -264,6 +264,122 @@ const main = (function() {
 	
     }
 
+    // Create a "status pane" showing the given observation details
+    // from the /api/page/<obsid> query.
+    //
+    // This also tells the WWT to jump to the location (on success)
+    //
+    function makeStatusPane(obsid, rsp) {
+
+	const pane = document.createElement('div');
+	pane.setAttribute('class', 'statusPane');
+
+	pane.draggable = true;
+	pane.addEventListener('dragstart',
+			      event => draggable.startDrag(event));
+
+	const controlElements = document.createElement('div');
+	controlElements.setAttribute('class', 'controlElements');
+
+	const title = document.createElement('span');
+	title.setAttribute('class', 'title');
+	title.innerText = "Observation " + obsid;
+	controlElements.appendChild(title);
+
+	pane.appendChild(controlElements);
+
+	const main = document.createElement('div');
+	main.setAttribute('class', 'main');
+
+	pane.appendChild(main);
+
+	controlElements.appendChild(addCloseButton(pane));
+	controlElements.appendChild(addHideShowButton(main));
+
+        if (rsp.status === 'success') {
+
+	    // Note: add ra and dec to the pane, since we can then
+	    //       extract it from the pane rather than searching
+	    //       around from it (which can be awkward for engineering
+	    //       observations).
+	    //
+	    pane.setAttribute('data-ra', rsp.ra);
+	    pane.setAttribute('data-dec', rsp.dec);
+
+	    // We create the tabs and then decide whether to
+	    // add it to the main element (we don't for engineering
+	    // observations as only have a details tab).
+	    //
+	    const tabs = document.createElement('ul');
+	    tabs.setAttribute('class', 'sections');
+
+	    const content = document.createElement('div');
+	    content.setAttribute('class', 'content');
+
+	    // Set up the the tabs and their content.
+	    //
+	    var statusLi = null;
+	    var ntabs = 0;
+
+	    [['overview', 'Status'],
+	     ['related', 'Related'],
+	     ['details', 'Details'],
+	     ['proposal', 'Proposal']].forEach((x) => {
+		 const field = x[0];
+		 const label = x[1];
+		 if (field in rsp) {
+		     const vals = make_display_elements(pane, rsp, field, label);
+		     tabs.appendChild(vals.li);
+		     content.appendChild(vals.content);
+
+		     if (field === 'overview') { statusLi = vals.a; }
+		     ntabs += 1;
+		 }
+	     });
+
+	    if (ntabs > 1) {
+		main.appendChild(tabs);
+	    }
+
+	    main.appendChild(content);
+
+            // add click handlers to the obsid links
+            //
+	    content.querySelectorAll('a.obsidlink').forEach((el) => {
+		const obsid = parseInt(el.getAttribute('data-obsid'));
+		if (isNaN(obsid)) {
+		    console.log("Internal error: data-obsid=[" +
+				el.getAttribute('data-obsid') +
+				"] not an int!");
+		    return;
+		}
+		el.addEventListener('click', e => showObsId(obsid));
+	    });
+
+	    wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, false);
+
+	    // Set up the display now everything has been added.
+	    //
+	    if (statusLi !== null) {
+		statusLi.click();
+	    }
+
+        } else {
+
+	    const err = document.createElement('div');
+	    err.setAttribute('class', 'error');
+	    if (typeof rsp.error !== 'undefined') {
+		err.innerHTML = rsp.error;
+	    } else {
+		err.innerHTML = "<p>An unknown error occurred.</p>";
+	    }
+
+	    main.appendChild(err);
+        }
+
+	return pane;
+    }
+
     function showObsId(obsid) {
 
 	const host = getHost();
@@ -301,117 +417,11 @@ const main = (function() {
 	    url: "/api/page/" + obsid,
 	    dataType: "json"
         }).done(function (rsp) {
-
 	    host.removeChild(spin);
 	    showTimeline(rsp);
 
-	    const pane = document.createElement('div');
-	    pane.setAttribute('class', 'statusPane');
+	    const pane = makeStatusPane(obsid, rsp);
 	    pane.setAttribute('id', idVal);
-
-	    pane.draggable = true;
-	    pane.addEventListener('dragstart',
-				  event => draggable.startDrag(event));
-
-	    const controlElements = document.createElement('div');
-	    controlElements.setAttribute('class', 'controlElements');
-
-	    const title = document.createElement('span');
-	    title.setAttribute('class', 'title');
-	    title.innerText = "Observation " + obsid;
-	    controlElements.appendChild(title);
-	    
-	    pane.appendChild(controlElements);
-
-	    const main = document.createElement('div');
-	    main.setAttribute('class', 'main');
-
-	    pane.appendChild(main);
-	    
-	    controlElements.appendChild(addCloseButton(pane));
-	    controlElements.appendChild(addHideShowButton(main));
-
-            if (rsp.status === 'success') {
-
-		// Note: add ra and dec to the pane, since we can then
-		//       extract it from the pane rather than searching
-		//       around from it (which can be awkward for engineering
-		//       observations).
-		//
-		pane.setAttribute('data-ra', rsp.ra);
-		pane.setAttribute('data-dec', rsp.dec);
-
-		// We create the tabs and then decide whether to
-		// add it to the main element (we don't for engineering
-		// observations as only have a details tab).
-		//
-		const tabs = document.createElement('ul');
-		tabs.setAttribute('class', 'sections');
-
-		const content = document.createElement('div');
-		content.setAttribute('class', 'content');
-		
-		// Set up the the tabs and their content.
-		//
-		var statusLi = null;
-		var ntabs = 0;
-
-		[['overview', 'Status'],
-		 ['related', 'Related'],
-		 ['details', 'Details'],
-		 ['proposal', 'Proposal']].forEach((x) => {
-		     const field = x[0];
-		     const label = x[1];
-		     if (field in rsp) {
-			 const vals = make_display_elements(pane, rsp, field, label);
-			 tabs.appendChild(vals.li);
-			 content.appendChild(vals.content);
-
-			 if (field === 'overview') { statusLi = vals.a; }
-			 ntabs += 1;
-		     }
-		 });
-
-		if (ntabs > 1) {
-		    main.appendChild(tabs);
-		}
-		
-		main.appendChild(content);
-		
-                // add click handlers to the obsid links
-                //
-		content.querySelectorAll('a.obsidlink').forEach((el) => {
-		    const obsid = parseInt(el.getAttribute('data-obsid'));
-		    if (isNaN(obsid)) {
-			console.log("Internal error: data-obsid=[" +
-				    el.getAttribute('data-obsid') +
-				    "] not an int!");
-			return;
-		    }
-		    el.addEventListener('click', e => showObsId(obsid));
-		});
-
-		wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, false);
-
-		// Set up the display now everything has been added.
-		//
-		if (statusLi !== null) {
-		    statusLi.click();
-		}
-
-            } else {
-
-		const err = document.createElement('div');
-		err.setAttribute('class', 'error');
-		if (typeof rsp.error !== 'undefined') {
-		    err.innerHTML = rsp.error;
-		} else {
-		    err.innerHTML = "<p>An unknown error occurred.</p>";
-		}
-
-		main.appendChild(err);
-            }
-
 	    host.appendChild(pane);
 
         }).fail(function(xhr, status, e) {
