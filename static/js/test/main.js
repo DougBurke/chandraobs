@@ -264,6 +264,28 @@ const main = (function() {
 	
     }
 
+    function textNode(txt) {
+	return document.createTextNode(txt);
+    }
+
+    // Wrap contents up with a span
+    function addSpan(cts) {
+	const span = document.createElement('span');
+	span.appendChild(cts);
+	return span;
+    }
+    
+    // Create a link with the given label that jumps to the given obsid
+    function obsidLink(obsid, label) {
+	const a = document.createElement('a');
+	a.setAttribute('href', '#');
+	a.setAttribute('data-obsid', obsid);
+	
+	a.textContent = label;
+	a.addEventListener('click', () => showObsId(obsid));
+	return a;
+    }
+    
     // Create a "status pane" showing the given observation details
     // from the /api/page/<obsid> query.
     //
@@ -291,10 +313,12 @@ const main = (function() {
 	const main = document.createElement('div');
 	main.setAttribute('class', 'main');
 
-	pane.appendChild(main);
-
+	// Close elements require main so need to do it slightly
+	// out of order
 	controlElements.appendChild(addCloseButton(pane));
 	controlElements.appendChild(addHideShowButton(main));
+
+	pane.appendChild(main);
 
         if (rsp.status === 'success') {
 
@@ -305,6 +329,42 @@ const main = (function() {
 	    //
 	    pane.setAttribute('data-ra', rsp.ra);
 	    pane.setAttribute('data-dec', rsp.dec);
+
+	    // Set up links to the preceeding and next observation.
+	    //
+	    if ('previous' in rsp) {
+		const prevObs = document.createElement('div');
+		prevObs.classList.add('timeline');
+		prevObs.classList.add('previousobs');
+
+		const span1 = addSpan(textNode("\253 Previous"));
+		span1.setAttribute('class', 'label');
+		
+		const span2 = addSpan(obsidLink(rsp.previous.obsid,
+						rsp.previous.target));
+		span2.setAttribute('class', 'link');
+
+		prevObs.appendChild(span1);
+		prevObs.appendChild(span2);
+		main.appendChild(prevObs);
+	    }
+
+	    if ('next' in rsp) {
+		const nextObs = document.createElement('div');
+		nextObs.classList.add('timeline');
+		nextObs.classList.add('nextobs');
+
+		const span1 = addSpan(obsidLink(rsp.next.obsid,
+						rsp.next.target));
+		span1.setAttribute('class', 'link');
+
+		const span2 = addSpan(textNode("Next \273"));
+		span2.setAttribute('class', 'label');
+		
+		nextObs.appendChild(span1);
+		nextObs.appendChild(span2);
+		main.appendChild(nextObs);
+	    }
 
 	    // We create the tabs and then decide whether to
 	    // add it to the main element (we don't for engineering

@@ -195,6 +195,42 @@ span.title {
     border-right: 0.5em solid transparent;
 }
 
+/*
+ * Style the previous/next elements in the record display,
+ * which needs to interact visually with .sections
+ */
+div.timeline {
+    background: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2px;
+    margin-top: 2px;
+    padding-bottom: 0.2em;
+    padding-top: 0.2em;
+    display: flex;
+}
+
+div.timeline span.link {
+    flex: 1 1 auto;
+    text-align: center;
+}
+
+div.timeline span.label {
+    flex: 0 1 auto;
+}
+
+div.nextobs {
+}
+
+.timeline a {
+    color: rgba(3, 3, 3, 0.5);
+    text-decoration: none;
+    transition: all 0.5s ease;
+}
+
+.timeline a:hover {
+    /* color or background */
+    color: rgba(3, 3, 3, 1);
+}
+
 /* Style the list */
 
 ul.sections {
@@ -202,6 +238,7 @@ ul.sections {
     /* display: contents; */
     list-style-type: none;
     margin-top: 0.5em; /* want this to be similar to statusPane.margin.left */
+    margin-top: 0;
     overflow: auto;
     padding-left: 0;
 }
@@ -212,7 +249,7 @@ ul.sections li {
     float: left;
     /* height: 1em; */
     margin-right: 0;
-    padding: 0 0.5em;
+    padding: 0.2em 0.5em;
 }
 
 ul.sections li a {
