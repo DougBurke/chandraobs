@@ -105,12 +105,10 @@ div#location-fov {
  */
 
 div.statusPane {
-    background: rgb(255, 255, 255, 0.6);
-    /* border-color: white; */
-    /* border-radius: 0.5em; */
-    /* border-style: solid; */
-    /* border-width: 2px; */
-    padding-left: 0.5em;  /* if this changes, need to change margin-right/left in controlElements */
+    background: white;
+    /* if padding changes, need to change the margin-right/left
+     * settings in controlElements */
+    padding-left: 0.5em;
     padding-right: 0.5em;
     position: absolute;
 }
@@ -123,10 +121,6 @@ div.statusPane {
     bottom: 2em;
     left: 2em;
     width: 25em;
-    /*** apply the max height to the "contents" div, not this window,
-         since this makes it easier to ensure we get a scroll bar.
-    max-height: 20em;
-    ***/
 }
 
 div.content div {
@@ -143,7 +137,9 @@ div.content div p , div#Details {
 /* location of window-UI-like elements */
 
 div.controlElements {
-    background: rgba(255, 255, 255, 0.7);
+
+    border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+
     height: 1em;
 
     /* extend across the full "window"; should be -1 * #statusBar.padding */
@@ -211,7 +207,7 @@ div.timeline {
 }
 
 div.timeline span {
-    background: rgba(255, 255, 255, 0.7);
+    /* background: rgba(255, 255, 255, 0.7); */
     flex: 1 1 auto;
     padding-bottom: 0.2em;
     padding-top: 0.2em;
@@ -219,16 +215,15 @@ div.timeline span {
 }
 
 span.previousobs {
-    margin-right: 1px;
+    border-right: 1px solid rgba(0, 0, 0, 0.4);
     padding-right: 0.2em;
     text-align: right;
 }
 
 span.nextobs {
-    margin-left: 1px;
+    border-left: 1px solid rgba(0, 0, 0, 0.4);
     padding-left: 0.2em;
 }
-
 
 .timeline a {
     color: rgba(3, 3, 3, 0.5);
@@ -244,10 +239,8 @@ span.nextobs {
 /* Style the list */
 
 ul.sections {
-    /* float: left; */
-    /* display: contents; */
     list-style-type: none;
-    margin-top: 0.5em; /* want this to be similar to statusPane.margin.left */
+    margin-bottom: 0;
     margin-top: 0;
     overflow: auto;
     padding-left: 0;
@@ -255,11 +248,8 @@ ul.sections {
 }
 
 ul.sections li {
-    background: rgba(255, 255, 255, 0.7);
-    border-right: 2px solid #AAA;
+    border-right: 2px solid rgba(0, 0, 0, 0.4);
     display: inline-block;
-    /* float: left;*/
-    /* height: 1em; */
     margin-right: 0;
     padding: 0.2em 0.5em;
 }
