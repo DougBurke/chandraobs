@@ -10,7 +10,7 @@
 
 -- | A test webserver.
 -- 
-module Main where
+module Main (main) where
 
 -- import qualified Data.Conduit as C
 -- import qualified Data.Conduit.Combinators as CC
@@ -518,10 +518,6 @@ webapp cm scache cache = do
                 Left _ -> Nothing
                 Right so -> Record.renderRelatedObs (soTarget so) matches
 
-              toObs r = object [ "obsid" .= fromObsId (recordObsId r)
-                               , "target" .= recordTarget r
-                               ]
-
               mKV k v = [k .= renderHtml v]
 
               objItems = ["status" .= ("success" :: T.Text)
@@ -529,9 +525,9 @@ webapp cm scache cache = do
                          , "ra" .= fromRA (either nsRa soRA thisObs)
                          , "dec" .= fromDec (either nsDec soDec thisObs)
                          , "isCurrent" .= (mCurrentObsId == Just obsid)
-                         , "observation" .= toObs thisObs
-                         , "previous" .= (toObs <$> oiPrevObs obs)
-                         , "next" .= (toObs <$> oiNextObs obs)
+                         , "observation" .= simpleObject thisObs
+                         , "previous" .= (simpleObject <$> oiPrevObs obs)
+                         , "next" .= (simpleObject <$> oiNextObs obs)
                          ]
                          ++ maybe [] (mKV "details") mDetails
                          ++ maybe [] (mKV "related") mRelated
@@ -1035,11 +1031,12 @@ errHandle txt = do
   fromBlaze NotFound.errPage
 
 
+{-
 -- | Log a message to stderr
 logMsg :: T.Text -> ActionM ()
 -- logMsg = liftIO . T.hPutStrLn stderr
 logMsg = const (return ())
-
+-}
 
 
 -- | Attempt to support cache controll access to the JSON data
@@ -1147,25 +1144,42 @@ debug msg = liftAndCatchIO (T.putStrLn ("<< " <> msg <> " >>"))
 
 -}
 
+-- | Represent an observation as an object containing the following
+--   fields:
+--
+--      obsid
+--      target
+--
+simpleObject :: Record -> Value
+simpleObject r = object [ "obsid" .= fromObsId (recordObsId r)
+                        , "target" .= recordTarget r
+                        ]
+
+
+-- Return the obsid and target for the selected, previous, and next
+-- observations.
+--
+-- The return is an object with fields 'current', 'previous', and
+-- 'next' which are themselves objects with 'obsid' and 'target'
+-- fields.
+--
 apiCurrent :: ActionM (Maybe ObsInfo) -> ActionM ()
 apiCurrent getData = do
 
   -- note: this is creating/throwing away a bunch of info that could be useful
   mobs <- getData
 
-  -- strip out the ObsId type
-  let toObsId = fromObsId . recordObsId
-
   case mobs of
     Just obs -> json ("Success" :: T.Text,
-                      object [ "current" .= toObsId (oiCurrentObs obs)
-                             , "previous" .= (toObsId <$> oiPrevObs obs)
-                             , "next" .= (toObsId <$> oiNextObs obs)
+                      object [ "current" .= simpleObject (oiCurrentObs obs)
+                             , "previous" .= (simpleObject <$> oiPrevObs obs)
+                             , "next" .= (simpleObject <$> oiNextObs obs)
                              ])
 
     _ -> json ("Failed" :: T.Text)
 
 
+{-
 apiObsId :: ActionM (Int, Maybe ObsInfo) -> ActionM ()
 apiObsId getData = do
 
@@ -1173,6 +1187,8 @@ apiObsId getData = do
   case mobs of
     Just v -> json ("Success" :: T.Text, v)
     _ -> json ("Unknown ObsId" :: T.Text, obsid)
+
+-}
 
 
 {-

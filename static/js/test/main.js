@@ -190,7 +190,7 @@ const main = (function() {
 
     }
 
-    function setTimelineElement(host, selector, obsid) {
+    function setTimelineElement(host, selector, obsdata) {
 	const node = host.querySelector(selector);
 	if (node === null) {
 	    console.log("Internal error: unable to find '" + selector + "'");
@@ -199,14 +199,14 @@ const main = (function() {
 
 	removeChildren(node);
 
-	if (obsid !== null) {
-	    node.setAttribute('data-obsid', obsid);
+	if (obsdata !== null) {
+	    node.setAttribute('data-obsid', obsdata.obsid);
 
 	    const link = document.createElement('a');
 	    link.html = '#';
-	    link.innerText = "" + obsid; // TODO: want target;
+	    link.innerText = "" + obsdata.target;
 	    link.addEventListener('click',
-				  e => showObsId(obsid));
+				  e => showObsId(obsdata.obsid));
 	    node.appendChild(link);
 
 	} else {
@@ -217,14 +217,13 @@ const main = (function() {
 
     // Let the user know what the current obsid is
     //
-    function showCurrentTimeLine(obsid) {
-
+    function showCurrentTimeLine(obsdata) {
 	const host = document.querySelector('#timeline');
 	if (host === null) {
 	    console.log("Internal error: unable to find #timeline");
 	    return;
 	}
-	setTimelineElement(host, '#timeline-selected', obsid);
+	setTimelineElement(host, '#timeline-selected', obsdata);
     }
 
     function textNode(txt) {
@@ -466,7 +465,7 @@ const main = (function() {
 	    host.removeChild(spin);
 
             if (rsp[0] === 'Success') {
-		showObsId(rsp[1].current);
+		showObsId(rsp[1].current.obsid);
 		showCurrentTimeLine(rsp[1].current);
 
             } else {
