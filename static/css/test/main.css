@@ -32,10 +32,13 @@ li#control-fullscreen {
     display: none;
 }
 
-/* center this horizontally */
+/*
+ * center this horizontally; this used to be 3 by 2 hence the use
+ * of a grid but is now 1 by 2 so should change to flex
+ */
 div#timeline {
     display: none;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(1, 1fr);
     left: 50%;
     position: absolute;
     top: 1em;

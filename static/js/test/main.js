@@ -190,7 +190,7 @@ const main = (function() {
 
     }
 
-    function setTimelineElement(host, selector, obsdata) {
+    function setTimelineElement(host, selector, obsid) {
 	const node = host.querySelector(selector);
 	if (node === null) {
 	    console.log("Internal error: unable to find '" + selector + "'");
@@ -199,14 +199,14 @@ const main = (function() {
 
 	removeChildren(node);
 
-	if (obsdata !== null) {
-	    node.setAttribute('data-obsid', obsdata.obsid);
+	if (obsid !== null) {
+	    node.setAttribute('data-obsid', obsid);
 
 	    const link = document.createElement('a');
 	    link.html = '#';
-	    link.innerText = obsdata.target;
+	    link.innerText = "" + obsid; // TODO: want target;
 	    link.addEventListener('click',
-				  e => showObsId(obsdata.obsid));
+				  e => showObsId(obsid));
 	    node.appendChild(link);
 
 	} else {
@@ -215,53 +215,16 @@ const main = (function() {
 	}
     }
 
-    // What is the selected/previous/next settings.
+    // Let the user know what the current obsid is
     //
-    // The obsdata argument is expected to have
-    //    isCurrent  - boolean
-    //    obsid - integer
-    //    previous / next - null or integer
-    //
-    function showTimeline(obsdata) {
+    function showCurrentTimeLine(obsid) {
 
 	const host = document.querySelector('#timeline');
 	if (host === null) {
 	    console.log("Internal error: unable to find #timeline");
 	    return;
 	}
-
-	setTimelineElement(host, '#timeline-selected', obsdata.observation);
-	setTimelineElement(host, '#timeline-previous', obsdata.previous);
-	setTimelineElement(host, '#timeline-next', obsdata.next);
-
-	// Reset the labels. We only need to do this for the selected
-	// case (and maybe not even then), but change them anyway in the
-	// hope that it will lead to a repaint to avoid visual artfacts
-	// seen during testing. It hasn't helped, so remove for now.
-	//
-	// changeText(host, '#timeline-prev-label', '« Previous'); // &#171
-	// changeText(host, '#timeline-next-label', 'Next »'); // &#187
-
-	let label;
-	if (obsdata.isCurrent) {
-	    label = 'Current';
-	} else {
-	    label = 'Selected';
-	}
-	changeText(host, '#timeline-selected-label', label + ' observation');
-
-	// I want the whole timeline box to be redrawn, since the sizes
-	// may have changed (and I am not using fixed width/height
-	// elements, or a grid, which I probably should).
-	//
-	// I am going to blindly use
-	// https://gist.github.com/paulirish/5d52fb081b3570c81e3a
-	// the "wrong way" (ie pick one of these elements to try
-	// and force a redraw), but not 100% convinced it's going to work.
-	// And it doesn't appear to.
-	//
-	host.offsetParent;
-	
+	setTimelineElement(host, '#timeline-selected', obsid);
     }
 
     function textNode(txt) {
@@ -345,13 +308,13 @@ const main = (function() {
 	    timeline.appendChild(previous);
 	    timeline.appendChild(next);
 
-	    if ('previous' in rsp) {
+	    if (rsp.previous !== null) {
 		previous.appendChild(obsidLink(rsp.previous.obsid,
 					       rsp.previous.target));
 		previous.appendChild(textNode(" \253"));
 	    }
 
-	    if ('next' in rsp) {
+	    if (rsp.next !== null) {
 		next.appendChild(textNode("\273 "));
 		next.appendChild(obsidLink(rsp.next.obsid,
 					   rsp.next.target));
@@ -431,6 +394,9 @@ const main = (function() {
 	return pane;
     }
 
+    // Note: if the obsid is already selected (the pane already
+    //       exists) then we just jump to the source
+    //
     function showObsId(obsid) {
 
 	const host = getHost();
@@ -450,13 +416,12 @@ const main = (function() {
 	    const ra = foundPane.getAttribute('data-ra');
 	    const dec = foundPane.getAttribute('data-dec');
 
+	    // TODO: should this keep the current field size?
 	    if ((ra !== null) && (dec !== null)) {
 		wwt.gotoRaDecZoom(ra, dec, defaultFieldSize, false);
 	    }
 
-	    // TODO: need to pan to the observation if it is an
-	    //       engineering observation (ie has no FOV).
-	    //
+	    // This shouldn't be necessary, but leave in for now.
 	    foundPane.style.display = 'block';
 	    return;
 	}
@@ -469,7 +434,6 @@ const main = (function() {
 	    dataType: "json"
         }).done(function (rsp) {
 	    host.removeChild(spin);
-	    showTimeline(rsp);
 
 	    const pane = makeStatusPane(obsid, rsp);
 	    pane.setAttribute('id', idVal);
@@ -502,8 +466,9 @@ const main = (function() {
 	    host.removeChild(spin);
 
             if (rsp[0] === 'Success') {
-                showObsId(rsp[1]['current']);
-		
+		showObsId(rsp[1].current);
+		showCurrentTimeLine(rsp[1].current);
+
             } else {
 		console.log("WARNING: /api/current returned " + rsp[0]);
 		console.log(rsp);
