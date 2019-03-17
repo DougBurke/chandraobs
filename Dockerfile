@@ -4,24 +4,13 @@
 # but all mistakes are mine
 #
 
-FROM heroku/heroku:18
+FROM heroku/heroku:18 AS build
 
 ENV LANG C.UTF-8
 
-# Remove some packages we do not need.
+# Set up needed code for using Stack and the installation
 #
-# Also includes packages needed to install Stack.
-#
-# Final installation is for Postgres
-#
-RUN apt-get remove -y --assume-yes \
-  ghostscript \
-  imagemagick \
-  geoip-database \
-  ruby \
-  rake \
-  && apt-get autoremove -y --assume-yes \
-  && apt-get update \
+RUN apt-get update \
   && apt-get upgrade -y --assume-yes \
   && apt-get install -y --assume-yes \
   g++ \
@@ -35,9 +24,6 @@ RUN apt-get remove -y --assume-yes \
   git \
   gnupg \
   libpq-dev
-
-# Remove apt caches to reduce the size of our container.
-RUN rm -rf /var/lib/apt/lists/*
 
 # Install stack to /opt/stack/bin.
 RUN mkdir -p /opt/stack/bin
@@ -88,22 +74,26 @@ RUN stack --version
 #
 COPY static/ /opt/chandraobs/static/
 
-# Remove unneeded files
-RUN rm -rf /opt/chandraobs/src /opt/stack /root/.stack
+FROM heroku/heroku:18 AS deploy
 
-# do not remove gnupg just yet as used by apt; also adding in packages
-# it looks like we should not need. This was done by reviewing the
-# 'apt list' output and is not a particularly sensible way to do this.
+ENV LANG C.UTF-8
+
+# Copy over the files we want
+COPY --from=build /opt/chandraobs/bin/ /opt/chandraobs/bin/
+COPY --from=build /opt/chandraobs/static/ /opt/chandraobs/static/
+
+# Occasionally I review the output of 'apt list' and add or remove
+# packages. Not exactly robust
 #
 RUN apt-get remove -y --assume-yes \
-  g++ \
+  ghostscript \
+  imagemagick \
+  geoip-database \
+  ruby \
+  rake \
   gcc \
-  libc6-dev \
-  libffi-dev \
-  libgmp-dev \
   make \
   xz-utils \
-  zlib1g-dev \
   git \
   telnet \
   ed \
@@ -118,14 +108,23 @@ RUN apt-get remove -y --assume-yes \
   mysql-common \
   openssh-client \
   openssh-server \
-  fonts-dejavu-core \
   gsfonts \
+  fonts-dejavu-core \
   rsync \
   mtools \
   && apt-get autoremove -y --assume-yes \
   && apt-get purge -y --assume-yes \
   && apt-get clean \
   && apt-get autoclean
+
+# Ensure what we do have left is up to date.
+#
+RUN apt-get update \
+  && apt-get upgrade -y --assume-yes
+
+# Remove apt caches to reduce the size of our container.
+#
+RUN rm -rf /var/lib/apt/lists/*
 
 RUN useradd -ms /bin/bash webserver
 RUN chown -R webserver:webserver /opt/chandraobs
