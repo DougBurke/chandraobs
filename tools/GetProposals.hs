@@ -38,7 +38,7 @@ Note that, unlike ADS, propNum=02200112 has the title
 
 -}
 
-module Main where
+module Main (main) where
 
 import qualified Data.Set as S
 import qualified Data.Text.IO as T

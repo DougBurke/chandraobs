@@ -9,6 +9,8 @@
 --    Constellation boundaries
 --
 
+module Main (main) where
+
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy.Char8 as LB8
 import qualified Data.HashMap.Strict as HM

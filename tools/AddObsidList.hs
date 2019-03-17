@@ -17,6 +17,8 @@
 -- observations.
 --
 
+module Main (main) where
+
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T

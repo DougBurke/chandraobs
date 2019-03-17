@@ -34,6 +34,7 @@
 --      version by default.
 --
 
+module Main (main) where
 
 import qualified Data.ByteString.Lazy.Char8 as L8
 -- import qualified Data.Map as M
