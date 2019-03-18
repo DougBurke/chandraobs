@@ -127,8 +127,17 @@ div.statusPane {
 }
 
 div.content div {
+    /* overflow: auto; */
+    /* max-height: 15em; */
+}
+
+/*
+ * Apply a fixed height for science observations since we know the
+ * details tab is going to be large in this case.
+ */
+div.scienceobs {
     overflow: auto;
-    max-height: 15em;
+    height: 15em;
 }
 
 /* These two are only really needed if the content overflows vertically */

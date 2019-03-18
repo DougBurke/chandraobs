@@ -352,6 +352,9 @@ const main = (function() {
 
 	    if (ntabs > 1) {
 		main.appendChild(tabs);
+
+		// what div do we want to change?
+		content.classList.add('scienceobs');
 	    }
 
 	    main.appendChild(content);
