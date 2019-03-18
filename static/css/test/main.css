@@ -110,6 +110,7 @@ div.statusPane {
 
     /* if padding changes, need to change the margin-right/left
      * settings in controlElements */
+    padding-bottom: 0.5em;
     padding-left: 0.5em;
     padding-right: 0.5em;
 
@@ -124,11 +125,6 @@ div.statusPane {
     bottom: 2em;
     left: 2em;
     width: 25em;
-}
-
-div.content div {
-    /* overflow: auto; */
-    /* max-height: 15em; */
 }
 
 /*
