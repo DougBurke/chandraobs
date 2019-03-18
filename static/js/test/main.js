@@ -74,10 +74,9 @@ const main = (function() {
 	return el;
     }
 
-    // Sent the div for the main contents (but not the controlElements
-    // bar).
+    // Sent the div for the main contents and the title sections
     //
-    function addHideShowButton(parent) {
+    function addHideShowButton(parent, titleBar) {
 	const el = document.createElement('span');
 	el.classList.add('switchable');
 	el.classList.add('hideable');
@@ -86,10 +85,12 @@ const main = (function() {
 		parent.style.display = 'none';
 		el.classList.remove('hideable');
 		el.classList.add('showable');
+		titleBar.classList.remove('controlElementsShown');
 	    } else {
 		parent.style.display = 'block';
 		el.classList.remove('showable');
 		el.classList.add('hideable');
+		titleBar.classList.add('controlElementsShown');
 	    }
 	});
 	return el;
@@ -263,7 +264,8 @@ const main = (function() {
 			      event => draggable.startDrag(event));
 
 	const controlElements = document.createElement('div');
-	controlElements.setAttribute('class', 'controlElements');
+	controlElements.classList.add('controlElements');
+	controlElements.classList.add('controlElementsShown');
 
 	const title = document.createElement('span');
 	title.setAttribute('class', 'title');
@@ -278,7 +280,7 @@ const main = (function() {
 	// Close elements require main so need to do it slightly
 	// out of order
 	controlElements.appendChild(addCloseButton(pane));
-	controlElements.appendChild(addHideShowButton(main));
+	controlElements.appendChild(addHideShowButton(main, controlElements));
 
 	pane.appendChild(main);
 

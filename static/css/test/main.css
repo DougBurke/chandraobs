@@ -150,8 +150,6 @@ div.content div p , div#Details {
 
 div.controlElements {
 
-    border-bottom: 2px solid rgba(0, 0, 0, 0.4);
-
     height: 1em;
 
     /* extend across the full "window"; should be -1 * #statusBar.padding */
@@ -161,6 +159,11 @@ div.controlElements {
     padding-bottom: 0.3em;
     padding-right: 0.3em;
     padding-top: 0.3em;
+}
+
+/* only add the border when the whole pane is displayed */
+div.controlElementsShown {
+    border-bottom: 2px solid rgba(0, 0, 0, 0.4);
 }
 
 span.title {
