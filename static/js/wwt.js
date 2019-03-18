@@ -8,7 +8,7 @@
 
 "use strict";
 
-var wwt = (function (base) {
+var wwt = (function (baseObj) {
     
     var wwt;
     var displayCrosshairs = true;
@@ -496,12 +496,12 @@ var wwt = (function (base) {
     }
 
     function initialize(obsdata) {
-        base.hide_nojs();
+        baseObj.hide_nojs();
         wwt = wwtlib.WWTControl.initControl("WWTCanvas");
 
         wwt.loadImageCollection("/chandra.wtml");
         
-        base.hide_class("nowwt");
+        baseObj.hide_class("nowwt");
         wwt.add_ready(wwtReadyFunc(obsdata));
         wwt.endInit();
 

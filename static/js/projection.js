@@ -1,22 +1,26 @@
-/*
- * plot up data using the Aitoff projection
- */
+//
+// Plot up data using the Aitoff projection.
+// Requires d3
+//
 
 "use strict";
 
-var projection = (function (base) {
+// The base argument provides the hide_nojs() routine.
+// I should just make that a pre-requisite for calling createMap
+// but leave that for a later revision.
+//
+const projection = (function (baseObj) {
 
-    var baseOpacity = 0.6;
-    var unselOpacity = 0.3;
-    var selOpacity = 0.8;
-    
     // This must be < 0.5; at least, once it is used it should be
-    var baseOpacity = 0.3;
+    const baseOpacity = 0.3;
 
+    const unselOpacity = 0.3;
+    const selOpacity = 0.8;
+    
     // time for a transition, in milliseconds
-    var transitionTime = 600;
+    const transitionTime = 600;
     // var frameTransitionTime = 2000;
-    var frameTransitionTime = 800;
+    const frameTransitionTime = 800;
     
     // coords is an array of objects with
     // longitude/latitude attributes in degrees (0-360 and -90 to 90)
@@ -29,37 +33,41 @@ var projection = (function (base) {
     //
     function createMap(coords, conInfo) {
 
-        base.hide_nojs();
+        baseObj.hide_nojs();
         
-        let width = 960;
-        let height = 500;
+        const width = 960;
+	const height = 500;
 
-        let tscale = d3.scale.sqrt()
-            .domain([0, 150]) // not many obs are larger than this (in ks)
+	// Not many observations are larger than 150 ks so use this
+	// as an upper limit. Use a square root scaling so the area
+	// scales as the time.
+	//
+        const tscale = d3.scale.sqrt()
+            .domain([0, 150])
             .range([3, 15]);
 
         // colors from Cynthia Brewer's http://colorbrewer2.org/ web site
-        let color = d3.scale.ordinal()
+        const color = d3.scale.ordinal()
             .domain(["done", "doing", "todo"])
         // .range([d3.rgb('#ece7f2'), d3.rgb('#a6bddb'), d3.rgb('#2b8cbe')]);
         // .range([d3.rgb('#d8b365'), d3.rgb('#f5f5f5'), d3.rgb('#5ab4ac')]);
         // f5f5f5 is too close to white to be useful here
             .range([d3.rgb('#d8b365'), d3.rgb('#f5f5f5'), d3.rgb('#5ab4ac')]);
 
-        let svg = d3.select('div#map').append('svg')
+        const svg = d3.select('div#map').append('svg')
             .attr("width", width)
             .attr("height", height)
             .attr("opacity", 0);  // opacity is re-set once MW is loaded
 
-        let projection = d3.geo.aitoff()
+        const projection = d3.geo.aitoff()
             .scale(150)
             .translate([width / 2, height / 2])
             .precision(0.1);
 
-        let path = d3.geo.path()
+        const path = d3.geo.path()
             .projection(projection);
 
-        let graticule = d3.geo.graticule();
+        const graticule = d3.geo.graticule();
 
         // Longitude every 2 hours, latitude every 15 degrees,
         // and change the latitude mionor extent so that the
@@ -102,7 +110,7 @@ var projection = (function (base) {
             .attr("d", path);
 
         // label graticules; could make it adaptive but hard code
-        let longvals = d3.range(1, 6).map(function (d) { 
+        const longvals = d3.range(1, 6).map(function (d) { 
             const pos = projection([180 - d * 60, 0]);
             const lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
             return { x: pos[0], y: pos[1], lbl: lbl };
@@ -118,7 +126,7 @@ var projection = (function (base) {
             .attr("dy", "1.4em")
             .text(function(d) { return d.lbl; });
 
-        let latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
+        const latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
             const pos = projection([0, d]);
             const lbl = d + "\u00B0"; // degree symbol
             return { x: pos[0], y: pos[1], lbl: lbl };
@@ -137,7 +145,7 @@ var projection = (function (base) {
 
         // mark the observations
         
-        let points = coords.map(function (d) {
+        const points = coords.map(function (d) {
             // TODO: worry about clipping?
             const pos = projection([d.longitude, d.latitude]);
             d.x = pos[0];
@@ -175,7 +183,7 @@ var projection = (function (base) {
                 return console.warn("Unable to load " + fname);
             }
 
-            let oline = svg.select("#baseplane").selectAll(".milkyway")
+            const oline = svg.select("#baseplane").selectAll(".milkyway")
                 .data(mw.features);
             
             oline.enter()
@@ -213,8 +221,9 @@ var projection = (function (base) {
             const conFullName = conInfo.longName;
             
             // all constellations
-            let allcon = svg.select("#baseplane").selectAll(".constellations")
-                .data(con.features);
+            const allcon = svg.select("#baseplane")
+		  .selectAll(".constellations")
+                  .data(con.features);
 
             allcon.enter()
                 .append("path")
@@ -222,10 +231,11 @@ var projection = (function (base) {
                 .attr("d", path);
 
             // selected constellation
-            let features = con.features.filter(function(d) { return d.id === conName; });
+            const features = con.features.filter(function(d) { return d.id === conName; });
             
-            let selcon = svg.select("#baseplane").selectAll(".constellation")
-                .data(features);
+            const selcon = svg.select("#baseplane")
+		  .selectAll(".constellation")
+                  .data(features);
             
             selcon.enter()
                 .append("path")

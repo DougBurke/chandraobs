@@ -7,12 +7,12 @@
 
 "use strict";
 
-var createPlot = (function () {
+const createPlot = (function () {
     
-    var totWidth = 960;
-    var totHeight = 700;
+    const totWidth = 960;
+    const totHeight = 700;
 
-    var margin = {top: 10, right: 10, bottom: 60, left: 80 },
+    const margin = {top: 10, right: 10, bottom: 60, left: 80 },
         width = totWidth - margin.left - margin.right,
         height = totHeight - margin.top - margin.bottom;
 
@@ -23,9 +23,9 @@ var createPlot = (function () {
       .range([0, width]);
     */
 
-    var xrange = d3.scale.log()
+    const xrange = d3.scale.log()
         .range([0, width]);
-    var yrange = d3.scale.linear()
+    const yrange = d3.scale.linear()
         .range([height, 0]);
 
     function toHours(ks) { return ks / 3.6; }
@@ -89,19 +89,19 @@ var createPlot = (function () {
             .attr("transform",
                   "translate(" + margin.left + "," + margin.top + ")");
 
-        let xAxis = d3.svg.axis()
-            .scale(xrangeHours)
-            .tickFormat(xrangeHours.tickFormat(7, ".1f"))
-            .orient("bottom");
+        const xAxis = d3.svg.axis()
+              .scale(xrangeHours)
+              .tickFormat(xrangeHours.tickFormat(7, ".1f"))
+              .orient("bottom");
 
-        let yAxis = d3.svg.axis()
-            .scale(yrange)
-            .orient("left");
+        const yAxis = d3.svg.axis()
+              .scale(yrange)
+              .orient("left");
 
-        let xax = svg.append("g")
-            .attr("class", "x axis")
-            .call(xAxis)
-            .attr("transform", "translate(0," + height + ")");
+        const xax = svg.append("g")
+              .attr("class", "x axis")
+              .call(xAxis)
+              .attr("transform", "translate(0," + height + ")");
     
         xax.append("text")
             .attr("class", "axis")
@@ -111,9 +111,9 @@ var createPlot = (function () {
             .attr("text-anchor", "end")
             .text("Time (hours)");
     
-        let yax = svg.append("g")
-            .attr("class", "y axis")
-            .call(yAxis);
+        const yax = svg.append("g")
+              .attr("class", "y axis")
+              .call(yAxis);
 
         yax.append("text")
             .attr("class", "axis")
@@ -133,7 +133,7 @@ var createPlot = (function () {
 
         /* Perhaps would be better to create the data in the
          * form needed */
-        let line = (n) => {
+        const line = (n) => {
             return d3.svg.line()
                 .interpolate("basis")
                 .x((d) => {
@@ -144,11 +144,11 @@ var createPlot = (function () {
                 });
         };
 
-        let colors = d3.scale.category10()
+        const colors = d3.scale.category10()
             .domain(tags);
 
 	// Special case the "all" tag so that it has its own color
-	let getColor = (tag) => {
+	const getColor = (tag) => {
 	    if (tag === "all") {
 		return "black";
 	    } else {
@@ -158,7 +158,6 @@ var createPlot = (function () {
 	
         for (const cycle of tags) {
             let lbl;
-	    var color;
             if (cycle === "all") {
                 lbl = "All cycles";
             } else {
@@ -241,12 +240,12 @@ var createPlot = (function () {
     // See https://bl.ocks.org/mbostock/4061502
     //
 
-    var totBoxWidth = 120;
-    var totBoxHeight = 500;
+    const totBoxWidth = 120;
+    const totBoxHeight = 500;
 
-    var boxMargin = {top: 10, right: 50, bottom: 40, left: 50 },
-        boxWidth = totBoxWidth - boxMargin.left - boxMargin.right,
-        boxHeight = totBoxHeight - boxMargin.top - boxMargin.bottom;
+    const boxMargin = {top: 10, right: 50, bottom: 40, left: 50 },
+          boxWidth = totBoxWidth - boxMargin.left - boxMargin.right,
+          boxHeight = totBoxHeight - boxMargin.top - boxMargin.bottom;
 
     // Returns a function to compute the interquartile range.
     function iqr(k) {
@@ -320,9 +319,7 @@ var createPlot = (function () {
     }
 
     function createPlot() {
-        $.ajax({
-            url: '/api/exposures',
-        })
+        $.ajax({url: '/api/exposures'})
             .done(makePlot)
             .done(addToTable)
             .done(makeBoxPlot);

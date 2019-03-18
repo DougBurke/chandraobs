@@ -1,23 +1,27 @@
 
 "use strict";
 
-var createMapping = (function(base) {
+// The baseObj argument provides the hide_nojs() routine.
+// I should just make that a pre-requisite for calling createMap
+// but leave that for a later revision.
+//
+const createMapping = (function(baseObj) {
     
-    var margin = {top: 1, right: 1, bottom: 6, left: 1},
+    const margin = {top: 1, right: 1, bottom: 6, left: 1},
         width = 960 - margin.left - margin.right,
         height = 3000 - margin.top - margin.bottom;
 
-    var totWidth = width + margin.left + margin.right;
-    var totHeight = height + margin.top + margin.bottom;
+    const totWidth = width + margin.left + margin.right;
+    const totHeight = height + margin.top + margin.bottom;
     
-    var color = d3.scale.category20();
+    const color = d3.scale.category20();
 
-    var sankey = d3.sankey()
-        .nodeWidth(15)
-        .nodePadding(10)
-        .size([width, height]);
+    const sankey = d3.sankey()
+          .nodeWidth(15)
+          .nodePadding(10)
+          .size([width, height]);
 
-    var path = sankey.link();
+    const path = sankey.link();
 
     var svg, link;
 
@@ -138,13 +142,16 @@ var createMapping = (function(base) {
                     + getTimeString(d.value);
             });
 
-        let node = svg.append("g").selectAll(".node")
+        const node = svg.append("g").selectAll(".node")
             .data(mapInfo.nodes)
             .enter().append("g")
             .attr("class", "node")
             .attr("transform", (d) => { return "translate(" + d.x + "," + d.y + ")"; })
             .call(d3.behavior.drag()
                   .origin((d) => { return d; })
+		  // looks like I have broken this code, since 'this' is no
+		  // longer the correct element; did I break some implicit
+		  // when refactoing?
                   .on("dragstart", () => { this.parentNode.appendChild(this); })
                   .on("drag", dragmove));
 
@@ -201,7 +208,7 @@ var createMapping = (function(base) {
     // TODO: handle the error case
     function createMapping() {
 
-        base.hide_nojs();
+        baseObj.hide_nojs();
         
         // add in animation; this was taken from
         // http://ajaxload.info/
@@ -211,9 +218,7 @@ var createMapping = (function(base) {
         // TODO: better center the image in the width of the SVG element
         $('#mapping').html('<div class="waiting"><img width=100 height=100 src="/img/loading.gif" alt="Loading"></div>');
         
-        $.ajax({
-            url: '/api/mappings',
-        })
+        $.ajax({url: '/api/mappings'})
             .done(makePlot);
     }
 
