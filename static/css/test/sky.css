@@ -79,20 +79,23 @@ div.skyPane {
     position: absolute;
 
     right: 2em;
+
+    /* force a width */
+    width: 400px;
 }
 
 div.searchtype {
     font-weight: bold;
     margin-top: 0.5em;
     text-align: center;
-    width: 400px; /* match div#sky */
+    /* width: 400px; */ /* match div#sky */
 }
 
 p.searchinfo {
     margin-top: 0.5em;
-    width: 400px; /* match div#sky */
+    /* width: 400px; */ /* match div#sky */
 }
 
 div.skyPane details {
-    width: 400px; /* match div#sky */
+    /* width: 400px; */ /* match div#sky */
 }
