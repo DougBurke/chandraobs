@@ -12,6 +12,9 @@
 // Would like the drag behavior from https://www.jasondavies.com/maps/rotate/
 // and I use http://bl.ocks.org/ivyywang/7c94cb5a3accd9913263
 // to approximate it.
+// Should perhaps move to torsor representation at
+//    https://bl.ocks.org/HarryStevens/75b3eb474527c10055618fa00123ba44
+// (same thing but hiding logic in an external package)
 //
 
 // TODO:
@@ -205,7 +208,41 @@ const sky = (function() {
         d3.selectAll(sel)
 	    .classed('selected-observation', false);
     }
-    
+
+    // Rotate the globe from the current to new position.
+    // Animated, if at all possible.
+    //
+    function rotateFromTo(svg, projection, path, curPos, newPos) {
+	// almost-certainly a nicer way to do this
+	//
+	const interpolator = d3.geoInterpolate(curPos, newPos);
+	let frac = 0;
+	const dfrac = 0.05;
+
+	// TODO: make dfrac and/or step time a function of
+	//       the separation?
+	//
+	// const sep = d3.geoDistance(curPos, newPos) * to_degrees;
+
+	const timer = d3.timer((e) => {
+	    // due to rounding this can mean we don't necessarily scroll
+	    // all the way to the new location, hence this final rotation.
+	    //
+	    if (frac > 1.0) {
+		projection.rotate([- newPos[0], - newPos[1]]);
+		svg.selectAll('path').attr('d', path);
+		timer.stop();
+	    }
+
+	    const pos = interpolator(frac);
+	    projection.rotate([- pos[0], - pos[1] ]);
+	    svg.selectAll('path').attr('d', path);
+
+	    frac += dfrac;
+	},
+		 50);
+    }
+
     // Create the projection and add it to the #sky element.
     //
     // Note that this creates an id which is hard-coded (at present)
@@ -308,11 +345,11 @@ const sky = (function() {
 	    .on('click', (d) => {
 		showObsId(d.properties.obsid);
 
-		// TODO: animate this
-		projection.rotate([- d.geometry.coordinates[0],
-				   - d.geometry.coordinates[1]
-				  ]);
-		svg.selectAll('path').attr('d', path);
+		const r = projection.rotate();
+		const curPos = [-r[0], -r[1]];
+		const newPos = d.geometry.coordinates;
+
+		rotateFromTo(svg, projection, path, curPos, newPos);
 		
 	    })
 	    .append('path')
