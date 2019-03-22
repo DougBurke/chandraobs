@@ -3,24 +3,21 @@
 
 -- | Layout HTML.
 
-module Layout (
-  defaultMeta
-  , skymapMeta
-  , d3Meta
-  , jqueryMeta
-  , renderLinks
-  , renderObsIdDetails
-  , renderFooter
-  , getFact
-  , dquote
-  , standardTable
-  , floatableTable
-  , noJSPara
-    
-  , addClass
-
-  )
-       where
+module Layout ( defaultMeta
+              , skymapMeta
+              , d3Meta
+              , jqueryMeta
+              , renderLinks
+              , renderObsIdDetails
+              , renderFooter
+              , getFact
+              , dquote
+              , standardTable
+              , floatableTable
+              , noJSPara
+              
+              , addClass
+              ) where
 
 import qualified Data.Text as T
 
@@ -60,7 +57,10 @@ import API (categoryLinkSearch
            , typeDLinkSearch
            , fromMissionLongLink
            , seqLink
-           , cssLink, jsScript
+           , cssLink
+           , jsScript
+
+           , skyLink
            )
 import Types (ChipStatus(..)
              , Constraint(..)
@@ -374,8 +374,17 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       oLink = toLink ctx (obsIdLink soObsId) (toHtml soObsId)
       sLink = toLink ctx (seqLink soObsId)   (toHtml soSequence)
 
-      pLink = toLink ctx ("/proposal/" <> H.toValue soProposal)
-              (toHtml soProposal)
+      -- do not have a proposal so can't use proposalLink?
+      -- well, we have mprop, so could (but would have to deal
+      -- with posisbly not having the data, and we don't want to
+      -- use the proposal title as the link but the number).
+      --
+      pLink =
+        let uriFrag = "proposal/" <> (H.toValue soProposal)
+            uri = "/" <> uriFrag
+        in case ctx of
+             StaticHtml -> toLink StaticHtml uri soProposal
+             DynamicHtml -> skyLink uriFrag soProposal
 
        -- rely on the ToMarkup instance of TimeKS
       expLink = case soObservedTime of

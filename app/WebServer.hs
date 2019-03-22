@@ -708,7 +708,36 @@ webapp cm scache cache = do
               let title = "Joint mission: " <> pval
               json (skyview title Nothing xs)
       )
-      
+
+    -- TODO: do we need the query parameter? Just make it the path
+    --
+    get "/api/skyview/name"
+      (do
+          name <- param "target"
+          (xs, tnames) <- liftSQL (findTarget name)
+          if nullSL xs
+            then status notFound404
+            else do
+              let title = "Name search: " <> (fromTargetName name)
+                  nameList = T.intercalate ", " (map fromTargetName tnames)
+                  desc = case tnames of
+                    [] -> "Target: " <> (fromTargetName name)
+                    [_] -> "Target: " <> nameList
+                    _ -> "Targets: " <> nameList
+
+              json (skyview title (Just desc) xs)
+      )
+
+    get "/api/skyview/proposal/:propnum"
+      (do
+          (propNum, ans) <- dbQuery "propnum" fetchProposal
+          let (mprop, _, xs) = ans
+              title = "Proposal: " <> showInt (fromPropNum propNum)
+              desc = propName <$> mprop
+
+          json (skyview title desc xs)
+      )
+
     -- TODO: use cache
     get "/api/skyview/proptype/:proptype"
       (do

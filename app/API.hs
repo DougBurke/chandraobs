@@ -49,6 +49,9 @@ module API (scheduleOnDate
            , jsScript
            , cssLink
 
+           -- this shoudn't be exported but is (currently) required by
+           -- Layout
+           , skyLink
            )
        where
 
@@ -201,7 +204,7 @@ propTypeLink ctx propType mlbl =
   let lbl = fromMaybe (toPropTypeLabel propType) mlbl
 
       hlbl = H.toValue (fromPropType propType)
-      pLink = "/search/proptype/" <> hlbl
+      pLink = "/search/" <> urlFrag
       urlFrag = "proptype/" <> hlbl
       
   in case ctx of
@@ -212,8 +215,12 @@ propTypeLink ctx propType mlbl =
 proposalLink :: HtmlContext -> Proposal -> Maybe T.Text -> Html
 proposalLink ctx Proposal{..} mlbl =
   let lbl = fromMaybe propName mlbl
-      uri = "/proposal/" <> H.toValue propNum
-  in toLink ctx uri (toHtml lbl)
+      uri = "/" <> uriFrag
+      uriFrag = "proposal/" <> H.toValue propNum
+
+  in case ctx of
+    StaticHtml -> toLink StaticHtml uri lbl
+    DynamicHtml -> skyLink uriFrag lbl
 
      
 -- | Link to the TOO category. See also `tooLinkSearchLong`.
@@ -228,7 +235,7 @@ tooLinkSearch ctx too =
 tooLinkSearchLong :: HtmlContext -> Maybe TOORequestTime -> T.Text -> Html
 tooLinkSearchLong ctx too lbl =
   let ttype = H.toValue (maybe "none" (T.toLower . rtToLabel) too)
-      tLink = "/search/turnaround/" <> ttype
+      tLink = "/search/" <> urlFrag
       urlFrag = "turnaround/" <> ttype
       
   in case ctx of
@@ -246,7 +253,7 @@ tooLinkSearchLong ctx too lbl =
 instLinkSearch :: HtmlContext -> Instrument -> Html
 instLinkSearch ctx inst = 
   let hlbl = H.toValue inst
-      iLink = "/search/instrument/" <> hlbl
+      iLink = "/search/" <> url
       url = "instrument/" <> hlbl
   in case ctx of
        StaticHtml -> toLink StaticHtml iLink inst
@@ -256,7 +263,7 @@ instLinkSearch ctx inst =
 gratLinkSearch :: HtmlContext -> Grating -> Html
 gratLinkSearch ctx grat = 
   let hlbl = H.toValue (show grat)
-      gLink = "/search/grating/" <> hlbl
+      gLink = "/search/" <> url
       url = "grating/" <> hlbl
       
   in case ctx of
@@ -318,7 +325,7 @@ constellationLinkSearch ::
   -> Html
 constellationLinkSearch ctx con lbl =
   let hlbl = H.toValue (fromConShort con)
-      iLink = "/search/constellation/" <> hlbl
+      iLink = "/search/" <> urlFrag
       urlFrag = "constellation/" <> hlbl
 
   in case ctx of
@@ -338,7 +345,7 @@ cycleLinkSearch ctx cyc =
       content = "Cycle " <> lbl
 
       hlbl = H.toValue lbl
-      iLink = "/search/cycle/" <> hlbl
+      iLink = "/search/" <> urlFrag
       urlFrag = "cycle/" <> hlbl
 
   in if lbl == "all"
@@ -440,7 +447,7 @@ categoryLinkSearch ::
   -> Html
 categoryLinkSearch ctx cat lbl = 
   let hlbl = H.toValue cat
-      iLink = "/search/category/" <> hlbl
+      iLink = "/search/" <> urlFrag
       urlFrag = "category/" <> hlbl
       
   in case ctx of
@@ -455,7 +462,7 @@ targetSearch tn =
   -- since the target name could contain any character, ensure this
   -- is encoded
   let qry = queryTextToQuery [("target", Just (fromTargetName tn))]
-      uriBS = "/search/name" <> renderQuery True qry
+      uriBS = "name" <> renderQuery True qry
   in H.unsafeByteStringValue uriBS
      
 -- | Add a link to the name-search for an object.
@@ -468,8 +475,14 @@ nameLinkSearch ::
   -> Html
 nameLinkSearch ctx tgt mlbl =
   let lbl = fromMaybe (fromTargetName tgt) mlbl
-  in toLink ctx (targetSearch tgt) (toHtml lbl)
-    
+      iLink = "/search/" <> urlFrag
+      urlFrag = targetSearch tgt
+
+  in case ctx of
+    StaticHtml -> toLink StaticHtml iLink lbl
+    DynamicHtml -> skyLink urlFrag lbl
+
+
 jointLink :: JointMission -> AttributeValue
 jointLink jm = H.toValue ("/search/joint/" <> fromMission jm)
 
