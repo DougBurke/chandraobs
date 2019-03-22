@@ -86,7 +86,7 @@ renderMissions jms =
        <> "are available changes over time, as new facilities become available "
        <> "and others are decomissioned or "
        <> toLink StaticHtml "https://en.wikipedia.org/wiki/Suzaku_(satellite)"
-       "are turned off."
+       ("are turned off." :: Html)
       )
       
     floatableTable $ do
@@ -120,6 +120,6 @@ renderMatches ms sched =
        -- assume the schedule is all science observations
        <> toHtml (getNumObsRestricted sched)
        <> ". The format is the same as used in the "
-       <> toLink StaticHtml "/schedule" "schedule view"
+       <> toLink StaticHtml "/schedule" ("schedule view" :: Html)
        <> ".")
     

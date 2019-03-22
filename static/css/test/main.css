@@ -187,6 +187,7 @@ span.title {
     cursor: pointer;
     float: right;
     height: 0;
+    margin-left: 0.5em;
     margin-right: 0.2em;
     width: 0;
 }

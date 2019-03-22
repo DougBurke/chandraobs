@@ -477,7 +477,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
            <> ". "
            <> subArrayTxt
            <> "More information on the target can be found at "
-           <> toLink ctx slink "SIMBAD"
+           <> toLink ctx slink ("SIMBAD" :: Html)
            <> ". "
 
       abstxt = case obsStatus of

@@ -115,7 +115,7 @@ renderInstMatches inst sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> toLink StaticHtml "/schedule" "schedule view"
+        <> toLink StaticHtml "/schedule" ("schedule view" :: Html)
         <> ".")
 
 
@@ -133,7 +133,7 @@ renderGratMatches grat sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> toLink StaticHtml "/schedule" "schedule view"
+        <> toLink StaticHtml "/schedule" ("schedule view" :: Html)
         <> ".")
 
 
@@ -153,7 +153,7 @@ renderIGMatches (inst, grat) sched =
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)
         <> ". The format is the same as used in the "
-        <> toLink StaticHtml "/schedule" "schedule view"
+        <> toLink StaticHtml "/schedule" ("schedule view" :: Html)
         <> ".")
     
 
@@ -274,7 +274,7 @@ renderBreakdown total perDay =
     p ("The plots show the total number of observing hours "
        <> em "started" <> " in each day, for each detector on Chandra (so this "
        <> "combines both "
-       <> toLink StaticHtml "/about/instruments.html#grating" "grating"
+       <> toLink StaticHtml "/about/instruments.html#grating" ("grating" :: Html)
        <> " and non-grating observations). It does "
        <> strong "not" <> " include non-science observations. "
        <> "Note that if an "
@@ -289,7 +289,7 @@ renderBreakdown total perDay =
 
     p ("The following tables represent the full data used by this site; "
        <> "that is, the data shown in the "
-       <> calLink "calendar view"
+       <> calLink ("calendar view" :: Html)
        <> ".")
 
     tbl "Instrument" (instLinkSearch StaticHtml) insts

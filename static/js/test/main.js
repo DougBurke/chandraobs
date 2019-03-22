@@ -9,6 +9,8 @@
 //   Use a consistent naming scheme, as have FOV for the WWT FoV and
 //   for the polygon representing an observation.
 //
+//   Use HTML template rather than creating HTML structure in JS
+//
 const main = (function() {
 
     // How are FOVs to be drawn (for the "not-selected" case)
@@ -63,7 +65,7 @@ const main = (function() {
 	host.appendChild(div);
     }
 
-    // Sent the div for the whole pain
+    // Sent the div for the whole pane.
     function addCloseButton(parent) {
 	const el = document.createElement('span');
 	el.setAttribute('class', 'closable');
@@ -1499,6 +1501,155 @@ const main = (function() {
 	window.setTimeout(showLocation, 1000);
     }
 
+    // url is the api search term to use. It can be null, but that
+    // is intended for testing use only.
+    //
+    function addSky(url) {
+	const host = getHost();
+	if (host === null) { return; }
+
+	if (url === null) {
+	    console.log(" --- skipping data download");
+	    makeSky(host, {title: 'Empty dataset',
+			   description: 'A really empty dataset',
+			   nobs: 0,
+			   exptime: "no time",
+			   observations: []
+			  });
+	    return;
+	}
+
+	const spin = spinner.createSpinner();
+	host.appendChild(spin);
+
+	d3.json(url)
+	    .then((data) => {
+		host.removeChild(spin);
+		makeSky(host, data);
+	    })
+	    .catch((e) => {
+		host.removeChild(spin);
+		console.log("ERROR: query failed: " + url);
+		console.log(e);
+	    });
+    }
+
+    function textNode(txt) {
+	return document.createTextNode(txt);
+    }
+
+    // data is the JSON returned by the server: it is an object with
+    // the fields:
+    //   title  - title for the pane
+    //   description - "long form text", optional (unclear yet)
+    //   observations - a list of objects with the following attributes
+    //     ra     - decimal degrees
+    //     dec    - decimal degrees
+    //     expks  - exposure time in ks
+    //
+    function makeSky(host, data) {
+
+	/* delete any existing pane (rather than reusing it) */
+	host.querySelectorAll('.skyPane').forEach((el) => host.removeChild(el));
+
+	const pane = document.createElement('div');
+	pane.setAttribute('class', 'skyPane');
+
+	// There appear to be issues making this draggable
+	// so disable for now
+	/***
+	pane.draggable = true;
+	pane.addEventListener('dragstart',
+			      event => draggable.startDrag(event));
+	***/
+
+	const controlElements = document.createElement('div');
+	controlElements.classList.add('controlElements');
+	controlElements.classList.add('controlElementsShown');
+
+	const title = document.createElement('span');
+	title.setAttribute('class', 'title');
+	title.innerText = data.title;
+	controlElements.appendChild(title);
+
+	pane.appendChild(controlElements);
+
+	const main = document.createElement('div');
+	main.setAttribute('class', 'main');
+
+	// We do not use addCloseButton here since
+	//    a) it calls resetFOV
+	//    b) it only hides the pane, it doesn't destroy it,
+	//       which we need to do because of the use of id
+	//
+
+	const el = document.createElement('span');
+	el.setAttribute('class', 'closable');
+	el.addEventListener('click', () => host.removeChild(pane));
+
+	controlElements.appendChild(el);
+
+	controlElements.appendChild(addHideShowButton(main, controlElements));
+
+	pane.appendChild(main);
+	host.appendChild(pane);
+
+	if (data.description) {
+	    const stypeDiv = document.createElement('div');
+	    stypeDiv.setAttribute('class', 'searchtype');
+	    stypeDiv.innerText = data.description;
+	    main.appendChild(stypeDiv);
+	}
+
+	const nmatch = data.nobs;
+	let infoText = null;
+	if (nmatch == 0) {
+	    infoText = 'There are no matching Chandra observations in my database!';
+	} else if (nmatch == 1) {
+	    infoText = 'There is one observation in my database, with an ' +
+		'exposure time of ' + data.exptime + '.';
+	} else {
+	    infoText = 'There are ' + nmatch.toString() + ' observations ' +
+		'in my database, with a total exposure time of ' +
+		data.exptime + '.';
+	}
+
+	// end variable name Div even though a para
+	const infoDiv = document.createElement('p');
+	infoDiv.setAttribute('class', 'searchinfo');
+	infoDiv.innerText = infoText;
+	main.appendChild(infoDiv);
+
+	const skyDiv = document.createElement('div');
+	skyDiv.setAttribute('id', 'sky');
+	main.appendChild(skyDiv);
+
+	const details = document.createElement('details');
+	const summary = document.createElement('summary');
+	summary.innerText = 'About this display';
+
+	const content = document.createElement('p');
+	content.appendChild(textNode("This "));
+
+	const alink = document.createElement('a');
+	alink.setAttribute('href',
+			   'https://en.wikipedia.org/wiki/Orthographic_projection_in_cartography');
+	alink.setAttribute('target', '_blank');
+	alink.innerText = 'orthographic projection';
+
+	content.appendChild(alink);
+	content.appendChild(textNode(' shows a subset of Chandra observations, where each circle shows an observation - clicking on one will move the main display to that observation - and the projection can be rotated (hold down the mouse button and move it).'));
+
+	details.appendChild(summary);
+	details.appendChild(content);
+	main.appendChild(details);
+
+	const ra0 = 15.0 * wwt.getRA();
+	const dec0 = wwt.getDec();
+	sky.create(showObsId, ra0, dec0, data.observations);
+
+    }
+
     return {initialize: initialize,
 	    resize: resize,
 
@@ -1511,6 +1662,8 @@ const main = (function() {
 	    //
 	    getWWT: () => { return wwt; },
 	    getHost: getHost,
+
+	    addSkyView: addSky
 	   };
 
 })();

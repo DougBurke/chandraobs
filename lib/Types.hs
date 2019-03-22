@@ -144,6 +144,8 @@ module Types ( ObsIdVal
              , rsoJointWith
              , rsoConstraints
              , rsoConstellation
+             , rsoRA
+             , rsoDec
                
              , RestrictedNS
              , rnsStartTime

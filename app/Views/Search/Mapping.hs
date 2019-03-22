@@ -50,9 +50,9 @@ renderMatches =
     h2 "Breaking down the time spent in each Chandra category"
 
     p ("The left-hand column shows the "
-       <> toLink StaticHtml "/search/category/" "proposal categories"
+       <> toLink StaticHtml "/search/category/" ("proposal categories" :: Html)
        <> " and the right-hand column the "
-       <> toLink StaticHtml "/search/type/" "SIMBAD types"
+       <> toLink StaticHtml "/search/type/" ("SIMBAD types" :: Html)
        <> " for the objects observed by Chandra. "
        <> "The connections between the two indicate the amount of time "
        <> "spent observing these sources; they can be selected to view "
@@ -72,7 +72,8 @@ renderMatches =
        <> categoryLinkSearch StaticHtml "SOLAR SYSTEM" ("Solar System" :: T.Text)
        <> " observations, since SIMBAD does not include solar-system objects in its "
        <> "database. The format used for this display is known as a "
-       <> toLink StaticHtml "http://en.wikipedia.org/wiki/Sankey_diagram" "Sankey diagram"
+       <> toLink StaticHtml "http://en.wikipedia.org/wiki/Sankey_diagram"
+        ("Sankey diagram" :: Html)
        <> ". The bands at the left and right can be dragged vertically "
        <> "to aid visibility in case the layout algorithm does not "
        <> "do a good job. As a reminder, this is intended for "

@@ -69,7 +69,7 @@ renderMatches cts =
 
       deployLink = 
         toLink StaticHtml "http://chandra.harvard.edu/about/deployment.html"
-        "on July 23, 1999"
+        ("on July 23, 1999" :: Html)
 
       arLacSearchLink = nameLinkSearch StaticHtml "ArLac" (Just "Ar Lac")
 
@@ -77,7 +77,7 @@ renderMatches cts =
         let uri = scheduleOnDate day 1
             day = fromGregorian 2015 9 26
         in toLink StaticHtml uri
-           "the twenty-one observations on September 26, 2015"
+           ("the twenty-one observations on September 26, 2015" :: Html)
       
       paraBlocks = 
         p ("This page shows the number of Chandra science observations per "
@@ -108,7 +108,7 @@ renderMatches cts =
            <> "are stowed, and ensures it is in an orientation that can "
            <> "contact the "
            <> toLink StaticHtml "https://eyes.nasa.gov/dsn/dsn.html"
-           "Deep-Space Network"
+           ("Deep-Space Network" :: Html)
            <> " - but it could also be due to missing data in the "
            <> "database used by this web site.")
            

@@ -91,12 +91,19 @@ data HtmlContext = StaticHtml | DynamicHtml deriving Eq
 
 -- | If a dynamic link force opening in a new tab.
 --
-toLink :: HtmlContext -> H.AttributeValue -> H.Html -> H.Html
+toLink ::
+  H.ToMarkup a
+  => HtmlContext
+  -> H.AttributeValue
+  -> a
+  -> H.Html
 toLink ctx url =
   let tag = H.a H.! A.href url
-  in case ctx of
-       StaticHtml -> tag
-       DynamicHtml -> tag H.! A.target "_blank"
+      base = case ctx of
+        StaticHtml -> tag
+        DynamicHtml -> tag H.! A.target "_blank"
+
+  in base . H.toHtml
 
 -- | Convert Blaze's HTML to a HTML page.
 fromBlaze :: H.Html -> ActionM ()

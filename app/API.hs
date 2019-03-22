@@ -60,7 +60,7 @@ import qualified Text.Blaze.Html5 as H
 import Text.Blaze.Html5 (AttributeValue, Html
                         , link, script
                         , textValue, toHtml)
-import Text.Blaze.Html5.Attributes (href, media, rel, src, type_)
+import Text.Blaze.Html5.Attributes (href, media, onclick, rel, src, type_)
 
 import Blaze.ByteString.Builder (toByteString)
 
@@ -69,8 +69,9 @@ import Data.Monoid ((<>))
 import Data.Time.Calendar (Day)
 
 import Network.HTTP.Types.URI (encodePathSegments
-                               , queryTextToQuery
-                               , renderQuery)
+                              , encodePathSegmentsRelative
+                              , queryTextToQuery
+                              , renderQuery)
 
 import Types (ConShort(..)
              , ConstraintKind(..)
@@ -110,7 +111,7 @@ import Types (ConShort(..)
              , simbadTypeToDesc
              , csToLabel, csToLC
                )
-import Utils (HtmlContext(StaticHtml), toLink, fromDay, showInt)
+import Utils (HtmlContext(..), toLink, fromDay, showInt)
 
 -- | Convert a record into the URI fragment that represents the
 --   page for the record.
@@ -194,11 +195,18 @@ seqLink :: ObsIdVal -> AttributeValue
 seqLink = viewerURI ViewSequence
      
 -- | Link to a proposal type.
+--
 propTypeLink :: HtmlContext -> PropType -> Maybe T.Text -> Html
 propTypeLink ctx propType mlbl =
   let lbl = fromMaybe (toPropTypeLabel propType) mlbl
-      pLink = "/search/proptype/" <> H.toValue (fromPropType propType)
-  in toLink ctx pLink (toHtml lbl)
+
+      hlbl = H.toValue (fromPropType propType)
+      pLink = "/search/proptype/" <> hlbl
+      urlFrag = "proptype/" <> hlbl
+      
+  in case ctx of
+    StaticHtml -> toLink StaticHtml pLink lbl
+    DynamicHtml -> skyLink urlFrag lbl
 
 
 proposalLink :: HtmlContext -> Proposal -> Maybe T.Text -> Html
@@ -219,11 +227,13 @@ tooLinkSearch ctx too =
 --
 tooLinkSearchLong :: HtmlContext -> Maybe TOORequestTime -> T.Text -> Html
 tooLinkSearchLong ctx too lbl =
-  let ttype = maybe "none" (T.toLower . rtToLabel) too
-      uri = "/search/turnaround/" <> ttype
-      uriVal = textValue uri
-  in toLink ctx uriVal (toHtml lbl)
-
+  let ttype = H.toValue (maybe "none" (T.toLower . rtToLabel) too)
+      tLink = "/search/turnaround/" <> ttype
+      urlFrag = "turnaround/" <> ttype
+      
+  in case ctx of
+    StaticHtml -> toLink StaticHtml tLink lbl
+    DynamicHtml -> skyLink urlFrag lbl
 
 -- Note that there is a slight difference in the instrument and grating
 -- search links: for instrument the "nice" conversion is used to create
@@ -235,14 +245,24 @@ tooLinkSearchLong ctx too lbl =
 -- | Add in a link to the instrument search page.
 instLinkSearch :: HtmlContext -> Instrument -> Html
 instLinkSearch ctx inst = 
-  let iLink = "/search/instrument/" <> H.toValue inst
-  in toLink ctx iLink (toHtml inst)
+  let hlbl = H.toValue inst
+      iLink = "/search/instrument/" <> hlbl
+      url = "instrument/" <> hlbl
+  in case ctx of
+       StaticHtml -> toLink StaticHtml iLink inst
+       DynamicHtml -> skyLink url inst
 
 -- | Add in a link to the grating search page.
 gratLinkSearch :: HtmlContext -> Grating -> Html
 gratLinkSearch ctx grat = 
-  let gLink = "/search/grating/" <> H.toValue (show grat)
-  in toLink ctx gLink (toHtml grat)
+  let hlbl = H.toValue (show grat)
+      gLink = "/search/grating/" <> hlbl
+      url = "grating/" <> hlbl
+      
+  in case ctx of
+       StaticHtml -> toLink StaticHtml gLink grat
+       DynamicHtml -> skyLink url grat
+       
 
 -- | Add in a link to the combined instrument+grating search page.
 igLinkSearch :: (Instrument, Grating) -> Html
@@ -273,6 +293,21 @@ igLinkAbout :: Html
 igLinkAbout = (a H.! href "/about/instruments.html") "Chandra instruments"
 -}
 
+-- | Create the link for the dynamic page, which calls the sky view
+--   with the given search query when clicked.
+--
+skyLink ::
+  H.ToMarkup a
+  => AttributeValue
+  -- The search component (without leading /api/skyview/)
+  -> a
+  -> Html
+skyLink urlFrag =
+  let handler = "main.addSkyView('/api/skyview/" <> urlFrag <> "')"
+      base = H.a H.! href "#" H.! onclick handler
+  in base . toHtml
+
+
 -- | Add in a link to the constellation search page.
 constellationLinkSearch ::
   H.ToMarkup a
@@ -281,10 +316,15 @@ constellationLinkSearch ::
   -> a
   -- ^ The link text
   -> Html
-constellationLinkSearch ctx con lbl = 
-  let iLink = "/search/constellation/" <> H.toValue (fromConShort con)
-  in toLink ctx iLink (toHtml lbl)
+constellationLinkSearch ctx con lbl =
+  let hlbl = H.toValue (fromConShort con)
+      iLink = "/search/constellation/" <> hlbl
+      urlFrag = "constellation/" <> hlbl
 
+  in case ctx of
+       StaticHtml -> toLink StaticHtml iLink lbl
+       DynamicHtml -> skyLink urlFrag lbl
+       
 -- | Link to the given search (apart from for the "All" cycles,
 --   which we currently don't support in the schedule view since
 --   it has too many observations).
@@ -294,11 +334,18 @@ cycleLinkSearch ::
   -> Cycle
   -> Html
 cycleLinkSearch ctx cyc =
-  let iLink = "/search/cycle/" <> H.toValue lbl
-      lbl = fromCycle cyc
+  let lbl = fromCycle cyc
+      content = "Cycle " <> lbl
+
+      hlbl = H.toValue lbl
+      iLink = "/search/cycle/" <> hlbl
+      urlFrag = "cycle/" <> hlbl
+
   in if lbl == "all"
      then "All cycles"
-     else toLink ctx iLink (toHtml ("Cycle " <> lbl))
+     else case ctx of
+            StaticHtml -> toLink StaticHtml iLink content
+            DynamicHtml -> skyLink urlFrag content
 
 
 data TypeOption = TypeLink | TypeDLink deriving Eq
@@ -306,7 +353,11 @@ data TypeOption = TypeLink | TypeDLink deriving Eq
 tToValue :: TypeOption -> T.Text
 tToValue TypeLink = "type"
 tToValue TypeDLink = "dtype"
-  
+
+
+-- There's a lot of repition here, but leave for a later refctoring
+-- as unclear what is going to be used.
+--
 toTypeLinkURI :: TypeOption -> SimbadType -> B.ByteString
 toTypeLinkURI t st =
   -- as the SIMBAD type includes items like "Y*?", ensure the
@@ -314,11 +365,26 @@ toTypeLinkURI t st =
   let uri = ["search", tToValue t, fromSimbadType st]
   in toByteString (encodePathSegments uri)
      
+toTypeLinkFrag :: TypeOption -> SimbadType -> B.ByteString
+toTypeLinkFrag t st =
+  -- as the SIMBAD type includes items like "Y*?", ensure the
+  -- URI is encoded
+  let uriFrag = [tToValue t, fromSimbadType st]
+  in toByteString (encodePathSegmentsRelative uriFrag)
+     
 typeLinkURI :: SimbadType -> B.ByteString
 typeLinkURI = toTypeLinkURI TypeLink
 
 typeDLinkURI :: SimbadType -> B.ByteString
 typeDLinkURI = toTypeLinkURI TypeDLink
+
+-- For the skyview version
+typeLinkFrag :: SimbadType -> B.ByteString
+typeLinkFrag = toTypeLinkFrag TypeLink
+
+typeDLinkFrag :: SimbadType -> B.ByteString
+typeDLinkFrag = toTypeLinkFrag TypeDLink
+
   
 -- | Add in a link to the object-type search page.
 --
@@ -333,7 +399,12 @@ typeLinkSearch ::
   -> Html
 typeLinkSearch ctx st lbl = 
   let iLink = H.unsafeByteStringValue (typeLinkURI st)
-  in toLink ctx iLink (toHtml lbl)
+      urlFrag = H.unsafeByteStringValue (typeLinkFrag st)
+      
+  in case ctx of
+    StaticHtml -> toLink StaticHtml iLink lbl
+    DynamicHtml -> skyLink urlFrag lbl
+
 
 typeDLinkSearch ::
   H.ToMarkup a
@@ -343,18 +414,24 @@ typeDLinkSearch ::
   -> Html
 typeDLinkSearch ctx st lbl = 
   let iLink = H.unsafeByteStringValue (typeDLinkURI st)
-  in toLink ctx iLink (toHtml lbl)
+      urlFrag = H.unsafeByteStringValue (typeDLinkFrag st)
+      
+  in case ctx of
+    StaticHtml -> toLink StaticHtml iLink lbl
+    DynamicHtml -> skyLink urlFrag lbl
+
 
 -- | Should this be a wrapper around typeLinkSearch or
 --   typeDLinkSearch?
 basicTypeLinkSearch :: Maybe SimbadType -> Html
 basicTypeLinkSearch Nothing =
-  toLink StaticHtml "/search/type/unidentified" "Unidentified"
+  toLink StaticHtml "/search/type/unidentified" ("Unidentified" :: Html)
 basicTypeLinkSearch (Just s) =
   let txt = fromMaybe "unknown SIMBAD type" (simbadTypeToDesc s)
   in typeLinkSearch StaticHtml s txt
 
 -- | Add in a link to the obervation category search page.
+--
 categoryLinkSearch ::
   H.ToMarkup a
   => HtmlContext
@@ -362,8 +439,13 @@ categoryLinkSearch ::
   -> a
   -> Html
 categoryLinkSearch ctx cat lbl = 
-  let iLink = "/search/category/" <> H.toValue cat
-  in toLink ctx iLink (toHtml lbl)
+  let hlbl = H.toValue cat
+      iLink = "/search/category/" <> hlbl
+      urlFrag = "category/" <> hlbl
+      
+  in case ctx of
+       StaticHtml -> toLink StaticHtml iLink lbl
+       DynamicHtml -> skyLink urlFrag lbl
 
 -- | Search for the given target. This is an exact (case insensitive)
 --   search.
@@ -403,7 +485,7 @@ constraintLinkSearch (Just cs) =
   in toLink StaticHtml uri (toHtml (csToLabel cs))
 constraintLinkSearch Nothing =
   let uri = textValue "/search/constraints/none"
-  in toLink StaticHtml uri "None"
+  in toLink StaticHtml uri ("None" :: Html)
 
 
 -- | Link to the search page.
@@ -412,8 +494,16 @@ fromMissionLongLink :: HtmlContext -> JointMission -> Maybe H.Html
 fromMissionLongLink ctx m =
   case getMissionInfo m of
     Just (shortName, longName, _) ->
-      let url = H.toValue ("/search/joint/" <> shortName)
-      in Just (toLink ctx url (toHtml longName))
+      let hlbl = H.toValue shortName
+          mlink = "/search/joint/" <> hlbl
+          urlFrag = "joint/" <> hlbl
+
+          ans = case ctx of
+            StaticHtml -> toLink StaticHtml mlink longName
+            DynamicHtml -> skyLink urlFrag longName
+            
+      in Just ans
+      
     Nothing -> Nothing
     
 

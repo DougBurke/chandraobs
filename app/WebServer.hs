@@ -47,9 +47,9 @@ import qualified Views.Schedule as Schedule
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
-import Data.Aeson(ToJSON, Value, (.=), object)
+import Data.Aeson (ToJSON, Value, (.=), object)
 import Data.Default (def)
-import Data.List (nub)
+import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Monoid ((<>))
 import Data.Pool (Pool)
@@ -164,7 +164,7 @@ import Git (gitCommitId)
 import Layout (getFact, renderObsIdDetails)
 -- import Layout (getFact, renderLinks)
 import Sorted (SortedList
-              , nullSL, fromSL, mergeSL, unsafeToSL
+              , nullSL, fromSL, mergeSL, unsafeToSL, lengthSL
               , StartTimeOrder, ExposureTimeOrder)
 
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
@@ -191,6 +191,9 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , TimeKS
              , unsafeToTimeKS
              , fromTimeKS
+             , addTimeKS
+             , zeroKS
+             
              , ChandraTime
              , toChandraTime
              , fromChandraTime
@@ -218,12 +221,28 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , rtToLabel
              , labelToCS
              , csToLC
+             , csToLabel
              , getConstellationNameStr
              , fromInstrument
              , fromGrating
              , fromPropType
              , recordObsId
              , recordTarget
+
+             , fromConShort
+             , fromConLong
+             , getConstellationName
+
+             , fromCycle
+
+             , getMissionInfo
+             
+             , rsoObsId
+             , rsoTarget
+             , rsoRA
+             , rsoDec
+             , rsoExposureTime
+             
              )
 import Utils (fromBlaze, standardResponse
              , timeToRFC1123
@@ -543,6 +562,222 @@ webapp cm scache cache = do
 
       json jsobj
 
+    -- support "category" searches (e.g. ACIS-I observations or
+    -- related proposals)
+    --
+    -- For now have specific search pages, which replicates some/all
+    -- of the "static" versions.
+    --
+    let skyview ::
+          T.Text
+          -- ^ Title
+          -> Maybe T.Text
+          -- ^ Optional description
+          -> SortedList a RestrictedSO
+          -> Value
+        skyview title mdesc xs = 
+          let times = map rsoExposureTime (fromSL xs)
+              etime = foldl' addTimeKS zeroKS times
+              exptime = showExpTime etime
+              
+              pairs = [ "observations" .= rsoListToJSON xs
+                      , "nobs" .= lengthSL xs
+                      , "exptime" .= exptime
+                      , "title" .= title
+                      ] <>
+                      [ "description" .= t | Just t <- [mdesc]]
+                      
+          in object pairs
+
+        -- drop non-science observations
+        --
+        {-
+        skyview2 :: T.Text -> Maybe T.Text -> RestrictedSchedule -> Value
+        skyview2 title mdesc rs =
+          -- rely on time ordering applied when creating these
+          -- schedules, which is not encoded in the types
+          let xs = rrDone rs <> doing <> rrToDo rs
+              doing = maybe [] (:[]) (rrDoing rs)
+              (_, ys) = partitionEithers xs
+          in skyview title mdesc (unsafeToSL ys)
+         -}
+    
+    {-  copied from later as guidance
+        let searchResultsRestricted getData isNull page = do
+          (xs, matches) <- getData
+          when (nullSL matches || isNull xs) next
+          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+          fromBlaze (page xs sched)
+    -}
+
+    -- TODO: get from cache
+    get "/api/skyview/category/:category"
+      (do
+          (propCat, xs) <- dbQuery "category" fetchCategory
+          let title = "Category search: " <> propCat
+          json (skyview title Nothing xs)
+      )
+
+    get "/api/skyview/constellation/:constellation"
+      (do
+          (con, xs) <- dbQuery "constellation" fetchConstellation
+          let title = "Constellation search: " <> fromConShort con
+              longName = fromConLong <$> getConstellationName con
+          json (skyview title longName xs)
+      )
+
+    -- TODO: what case do we want the 'none' parameter to be?
+    --
+    get "/api/skyview/constraints/none"
+      (do
+          xs <- liftSQL (fetchConstraint Nothing)
+          let title = "No constraint"
+          json (skyview title Nothing xs)
+      )
+    
+    get "/api/skyview/constraints/:cs"
+      (do
+          csStr <- param "cs"
+          case labelToCS csStr of
+            Just cs -> do
+              xs <- liftSQL (fetchConstraint (Just cs))
+              let title = "Constraint: " <> csStr
+                  desc = csToLabel cs
+              json (skyview title (Just desc) xs)
+
+            Nothing -> status notFound404
+      )
+      
+    get "/api/skyview/cycle/:cycle"
+      (do
+          (cycleVal, xs) <- dbQuery "cycle" fetchCycle
+          let title = "Cycle: " <> v
+              desc = "Chandra Cycle " <> v
+              v = fromCycle cycleVal
+          json (skyview title (Just desc) xs)
+      )
+      
+    -- TODO: use cache
+    get "/api/skyview/grating/:grating"
+      (do
+          (grat, xs) <- dbQuery "grating" fetchGrating
+          let title = "Grating: " <> v
+              desc = v
+              v = fromGrating grat
+          json (skyview title (Just desc) xs)
+      )
+
+    {-
+    get "/api/skyview/instrument/:instrument"
+      (do
+          let getDB = fetchInstrument
+                
+          inst <- param "instrument"
+          let key = toCacheKey (toText inst)
+          mcdata <- liftIO (getFromCache cache key)
+          case mcdata of
+            Just cdata -> skyview2 (fromCacheData cdata)
+            Nothing -> do
+              matches <- liftSQL (getDB inst)
+              when (nullSL matches) status notFound404
+              skyview matches
+      )
+    -}
+
+    -- TODO: use cache
+    get "/api/skyview/instrument/:instrument"
+      (do
+          (inst, xs) <- dbQuery "instrument" fetchInstrument
+          let title = "Instrument: " <> v
+              desc = v
+              v = fromInstrument inst
+          json (skyview title (Just desc) xs)
+      )
+
+    get "/api/skyview/joint/:mission"
+      (do
+          (mission, xs) <- dbQuery "mission" fetchJointMission
+          
+          case getMissionInfo mission of
+            Just (sName, lName, _) ->
+              let title = "Joint mission: " <> sName
+              in json (skyview title (Just lName) xs)
+
+            Nothing -> do
+              pval <- param "mission" -- can I re-request it?
+              let title = "Joint mission: " <> pval
+              json (skyview title Nothing xs)
+      )
+      
+    -- TODO: use cache
+    get "/api/skyview/proptype/:proptype"
+      (do
+          (propType, xs) <- dbQuery "proptype" getProposalType
+          let title = "Proposal Type: " <> v
+              v = fromPropType propType
+          json (skyview title Nothing xs)
+      )
+
+    -- TODO: what case do we want the 'none' parameter to be?
+    --
+    get "/api/skyview/turnaround/none"
+      (do
+          xs <- liftSQL (fetchTOO Nothing)
+          let title = "Not a TOO"
+          json (skyview title Nothing xs)
+      )
+    
+    get "/api/skyview/turnaround/:too"
+      (do
+          tooStr <- param "too"
+          case labelToRT tooStr of
+            Just too -> do
+              xs <- liftSQL (fetchTOO (Just too))
+              let title = "TOO request: " <> tooStr
+                  desc = rtToLabel too
+              json (skyview title (Just desc) xs)
+
+            Nothing -> status notFound404
+      )
+      
+    get "/api/skyview/type/unidentified"
+      (do
+          (_, xs) <- liftSQL fetchNoSIMBADType
+          let title = "SIMBAD search: unidentified"
+              desc = "Targets with no SIMBAD match"
+          json (skyview title (Just desc) xs)
+      )
+      
+    get "/api/skyview/type/:type"
+      (do
+          mres <- snd <$> dbQuery "type" fetchSIMBADType
+          case mres of
+            Just (sti, xs) ->
+              let (stype, sdesc) = sti
+                  title = "SIMBAD search: " <> fromSimbadType stype
+              in json (skyview title (Just sdesc) xs)
+
+            Nothing -> status notFound404
+      )
+
+    -- this includes "children" of this type
+    -- TODO: improve information on the children being shown
+    --
+    -- include after /type/ to show commonalities
+    --
+    get "/api/skyview/dtype/:type"
+      (do
+          (stis, xs) <- snd <$> dbQuery "type" fetchSIMBADDescendentTypes
+
+          -- guaranteed that stis is not empty
+          let (stype, sdesc) = head stis
+              title = "SIMBAD search: " <> fromSimbadType stype
+                      <> if length stis > 1 then " and children" else mempty
+
+              -- TODO: need to add in info about all the descendants
+          json (skyview title (Just sdesc) xs)
+      )
+
 
     {-
 
@@ -685,6 +920,9 @@ webapp cm scache cache = do
         Left _ -> next -- TODO: better error message
         Right date -> queryScheduleDate date ndays
 
+    -- TODO: what does a cache miss mean here? Should we fill it in or
+    --       not?
+    --
     let fromCacheInt pval toText getDB toHtml = do
           let key = toCacheKey (toText pval)
           mcdata <- liftIO (getFromCache cache key)
@@ -1720,3 +1958,21 @@ fetchSchedule act = do
   matches <- act
   -- note: there is no check for no matches
   makeScheduleRestricted (fmap Right matches)
+
+
+-- Convert a restricted science observation to an object; very-limited
+-- at the moment.
+--
+rsoToJSON :: RestrictedSO -> Value
+rsoToJSON rso =
+  object [ "obsid" .= fromObsId (rsoObsId rso)
+         , "target" .= rsoTarget rso
+         , "ra" .= fromRA (rsoRA rso)
+         , "dec" .= fromDec (rsoDec rso)
+         , "expks" .= fromTimeKS (rsoExposureTime rso)
+         ]
+  
+-- Technically not converted to JSON, but to something that can be
+-- converted to JSON
+rsoListToJSON :: SortedList a RestrictedSO -> [Value]
+rsoListToJSON = map rsoToJSON . fromSL
