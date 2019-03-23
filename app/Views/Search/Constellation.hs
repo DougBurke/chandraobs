@@ -31,6 +31,7 @@ import Types (RestrictedSchedule, ConShort(..), TimeKS
               , getConstellationNameStr
               , showExpTime)
 import Utils (HtmlContext(StaticHtml)
+             , extLink
              , getNumObsRestricted
              , getScienceTimeRestricted
                -- , toJSVarObj
@@ -92,11 +93,12 @@ renderMatches lbl sched =
       -- TODO: improve English here
       matchBlock = p (
         "This page shows Chandra observations of objects in the constellation "
-        <> (a ! href conLink) (toHtml lbl)
+        <> extLink StaticHtml conLink lbl
         <> scienceTime
         <> ". The constellation outline is also shown; the outlines "
         <> "were taken from the "
-        <> (a ! href "https://github.com/ofrohn/d3-celestial/") "d3-celestial"
+        <> extLink StaticHtml "https://github.com/ofrohn/d3-celestial/"
+          ("d3-celestial" :: T.Text)
         <> " project by Olaf Frohn. "
         -- assume the schedule is all science observations
         <> toHtml (getNumObsRestricted sched)

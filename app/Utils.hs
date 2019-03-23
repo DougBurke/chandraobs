@@ -107,6 +107,8 @@ toLink ctx url =
   in base . H.toHtml
 
 -- | Like `toLink` but add in the "external-link" class.
+--   and image (wanted to add this purely with CSS but
+--   then can not scale the image).
 --
 extLink ::
   H.ToMarkup a
@@ -114,13 +116,16 @@ extLink ::
   -> H.AttributeValue
   -> a
   -> H.Html
-extLink ctx url =
+extLink ctx url content =
   let tag = H.a H.! A.href url H.! A.class_ "external-link"
       base = case ctx of
         StaticHtml -> tag
         DynamicHtml -> tag H.! A.target "_blank"
 
-  in base . H.toHtml
+  in base (H.toHtml content) <>
+     H.img H.! A.src "/img/external-link-alt.svg"
+           H.! A.class_ "external-link"
+
 
 -- | Convert Blaze's HTML to a HTML page.
 fromBlaze :: H.Html -> ActionM ()

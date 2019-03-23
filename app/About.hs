@@ -244,7 +244,10 @@ furtherSection = do
      <> "without the "
      <> alink "https://github.com/simile-widgets/exhibit/"
      "Exhibit widget framework"
-     <> ".")
+     <> ". At least one icon comes from the free version of "
+     <> alink "https://fontawesome.com/" "Font Awesome"
+     <> "."
+    )
 
   p ("The " <> alink "views.html#WWT" "interactive view" <>
      " uses the HTML5 version of the American Astronomical Society's "

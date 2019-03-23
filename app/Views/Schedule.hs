@@ -21,7 +21,9 @@ import Text.Blaze.Html5 hiding (map, title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
 import Types (RestrictedSchedule(..))
-import Utils (getScienceTimeRestricted
+import Utils (HtmlContext(StaticHtml)
+             , extLink
+             , getScienceTimeRestricted
              , showInt
              )
 import Views.Record (CurrentPage(..))
@@ -91,17 +93,17 @@ renderSchedule sched =
         <> "circles overlap! The shaded regions trace "
         <> "the Milky Way galaxy. "
         <> "The points are plotted in the "
-        <> (a ! href "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy")
-        "Equatorial coordinate system"
+        <> extLink StaticHtml "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy"
+        ("Equatorial coordinate system" :: T.Text)
         <> ", using the "
-        <> (a ! href "http://en.wikipedia.org/wiki/Aitoff_projection")
-        "Aitoff projection"
+        <> extLink StaticHtml "http://en.wikipedia.org/wiki/Aitoff_projection"
+        ("Aitoff projection" :: T.Text)
         <> ". See "
-        <> (a ! href "http://burro.astr.cwru.edu/")
-        "Chris Mihos'"
+        <> extLink StaticHtml "http://burro.astr.cwru.edu/"
+        ("Chris Mihos'" :: T.Text)
         <> " page on "
-        <> (a ! href "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html")
-        "Astronomical coordinate systems"
+        <> extLink StaticHtml "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html"
+        ("Astronomical coordinate systems" :: T.Text)
         <> " for more information."
         )
       

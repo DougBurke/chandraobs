@@ -604,6 +604,13 @@ div#observation {
     border-left: 1em solid rgba(0, 131, 179, 0.2);
 }
 
+/* the icon after an "external link" is encountered */
+
+img.external-link {
+    height: 0.8em;
+    padding-left: 0.5em;
+}
+
 /*
  * view of the sky; this needs to match the code that generates the SVG
  */

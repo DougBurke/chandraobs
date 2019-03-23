@@ -26,6 +26,7 @@ import Types (RestrictedSchedule, JointMission
              , fromMission, fromMissionLong)
 import Utils (HtmlContext(StaticHtml)
              , toLink
+             , extLink
              , getNumObsRestricted
              , getScienceTimeRestricted
              )
@@ -85,7 +86,7 @@ renderMissions jms =
        <> "not. The set of missions for which joint proposals "
        <> "are available changes over time, as new facilities become available "
        <> "and others are decomissioned or "
-       <> toLink StaticHtml "https://en.wikipedia.org/wiki/Suzaku_(satellite)"
+       <> extLink StaticHtml "https://en.wikipedia.org/wiki/Suzaku_(satellite)"
        ("are turned off." :: Html)
       )
       

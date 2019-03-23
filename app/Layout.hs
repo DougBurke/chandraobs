@@ -86,6 +86,7 @@ import Types (ChipStatus(..)
 import Utils (HtmlContext(..)
              , toLink
              , extLink
+             , extLink
              , cleanJointName
              , isChandraImageViewable
              , publicImageURL
@@ -142,7 +143,8 @@ renderFooter =
     mconcat [
       "The 'What is Chandra doing now?' web site is developed by "
       , "the Science Data Systems group of the "
-      , (a H.! href "http://chandra.si.edu/") "Chandra X-ray Center"
+      , extLink StaticHtml "http://chandra.si.edu/"
+        ("Chandra X-ray Center" :: T.Text)
       , ". The information on this site is intended for "
       , "educational purposes and should not be relied on for "
       , "scientific use."

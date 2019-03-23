@@ -33,6 +33,7 @@ import Types (SimbadType
              , simbadTypeToDesc)
 import Utils (HtmlContext(StaticHtml)
              , toLink
+             , extLink
              , getNumObsRestricted
              , getScienceTimeRestricted
              )
@@ -114,7 +115,7 @@ renderTypes cats =
        <> toLink StaticHtml "/proposal/14400832" ("proposal link" :: Html)
        <> " for an observation, and then selecting the proposal title "
        <> "- in this example I chose "
-       <> toLink StaticHtml (abstractLink (unsafeToObsIdVal 14662))
+       <> extLink StaticHtml (abstractLink (unsafeToObsIdVal 14662))
        ("An X-ray binary candidate with potential extended emission" :: Html)
        <> "."
       )

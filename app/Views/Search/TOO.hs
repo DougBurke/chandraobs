@@ -23,6 +23,7 @@ import Types (RestrictedSchedule, TimeKS, TOORequestTime(..)
              , rtToLabel, showExpTime)
 import Utils (HtmlContext(StaticHtml)
              , toLink
+             , extLink
              , getScienceTimeRestricted)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardRestrictedSchedulePage
@@ -85,15 +86,15 @@ renderTOOs objs noneTime=
        -- TODO: use a wrapper
        <> toLink StaticHtml "/search/constraints/" ("predictably" :: Html)
        <> " (such as the "
-       <> toLink StaticHtml "http://chandra.si.edu/press/13_releases/press_072913.html"
+       <> extLink StaticHtml "http://chandra.si.edu/press/13_releases/press_072913.html"
        ("occultation of a star by one of its planets" :: Html)
        <> "), or even unpredictably - but for some Science "
        <> "goals, it is vital that an observation be performed at certain "
        <> "times. Examples of when time is of the essence include studying the "
-       <> toLink StaticHtml "https://en.wikipedia.org/wiki/Gamma-ray_burst#Afterglow"
+       <> extLink StaticHtml "https://en.wikipedia.org/wiki/Gamma-ray_burst#Afterglow"
        ("afterglow of a Gamma-Ray burst" :: Html)
        <> " or the unexpected behavior of the "
-       <> toLink StaticHtml "http://chandra.si.edu/press/15_releases/press_010515.html"
+       <> extLink StaticHtml "http://chandra.si.edu/press/15_releases/press_010515.html"
        ("black hole in the center of our Galaxy" :: Html)
        <> ". In these cases, Astronomers will have written a proposal to "
        <> "study such a case, either a "
@@ -116,7 +117,7 @@ renderTOOs objs noneTime=
        <> "It is also complicated by the fact that the Chandra X-ray Center "
        <> "is not in constant contact with the satellite - this differs to "
        <> "the "
-       <> toLink StaticHtml "http://www.esa.int/Our_Activities/Operations/XMM-Newton_operations"
+       <> extLink StaticHtml "http://www.esa.int/Our_Activities/Operations/XMM-Newton_operations"
        ("XMM-Newton satellite" :: Html)
        <> ", for instance - and so there is often a minimum delay before an "
        <> "observation can be uploaded to Chandra" <> sup "1" <> "."
@@ -135,7 +136,7 @@ renderTOOs objs noneTime=
       (sup "1" <> " NASA communicates with its satellites using the "
        <> "Deep Space Network, and has a really cool site showing "
        <> "a real-time view of "
-       <> toLink StaticHtml "https://eyes.nasa.gov/dsn/dsn.html"
+       <> extLink StaticHtml "https://eyes.nasa.gov/dsn/dsn.html"
        ("what missions are using the DSN" :: Html)
        <> "."
       )

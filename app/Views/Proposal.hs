@@ -13,14 +13,16 @@ import Data.Either (rights)
 import Data.Monoid ((<>), mconcat, mempty)
 
 import Text.Blaze.Html5 hiding (map, title, cite)
-import Text.Blaze.Html5.Attributes hiding (title, cite)
 
 import API (abstractLink, categoryLinkSearch)
 import Types (Proposal(..), ProposalAbstract(..)
              , RestrictedSchedule
              , rsoObsId
              )
-import Utils (HtmlContext(StaticHtml), rschedToList, showInt)
+import Utils (HtmlContext(StaticHtml)
+             , extLink
+             , rschedToList
+             , showInt)
 import Views.Record (CurrentPage(..))
 import Views.Render (standardRestrictedSchedulePage)
 
@@ -56,7 +58,7 @@ renderProposal title Proposal{..} mAbs sched =
       --       pages.
       abstxt = case obsList of
        (so:_) -> let uri = abstractLink (rsoObsId so)
-                 in (a ! href uri) title
+                 in extLink StaticHtml uri title
        _ ->  title
 
       {-

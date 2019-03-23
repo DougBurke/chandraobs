@@ -27,6 +27,7 @@ import Types (RestrictedSchedule, PropType(..), TimeKS
              , showExpTime)
 import Utils (HtmlContext(StaticHtml)
              , toLink
+             , extLink
              , getScienceTimeRestricted
              , getNumObsRestricted
              )
@@ -126,10 +127,10 @@ identifyType TOO =
   p (tstrong "Target of Opportunity Observations"
      <> " are for Scientific proposals of "
      <> "time-varying phenomena, such as "
-     <> toLink StaticHtml "https://en.wikipedia.org/wiki/Gamma-ray_burst"
+     <> extLink StaticHtml "https://en.wikipedia.org/wiki/Gamma-ray_burst"
      ("Gamma-Ray Bursts" :: Html)
      <> " or "
-     <> toLink StaticHtml "https://en.wikipedia.org/wiki/Flare_star"
+     <> extLink StaticHtml "https://en.wikipedia.org/wiki/Flare_star"
      ("an X-ray flaring star" :: Html)
      <> sup "1"
      <> " that can be predicted (in that, a proposal can be written to "
@@ -180,7 +181,7 @@ renderTypes pmap =
     (p ! class_ "footnote")
       (sup "1"
        <> " Our Sun, "
-       <> toLink StaticHtml "https://xrt.cfa.harvard.edu/xpow/"
+       <> extLink StaticHtml "https://xrt.cfa.harvard.edu/xpow/"
        ("which is X-ray variable" :: Html)
        <> ", is so bright in X-rays "
        <> "that it can not be observed with Chandra because it would "

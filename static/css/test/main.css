@@ -341,3 +341,10 @@ div.lookup-success {
     z-index: 300;
     -webkit-transform: translate(-50%, -50%);
 }
+
+/* general stuff */
+
+img.external-link {
+    height: 0.8em;
+    padding-left: 0.5em;
+}

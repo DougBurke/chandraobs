@@ -55,6 +55,7 @@ import Types (RestrictedSchedule
              , _2)
 import Utils (HtmlContext(StaticHtml)
              , toLink
+             , extLink
              , getNumObsRestricted
              , getScienceTimeRestricted
              , toJSVarObj
@@ -189,7 +190,7 @@ renderMatches lbl sched children =
              , childTxt
              , ". The object type is based on the target name created by the "
              , "observer, and is often not sufficient to identify it in "
-             , toLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X"
+             , extLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X"
                ("SIMBAD" :: Html)
              , ", which is why not all observations have a type (it is also "
              , "true that the Chandra field of view is large enough to contain "
@@ -205,7 +206,7 @@ nameInfo :: H.Html
 nameInfo =
   "The target names set by the proposal writers were used to identify " <>
   "the object types using " <>
-  toLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X"
+  extLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X"
   ("the SIMBAD database" :: Html)
   <> ". "
 
@@ -351,7 +352,7 @@ renderDependency objs =
         <> "incomplete (and does not include so-called serendipitous sources, "
         <> "that is, those sources that are near-enough to the target to also "
         <> "be observed by Chandra). The "
-        <> toLink StaticHtml "https://en.wikipedia.org/wiki/Dendrogram"
+        <> extLink StaticHtml "https://en.wikipedia.org/wiki/Dendrogram"
         ("dendogram view" :: Html)
         <> " is used to show the SIMBAD hierarchy. Selecting a circle will "
         <> "close or open the children of the item (i.e. those types that are "

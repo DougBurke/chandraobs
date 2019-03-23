@@ -75,7 +75,7 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , recordObsId, showExpTime
              )
 import Utils (HtmlContext(..)
-             , toLink
+             , extLink
              , showTimeDeltaFwd
              , showTimeDeltaBwd
              , getTimes
@@ -477,7 +477,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
            <> ". "
            <> subArrayTxt
            <> "More information on the target can be found at "
-           <> toLink ctx slink ("SIMBAD" :: Html)
+           <> extLink ctx slink ("SIMBAD" :: Html)
            <> ". "
 
       abstxt = case obsStatus of

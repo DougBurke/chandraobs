@@ -24,7 +24,9 @@ import API (basicTypeLinkSearch
            , categoryLinkSearch
            , jsScript, cssLink)
 import Layout (defaultMeta, dquote, d3Meta, noJSPara)
-import Utils (HtmlContext(StaticHtml), toLink)
+import Utils (HtmlContext(StaticHtml)
+             , toLink
+             , extLink)
 import Views.Record (CurrentPage(..), singleColBody)
 
 
@@ -72,7 +74,7 @@ renderMatches =
        <> categoryLinkSearch StaticHtml "SOLAR SYSTEM" ("Solar System" :: T.Text)
        <> " observations, since SIMBAD does not include solar-system objects in its "
        <> "database. The format used for this display is known as a "
-       <> toLink StaticHtml "http://en.wikipedia.org/wiki/Sankey_diagram"
+       <> extLink StaticHtml "https://en.wikipedia.org/wiki/Sankey_diagram"
         ("Sankey diagram" :: Html)
        <> ". The bands at the left and right can be dragged vertically "
        <> "to aid visibility in case the layout algorithm does not "
