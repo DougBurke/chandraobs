@@ -1,3 +1,5 @@
+"use strict";
+
 // Experiment with a WWT-based main display
 //
 // TODO:
