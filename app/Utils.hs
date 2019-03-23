@@ -6,6 +6,7 @@
 module Utils (
      HtmlContext(..)
      , toLink
+     , extLink
      
      , fromBlaze
      , standardResponse
@@ -99,6 +100,22 @@ toLink ::
   -> H.Html
 toLink ctx url =
   let tag = H.a H.! A.href url
+      base = case ctx of
+        StaticHtml -> tag
+        DynamicHtml -> tag H.! A.target "_blank"
+
+  in base . H.toHtml
+
+-- | Like `toLink` but add in the "external-link" class.
+--
+extLink ::
+  H.ToMarkup a
+  => HtmlContext
+  -> H.AttributeValue
+  -> a
+  -> H.Html
+extLink ctx url =
+  let tag = H.a H.! A.href url H.! A.class_ "external-link"
       base = case ctx of
         StaticHtml -> tag
         DynamicHtml -> tag H.! A.target "_blank"

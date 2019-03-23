@@ -85,6 +85,7 @@ import Types (ChipStatus(..)
              )
 import Utils (HtmlContext(..)
              , toLink
+             , extLink
              , cleanJointName
              , isChandraImageViewable
              , publicImageURL
@@ -371,8 +372,8 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
 
       keyVal k v = tr (left k <> " " <> right v)
 
-      oLink = toLink ctx (obsIdLink soObsId) (toHtml soObsId)
-      sLink = toLink ctx (seqLink soObsId)   (toHtml soSequence)
+      oLink = extLink ctx (obsIdLink soObsId) soObsId
+      sLink = extLink ctx (seqLink soObsId)   soSequence
 
       -- do not have a proposal so can't use proposalLink?
       -- well, we have mprop, so could (but would have to deal
