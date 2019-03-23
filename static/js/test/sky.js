@@ -25,7 +25,7 @@
 //
 const sky = (function() {
 
-    const width = 400;
+    const width = 400;    
     const height = 400;
 
     // Try and improve the drag behavior based on
@@ -284,6 +284,10 @@ const sky = (function() {
 
 	// Should we query parentDiv for size rather than hard-coding it?
 	//
+	// There is a square for the projection, and below that
+	// a rectangle which is used for the legend. Rather than
+	// have a single SVG contain this, have two of them.
+	//
 	const svg = d3.select('#sky').append('svg')
 	      .attr('width', width)
 	      .attr('height', height);
@@ -367,6 +371,57 @@ const sky = (function() {
 	      .on('end', handleDragEnd(svg, path, projection));
 	
         baseplane.call(drag);
+
+	// Add in an indication of the mapping from source size to
+	// exposure. Assume that a given radius has the same meaning
+	// here as it does on the orthographic projection.
+	//
+	// Chose "nice" times in hours (but texps is in ks). Note that
+	// 150 ks (the cap) is 41 2/3 hours (ie just less than 2 days).
+	//
+	const lheight = 40;
+	const hwidth = width / 2;
+	const hheight = lheight / 2;
+	
+	const lsvg = d3.select('#sky-legend').append('svg')
+	      .attr('width', width)
+	      .attr('height', lheight);
+
+	lsvg.append('text')
+	    .attr('class', 'label')
+	    .attr('text-anchor', 'end')
+	    .attr('x', hwidth)
+	    .attr('y', hheight)
+	    .attr('dx', '-2em')
+	    .attr('dy', '0.5em')
+	    .text('Observation length:');
+	
+	const texps = [3.6 * 1, 3.6 * 12, 3.6 * 24];
+	const tlbls = ["1 hour", "12 hours", "1 day"];
+
+	const xpos = (d, i) => { return hwidth + i * 80; };
+	
+	lsvg.selectAll('circle.legend-marker')
+	    .data(texps)
+	    .enter()
+	    .append('circle')
+	    .attr('class', 'legend-marker')
+	    .attr('cx', xpos)
+	    .attr('cy', hheight - 7)
+	    .attr('r', tscale)
+	;
+	
+	lsvg.selectAll('text.legend-label')
+	    .data(tlbls)
+	    .enter()
+	    .append('text')
+	    .attr('class', 'legend-label')
+	    .attr('x', xpos)
+	    .attr('y', hheight)
+	    .attr('dy', '1em')
+	    .attr('text-anchor', 'middle')
+	    .text((d) => { return d; });
+
     }
 
     // Add in the Milky-Way outline. We load it in once and then

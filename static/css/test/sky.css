@@ -6,14 +6,14 @@
 div#sky {
     display: block;
 
-    height: 400px;
+    /* height: 460px; */
 
     margin-bottom: 0.5em;
     margin-left: auto;
     margin-right: auto;
     margin-top: 0.5em;
 
-    width: 400px;
+    /* width: 400px; */
 }
 
 /***
@@ -45,8 +45,18 @@ div#sky {
 }
 
 .selected-observation {
-    fill-opacity: 0.8;
     fill: red;
+    fill-opacity: 0.8;
+}
+
+#sky-legend {
+}
+
+.legend-marker {
+    fill: #d8b365;
+}
+
+.legend-label {
 }
 
 /* Indicate where the drag point is */

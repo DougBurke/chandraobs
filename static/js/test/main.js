@@ -1627,6 +1627,11 @@ const main = (function() {
 	const details = document.createElement('details');
 	const summary = document.createElement('summary');
 	summary.innerText = 'About this display';
+	details.appendChild(summary);
+
+	const svgDiv = document.createElement('div');
+	svgDiv.setAttribute('id', 'sky-legend');
+	details.appendChild(svgDiv);
 
 	const content = document.createElement('p');
 	content.appendChild(textNode("This "));
@@ -1640,8 +1645,8 @@ const main = (function() {
 	content.appendChild(alink);
 	content.appendChild(textNode(' shows a subset of Chandra observations, where each circle shows an observation - clicking on one will move the main display to that observation - and the projection can be rotated (hold down the mouse button and move it).'));
 
-	details.appendChild(summary);
 	details.appendChild(content);
+
 	main.appendChild(details);
 
 	const ra0 = 15.0 * wwt.getRA();
