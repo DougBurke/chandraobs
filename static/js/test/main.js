@@ -316,11 +316,11 @@ const main = (function() {
 	    if (rsp.previous !== null) {
 		previous.appendChild(obsidLink(rsp.previous.obsid,
 					       rsp.previous.target));
-		previous.appendChild(textNode(" \253"));
+		previous.appendChild(textNode(" \xAB"));
 	    }
 
 	    if (rsp.next !== null) {
-		next.appendChild(textNode("\273 "));
+		next.appendChild(textNode("\xBB "));
 		next.appendChild(obsidLink(rsp.next.obsid,
 					   rsp.next.target));
 	    }
