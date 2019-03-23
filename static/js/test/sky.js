@@ -3,22 +3,10 @@
 //
 // Create a projection of the sky using D3's orthographic
 // projection. Based in part on http://bl.ocks.org/pnavarrc/9730300
-// an https://jorin.me/d3-canvas-globe-hover/ (although currently not
+// and https://jorin.me/d3-canvas-globe-hover/ (although currently not
 // using the latter).
 //
 // https://d3indepth.com/geographic/ is also useful
-//
-
-// Would like the drag behavior from https://www.jasondavies.com/maps/rotate/
-// and I use http://bl.ocks.org/ivyywang/7c94cb5a3accd9913263
-// to approximate it.
-// Should perhaps move to torsor representation at
-//    https://bl.ocks.org/HarryStevens/75b3eb474527c10055618fa00123ba44
-// (same thing but hiding logic in an external package)
-//
-
-// TODO:
-//   - add in circles showing the range of exposures?
 //
 
 // Requires that d3 is loaded.
@@ -33,6 +21,14 @@ const sky = (function() {
 
     // Try and improve the drag behavior based on
     // http://bl.ocks.org/ivyywang/7c94cb5a3accd9913263
+    // which is from https://www.jasondavies.com/maps/rotate/
+    //
+    // Perhaps just switch to
+    // https://bl.ocks.org/HarryStevens/75b3eb474527c10055618fa00123ba44
+    //
+    // Other than its responsive-ness, the current implementation can
+    // "lose" the anchor point if the user tries to drag too far. This
+    // doesn't happen in the Jason Davies/Harry Stevens versions.
     //
     function dragSphere(svg, path, projection) {
 
@@ -251,6 +247,18 @@ const sky = (function() {
 		 50);
     }
 
+    // Unlike the projection code used in the main site, this actually
+    // uses the correct RA to Longitude conversion, so doesn't need to
+    // use a "hacked" version of the Milky Way outline.
+    //
+    function toLonLat(ra, dec) {
+	if (ra > 180) {
+	    return [ra - 360, dec];
+	} else {
+	    return [ra, dec];
+	}
+    }
+
     // Create the projection and add it to the #sky element.
     //
     // Note that this creates an id which is hard-coded (at present)
@@ -279,8 +287,7 @@ const sky = (function() {
 	    return {type: "Feature",
 		    geometry: {
 			type: "Point",
-			// Am I really sure what I'm doing ...
-			coordinates: [180 - d.ra, d.dec]
+			coordinates: toLonLat(d.ra, d.dec)
 		    },
 		    properties: {
 			target: d.target,
@@ -310,7 +317,8 @@ const sky = (function() {
 	// Starting location; need to convert from location to
 	// angles
 	//
-	const rotate = [ra0 - 180.0, -dec0, 0];
+	const pos0 = toLonLat(ra0, dec0);
+	const rotate = [-pos0[0], -pos0[1], 0.0];
 
         const projection = d3.geoOrthographic()
               .scale(width / 2)
@@ -437,7 +445,7 @@ const sky = (function() {
     function addMW(plane, path) {
 
 	if (mwFeatures === null) {
-	    d3.json("/data/mw-hack.json")
+	    d3.json("/data/mw.json")
 		.then((mw) => {
 		    mwFeatures = mw.features;
 		    plotMW(plane, path);
