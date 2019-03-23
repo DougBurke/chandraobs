@@ -167,10 +167,14 @@ const sky = (function() {
 	    }
 	}
 
-        return d3.drag()
-	    .on('start', dragStart)
-	    .on('drag', drag)
-	    .on('end', dragEnd);
+	const dragObj = d3.drag()
+	      .on('start', dragStart)
+	      .on('drag', drag)
+	      .on('end', dragEnd);
+
+	return { drag: dragObj,
+		 inDrag: () => { return posStart !== null; }
+	       };
     }
     
     // time for a transition, in milliseconds
@@ -181,29 +185,36 @@ const sky = (function() {
     // It would be nice to be able to transition between styles,
     // to separate code from configuration.
     //
-    function selectObs(d) {
-        const sel = '#obs-' + d.properties.obsid;
-	/***
-        d3.selectAll(sel).transition()
-            .duration(transitionTime)
-	    .style('fill', '#c33')
-	    .style('fill-opacity', 0.8);
-	***/
-        d3.selectAll(sel)
-	    .classed('selected-observation', true);
+    function selectObs(inDrag) {
+	return (d) => {
+	    if (inDrag()) { return ; }
+            const sel = '#obs-' + d.properties.obsid;
+	    /***
+		d3.selectAll(sel).transition()
+		.duration(transitionTime)
+		.style('fill', '#c33')
+		.style('fill-opacity', 0.8);
+	    ***/
+            d3.selectAll(sel)
+		.classed('selected-observation', true);
+	};
     }
     
     // Return to normal the given observation (mouseout)
-    function unSelectObs(d) {
-        const sel = '#obs-' + d.properties.obsid;
-	/***
-        d3.selectAll(sel).transition()
-            .duration(transitionTime)
-	    .style('fill', '#d8b365')
-	    .style('fill-opacity', 0.4);
-	***/
-        d3.selectAll(sel)
-	    .classed('selected-observation', false);
+    //
+    function unSelectObs(inDrag) {
+	return (d) => {
+	    if (inDrag()) { return; }
+	    const sel = '#obs-' + d.properties.obsid;
+	    /***
+		d3.selectAll(sel).transition()
+		.duration(transitionTime)
+		.style('fill', '#d8b365')
+		.style('fill-opacity', 0.4);
+	    ***/
+	    d3.selectAll(sel)
+		.classed('selected-observation', false);
+	};
     }
 
     // Rotate the globe from the current to new position.
@@ -326,7 +337,9 @@ const sky = (function() {
 
 	addMW(baseplane, path);
 
-        // Compute the radius scale based on the exposure time, using
+	const drag = dragSphere(svg, path, projection)
+
+	// Compute the radius scale based on the exposure time, using
 	// square-root so the area scales with t.
 	//
 	const tscale = d3.scaleSqrt()
@@ -356,13 +369,13 @@ const sky = (function() {
 	    .append('path')
             .attr('class', 'observation')
 	    .attr('id', (d) => { return "obs-" + d.properties.obsid; })
-	    .on('mouseover', selectObs)
-	    .on('mouseout',  unSelectObs)
+	    .on('mouseover', selectObs(drag.inDrag))
+	    .on('mouseout',  unSelectObs(drag.inDrag))
             .attr('d', path)
 	    .append('title')
 	    .text((d) => { return d.properties.target; });
 
-        baseplane.call(dragSphere(svg, path, projection));
+        baseplane.call(drag.drag);
 
 	// Add in an indication of the mapping from source size to
 	// exposure. Assume that a given radius has the same meaning
