@@ -28,120 +28,117 @@ const sky = (function() {
     const width = 400;    
     const height = 400;
 
-    // Try and improve the drag behavior based on
-    // http://bl.ocks.org/ivyywang/7c94cb5a3accd9913263
-    //
     const to_radians = Math.PI / 180;
     const to_degrees = 180 / Math.PI;
 
-    function cross(v0, v1) {
-	return [v0[1] * v1[2] - v0[2] * v1[1], v0[2] * v1[0] - v0[0] * v1[2], v0[0] * v1[1] - v0[1] * v1[0]];
-    }
+    // Try and improve the drag behavior based on
+    // http://bl.ocks.org/ivyywang/7c94cb5a3accd9913263
+    //
+    function dragSphere(svg, path, projection) {
 
-    function dot(v0, v1) {
-	for (var i = 0, sum = 0; v0.length > i; ++i) sum += v0[i] * v1[i];
-	return sum;
-    }
-
-    function lonlat2xyz( coord ){
-	const lon = coord[0] * to_radians;
-	const lat = coord[1] * to_radians;
-
-	const x = Math.cos(lat) * Math.cos(lon);
-	const y = Math.cos(lat) * Math.sin(lon);
-	const z = Math.sin(lat);
-	return [x, y, z];
-    }
-
-    function quaternion(v0, v1) {
-	if (v0 && v1) {
-		
-	    const w = cross(v0, v1),  // vector pendicular to v0 & v1
-	        w_len = Math.sqrt(dot(w, w)); // length of w     
-
-            if (w_len == 0) {
-        	return null;
-	    }
-	    
-            const theta = 0.5 * Math.acos(Math.max(-1, Math.min(1, dot(v0, v1))));
-	    
-	    const qi  = w[2] * Math.sin(theta) / w_len; 
-	    const qj  = - w[1] * Math.sin(theta) / w_len; 
-	    const qk  = w[0] * Math.sin(theta) / w_len;
-	    const qr  = Math.cos(theta);
-
-	    // TODO: what is JS doing here???
-	    return theta && [qr, qi, qj, qk];
-	} else {
-	    return null;
+	function cross(v0, v1) {
+	    return [v0[1] * v1[2] - v0[2] * v1[1], v0[2] * v1[0] - v0[0] * v1[2], v0[0] * v1[1] - v0[1] * v1[0]];
 	}
-    }
-    
 
-    function euler2quat(e) {
+	function dot(v0, v1) {
+	    for (var i = 0, sum = 0; v0.length > i; ++i) sum += v0[i] * v1[i];
+	    return sum;
+	}
 
-	if(!e) { return null };
-    
-	const roll = .5 * e[0] * to_radians;
-        const pitch = .5 * e[1] * to_radians;
-        const yaw = .5 * e[2] * to_radians;
+	function lonlat2xyz( coord ){
+	    const lon = coord[0] * to_radians;
+	    const lat = coord[1] * to_radians;
 	    
-        const sr = Math.sin(roll);
-        const cr = Math.cos(roll);
-        const sp = Math.sin(pitch);
-        const cp = Math.cos(pitch);
-        const sy = Math.sin(yaw);
-        const cy = Math.cos(yaw);
+	    const x = Math.cos(lat) * Math.cos(lon);
+	    const y = Math.cos(lat) * Math.sin(lon);
+	    const z = Math.sin(lat);
+	    return [x, y, z];
+	}
+
+	function quaternion(v0, v1) {
+	    if (v0 && v1) {
+		
+		const w = cross(v0, v1),  // vector pendicular to v0 & v1
+	              w_len = Math.sqrt(dot(w, w)); // length of w     
+
+		if (w_len == 0) {
+        	    return null;
+		}
 	    
-        const qi = sr*cp*cy - cr*sp*sy;
-        const qj = cr*sp*cy + sr*cp*sy;
-        const qk = cr*cp*sy - sr*sp*cy;
-        const qr = cr*cp*cy + sr*sp*sy;
+		const theta = 0.5 * Math.acos(Math.max(-1, Math.min(1, dot(v0, v1))));
+	    
+		const qi  = w[2] * Math.sin(theta) / w_len; 
+		const qj  = - w[1] * Math.sin(theta) / w_len; 
+		const qk  = w[0] * Math.sin(theta) / w_len;
+		const qr  = Math.cos(theta);
+
+		// TODO: what is JS doing here???
+		return theta && [qr, qi, qj, qk];
+	    } else {
+		return null;
+	    }
+	}
+
+	function euler2quat(e) {
+	    if(!e) { return null };
+    
+	    const roll = .5 * e[0] * to_radians;
+            const pitch = .5 * e[1] * to_radians;
+            const yaw = .5 * e[2] * to_radians;
+	    
+            const sr = Math.sin(roll);
+            const cr = Math.cos(roll);
+            const sp = Math.sin(pitch);
+            const cp = Math.cos(pitch);
+            const sy = Math.sin(yaw);
+            const cy = Math.cos(yaw);
+	    
+            const qi = sr*cp*cy - cr*sp*sy;
+            const qj = cr*sp*cy + sr*cp*sy;
+            const qk = cr*cp*sy - sr*sp*cy;
+            const qr = cr*cp*cy + sr*sp*sy;
 	
-	return [qr, qi, qj, qk];
-    }
+	    return [qr, qi, qj, qk];
+	}
 
-    function quatMultiply(q1, q2) {
-	if(!q1 || !q2) { return null; }
+	function quatMultiply(q1, q2) {
+	    if(!q1 || !q2) { return null; }
 
-	const a = q1[0];
-        const b = q1[1];
-        const c = q1[2];
-        const d = q1[3];
-        const e = q2[0];
-        const f = q2[1];
-        const g = q2[2];
-        const h = q2[3];
+	    const a = q1[0];
+            const b = q1[1];
+            const c = q1[2];
+            const d = q1[3];
+            const e = q2[0];
+            const f = q2[1];
+            const g = q2[2];
+            const h = q2[3];
 	
-	return [ a*e - b*f - c*g - d*h,
-		 b*e + a*f + c*h - d*g,
-		 a*g - b*h + c*e + d*f,
-		 a*h + b*g - c*f + d*e
-	       ];
-    }
+	    return [ a*e - b*f - c*g - d*h,
+		     b*e + a*f + c*h - d*g,
+		     a*g - b*h + c*e + d*f,
+		     a*h + b*g - c*f + d*e
+		   ];
+	}
 
-    function quat2euler(t){
-	if(!t) { return null; }
+	function quat2euler(t){
+	    if(!t) { return null; }
 
-	return [ Math.atan2(2 * (t[0] * t[1] + t[2] * t[3]),
-			    1 - 2 * (t[1] * t[1] + t[2] * t[2])) * to_degrees, 
-		 Math.asin(Math.max(-1, Math.min(1, 2 * (t[0] * t[2] - t[3] * t[1])))) * to_degrees, 
-		 Math.atan2(2 * (t[0] * t[3] + t[1] * t[2]),
-			    1 - 2 * (t[2] * t[2] + t[3] * t[3])) * to_degrees
-	       ];
-    }
+	    return [ Math.atan2(2 * (t[0] * t[1] + t[2] * t[3]),
+				1 - 2 * (t[1] * t[1] + t[2] * t[2])) * to_degrees, 
+		     Math.asin(Math.max(-1, Math.min(1, 2 * (t[0] * t[2] - t[3] * t[1])))) * to_degrees, 
+		     Math.atan2(2 * (t[0] * t[3] + t[1] * t[2]),
+				1 - 2 * (t[2] * t[2] + t[3] * t[3])) * to_degrees
+		   ];
+	}
 
-    function eulerAngles(v0, v1, o0) {
-	const t = quatMultiply(euler2quat(o0),
-			       quaternion(lonlat2xyz(v0), lonlat2xyz(v1)));
-	return quat2euler(t);	
-    }
+	function eulerAngles(v0, v1, o0) {
+	    const t = quatMultiply(euler2quat(o0),
+				   quaternion(lonlat2xyz(v0), lonlat2xyz(v1)));
+	    return quat2euler(t);	
+	}
 
-    var posStart = null;
-
-    function handleDragStart(svg, path, projection) {
-	return (d) => {
-
+	let posStart = null;
+	function dragStart() {
 	    posStart = projection.invert([d3.event.x,
 					  d3.event.y]);
 	    svg.insert("path")
@@ -151,31 +148,31 @@ const sky = (function() {
 		       })
 		.attr("class", "dragpoint")
 		.attr("d", path);
-	};
-    }
+	}
     
-    function handleDragEnd(svg, path, projection) {
-	return (d) => {
+	function dragEnd() {
 	    svg.selectAll('.dragpoint').remove();
 	    posStart = null;
-	};
-    }
+	}
     
-    function handleDrag(svg, path, projection) {
-	return (d) => {
-
+	function drag() {
 	    const posCurrent = projection.invert([d3.event.x,
 						  d3.event.y]);
 	    const r = projection.rotate();
-
+		
 	    const rnew = eulerAngles(posStart, posCurrent, r);
 	    if (rnew !== null) {
 		projection.rotate(rnew);
 		svg.selectAll('path').attr('d', path);
 	    }
-	};
-    }
+	}
 
+        return d3.drag()
+	    .on('start', dragStart)
+	    .on('drag', drag)
+	    .on('end', dragEnd);
+    }
+    
     // time for a transition, in milliseconds
     // const transitionTime = 600;
 
@@ -365,12 +362,7 @@ const sky = (function() {
 	    .append('title')
 	    .text((d) => { return d.properties.target; });
 
-        const drag = d3.drag()
-	      .on('start', handleDragStart(svg, path, projection))
-	      .on('drag', handleDrag(svg, path, projection))
-	      .on('end', handleDragEnd(svg, path, projection));
-	
-        baseplane.call(drag);
+        baseplane.call(dragSphere(svg, path, projection));
 
 	// Add in an indication of the mapping from source size to
 	// exposure. Assume that a given radius has the same meaning
