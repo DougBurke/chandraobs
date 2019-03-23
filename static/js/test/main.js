@@ -1538,6 +1538,19 @@ const main = (function() {
 	return document.createTextNode(txt);
     }
 
+    function em(txt) {
+	const em = document.createElement('em');
+	em.innerText = txt;
+	return em;
+    }
+    function mkLink(url, content) {
+	const alink = document.createElement('a');
+	alink.setAttribute('href', url);
+	alink.setAttribute('target', '_blank');
+	alink.innerText = content;
+	return alink;
+    }
+
     // data is the JSON returned by the server: it is an object with
     // the fields:
     //   title  - title for the pane
@@ -1636,17 +1649,23 @@ const main = (function() {
 	const content = document.createElement('p');
 	content.appendChild(textNode("This "));
 
-	const alink = document.createElement('a');
-	alink.setAttribute('href',
-			   'https://en.wikipedia.org/wiki/Orthographic_projection_in_cartography');
-	alink.setAttribute('target', '_blank');
-	alink.innerText = 'orthographic projection';
-
-	content.appendChild(alink);
-	content.appendChild(textNode(' shows a subset of Chandra observations, where each circle shows an observation - clicking on one will move the main display to that observation - and the projection can be rotated (hold down the mouse button and move it).'));
-
+	content.appendChild(mkLink('https://en.wikipedia.org/wiki/Orthographic_projection_in_cartography',
+				   'orthographic projection'));
+	content.appendChild(textNode(', using the '));
+	content.appendChild(mkLink('https://en.wikipedia.org/wiki/Equatorial_coordinate_system',
+				   'equatorial coordinate system'))
+	
+	content.appendChild(textNode(', shows a subset of Chandra observations, where each circle shows an observation - clicking on one will move the main display to that observation - and the projection can be rotated (hold down the mouse button and move it).'));
 	details.appendChild(content);
 
+	// TODO: text about the Milky Way outline and a toggle to display it
+	const mw = document.createElement('p');
+	mw.appendChild(textNode('The outline of the plane of the Milky Way is also shown, since it helps explain some of the distribution of observations. If you are looking at Extra-galactic objects you tend to look out of the plane, and conversely most, '));
+	mw.appendChild(em('but not all'));
+	mw.appendChild(textNode(', objects in our Galaxy lie close to the plane.'));
+	
+	details.appendChild(mw);
+	
 	main.appendChild(details);
 
 	const ra0 = 15.0 * wwt.getRA();
