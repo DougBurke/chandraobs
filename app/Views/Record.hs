@@ -16,11 +16,10 @@ module Views.Record (CurrentPage(..)
                      ) where
 
 import qualified Prelude as P
-import Prelude ((.), (-), ($), (>), (==), (/=), (&&), (>>=)
+import Prelude ((.), (-), ($), (>), (==), (&&), (>>=)
                , Eq, Either(..), Maybe(..), String
-               , const, either, elem, filter, fst, length, map
-               , maybe, null, otherwise, snd, splitAt, uncurry
-               , zip)
+               , const, either, elem, fst, length, map
+               , maybe, null, otherwise, snd, splitAt)
 
 import qualified Data.Text as T
 import qualified Text.Blaze.Html5 as H
@@ -32,7 +31,7 @@ import Control.Arrow ((&&&))
 import Data.Char (toLower)
 import Data.Function (on)
 import Data.List (groupBy, intersperse, sortOn)
-import Data.Maybe (fromMaybe, isJust, isNothing)
+import Data.Maybe (fromMaybe, isJust, isNothing, mapMaybe)
 import Data.Monoid ((<>), mconcat, mempty)
 import Data.Time (UTCTime)
 
@@ -46,6 +45,7 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , proposalLink
            , fromMissionLongLink
            , obsURI
+           , skyLink
            , jsScript, cssLink)
 import Layout (defaultMeta
               , jqueryMeta
@@ -75,6 +75,7 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , recordObsId, showExpTime
              )
 import Utils (HtmlContext(..)
+             , toLink
              , extLink
              , showTimeDeltaFwd
              , showTimeDeltaBwd
@@ -584,13 +585,20 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       -- for now just go with the ugly suffix "(preferred)" with the
       -- possibility of improving this at a later date.
       --
-      cToL v Preferred = v <> " (preferred)"
-      cToL v _         = v
-      clbls = ["time-critical", "monitoring", "constrained"]
-      cvals = [soTimeCritical, soMonitor, soConstrained]
-      czs = zip clbls cvals
-      getConstrained = (/= NoConstraint) . snd
-      copts = map (uncurry cToL) (filter getConstrained czs)
+      conLink (NoConstraint, _ , _) = Nothing
+      conLink (c, lbl, uriFrag) =
+        let fullLbl = lbl <> suffix
+            suffix = if c == Preferred then " (preferred)" else ("" :: Html)
+            ans = case ctx of
+                   StaticHtml -> toLink StaticHtml ("/search/" <> uriFrag) fullLbl
+                   DynamicHtml -> skyLink uriFrag fullLbl
+        in Just ans
+
+      czs = [ (soTimeCritical, "time-critical", "constraints/timecritical")
+            , (soMonitor, "monitoring", "constraints/monitor")
+            , (soConstrained, "constrained", "constraints/constrained")
+            ]
+      copts = mapMaybe conLink czs
       constrainedObs = 
         if null copts
         then mempty

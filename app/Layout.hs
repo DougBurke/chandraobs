@@ -25,7 +25,7 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Char (intToDigit)
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust, mapMaybe)
 import Data.Monoid ((<>))
 import Data.Time (UTCTime)
 
@@ -383,7 +383,7 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       -- use the proposal title as the link but the number).
       --
       pLink =
-        let uriFrag = "proposal/" <> (H.toValue soProposal)
+        let uriFrag = "proposal/" <> H.toValue soProposal
             uri = "/" <> uriFrag
         in case ctx of
              StaticHtml -> toLink StaticHtml uri soProposal
@@ -417,15 +417,29 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
              (missToLink (cleanJointName (fromJust soJointWith)))
         else mconcat (map toJ jvs)
 
-      cToL NoConstraint = "None" -- not used
+      -- TODO: would like to be able to subset the constraint to
+      --       preferred or required
+      --
+      -- could have a "no constraint" link but don't bother
+      --
+      cToL NoConstraint = ("None" :: Html) -- not used
       cToL Preferred    = "Preferred"
       cToL Required     = "Yes"
-      clbls = ["Time critical:", "Monitor:", "Constrained:"]
-      cvals = [soTimeCritical, soMonitor, soConstrained]
-      constraintElems =
-        let f (k,v) = keyVal k (cToL v)
-        in mconcat (map f (filter ((/= NoConstraint) . snd) (zip clbls cvals)))
+      
+      cLink (NoConstraint, _ , _) = Nothing
+      cLink (c, key, uriFrag) =
+        let txt = cToL c
+            val = case ctx of
+                   StaticHtml -> toLink StaticHtml ("/search/" <> uriFrag) txt
+                   DynamicHtml -> skyLink uriFrag txt
+        in Just (keyVal key val)
 
+      czs = [ (soTimeCritical, "Time critical:", "constraints/timecritical")
+            , (soMonitor, "Monitor:", "constraints/monitor")
+            , (soConstrained, "Constrained:", "constraints/constrained")
+            ]
+      constraintElems = mconcat (mapMaybe cLink czs)
+      
       conLink con = 
         case getConstellationName con of
           Just ln -> Just (constellationLinkSearch ctx con (fromConLong ln))
