@@ -1,3 +1,5 @@
+"use strict";
+
 //
 // Based on https://bl.ocks.org/mbostock/4063318
 //
@@ -10,21 +12,25 @@
 //   Or, only draw cells for which we have data!
 //
 
-"use strict";
-
 const createCalendar = (function () {
     
     const width = 960,
 	  height = 136,
 	  cellSize = 17; // cell size
 
-    const format = d3.time.format("%Y-%m-%d");
+    const format = d3.timeFormat("%Y-%m-%d");
 
     var color;
 
     var svg;
     var rect;
 
+    // replacement for d3.time.weekOfYear from d3 v3
+    //
+    function weekOfYear(d) {
+	return d3.timeWeek.count(d3.timeYear(d), d);
+    }
+    
     // opacity for the cells; for now have a subtle transition to a
     // slightly-faded version of the cell on mouse-over. This is not
     // ideal (i.e. is likely surprising), but other approaches I tried
@@ -62,7 +68,7 @@ const createCalendar = (function () {
 
 	// TODO: can now go to a scale starting at 0 counts;
 	//       would be nice to go to 9+ rather than 8+
-	color = d3.scale.quantize()
+	color = d3.scaleQuantize()
             .domain([0, 8])
             .range(d3.range(9).map((d) => { return "q" + d + "-9"; }));
 
@@ -97,8 +103,8 @@ const createCalendar = (function () {
 	//
 	rect = svg.selectAll(".day")
             .data((d) => {
-		const days = d3.time.days(new Date(d, 0, 1),
-					  new Date(d + 1, 0, 1));
+		const days = d3.timeDays(new Date(d, 0, 1),
+					 new Date(d + 1, 0, 1));
 		return days.filter((d) => {
                     return (d >= startDate) && (d <= endDate);
 		});
@@ -110,7 +116,7 @@ const createCalendar = (function () {
             .attr("class", "day")
             .attr("width", cellSize)
             .attr("height", cellSize)
-            .attr("x", (d) => { return d3.time.weekOfYear(d) * cellSize; })
+            .attr("x", (d) => { return weekOfYear(d) * cellSize; })
             .attr("y", (d) => { return d.getDay() * cellSize; })
             .datum(format);
 
@@ -119,8 +125,8 @@ const createCalendar = (function () {
             .text((d) => { return d + ": no data"; });
 
 	const monthFilter = (d) => {
-            const months = d3.time.months(new Date(d, 0, 1),
-					  new Date(d + 1, 0, 1));
+            const months = d3.timeMonths(new Date(d, 0, 1),
+					 new Date(d + 1, 0, 1));
             return months.filter((d) => {
 		return (d >= startMonth) && (d < endMonth);
             });
@@ -264,14 +270,14 @@ const createCalendar = (function () {
     function monthX(t0) {
 	// const m = t0.getMonth();
 	const tend = new Date(t0.getFullYear(), t0.getMonth() + 1, 0);
-	const wend = d3.time.weekOfYear(tend);
+	const wend = weekOfYear(tend);
 	return wend * cellSize;
     }
 
     function monthPath(t0) {
 	const t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
-	      d0 = t0.getDay(), w0 = d3.time.weekOfYear(t0),
-	      d1 = t1.getDay(), w1 = d3.time.weekOfYear(t1);
+	      d0 = t0.getDay(), w0 = weekOfYear(t0),
+	      d1 = t1.getDay(), w1 = weekOfYear(t1);
 	return "M" + (w0 + 1) * cellSize + "," + d0 * cellSize
 	    + "H" + w0 * cellSize + "V" + 7 * cellSize
 	    + "H" + w1 * cellSize + "V" + (d1 + 1) * cellSize

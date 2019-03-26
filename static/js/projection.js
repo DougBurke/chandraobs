@@ -1,9 +1,9 @@
+"use strict";
+
 //
 // Plot up data using the Aitoff projection.
 // Requires d3
 //
-
-"use strict";
 
 // The base argument provides the hide_nojs() routine.
 // I should just make that a pre-requisite for calling createMap
@@ -42,12 +42,12 @@ const projection = (function (baseObj) {
 	// as an upper limit. Use a square root scaling so the area
 	// scales as the time.
 	//
-        const tscale = d3.scale.sqrt()
+        const tscale = d3.scaleSqrt()
             .domain([0, 150])
             .range([3, 15]);
 
         // colors from Cynthia Brewer's http://colorbrewer2.org/ web site
-        const color = d3.scale.ordinal()
+        const color = d3.scaleOrdinal()
             .domain(["done", "doing", "todo"])
         // .range([d3.rgb('#ece7f2'), d3.rgb('#a6bddb'), d3.rgb('#2b8cbe')]);
         // .range([d3.rgb('#d8b365'), d3.rgb('#f5f5f5'), d3.rgb('#5ab4ac')]);
@@ -59,21 +59,21 @@ const projection = (function (baseObj) {
             .attr("height", height)
             .attr("opacity", 0);  // opacity is re-set once MW is loaded
 
-        const projection = d3.geo.aitoff()
+        const projection = d3.geoAitoff()
             .scale(150)
             .translate([width / 2, height / 2])
             .precision(0.1);
 
-        const path = d3.geo.path()
+        const path = d3.geoPath()
             .projection(projection);
 
-        const graticule = d3.geo.graticule();
+        const graticule = d3.geoGraticule();
 
         // Longitude every 2 hours, latitude every 15 degrees,
         // and change the latitude mionor extent so that the
         // -75/75 values are terminated by a longitude graticule
-        graticule.minorStep([30, 15]);
-        graticule.minorExtent([[-180, -75.01], [180, 75.01]]);
+        graticule.stepMinor([30, 15]);
+        graticule.extentMinor([[-180, -75.01], [180, 75.01]]);
 
         svg.append("defs").append("path")
             .datum({type: "Sphere"})
@@ -178,30 +178,36 @@ const projection = (function (baseObj) {
 
     function addMilkyWay(svg, path) {
         const fname = "mw-hack.json";
-        d3.json("/data/" + fname, function(error, mw) {
-            if (error) {
-                return console.warn("Unable to load " + fname);
-            }
-
-            const oline = svg.select("#baseplane").selectAll(".milkyway")
-                .data(mw.features);
+        d3.json("/data/" + fname)
+	    .then((mw) => {
+		const oline = svg.select("#baseplane").selectAll(".milkyway")
+                      .data(mw.features);
             
-            oline.enter()
-                .append("path")
-                .attr("class", "milkyway")
-                .attr("d", path)
-                .attr("opacity", baseOpacity)
-                .on('mouseover', function(d) { highlightSel('.milkyway'); })
-                .on('mouseout', function(d) { revertSel('.milkyway'); })
-                .append("title")
-                .text("Milky Way");
+		oline.enter()
+                    .append("path")
+                    .attr("class", "milkyway")
+                    .attr("d", path)
+                    .attr("opacity", baseOpacity)
+                    .on('mouseover', function(d) { highlightSel('.milkyway'); })
+                    .on('mouseout', function(d) { revertSel('.milkyway'); })
+                    .append("title")
+                    .text("Milky Way");
 
-            // Fade in the whole SVG element
-            svg.transition()
-                .duration(frameTransitionTime)
-                .attr("opacity", 1);
-        });
-        
+		// Fade in the whole SVG element
+		svg.transition()
+                    .duration(frameTransitionTime)
+                    .attr("opacity", 1);
+            })
+	    .catch((error) => {
+		console.log("UNABLE to load MW data");
+		console.log(error);
+
+	    	// Fade in the whole SVG element (so we can still see
+		// something).
+		svg.transition()
+                    .duration(frameTransitionTime)
+                    .attr("opacity", 1);
+	    });
     }
 
     // I have removed the display of the full constellation name
@@ -212,40 +218,39 @@ const projection = (function (baseObj) {
     function addConstellation (svg, path, conInfo) {
         if (!conInfo) { return; }
         const fname = "constellations.bounds-hack.json";
-        d3.json("/data/" + fname, function(error, con) {
-            if (error) {
+        d3.json("/data/" + fname)
+	    .then((con) => {
+		const conName = conInfo.shortName;
+		const conFullName = conInfo.longName;
+            
+		// all constellations
+		const allcon = svg.select("#baseplane")
+		      .selectAll(".constellations")
+                      .data(con.features);
+
+		allcon.enter()
+                    .append("path")
+                    .attr("class", "constellations")
+                    .attr("d", path);
+
+		// selected constellation
+		const features = con.features.filter(function(d) { return d.id === conName; });
+            
+		const selcon = svg.select("#baseplane")
+		      .selectAll(".constellation")
+                      .data(features);
+            
+		selcon.enter()
+                    .append("path")
+                    .attr("class", "constellation")
+                    .attr("d", path)
+		// .append("title")   currently problems with identifying inside/outside
+		// .text(conFullName) the constellation, so remove label
+		;
+	    })
+	    .catch((error) => {
                 return console.warn("Unable to load " + fname);
-            }
-            
-            const conName = conInfo.shortName;
-            const conFullName = conInfo.longName;
-            
-            // all constellations
-            const allcon = svg.select("#baseplane")
-		  .selectAll(".constellations")
-                  .data(con.features);
-
-            allcon.enter()
-                .append("path")
-                .attr("class", "constellations")
-                .attr("d", path);
-
-            // selected constellation
-            const features = con.features.filter(function(d) { return d.id === conName; });
-            
-            const selcon = svg.select("#baseplane")
-		  .selectAll(".constellation")
-                  .data(features);
-            
-            selcon.enter()
-                .append("path")
-                .attr("class", "constellation")
-                .attr("d", path)
-            // .append("title")   currently problems with identifying inside/outside
-            // .text(conFullName) the constellation, so remove label
-            ;
-
-        });
+	    });
 
     }
 

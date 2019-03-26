@@ -1,9 +1,9 @@
-/*
- * Based on the code presented in http://bl.ocks.org/mbostock/1166403
- * after significant modification. All bugs are mine.
- */
-
 "use strict";
+
+//
+// Based on the code presented in http://bl.ocks.org/mbostock/1166403
+// after significant modification. All bugs are mine.
+//
 
 const createBreakdown = (function () {
     
@@ -11,23 +11,23 @@ const createBreakdown = (function () {
 	  width = 960 - margin.left - margin.right,
 	  height = 160 - margin.top - margin.bottom;
 
-    const x = d3.time.scale()
+    const x = d3.scaleTime()
 	  .range([0, width]);
 
-    const y = d3.scale.linear()
+    const y = d3.scaleLinear()
 	.range([height, 0]);
 
-    const xAxis = d3.svg.axis()
+    const xAxis = d3.axisBottom()
 	.scale(x)
     // .tickSize(-height)
 	.ticks(6);
 
-    const yAxis = d3.svg.axis()
+    const yAxis = d3.axisLeft()
 	.scale(y)
 	.ticks(6)
     // .tickFormat(function(d) { return d + "h"; }) // how to make a superscript?
-	.orient("left");
-
+    ;
+    
     var svg;
 
     function createBreakdown(seriesData) {
@@ -55,7 +55,7 @@ const createBreakdown = (function () {
             return o;
 	}, {});
     
-	const plotData = d3.time.day.utc.range(startDate, endDate).map((d) => {
+	const plotData = d3.utcDay.range(startDate, endDate).map((d) => {
             const values = seriesMap[d] || {};
             return { "date": d, "values": values };
 	});
@@ -124,15 +124,15 @@ const createBreakdown = (function () {
               .attr("transform", "translate(" + (-axgap) + ",0)")
               .call(yAxis);
 
-	yax.append("text")
-            .attr("x", -(height/2))
-            .attr("y", "-2.2em")
-            .attr("text-anchor", "middle")
+	svg.append("text")
             .attr("transform", "rotate(270 0 0)")
+            .attr("x", -(height/2))
+            .attr("y", "-3em")
+            .attr("text-anchor", "middle")
             .text("Hours");
 
-	const line = d3.svg.line()
-              .interpolate("linear")
+	const line = d3.line()
+              // .interpolate("linear")   - do we need to replace this in v5?
               .x((d) => { return x(d.x); })
               .y((d) => { return y(d.y); });
 

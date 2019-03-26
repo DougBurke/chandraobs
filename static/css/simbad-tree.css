@@ -1,5 +1,4 @@
 
-
 .node {
   cursor: pointer;
 }
@@ -10,13 +9,16 @@
   stroke-width: 1.5px;
 }
 
-// Thanks to
-// http://stackoverflow.com/questions/13728513/how-to-include-links-in-a-d3-visualisations-text-element
-// for the pointer-events tip
-//
+/*
+ * Thanks to
+ * http://stackoverflow.com/questions/13728513/how-to-include-links-in-a-d3-visualisations-text-element
+ * for the pointer-events tip
+ *
+ * Is this still valid?
+ */
 .node text {
-  font: 10px sans-serif;
-  pointer-events: all; // not sure where best place for this is
+  font: 12px sans-serif;
+  pointer-events: all;
 }
 
 .link {

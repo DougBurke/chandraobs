@@ -119,8 +119,8 @@ skymapMeta =
 d3Meta :: Html
 d3Meta =
   jqueryMeta
-  <> jsScript "https://d3js.org/d3.v3.min.js"
-  <> jsScript "https://d3js.org/d3.geo.projection.v0.min.js"
+  <> jsScript "https://d3js.org/d3.v5.min.js"
+  <> jsScript "https://d3js.org/d3-geo-projection.v2.min.js"
 
 -- | Load JQuery.
 --

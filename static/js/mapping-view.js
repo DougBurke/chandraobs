@@ -1,4 +1,3 @@
-
 "use strict";
 
 // The baseObj argument provides the hide_nojs() routine.
@@ -13,8 +12,9 @@ const createMapping = (function(baseObj) {
 
     const totWidth = width + margin.left + margin.right;
     const totHeight = height + margin.top + margin.bottom;
-    
-    const color = d3.scale.category20();
+
+    // It's probably worth re-thinking the color scheme
+    const color = d3.scaleOrdinal(d3.schemePaired);
 
     const sankey = d3.sankey()
           .nodeWidth(15)
@@ -147,12 +147,17 @@ const createMapping = (function(baseObj) {
             .enter().append("g")
             .attr("class", "node")
             .attr("transform", (d) => { return "translate(" + d.x + "," + d.y + ")"; })
-            .call(d3.behavior.drag()
-                  .origin((d) => { return d; })
+            .call(d3.drag()
+                  .subject((d) => { return d; })
 		  // looks like I have broken this code, since 'this' is no
 		  // longer the correct element; did I break some implicit
 		  // when refactoing?
-                  .on("dragstart", () => { this.parentNode.appendChild(this); })
+		  /// DO we actually need this?
+                  // .on("start", () => { this.parentNode.appendChild(this); })
+
+		  // It's not clear to me what this is doing?
+                  .on("start", function () { this.parentNode.appendChild(this); })
+		  
                   .on("drag", dragmove));
 
         node.append("rect")

@@ -1,9 +1,15 @@
 /* cumulative plot */
 
+/*** axis styling is better in d3 v4
 .axis path, .axis line {
     fill: none;
     stroke: #000;
     shape-rendering: crispEdges;
+}
+*/
+
+.axis .tick {
+    font-size: 150%;
 }
 
 path.cycle {

@@ -1,9 +1,10 @@
+"use strict";
+
 // Taken from https://bl.ocks.org/mbostock/4061502
 // which is licensed under GPL version 3
 // https://opensource.org/licenses/GPL-3.0
 //
-
-"use strict";
+// The code above has changed somewhat since I copied it!
 
 (function() {
 
@@ -41,12 +42,12 @@ d3.box = function() {
           : d3.range(n);
 
       // Compute the new x-scale.
-      let x1 = d3.scale.linear()
+      let x1 = d3.scaleLinear()
           .domain(domain && domain.call(this, d, i) || [min, max])
           .range([height, 0]);
 
       // Retrieve the old x-scale, if this is an update.
-      let x0 = this.__chart__ || d3.scale.linear()
+      let x0 = this.__chart__ || d3.scaleLinear()
           .domain([0, Infinity])
           .range(x1.range());
 
@@ -240,7 +241,7 @@ d3.box = function() {
           .style("opacity", 1e-6)
           .remove();
     });
-    d3.timer.flush();
+    d3.timerFlush();
   }
 
   box.width = function(x) {
@@ -267,9 +268,14 @@ d3.box = function() {
     return box;
   };
 
+  // manually re-writing d3.functor as removed in d3 v4;
+  // I do not know if x can ever be a function but go for
+  // a minimal translation.
+  //  
   box.domain = function(x) {
     if (!arguments.length) return domain;
-    domain = x === null ? x : d3.functor(x);
+      domain = x === null ? x :
+	  typeof x === "function" ? x : () => { return x; };
     return box;
   };
 

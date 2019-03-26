@@ -6,9 +6,11 @@ path.timeline {
   stroke-width: 1.5px;
 }
 
+/***
 .axis {
   shape-rendering: crispEdges;
 }
+***/
 
 /*
 .x.axis line {
@@ -24,10 +26,16 @@ path.timeline {
 }
 */
 
+/***
 .x.axis line,
 .x.axis path,
 .y.axis line,
 .y.axis path {
   fill: none;
   stroke: #000;
+}
+***/
+
+.tick {
+    font-size: 140%;
 }

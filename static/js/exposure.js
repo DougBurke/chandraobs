@@ -1,11 +1,11 @@
-/*
- * TODO:
- *   the cycle/number of observations/total length values should be
- *   displayed as a table, so that the plot can just use the cycle
- *   as the label.
- */
-
 "use strict";
+
+//
+// TODO:
+//   the cycle/number of observations/total length values should be
+//   displayed as a table, so that the plot can just use the cycle
+//   as the label.
+//
 
 const createPlot = (function () {
     
@@ -18,14 +18,9 @@ const createPlot = (function () {
 
     var svg;
 
-    /*
-      var xrange = d3.scale.linear()
-      .range([0, width]);
-    */
-
-    const xrange = d3.scale.log()
+    const xrange = d3.scaleLog()
         .range([0, width]);
-    const yrange = d3.scale.linear()
+    const yrange = d3.scaleLinear()
         .range([height, 0]);
 
     function toHours(ks) { return ks / 3.6; }
@@ -77,7 +72,7 @@ const createPlot = (function () {
         xrange.domain([tmin, tmax]);
         yrange.domain([0, 100]);
 
-        const xrangeHours = d3.scale.log()
+        const xrangeHours = d3.scaleLog()
             .range(xrange.range())
             .domain([toHours(tmin), toHours(tmax)]);
 
@@ -89,21 +84,21 @@ const createPlot = (function () {
             .attr("transform",
                   "translate(" + margin.left + "," + margin.top + ")");
 
-        const xAxis = d3.svg.axis()
+        const xAxis = d3.axisBottom()
               .scale(xrangeHours)
-              .tickFormat(xrangeHours.tickFormat(7, ".1f"))
-              .orient("bottom");
+              .tickFormat(xrangeHours.tickFormat(7, ".1f"));
 
-        const yAxis = d3.svg.axis()
-              .scale(yrange)
-              .orient("left");
+        const yAxis = d3.axisLeft()
+              .scale(yrange);
 
         const xax = svg.append("g")
               .attr("class", "x axis")
               .call(xAxis)
               .attr("transform", "translate(0," + height + ")");
-    
-        xax.append("text")
+
+	// Add a label for the X axis
+	svg.append("text")
+            .attr("transform", "translate(0," + height + ")")
             .attr("class", "axis")
             .attr("x", width)
             .attr("y", 0)
@@ -115,12 +110,13 @@ const createPlot = (function () {
               .attr("class", "y axis")
               .call(yAxis);
 
-        yax.append("text")
+	// Add a label for the Y axis
+        svg.append("text")
+            .attr("transform", "rotate(270 0 0)")
             .attr("class", "axis")
             .attr("x", 0)
             .attr("y", "-3em")
             .attr("text-anchor", "end")
-            .attr("transform", "rotate(270 0 0)")
             .text("Percentage of sources with exposure time < value");
     
         /***
@@ -134,8 +130,10 @@ const createPlot = (function () {
         /* Perhaps would be better to create the data in the
          * form needed */
         const line = (n) => {
-            return d3.svg.line()
-                .interpolate("basis")
+            return d3.line()
+	    // removed .interpolate in move from d3.v3 to d3.v5; is
+	    // it needed?
+            // .interpolate("basis")
                 .x((d) => {
                     return xrange(d);
                 })
@@ -144,7 +142,7 @@ const createPlot = (function () {
                 });
         };
 
-        const colors = d3.scale.category10()
+        const colors = d3.scaleOrdinal(d3.schemeCategory10)
             .domain(tags);
 
 	// Special case the "all" tag so that it has its own color
@@ -283,7 +281,7 @@ const createPlot = (function () {
             data.push(plotInfo[cycle].times.map(toHours));
         }
 
-        const colors = d3.scale.category10()
+        const colors = d3.scaleOrdinal(d3.schemeCategory10)
             .domain(tags);
 
         // boxChart.domain([toHours(minTime), toHours(maxTime)]);
