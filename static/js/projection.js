@@ -21,7 +21,7 @@ const projection = (function (baseObj) {
     const transitionTime = 600;
     // var frameTransitionTime = 2000;
     const frameTransitionTime = 800;
-    
+
     // coords is an array of objects with
     // longitude/latitude attributes in degrees (0-360 and -90 to 90)
     // as well as other attributes useful for labelling
@@ -59,10 +59,13 @@ const projection = (function (baseObj) {
             .attr("height", height)
             .attr("opacity", 0);  // opacity is re-set once MW is loaded
 
-        const projection = d3.geoAitoff()
-            .scale(150)
-            .translate([width / 2, height / 2])
-            .precision(0.1);
+        const projection =
+	      raProjection.invertXProjection(d3.geoAitoffRaw)
+              .scale(150)
+              .translate([width / 2, height / 2])
+              .precision(0.1)
+	      .rotate(raProjection.toLonLat(12 * 15, 0))
+              .precision(0.1);
 
         const path = d3.geoPath()
             .projection(projection);
@@ -110,8 +113,8 @@ const projection = (function (baseObj) {
             .attr("d", path);
 
         // label graticules; could make it adaptive but hard code
-        const longvals = d3.range(1, 6).map(function (d) { 
-            const pos = projection([180 - d * 60, 0]);
+        const longvals = d3.range(1, 6).map((d) => { 
+            const pos = projection(raProjection.toLonLat(d * 60, 0));
             const lbl = d * 4 + "\u1D34"; // this is a capital H super script, may not be in all fonts? 
             return { x: pos[0], y: pos[1], lbl: lbl };
         });
@@ -120,14 +123,14 @@ const projection = (function (baseObj) {
             .data(longvals)
             .enter().append("text")
             .attr("class", "label long")
-            .attr("x", function(d) { return d.x; })
-            .attr("y", function(d) { return d.y; })
+            .attr("x", (d) => { return d.x; })
+            .attr("y", (d) => { return d.y; })
             .attr("text-anchor", "middle")
             .attr("dy", "1.4em")
-            .text(function(d) { return d.lbl; });
+            .text((d) => { return d.lbl; });
 
-        const latvals = [-75, -45, -15, 15, 45, 75].map(function (d) { 
-            const pos = projection([0, d]);
+        const latvals = [-75, -45, -15, 15, 45, 75].map((d) => { 
+            const pos = projection(raProjection.toLonLat(12 * 15, d));
             const lbl = d + "\u00B0"; // degree symbol
             return { x: pos[0], y: pos[1], lbl: lbl };
         });
@@ -136,18 +139,16 @@ const projection = (function (baseObj) {
             .data(latvals)
             .enter().append("text")
             .attr("class", "label lat")
-            .attr("x", function(d) { return d.x; })
-            .attr("y", function(d) { return d.y; })
+            .attr("x", (d) => { return d.x; })
+            .attr("y", (d) => { return d.y; })
             .attr("text-anchor", "end")
             .attr("dx", "-0.4em")
             .attr("dy", "0.35em")
-            .text(function(d) { return d.lbl; });
+            .text((d) => { return d.lbl; });
 
         // mark the observations
-        
-        const points = coords.map(function (d) {
-            // TODO: worry about clipping?
-            const pos = projection([d.longitude, d.latitude]);
+        const points = coords.map((d) => {
+            const pos = projection(raProjection.toLonLat(d.ra, d.dec));
             d.x = pos[0];
             d.y = pos[1];
             return d;
@@ -177,8 +178,8 @@ const projection = (function (baseObj) {
     }
 
     function addMilkyWay(svg, path) {
-        const fname = "mw-hack.json";
-        d3.json("/data/" + fname)
+        const fname = "mw.json";
+	d3.json("/data/" + fname)
 	    .then((mw) => {
 		const oline = svg.select("#baseplane").selectAll(".milkyway")
                       .data(mw.features);
@@ -217,9 +218,11 @@ const projection = (function (baseObj) {
     //
     function addConstellation (svg, path, conInfo) {
         if (!conInfo) { return; }
-        const fname = "constellations.bounds-hack.json";
-        d3.json("/data/" + fname)
+
+        const fname = "constellations.bounds.json";
+	d3.json("/data/" + fname)
 	    .then((con) => {
+            
 		const conName = conInfo.shortName;
 		const conFullName = conInfo.longName;
             
@@ -234,12 +237,12 @@ const projection = (function (baseObj) {
                     .attr("d", path);
 
 		// selected constellation
-		const features = con.features.filter(function(d) { return d.id === conName; });
-            
+		const features = con.features.filter(d => d.id === conName);
+
 		const selcon = svg.select("#baseplane")
 		      .selectAll(".constellation")
                       .data(features);
-            
+
 		selcon.enter()
                     .append("path")
                     .attr("class", "constellation")

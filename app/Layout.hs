@@ -112,6 +112,7 @@ skymapMeta =
   <> jsScript "/js/jquery.tablesorter.min.js"
   <> jsScript "/js/table.js"
   <> jsScript "/js/projection.js"
+  <> jsScript "/js/raprojection.js"
   <> cssLink "/css/tablesorter.css"
   <> cssLink "/css/schedule.css"
 

@@ -35,10 +35,6 @@ flag tools
   description: build the command-line tools
   default: False
 
-flag hackgeo
-  description: build the command-line hackgeo tool
-  default: False
-
 library 
   hs-source-dirs: lib/
 
@@ -349,23 +345,3 @@ executable getproposals
 
   else
     buildable:  False
-
-executable hackgeo
-  main-is:             HackGeo.hs
-  hs-source-dirs:      tools/
-
-  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
-  ghc-options: -Wall -Wincomplete-record-updates
-
-  if flag(hackgeo)
-    build-depends:
-     base
-     , aeson
-     , bytestring
-     , text
-     , vector
-     , unordered-containers == 0.2.*
-
-  else
-    buildable:  False
-

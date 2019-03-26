@@ -14,7 +14,7 @@ module Views.Render (standardRestrictedSchedulePage
                     ) where
 
 -- import qualified Prelude as P
-import Prelude ((.), ($), (==), (-), (+)
+import Prelude ((.), ($), (==), (+)
                , Int, Integer, Either(..), Maybe(..)
                , fmap, map, mapM_, maybe, not, return, snd, truncate
                , zip)
@@ -307,8 +307,8 @@ makeScheduleRestricted RestrictedSchedule {..} =
         -- RA/Dec/time/... where appropriate
         -- could also include object type if available
         in Aeson.object
-           ([ "longitude" .= (180 - fromRA (rrecordRA r))
-            , "latitude" .= fromDec (rrecordDec r)
+           ([ "ra" .= fromRA (rrecordRA r)
+            , "dec" .= fromDec (rrecordDec r)
             , "texp" .= fromTimeKS (rrecordTime r)
             , "idname" .= ridLabel r
             , "label" .= rrecordTarget r

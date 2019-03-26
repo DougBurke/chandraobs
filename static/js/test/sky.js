@@ -11,7 +11,7 @@
 
 // Requires that d3 is loaded.
 //
-const sky = (function() {
+const sky = (() => {
 
     const width = 400;    
     const height = 400;
@@ -247,18 +247,6 @@ const sky = (function() {
 		 50);
     }
 
-    // Unlike the projection code used in the main site, this actually
-    // uses the correct RA to Longitude conversion, so doesn't need to
-    // use a "hacked" version of the Milky Way outline.
-    //
-    function toLonLat(ra, dec) {
-	if (ra > 180) {
-	    return [ra - 360, dec];
-	} else {
-	    return [ra, dec];
-	}
-    }
-
     // Create the projection and add it to the #sky element.
     //
     // Note that this creates an id which is hard-coded (at present)
@@ -287,7 +275,7 @@ const sky = (function() {
 	    return {type: "Feature",
 		    geometry: {
 			type: "Point",
-			coordinates: toLonLat(d.ra, d.dec)
+			coordinates: raProjection.toLonLat(d.ra, d.dec)
 		    },
 		    properties: {
 			target: d.target,
@@ -317,18 +305,18 @@ const sky = (function() {
 	// Starting location; need to convert from location to
 	// angles
 	//
-	const pos0 = toLonLat(ra0, dec0);
+	const pos0 = raProjection.toLonLat(ra0, dec0);
 	const rotate = [-pos0[0], -pos0[1], 0.0];
 
-        const projection = d3.geoOrthographic()
+	const projection =
+	      raProjection.invertXProjection(d3.geoOrthographicRaw)
               .scale(width / 2)
               .translate([width / 2, height / 2])
               .clipAngle(90)
-              .rotate(rotate)
-	;
-
+              .rotate(rotate);
+	
         const path = d3.geoPath().projection(projection);
-
+	
 	baseplane.append('path')
 	    .datum({type: 'Sphere'})
             .attr('class', 'globe')
