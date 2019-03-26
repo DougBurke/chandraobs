@@ -43,6 +43,7 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , nameLinkSearch
            , constellationLinkSearch
            , proposalLink
+           , propTypeLink
            , fromMissionLongLink
            , obsURI
            , skyLink
@@ -63,6 +64,7 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , ChandraTime, Constraint(..)
              , ConLong(..)
              , ObsIdStatus(Discarded)
+             , PropType(TOO)
              , SimbadLoc(SimbadCfA)
              , TargetName, SIMCategory
              , zeroKS
@@ -520,13 +522,13 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       -- nice to add some text saying that it is/was a "fast"/"quick" 
       -- request, but leave that for later.
       --
-      -- TOOO: link to a description of what a TOO is.
-      --
       tooTxt :: ObsStatus -> a -> Html
       tooTxt Done _ = 
-        p "This was a TOO (target of opportunity) observation."
+        p ("This was an observation from a " <> tooLink <> " proposal.")
       tooTxt _ _ = 
-        p "This is a TOO (target of opportunity) observation."
+        p ("This is an observation from a " <> tooLink <> " proposal.")
+
+      tooLink = propTypeLink ctx TOO (Just "TOO (target of opportunity)")
 
       tooPara = maybe mempty (tooTxt obsStatus) soTOO
 
