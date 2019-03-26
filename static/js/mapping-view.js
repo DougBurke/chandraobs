@@ -108,7 +108,8 @@ const createMapping = (function(baseObj) {
             .attr("width", totWidth)
             .attr("height", totHeight)
             .append("g")
-            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+            .attr("transform",
+		  `translate(${margin.left},${margin.top})`);
         
         link = svg.append("g").selectAll(".link")
             .data(mapInfo.links)
@@ -118,6 +119,7 @@ const createMapping = (function(baseObj) {
             .on("click", (d) => {
                 // Would prefer to make this an actual link, so the UI is more
                 // familiar, but this works.
+		//
                 const cat = d.source.name;
                 let stype = mapInfo.simbadMap[d.target.name] || "unidentified";
                 if (stype == "000") { stype = "unidentified"; }
@@ -132,7 +134,7 @@ const createMapping = (function(baseObj) {
            .on("mouseout", function(d) { console.log("exit"); })
         */
         
-            .style("stroke-width", (d) => { return Math.max(1, d.dy); })
+            .style("stroke-width", d => Math.max(1, d.dy))
             .sort((a, b) => { return b.dy - a.dy; });
 
         link.append("title")
@@ -146,9 +148,10 @@ const createMapping = (function(baseObj) {
             .data(mapInfo.nodes)
             .enter().append("g")
             .attr("class", "node")
-            .attr("transform", (d) => { return "translate(" + d.x + "," + d.y + ")"; })
+            .attr("transform", d => `translate(${d.x},${d.y})`)
             .call(d3.drag()
-                  .subject((d) => { return d; })
+                  .subject(d => d)
+		  
 		  // looks like I have broken this code, since 'this' is no
 		  // longer the correct element; did I break some implicit
 		  // when refactoing?
@@ -161,12 +164,12 @@ const createMapping = (function(baseObj) {
                   .on("drag", dragmove));
 
         node.append("rect")
-            .attr("height", (d) => { return d.dy; })
+            .attr("height", d => d.dy)
             .attr("width", sankey.nodeWidth())
             .style("fill", (d) => {
                 d.color = color(d.name.replace(/ .*/, ""));
                 return d.color; })
-            .style("stroke", (d) => { return d3.rgb(d.color).darker(2); })
+            .style("stroke", d => d3.rgb(d.color).darker(2))
             .append("title")
             .text((d) => {
                 return d.name + "\n"
@@ -193,19 +196,22 @@ const createMapping = (function(baseObj) {
                 return out; })
             .append("text")
             .attr("x", -6)
-            .attr("y", (d) => { return d.dy / 2; })
+            .attr("y", d => d.dy / 2)
             .attr("dy", ".35em")
             .attr("text-anchor", "end")
             .attr("transform", null)
-            .text((d) => { return d.name; })
-            .filter((d) => { return d.x < width / 2; })
+            .text(d => d.name)
+            .filter(d => d.x < width / 2)
             .attr("x", 6 + sankey.nodeWidth())
             .attr("text-anchor", "start");
 
     }
 
     function dragmove(d) {
-        d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+	const t = "translate(" + d.x + "," +
+	      (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) +
+	      ")";
+	d3.select(this).attr("transform", t);
         sankey.relayout();
         link.attr("d", path);
     }

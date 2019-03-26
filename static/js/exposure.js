@@ -53,7 +53,7 @@ const createPlot = (function () {
         const nzeros =
               allInfo.
               times.
-              filter((d) => { return d <= 0; }).
+              filter(d => d <= 0).
               length;
     
         /* Plotting up a cumulative function */
@@ -82,7 +82,7 @@ const createPlot = (function () {
             .attr("height", totHeight)
             .append("g")
             .attr("transform",
-                  "translate(" + margin.left + "," + margin.top + ")");
+		  `translate(${margin.left},${margin.top})`);
 
         const xAxis = d3.axisBottom()
               .scale(xrangeHours)
@@ -94,11 +94,13 @@ const createPlot = (function () {
         const xax = svg.append("g")
               .attr("class", "x axis")
               .call(xAxis)
-              .attr("transform", "translate(0," + height + ")");
+              .attr("transform",
+		    `translate(0,${height})`);
 
 	// Add a label for the X axis
 	svg.append("text")
-            .attr("transform", "translate(0," + height + ")")
+            .attr("transform",
+		  `translate(0,${height})`)
             .attr("class", "axis")
             .attr("x", width)
             .attr("y", 0)
@@ -134,9 +136,7 @@ const createPlot = (function () {
 	    // removed .interpolate in move from d3.v3 to d3.v5; is
 	    // it needed?
             // .interpolate("basis")
-                .x((d) => {
-                    return xrange(d);
-                })
+                .x(xrange)
                 .y((d, i) => {
                     return yrange(100 * (i + 1) / n);
                 });
@@ -163,7 +163,7 @@ const createPlot = (function () {
             }
 
             plotInfo[cycle].times = plotInfo[cycle].times.
-                filter((d) => { return d > 0; });
+                filter(d => d > 0);
         
             svg.append("path")
                 .datum(plotInfo[cycle].times)
@@ -186,13 +186,9 @@ const createPlot = (function () {
             .attr("x", "2em")
             .attr("y", (d, i) => { return (i * 1.5) + "em"; })
             .attr("dy", "2em")
-            .attr("class", (cycle) => {
-                return "legend legend" + cycle;
-            })
+            .attr("class", cycle =>"legend legend" + cycle)
             .style("fill", getColor)
-            .text((cycle) => {
-                return makeLabel(plotInfo, cycle);
-            });
+            .text((cycle) => makeLabel(plotInfo, cycle));
     
     }
 
@@ -232,7 +228,7 @@ const createPlot = (function () {
             .data(tags)
             .enter()
             .append("tr")
-            .html((d) => { return makeRows(plotInfo, d); });
+            .html(d => makeRows(plotInfo, d));
     }
     
     // See https://bl.ocks.org/mbostock/4061502
@@ -295,8 +291,8 @@ const createPlot = (function () {
             .attr("height", totBoxHeight)
             .style("stroke", (d, i) => { return colors(tags[i]); })
             .append("g")
-            .attr("transform", "translate(" + boxMargin.left + "," +
-                  boxMargin.top + ")")
+            .attr("transform",
+		  `translate(${boxMargin.left},${boxMargin.top})`)
             .call(boxChart);
         
         // assume, for now, the ordering is correct

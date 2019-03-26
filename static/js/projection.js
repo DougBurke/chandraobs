@@ -123,11 +123,11 @@ const projection = (function (baseObj) {
             .data(longvals)
             .enter().append("text")
             .attr("class", "label long")
-            .attr("x", (d) => { return d.x; })
-            .attr("y", (d) => { return d.y; })
+            .attr("x", d => d.x)
+            .attr("y", d => d.y)
             .attr("text-anchor", "middle")
             .attr("dy", "1.4em")
-            .text((d) => { return d.lbl; });
+            .text(d => d.lbl);
 
         const latvals = [-75, -45, -15, 15, 45, 75].map((d) => { 
             const pos = projection(raProjection.toLonLat(12 * 15, d));
@@ -139,12 +139,12 @@ const projection = (function (baseObj) {
             .data(latvals)
             .enter().append("text")
             .attr("class", "label lat")
-            .attr("x", (d) => { return d.x; })
-            .attr("y", (d) => { return d.y; })
+            .attr("x", d => d.x)
+            .attr("y", d => d.y)
             .attr("text-anchor", "end")
             .attr("dx", "-0.4em")
             .attr("dy", "0.35em")
-            .text((d) => { return d.lbl; });
+            .text(d => d.lbl);
 
         // mark the observations
         const points = coords.map((d) => {
@@ -158,17 +158,17 @@ const projection = (function (baseObj) {
             .data(points)
             .enter()
             .append("a")
-            .attr("xlink:href", function(d) { return d.urifrag; })
+            .attr("xlink:href", d => d.urifrag)
             .append("circle")
             .attr("class", "obs")
-            .attr("id", function(d) { return "gfx-" + d.idname; })
-            .attr("r", function(d) { return tscale(d.texp); })
-            .attr("cx", function(d) { return d.x; })
-            .attr("cy", function(d) { return d.y; })
+            .attr("id", d => "gfx-" + d.idname)
+            .attr("r", d => tscale(d.texp))
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y)
             .attr("opacity", baseOpacity)
-            .style("fill", function(d) { return color(d.status); })
-            .on('mouseover', function(d) { selectObs(d.idname); })
-            .on('mouseout', function(d) { deselectObs(d.idname); })
+            .style("fill", d => color(d.status))
+            .on('mouseover', d => selectObs(d.idname))
+            .on('mouseout', d => deselectObs(d.idname))
             .append("title")
             .text(function(d) {
                 if (!d.simbadType) { return d.label; }
@@ -189,8 +189,8 @@ const projection = (function (baseObj) {
                     .attr("class", "milkyway")
                     .attr("d", path)
                     .attr("opacity", baseOpacity)
-                    .on('mouseover', function(d) { highlightSel('.milkyway'); })
-                    .on('mouseout', function(d) { revertSel('.milkyway'); })
+                    .on('mouseover', d => highlightSel('.milkyway'))
+                    .on('mouseout',  d => revertSel('.milkyway'))
                     .append("title")
                     .text("Milky Way");
 

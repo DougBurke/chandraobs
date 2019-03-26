@@ -70,7 +70,7 @@ const createCalendar = (function () {
 	//       would be nice to go to 9+ rather than 8+
 	color = d3.scaleQuantize()
             .domain([0, 8])
-            .range(d3.range(9).map((d) => { return "q" + d + "-9"; }));
+            .range(d3.range(9).map(d => `q${d}-9`));
 
 	addColorbar(0);
 
@@ -94,7 +94,7 @@ const createCalendar = (function () {
 	svg.append("text")
             .attr("transform", "translate(-6," + cellSize * 3.5 + ")rotate(-90)")
             .style("text-anchor", "middle")
-            .text((d) => { return d; });
+            .text(d => d);
 
 	// draw each day
 	//
@@ -105,31 +105,27 @@ const createCalendar = (function () {
             .data((d) => {
 		const days = d3.timeDays(new Date(d, 0, 1),
 					 new Date(d + 1, 0, 1));
-		return days.filter((d) => {
-                    return (d >= startDate) && (d <= endDate);
-		});
+		return days.filter(d => (d >= startDate) && (d <= endDate));
             })
             .enter()
             .append("a")
-            .attr("xlink:href", (d) => { return "/schedule/date/" + format(d) + "/3"; })
+            .attr("xlink:href", d => "/schedule/date/" + format(d) + "/3")
             .append("rect")
             .attr("class", "day")
             .attr("width", cellSize)
             .attr("height", cellSize)
-            .attr("x", (d) => { return weekOfYear(d) * cellSize; })
-            .attr("y", (d) => { return d.getDay() * cellSize; })
+            .attr("x", d => weekOfYear(d) * cellSize)
+            .attr("y", d => d.getDay() * cellSize)
             .datum(format);
 
 	// label with the date
 	rect.append("title")
-            .text((d) => { return d + ": no data"; });
+            .text(d => d + ": no data");
 
 	const monthFilter = (d) => {
             const months = d3.timeMonths(new Date(d, 0, 1),
 					 new Date(d + 1, 0, 1));
-            return months.filter((d) => {
-		return (d >= startMonth) && (d < endMonth);
-            });
+            return months.filter(d => (d >= startMonth) && (d < endMonth));
 	};
 
 	// month boundaries
@@ -150,7 +146,7 @@ const createCalendar = (function () {
 	// boxes, and I don't want to have to fix that
             .attr("y", 0)
             .attr("dy", "-0.2em")
-            .text((d) => { return monthName[d.getMonth()]; });
+            .text(d => monthName[d.getMonth()]);
 
 	// add counts info for those days that have it
 	//
@@ -207,7 +203,8 @@ const createCalendar = (function () {
               .attr("width", width) // use the same size as the year displays
               .attr("height", cellSize * 3 + padding)
               .append("g")
-              .attr("transform", "translate(0," + padding + ")");
+              .attr("transform",
+		    `translate(0,${padding})`);
     
 	// right-align the box
 	const xpos = width - 10 * cellSize * 2;
@@ -218,9 +215,9 @@ const createCalendar = (function () {
             .append("rect")
             .attr("width", cellSize * 2)
             .attr("height", cellSize * 2)
-            .attr("x", (d) => { return xpos + d * cellSize * 2; })
+            .attr("x", d => xpos + d * cellSize * 2)
             .attr("y", 0)
-            .attr("class", (d) => { return "day " + color(d); });
+            .attr("class", d => "day " + color(d));
 
 	cbar.append("text")
             .attr("class", "description")
@@ -239,7 +236,7 @@ const createCalendar = (function () {
             .enter()
             .append("text")
             .attr("class", "label")
-            .attr("x", (d) => { return xpos + d * cellSize * 2; })
+            .attr("x", d => xpos + d * cellSize * 2)
             .attr("y", cellSize * 2)
             .attr("dx", "1em")
             .attr("dy", "1em")
@@ -252,14 +249,14 @@ const createCalendar = (function () {
     const transitionTime = 600;
 
     function highlightDay(dd) {
-	rect.filter((d) => { return d === dd; })
+	rect.filter(d => d === dd)
             .transition()
             .duration(transitionTime)
             .attr("opacity", opacitySel);
     }
 
     function unhighlightDay(dd) {
-	rect.filter((d) => { return d === dd; })
+	rect.filter(d => d === dd)
             .transition()
             .duration(transitionTime)
             .attr("opacity", opacityRest);
