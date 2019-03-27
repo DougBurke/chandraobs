@@ -246,12 +246,14 @@ const sky = (() => {
 	    if (frac > 1.0) {
 		projection.rotate([- newPos[0], - newPos[1]]);
 		svg.selectAll('path').attr('d', path);
+		rotateLabels(svg, projection);
 		timer.stop();
 	    }
 
 	    const pos = interpolator(frac);
 	    projection.rotate([- pos[0], - pos[1] ]);
 	    svg.selectAll('path').attr('d', path);
+	    rotateLabels(svg, projection);
 
 	    frac += dfrac;
 	},
