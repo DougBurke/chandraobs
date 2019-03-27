@@ -264,8 +264,7 @@ const main = (function() {
 	pane.setAttribute('class', 'statusPane');
 
 	pane.draggable = true;
-	pane.addEventListener('dragstart',
-			      event => draggable.startDrag(event));
+	pane.addEventListener('dragstart', draggable.startDrag);
 
 	const controlElements = document.createElement('div');
 	controlElements.classList.add('controlElements');
@@ -1260,8 +1259,7 @@ const main = (function() {
 		const host = getHost();
 		host.addEventListener('dragover',
 				      event => event.preventDefault());
-		host.addEventListener('drop',
-				      event => draggable.stopDrag(event));
+		host.addEventListener('drop', draggable.stopDrag);
 
 	    })
 	    .fail((xhr, status, e) => {
@@ -1686,7 +1684,7 @@ const main = (function() {
 	    // This is currently needed by the lookup module, which is
 	    // not a great design.
 	    //
-	    getWWT: () => { return wwt; },
+	    getWWT: () => wwt,
 	    getHost: getHost,
 
 	    addSkyView: addSky
