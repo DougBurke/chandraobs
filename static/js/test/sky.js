@@ -15,9 +15,12 @@ const sky = (() => {
 
     const width = 400;    
     const height = 400;
+    const centerPix = [width / 2, height / 2];
 
     const to_radians = Math.PI / 180;
     const to_degrees = 180 / Math.PI;
+
+    const maxSeparation = Math.PI / 2;
 
     // Try and improve the drag behavior based on
     // http://bl.ocks.org/ivyywang/7c94cb5a3accd9913263
@@ -29,6 +32,13 @@ const sky = (() => {
     // Other than its responsive-ness, the current implementation can
     // "lose" the anchor point if the user tries to drag too far. This
     // doesn't happen in the Jason Davies/Harry Stevens versions.
+    //
+    // There is the possibility of using Canvas rather than SVG, which
+    // should be more responsive, but makes a lot of other things
+    // we do (e.g. mouse over/interactive events) harder.
+    //
+    // At the moment I use a global variable for the labels as the
+    // wiring/ordering is all messed up.
     //
     function dragSphere(svg, path, projection) {
 
@@ -160,6 +170,7 @@ const sky = (() => {
 	    if (rnew !== null) {
 		projection.rotate(rnew);
 		svg.selectAll('path').attr('d', path);
+		rotateLabels(svg, projection);
 	    }
 	}
 
@@ -169,7 +180,7 @@ const sky = (() => {
 	      .on('end', dragEnd);
 
 	return { drag: dragObj,
-		 inDrag: () => { return posStart !== null; }
+		 inDrag: () => posStart !== null
 	       };
     }
     
@@ -247,6 +258,58 @@ const sky = (() => {
 		 50);
     }
 
+    // Can we label the sphere (a select few RA/Dec points)?
+    //
+    function addLabels(plane, projection) {
+
+	const xs = [
+	    {pos: raProjection.toLonLat(0, 0), label: '0\u1D34'},
+	    {pos: raProjection.toLonLat(8 * 15, 0), label: '8\u1D34'},
+	    {pos: raProjection.toLonLat(16 * 15, 0), label: '16\u1D34'},
+	    {pos: raProjection.toLonLat(0, 60), label: '60\u00B0'},
+	    {pos: raProjection.toLonLat(0, -60), label: '-60\u00B0'},
+	    {pos: raProjection.toLonLat(12 * 15, 60), label: '60\u00B0'},
+	    {pos: raProjection.toLonLat(12 * 15, -60), label: '-60\u00B0'},
+	];
+
+	plane.selectAll('text.axislabel')
+	    .data(xs)
+	    .enter()
+	    .append('text')
+	    .attr('class', 'axislabel')
+	    .attr('text-anchor', 'middle')
+	    .attr('dy', '0.3em')
+	    .text(d => d.label);
+
+	rotateLabels(plane, projection);
+    }
+
+    // The roll of the rotation is used to calculate the angle for the
+    // labels, which is an approximation that fails when the poles
+    // are viewed directly. What we want is the angle of the line of
+    // constant latitude or longitude at the position.
+    //
+    function rotateLabels(svg, projection) {
+	const angle = projection.rotate()[2];
+
+	svg.selectAll('text.axislabel')
+	    .attr('x', (d) => {
+		d.proj = projection(d.pos);
+		return d.proj[0];
+	    })
+	    .attr('y', d => d.proj[1])
+	    .attr('transform',
+		  d => `rotate(${angle},${d.proj[0]},${d.proj[1]})`)
+	    .attr('opacity', (d) => {
+		// If we're more than PI/2 radians from the center
+		// then we're off-screen.
+		//
+		const pos0 = projection.invert(centerPix);
+		const sep = d3.geoDistance(pos0, d.pos);
+		return sep > maxSeparation ? 0.0 : 1.0;
+	    });
+    }
+
     // Create the projection and add it to the #sky element.
     //
     // Note that this creates an id which is hard-coded (at present)
@@ -311,7 +374,7 @@ const sky = (() => {
 	const projection =
 	      raProjection.invertXProjection(d3.geoOrthographicRaw)
               .scale(width / 2)
-              .translate([width / 2, height / 2])
+              .translate(centerPix)
               .clipAngle(90)
               .rotate(rotate);
 	
@@ -326,14 +389,14 @@ const sky = (() => {
 	      .stepMinor([30, 30])
 	      .extentMinor([[-180, -85.01], [180, 85.01]]);
 
+	/***
         baseplane.append('path')
 	    .datum(graticule())
             .attr('class', 'graticule')
             .attr('d', path);
+	***/
 
 	addMW(baseplane, path);
-
-	const drag = dragSphere(svg, path, projection)
 
 	// Compute the radius scale based on the exposure time, using
 	// square-root so the area scales with t.
@@ -342,16 +405,16 @@ const sky = (() => {
             .domain([0, 150])  // not many obs have texp > 150ks so cap here
             .range([3, 10]);
 
-        path.pointRadius((d) => {
-	    return d.properties ? tscale(d.properties.exposure) : 1;
-	});
+        path.pointRadius(d => d.properties ? tscale(d.properties.exposure) : 1);
+
+	const drag = dragSphere(svg, path, projection)
 
 	dataplane.selectAll('.observation')
 	    .data(features)
             .enter()
 	    .append('a')
 	    .attr('xlink:href', '#')
-	    .attr('data-obsid', (d) => { return d.properties.obsid; })
+	    .attr('data-obsid', d => d.properties.obsid)
 	    .on('click', (d) => {
 		showObsId(d.properties.obsid);
 
@@ -364,13 +427,29 @@ const sky = (() => {
 	    })
 	    .append('path')
             .attr('class', 'observation')
-	    .attr('id', (d) => { return "obs-" + d.properties.obsid; })
+	    .attr('id', d => "obs-" + d.properties.obsid)
 	    .on('mouseover', selectObs(drag.inDrag))
 	    .on('mouseout',  unSelectObs(drag.inDrag))
             .attr('d', path)
 	    .append('title')
-	    .text((d) => { return d.properties.target; });
+	    .text(d => d.properties.target);
 
+	// Does it look better with the graticules on top of the data,
+	// for crowded views?
+        dataplane.append('path')
+	    .datum(graticule())
+            .attr('class', 'graticule')
+            .attr('d', path);
+
+	addLabels(dataplane, projection);
+
+	// Should the drag be applied to the base plane or the data plane?
+	// If it is the base plane then it can be hard to drag when there
+	// are so many observations that you can't "grab" any sky.
+	// However, switching isn't as simple as just swapping these
+	// two lines.
+	//
+        // dataplane.call(drag.drag);
         baseplane.call(drag.drag);
 
 	// Add in an indication of the mapping from source size to
@@ -421,7 +500,7 @@ const sky = (() => {
 	    .attr('y', hheight)
 	    .attr('dy', '1em')
 	    .attr('text-anchor', 'middle')
-	    .text((d) => { return d; });
+	    .text(d => d);
 
     }
 
@@ -465,122 +544,3 @@ const sky = (() => {
     return { create: createSky };
     
 })();
-
-
-////// OLD
-/***
-
-        // Set the width and height of the SVG container
-        var width = 400,
-            height = 400;
-
-        // Select the container div and append the SVG element
-        var div = d3.select('#map'),
-            svg = div.append('svg').attr('width', width).attr('height', height),
-            grp = svg.append('g').attr('class', 'gmap');
-
-        // Add a lighting effect to give the circle a spherical aspect
-        var filter = svg.append('filter').attr('id', 'lightMe');
-
-        filter.append('feDiffuseLighting')
-            .attr('in', 'SourceGraphic')
-            .attr('result', 'light')
-            .attr('lighting-color', 'white')
-            .append('fePointLight')
-                .attr('x', 0.85 * width)
-                .attr('y', 0.85 * height)
-                .attr('z', 50);
-
-        filter.append('feComposite')
-            .attr('in', 'SourceGraphic')
-            .attr('in2', 'light')
-            .attr('operator', 'arithmetic')
-            .attr('k1', '1')
-            .attr('k2', '0')
-            .attr('k3', '0')
-            .attr('k4', '0');
-
-        // Projectioon and Path Generator
-        // ------------------------------
-
-        // Store the current rotation
-        var rotate = {x: 0, y: 90};
-
-        // Create and configure an instance of the orthographic projection
-        var projection = d3.geo.orthographic()
-            .scale(width / 2)
-            .translate([width / 2, height / 2])
-            .clipAngle(90)
-            .rotate([rotate.x / 2, -rotate.y / 2]);
-
-        // Create and configure the geographic path generator
-        var path = d3.geo.path().projection(projection);
-
-        // Overlay
-        // -------
-        var overlay = svg.selectAll('circle').data([rotate])
-            .enter().append('circle')
-            .attr('transform', 'translate(' + [width / 2, height / 2] + ')')
-            .attr('r', width / 2)
-            .attr('filter', 'url(#lightMe)')
-            .attr('class', 'overlay');
-
-        // Globe Outline
-        // -------------
-        var globe = grp.selectAll('path.globe').data([{type: 'Sphere'}])
-            .enter().append('path')
-            .attr('class', 'globe')
-            .attr('d', path);
-
-        // Graticule
-        // ---------
-        var graticule = d3.geo.graticule();
-
-        // Draw graticule lines
-        grp.selectAll('path.graticule').data([graticule()])
-            .enter().append('path')
-            .attr('class', 'graticule')
-            .attr('d', path);
-
-        // Load the stellar catalog
-        d3.json('hyg.json', function(error, data) {
-
-            // Handle errors getting and parsing the data
-            if (error) { return error; }
-
-            // Compute the radius scale. The radius will be proportional to
-            // the aparent magnitude
-            var rScale = d3.scale.linear()
-                .domain(d3.extent(data.features, function(d) { return d.properties.mag; }))
-                .range([3, 1]);
-
-            // Compute the radius for the point features
-            path.pointRadius(function(d) {
-                return d.properties ? rScale(d.properties.mag) : 1;
-            });
-
-            // Stars
-            // -----
-            grp.selectAll('path.star').data(data.features)
-                .enter().append('path')
-                .attr('class', 'star')
-                .attr('d', path);
-
-            // Drag Behavior
-            // -------------
-            var dragBehavior = d3.behavior.drag()
-                .origin(Object)
-                .on('drag', function(d) {
-                    projection.rotate([(d.x = d3.event.x) / 2, -(d.y = d3.event.y) / 2]);
-                    svg.selectAll('path').attr('d', function(u) {
-                        // The circles are not properly generated when the
-                        // projection has the clipAngle option set.
-                        return path(u) ? path(u) : 'M 10 10';
-                    });
-                });
-
-            // Add the drag behavior to the overlay
-            overlay.call(dragBehavior);
-        });
-
-***/
