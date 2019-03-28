@@ -103,7 +103,14 @@ renderList cycles =
        <> "as well as for more mundane reasons, such as Cycle 0 "
        <> "only covering a short period of time as the Chandra X-ray "
        <> "Center gathered experience in the in-orbit performance "
-       <> "of the telescope and instruments.")
+       <> "of the telescope and instruments. It is a complementary "
+       <> "view to the "
+       <> toLink StaticHtml "/search/exposures/"
+        ("look at the exposure times" :: Html)
+       <> " and "
+       <> toLink StaticHtml "/search/exposurerange/"
+        ("breakdown by exposure time" :: Html)
+       <> ".")
 
     standardTable $ do
              thead $ tr $ do

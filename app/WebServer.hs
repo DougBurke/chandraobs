@@ -35,6 +35,7 @@ import qualified Views.Search.Category as Category
 import qualified Views.Search.Constellation as Constellation
 import qualified Views.Search.Cycle as Cycle
 import qualified Views.Search.Constraint as Constraint
+import qualified Views.Search.ExposureRanges as ExposureRanges
 import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Mapping as Mapping
 import qualified Views.Search.Mission as Mission
@@ -145,7 +146,9 @@ import Database (NumObs, NumSrc, SIMKey
                 , getProposalType
                   
                 , getExposureValues
-
+                , fetchExposureRanges
+                , fetchExposureRange
+                
                 -- , findNearbyObs
                 , findAllObs
                 -- , NormSep
@@ -236,7 +239,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromCycle
 
              , getMissionInfo
-             
+
              , rsoObsId
              , rsoTarget
              , rsoRA
@@ -1131,6 +1134,14 @@ webapp cm scache cache = do
     get "/search/category/" $ do
       matches <- liftSQL fetchCategoryTypes
       fromBlaze (Category.indexPage matches)
+
+    get "/search/exposurerange/:range"
+      (searchResultsRestricted (dbQuery "range" fetchExposureRange)
+       (const False) ExposureRanges.matchPage)
+    
+    get "/search/exposurerange/" $ do
+      matches <- liftSQL fetchExposureRanges
+      fromBlaze (ExposureRanges.indexPage matches)
 
     -- TODO: also need a HEAD request version
     {-

@@ -11,6 +11,11 @@
   <link rel="stylesheet"
         href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
   <link href="/css/search.css" type="text/css" rel="stylesheet">
+  <style>
+.options li {
+  padding-bottom: 0.5em;
+}
+  </style>
  </head>
  <body>
   <header>
@@ -41,7 +46,7 @@
       the proposal categories are related to the SIMBAD data types):
     </div>
 
-    <ul>
+    <ul class="options">
 
       <li>
         explore the
@@ -55,12 +60,33 @@
       
       <li>
         <a href="/search/calendar/">a calendar view</a>,
-        which can be compared to the
-        <a href="/search/exposures/">exposure-time breakdown</a>,
-        to see how the observations are spread throughout the observing
-        cycle,
+	where each day of the life of Chandra (post launch into Space!)
+	is color-coded by the number of observations started on that
+	day,
       </li>
 
+      <li>
+	the 
+        <a href="/search/exposures/">exposure-time breakdown</a>,
+	which shows the observing-time distribution as a function
+	of observing cycle,
+      </li>
+
+      <li>
+	how observations are distributed on the sky as a function of
+	their <a href="/search/exposurerange/">observation length</a>
+	(the full distribution from the previous page is used to
+	calculate bands of exposure times that cover ten-percent blocks
+	of the full distribution),
+      </li>
+
+      <li>
+	a slightly-different view of the
+	<a href="/search/cycle/">breakdown by cycle</a>
+	(this time by number of proposals rather than number of
+	observations),
+      </li>
+      
       <li><a href="/search/instrument/">by instrument</a>,</li>
       <li>a look at <a href="/search/breakdown/">how the time is spent on each instrument</a>,</li>
       <li>by viewing the

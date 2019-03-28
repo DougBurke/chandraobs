@@ -78,6 +78,9 @@ module Database ( getCurrentObs
                   -- Rather experimental
                 , getExposureValues
 
+                , fetchExposureRanges
+                , fetchExposureRange
+                
                   -- Highly experimental
                 , getTimeline
 
@@ -153,6 +156,8 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import qualified Data.Vector.Unboxed as V
+import qualified Data.Vector.Algorithms.Intro as VA
 
 import Control.Arrow (first, second)
 import Control.Monad (filterM, forM, forM_, when)
@@ -1502,6 +1507,112 @@ fetchCycles = do
   return (countUp cycles)
 
 
+sortExposures ::
+  [(TimeKS, Maybe TimeKS)]
+  -- ^ Approved and actual observation time
+  -> V.Vector Double
+  -- ^ sorted (low to high) list of exposures in ks.
+sortExposures exps =
+  V.create (do
+      let exps0 = V.fromList (map (fromTimeKS . uncurry fromMaybe) exps)
+      m <- V.unsafeThaw exps0
+      VA.sort m
+      return m)
+
+-- | What is the number of observations, and exposure range, for each
+--   range bin?
+--
+--   See also getExposureValues
+--
+fetchExposureRanges ::
+  DbSql m
+  => m [(PRange, (Int, (TimeKS, TimeKS)))]
+  -- ^ This is ordered from minBound to maxBound in PRange
+fetchExposureRanges = do
+  -- could order by approved time and then assume that that is "close
+  -- enough" to avoid another sort.
+  --
+  allExps <- project (SoApprovedTimeField, SoObservedTimeField)
+             isValidScienceObs
+
+  -- Is it worth going via a vector? I have not bench-marked this.
+  --
+  let exps = sortExposures allExps
+      
+      nobs = V.length exps
+      width = fromIntegral nobs / (10 :: Float)
+
+      -- Not bothered about interpolations at the boundaries, just pick
+      -- the "nearest" values.
+      --
+      -- this really should all be made to be correct by construction,
+      -- (the mapping to/from PRange) rather than assume I've got the
+      -- invariants correct.
+      --
+      bds = map (\i -> fromIntegral i * width) [0 .. 9 :: Int]
+      bins = map round bds <> [nobs - 1]
+
+      indexes = zip bins (tail bins)
+      nbins = map (uncurry subtract) indexes
+
+      -- Note: assuming limits are within bounds here
+      ebins = map (unsafeToTimeKS . (exps V.!)) bins
+      eranges = zip ebins (tail ebins)
+      res = zip nbins eranges
+
+  return (zip [minBound .. maxBound] res)
+
+
+-- | Return observations broken down by where there exposure
+--   falls within the full distriution. This is potentially an expensive
+--   query as we need to create the exposure-range distribution
+--   before the query can be answered.
+--
+--   Science observations only.
+--
+fetchExposureRange :: 
+  DbSql m
+  => PRange
+  -> m (SortedList StartTimeOrder RestrictedSO)
+fetchExposureRange pr = do
+  rgs <- fetchExposureRanges
+  case lookup pr rgs of
+    Just (_, (tlo, thi)) -> getExposureRange (pr == PR100) tlo thi
+    Nothing -> return emptySL -- should not happen
+
+
+getExposureRange ::
+  DbSql m
+  => Bool
+  -- ^ True if this represents the PR100 range (that is the
+  --   upper limit is inclusive)
+  -> TimeKS
+  -- ^ Start time range (inclusive)
+  -> TimeKS
+  -- ^ end time range (exclusive unless first argument is True)
+  -> m (SortedList StartTimeOrder RestrictedSO)
+getExposureRange flag tlo thi =
+  -- Filter by the observed time field if set, otherwise the
+  -- approved time field.
+  --
+  let cond = (isFieldNothing SoObservedTimeField &&.
+               within SoApprovedTimeField) ||.
+             withinM SoObservedTimeField
+
+      -- wanted to combine within and withinM but the types were too strong
+      -- for me.
+      --
+      within x = if flag
+                 then (x >=. tlo) &&. (x <=. thi)
+                 else (x >=. tlo) &&. (x <. thi)
+                      
+      withinM x = if flag
+                  then (x >=. Just tlo) &&. (x <=. Just thi)
+                  else (x >=. Just tlo) &&. (x <. Just thi)
+                      
+  in fetchScienceObsBy cond
+  
+  
 -- | Return observations which match this category,
 --   excluding discarded observations.
 --
@@ -2383,6 +2494,10 @@ getProposalType ptype = do
 --   Unclear at present what information to return; a
 --   histogram would probably be better but much-more
 --   work to create.
+--
+--   Should we return a vector rather than a list?
+--
+--   See also fetchExposureRanges
 --
 getExposureValues ::
   DbSql m

@@ -32,7 +32,9 @@ module API (scheduleOnDate
 
            , constellationLinkSearch
            , cycleLinkSearch
-             
+
+           , exposureRangeSearch
+           
            , typeLinkURI
            , typeDLinkURI
            , typeLinkSearch
@@ -102,18 +104,23 @@ import Types (ConShort(..)
              , recordTarget
              , recordObsId
 
+             , PRange
+             , fromPRange
+             
              , rrecordTarget
              , rrecordObsId
                
              , fromMission
              , getMissionInfo
+
+             , allCycles
              
              , fromPropType
              , toPropTypeLabel
              , rtToLabel
              , simbadTypeToDesc
              , csToLabel, csToLC
-               )
+             )
 import Utils (HtmlContext(..), toLink, fromDay, showInt)
 
 -- | Convert a record into the URI fragment that represents the
@@ -332,27 +339,46 @@ constellationLinkSearch ctx con lbl =
        StaticHtml -> toLink StaticHtml iLink lbl
        DynamicHtml -> skyLink urlFrag lbl
        
--- | Link to the given search (apart from for the "All" cycles,
---   which we currently don't support in the schedule view since
---   it has too many observations).
+-- | Link to the given search. Note that the "All" link
+--   is slightly different, since we don't have a projection with
+--   all the data, but a breakdown by cycle.
 --
 cycleLinkSearch ::
   HtmlContext
   -> Cycle
   -> Html
 cycleLinkSearch ctx cyc =
-  let lbl = fromCycle cyc
-      content = "Cycle " <> lbl
+  let (content, hlbl) =
+        if cyc == allCycles
+        then ("All cycles", "")
+        else let lbl = fromCycle cyc
+             in ("Cycle " <> lbl, H.toValue lbl)
 
-      hlbl = H.toValue lbl
       iLink = "/search/" <> urlFrag
       urlFrag = "cycle/" <> hlbl
 
-  in if lbl == "all"
-     then "All cycles"
-     else case ctx of
-            StaticHtml -> toLink StaticHtml iLink content
-            DynamicHtml -> skyLink urlFrag content
+  in case ctx of
+       StaticHtml -> toLink StaticHtml iLink content
+       DynamicHtml -> skyLink urlFrag content
+
+
+-- | Link to the given exposure-range search.
+--
+exposureRangeSearch ::
+  HtmlContext
+  -> PRange
+  -> Html
+exposureRangeSearch ctx pr =
+  let lbl = fromPRange pr
+      content = lbl -- for now just use the basic text
+
+      hlbl = H.toValue lbl
+      iLink = "/search/" <> urlFrag
+      urlFrag = "exposurerange/" <> hlbl
+
+  in case ctx of
+       StaticHtml -> toLink StaticHtml iLink content
+       DynamicHtml -> skyLink urlFrag content
 
 
 data TypeOption = TypeLink | TypeDLink deriving Eq

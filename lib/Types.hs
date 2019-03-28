@@ -69,6 +69,10 @@ module Types ( ObsIdVal
              , fromCycle
              , allCycles
 
+             , PRange(..)
+             , toPRange
+             , fromPRange
+             
              , JointMission
              , toMission
              , fromMission
@@ -236,6 +240,7 @@ module Types ( ObsIdVal
                
                -- ^ not using lenses...
              , _2
+             , _3
 
                -- ^ Groundhog related symbols. PersistEntity and Field
                --   are needed to export the Type Family symbols
@@ -1368,6 +1373,48 @@ csToLabel :: ConstraintKind -> T.Text
 csToLabel TimeCritical = "Time Critical"
 csToLabel Monitor = "Monitoring"
 csToLabel Constrained = "Constrained"
+
+-- | What bin does a value fall into (defined with respect to the
+--   set of observations in the database, so it is not a set value
+--   for an observation). At the moment the idea is to fix to 10%
+--   intervals. The range is [a,b) - ie inclusive lower bound, exclusive
+--   upper bound except for the 90% to 100% bin.
+--
+--   PRange for percentile range.
+--
+data PRange =
+  PR10 | PR20 | PR30 | PR40 | PR50 | PR60 | PR70 | PR80 | PR90 | PR100
+  deriving (Bounded, Enum, Eq, Ord)
+
+toPRange :: T.Text -> Maybe PRange
+toPRange s | s == "0-10"   = Just PR10
+           | s == "10-20"  = Just PR20
+           | s == "20-30"  = Just PR30
+           | s == "30-40"  = Just PR40
+           | s == "40-50"  = Just PR50
+           | s == "50-60"  = Just PR60
+           | s == "60-70"  = Just PR70
+           | s == "70-80"  = Just PR80
+           | s == "80-90"  = Just PR90
+           | s == "90-100" = Just PR100
+           | otherwise     = Nothing
+           
+fromPRange :: PRange -> T.Text
+fromPRange PR10  = "0-10"
+fromPRange PR20  = "10-20"
+fromPRange PR30  = "20-30"
+fromPRange PR40  = "30-40"
+fromPRange PR50  = "40-50"
+fromPRange PR60  = "50-60"
+fromPRange PR70  = "60-70"
+fromPRange PR80  = "70-80"
+fromPRange PR90  = "80-90"
+fromPRange PR100 = "90-100"
+
+
+instance Parsable PRange where
+  parseParam = helpParse "percentile range" toPRange
+
 
 -- | The status field of an observation. Hopefully this is
 --   all the states it could be.
