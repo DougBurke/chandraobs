@@ -60,6 +60,8 @@ module Database ( getCurrentObs
                 , fetchTOO
                 , fetchConstraints
                 , fetchConstraint
+
+                , fetchSubArrays
                   
                 , findNameMatch
                 , findProposalNameMatch
@@ -1931,7 +1933,31 @@ fetchConstraint ::
   -> m (SortedList StartTimeOrder RestrictedSO)
 fetchConstraint mcs = fetchScienceObsBy (getCon mcs)
 
-  
+
+-- | What is the breakdown of the sub-array observations
+--
+fetchSubArrays ::
+  DbSql m
+  => m [((Int, Int), TimeKS)]
+  -- ^ The subarray start and width and the associated time.
+fetchSubArrays = do
+  rsp <- project ((SoSubArrayStartField , SoSubArraySizeField),
+                  (SoApprovedTimeField, SoObservedTimeField))
+         (Not (isFieldNothing SoSubArrayStartField) &&. isValidScienceObs)
+
+  let -- there's a lot-less verbse way to write this
+      clean ((ma,mb), (c,md)) = do
+        a <- ma
+        b <- mb
+        let x = fromMaybe c md
+        pure ((a, b), x)
+
+      subs = mapMaybe clean rsp
+      sums = M.fromListWith addTimeKS subs
+      
+  pure (M.toAscList sums)
+
+
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
 --   even if the observation was discarded.

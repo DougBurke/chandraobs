@@ -40,6 +40,7 @@ import qualified Views.Search.Instrument as Instrument
 import qualified Views.Search.Mapping as Mapping
 import qualified Views.Search.Mission as Mission
 import qualified Views.Search.PropType as PropType
+import qualified Views.Search.SubArrays as SubArrays
 import qualified Views.Search.Target as Target
 import qualified Views.Search.TOO as TOO
 import qualified Views.Search.Types as SearchTypes
@@ -132,7 +133,8 @@ import Database (NumObs, NumSrc, SIMKey
                 , fetchTOO
                 , fetchConstraints
                 , fetchConstraint
-                  
+                , fetchSubArrays
+
                 , findNameMatch
                 , findProposalNameMatch
                 , findTarget
@@ -952,6 +954,9 @@ webapp cm scache cache = do
         Left _ -> next -- TODO: better error message
         Right date -> queryScheduleDate date ndays
 
+    -- TODO: also need a HEAD request version
+    get "/search/" (redirect "/search/index.html")
+
     -- TODO: what does a cache miss mean here? Should we fill it in or
     --       not?
     --
@@ -1257,8 +1262,9 @@ webapp cm scache cache = do
     get "/search/joint/"
       (liftSQL fetchMissionInfo >>= fromBlaze . Mission.indexPage)
 
-    -- TODO: also need a HEAD request version
-    get "/search/" (redirect "/search/index.html")
+    get "/search/subarrays/" $ do
+      matches <- liftSQL fetchSubArrays
+      fromBlaze (SubArrays.indexPage matches)
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 

@@ -106,6 +106,7 @@ executable webserver
                        Views.Search.Mapping
                        Views.Search.Mission
                        Views.Search.PropType
+                       Views.Search.SubArrays
                        Views.Search.Target
                        Views.Search.Types
                        Views.Search.TOO
