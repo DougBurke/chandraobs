@@ -3,18 +3,71 @@ div.cells {
     display: grid;
     grid-gap: 0.2em;
     grid-template-columns: repeat(9, 1fr);
+    margin-top: 1em;
 }
 
 .cell {
     /* from main.css:div#observation */
-    background-color: rgba(0, 131, 179, 0.1);
+    /* background-color: rgba(0, 131, 179, 0.1); */
     padding: 0.2em 0.5em;
 }
 
+/*
+ * Use a 9-element color scheme from Cynthia Brewer's ColorBrewer site
+ * http://colorbrewer2.org/#type=sequential&scheme=PuBu&n=9
+ *
+ * This (or one very like it) is used for the calendar view
+ */
+
+.q1 {
+    background-color: #fff7fb;
+}
+
+.q2 {
+    background-color: #ece7f2;
+}
+
+.q3 {
+    background-color: #d0d1e6;
+}
+
+.q4 {
+    background-color: #a6bddb;
+}
+
+.q5 {
+    background-color: #74a9cf;
+}
+
+.q6 {
+    background-color: #3690c0;
+}
+
+.q7 {
+    background-color: #0570b0;
+}
+
+.q8 {
+    background-color: #045a8d;
+}
+
+.q9 {
+    background-color: #023858;
+}
+
 .empty {
-    background-color: rgba(0, 0, 0, 0);
+    /* background-color: rgba(0, 0, 0, 0); */
 }
 
 .header {
     font-weight: bold;
+}
+
+div.colorbar {
+    display: flex;
+}
+
+div.colorbar span {
+    height: 1em;
+    width: 2em;
 }

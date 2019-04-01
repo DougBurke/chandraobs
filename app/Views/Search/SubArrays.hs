@@ -6,8 +6,15 @@ module Views.Search.SubArrays (indexPage) where
 -- module Views.Search.SubArrays (indexPage, matchPage) where
 
 import qualified Prelude as P
-import Prelude (Maybe(..), Int, ($), (<)
-               , otherwise)
+import Prelude (Maybe(..), Int, ($), (.)
+               , (<), (>), (>=), (<=)
+               , (+), {- (-), -} (*), (/)
+               , floor
+               , fst
+               , log
+               , maybe
+               , otherwise
+               , round)
 
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
@@ -18,6 +25,7 @@ import Control.Monad (forM_)
 
 import Data.Monoid ((<>))
 
+import Text.Blaze (dataAttribute)
 import Text.Blaze.Html5 hiding (map, span, title)
 import Text.Blaze.Html5.Attributes hiding (span, start, title, width)
 
@@ -25,9 +33,13 @@ import Text.Blaze.Html5.Attributes hiding (span, start, title, width)
 -- import Layout (dquote, standardTable)
 import Types (-- RestrictedSchedule, 
               TimeKS
+             , fromTimeKS
              , addTimeKS
+             , zeroKS
              , showExpTime)
 -- import Utils (getScienceTimeRestricted)
+import Utils (showInt)
+
 -- import Views.Record (CurrentPage(..))
 import Views.Render (-- standardRestrictedSchedulePage,
                     standardExplorePage)
@@ -94,6 +106,16 @@ fromI8 I6 = "641 - 768"
 fromI8 I7 = "769 - 896"
 fromI8 I8 = "897 - 1024"
 
+fromI8Compact :: I8 -> T.Text
+fromI8Compact I1 = "1-126"
+fromI8Compact I2 = "126-256"
+fromI8Compact I3 = "257-384"
+fromI8Compact I4 = "385-512"
+fromI8Compact I5 = "513-640"
+fromI8Compact I6 = "641-768"
+fromI8Compact I7 = "769-896"
+fromI8Compact I8 = "897-1024"
+
 -- | Render the list of sub-arrays.
 --
 renderSubArrays ::
@@ -107,13 +129,53 @@ renderSubArrays cs noSub =
       xs = P.map (first i8s) cs
       vals = M.fromListWith addTimeKS xs
 
-      cell = (H.span ! class_ "cell") P.. toHtml
+      withSub = M.foldl' addTimeKS zeroKS vals
+
+      pcenTime :: Int
+      pcenTime =
+        let with = fromTimeKS withSub
+            wout = fromTimeKS noSub
+        in round (100 * with / (wout + with))
+        
+      -- exposure range, arbitrarily pick a range when there's no data
+      --
+      -- minExp = 0
+      maxExp = maybe 10 (fromTimeKS . fst) (M.maxView vals)
+
+      -- Map from a value to the color range; planning to use a
+      -- scheme with 9 values, so have labels q1 to q9. Use a logarithmic
+      -- scaling
+      --
+      clabel tks =
+        let t = fromTimeKS tks
+            -- ts = 9 * t / (maxExp - minExp)   linear scaling
+            ts = 9 * (log t / log maxExp)
+
+            bounds x | x < 0 = 0
+                     | x > 8 = 8
+                     | otherwise = x
+
+            idx = if t >= maxExp then (8 :: Int)
+                  else if t <= 0 then 0
+                       else bounds (floor ts)
+                            
+        in toValue ("q" <> showInt (1 + idx))
+
+      cell s w v =
+        let attr = toValue (fromTimeKS v)
+            lbl = toHtml (showExpTime v)
+            idVal = toValue ("s" <> fromI8Compact s <> "-w" <> fromI8Compact w)
+        in (H.span ! class_ ("cell " <> clabel v)
+                   ! id idVal
+                   ! dataAttribute "timeks" attr)
+           lbl
+                   
       cellE = (H.span ! class_ "cell empty") ("" :: Html)
-      cellH = (H.span ! class_ "cell header") P.. toHtml
+      cellH = (H.span ! class_ "cell header") . toHtml
       
       toCell s8 w8 = 
         case M.lookup (s8, w8) vals of
-          Just tks -> cell (showExpTime tks)
+          Just tks -> cell s8 w8 tks
           _ -> cellE
         
   in div $ do
@@ -133,7 +195,17 @@ renderSubArrays cs noSub =
       <> "and links; oh so many links)!")
 
     p ("The total exposure time of ACIS observations with no subarray is "
-      <> toHtml (showExpTime noSub) <> ".")
+      <> toHtml (showExpTime noSub) <> ", and the time using subarrays is "
+      <> toHtml (showExpTime withSub) <> " ("
+      <> toHtml (showInt pcenTime) <> "% of the total ACIS time).")
+
+    (div ! class_ "legend") $ do
+      p "Total exposure times (shorter to longer): "
+      
+      (div ! class_ "colorbar") $
+        forM_ [1 .. 9 :: Int] $ \idx ->
+                                  let cls = toValue ("q" <> showInt idx)
+                                  in (H.span ! class_ cls) ("" :: Html)
     
     -- have no width = I8 values
     let ids = [I1 .. I8]
