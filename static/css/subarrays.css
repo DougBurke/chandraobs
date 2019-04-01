@@ -21,38 +21,47 @@ div.cells {
 
 .q1 {
     background-color: #fff7fb;
+    color: rgba(0, 0, 0, 0.8);
 }
 
 .q2 {
     background-color: #ece7f2;
+    color: rgba(0, 0, 0, 0.8);
 }
 
 .q3 {
     background-color: #d0d1e6;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .q4 {
     background-color: #a6bddb;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .q5 {
     background-color: #74a9cf;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .q6 {
     background-color: #3690c0;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .q7 {
     background-color: #0570b0;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .q8 {
     background-color: #045a8d;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .q9 {
     background-color: #023858;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .empty {
