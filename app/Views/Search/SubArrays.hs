@@ -35,10 +35,12 @@ import Views.Render (-- standardRestrictedSchedulePage,
 indexPage :: 
   [((Int, Int), TimeKS)]
   -- ^ Start and width of the subarrays.
+  -> TimeKS
+  -- ^ ACIS exposure time with no sub-array
   -> Html
-indexPage cs =
+indexPage cs noSub =
   let hdrTitle = "Chandra observations with a sub array"
-      bodyBlock = renderSubArrays cs
+      bodyBlock = renderSubArrays cs noSub
       mid = Just "explorebox"
       css = Just "/css/subarrays.css"
   in standardExplorePage css hdrTitle bodyBlock mid
@@ -97,8 +99,10 @@ fromI8 I8 = "897 - 1024"
 renderSubArrays ::
   [((Int, Int), TimeKS)]
   -- ^ The start and width of the subarrays.
+  -> TimeKS
+  -- ^ Time with no sub-arrays (ACIS only)
   -> Html
-renderSubArrays cs = 
+renderSubArrays cs noSub = 
   let i8s (x, y) = (toI8 x, toI8 y)
       xs = P.map (first i8s) cs
       vals = M.fromListWith addTimeKS xs
@@ -127,18 +131,21 @@ renderSubArrays cs =
     p ("This is an experiment and will be improved soon (e.g. use an "
       <> "image rather than table, summarize the selected row/column, "
       <> "and links; oh so many links)!")
+
+    p ("The total exposure time of ACIS observations with no subarray is "
+      <> toHtml (showExpTime noSub) <> ".")
     
     -- have no width = I8 values
     let ids = [I1 .. I8]
     (div ! class_ "cells") $
       do
         forM_ (P.reverse ids) (\w8 -> do
-                                  let title = "Width: " <> fromI8 w8
+                                  let title = "Number of rows: " <> fromI8 w8
                                   cellH title
                                   forM_ ids (\s8 -> toCell s8 w8)
                               )
         cellE
-        forM_ ids (\s8 -> cellH ("Start: " <> fromI8 s8))
+        forM_ ids (\s8 -> cellH ("Start row: " <> fromI8 s8))
           
     {-
     (p ! class_ "footnote")

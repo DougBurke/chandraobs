@@ -1934,28 +1934,35 @@ fetchConstraint ::
 fetchConstraint mcs = fetchScienceObsBy (getCon mcs)
 
 
--- | What is the breakdown of the sub-array observations
+-- | What is the breakdown of the sub-array observations?
 --
 fetchSubArrays ::
   DbSql m
-  => m [((Int, Int), TimeKS)]
-  -- ^ The subarray start and width and the associated time.
+  => m ([((Int, Int), TimeKS)], TimeKS)
+  -- ^ The subarray start and width and the associated time,
+  --   and the time for the full-field observations (ACIS only)
 fetchSubArrays = do
   rsp <- project ((SoSubArrayStartField , SoSubArraySizeField),
                   (SoApprovedTimeField, SoObservedTimeField))
-         (Not (isFieldNothing SoSubArrayStartField) &&. isValidScienceObs)
+         (isValidScienceObs &&.
+          (SoInstrumentField `in_` [ACISI, ACISS]))
 
-  let -- there's a lot-less verbse way to write this
-      clean ((ma,mb), (c,md)) = do
-        a <- ma
-        b <- mb
-        let x = fromMaybe c md
-        pure ((a, b), x)
-
-      subs = mapMaybe clean rsp
-      sums = M.fromListWith addTimeKS subs
+  let -- replace Nothing,Nothing with 1,1024 to indicate the full
+      -- field; we should not have any record with only one of the
+      -- two fields set
+      --
+      getTKS (_, Just t) = t
+      getTKS (t, _) = t
       
-  pure (M.toAscList sums)
+      clean ((Just a, Just b), tv) = Right ((a, b), getTKS tv)
+      clean (_, tv) = Left (getTKS tv)
+
+      (full, subs) = partitionEithers (map clean rsp)
+      sums = M.fromListWith addTimeKS subs
+
+      fullTime = foldl' addTimeKS zeroKS full
+      
+  pure (M.toAscList sums, fullTime)
 
 
 -- | Return the proposal information for the observation if:

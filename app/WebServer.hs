@@ -723,10 +723,10 @@ webapp cm scache cache = do
           if nullSL xs
             then status notFound404
             else do
-              let title = "Name search: " <> (fromTargetName name)
+              let title = "Name search: " <> fromTargetName name
                   nameList = T.intercalate ", " (map fromTargetName tnames)
                   desc = case tnames of
-                    [] -> "Target: " <> (fromTargetName name)
+                    [] -> "Target: " <> fromTargetName name
                     [_] -> "Target: " <> nameList
                     _ -> "Targets: " <> nameList
 
@@ -1263,8 +1263,8 @@ webapp cm scache cache = do
       (liftSQL fetchMissionInfo >>= fromBlaze . Mission.indexPage)
 
     get "/search/subarrays/" $ do
-      matches <- liftSQL fetchSubArrays
-      fromBlaze (SubArrays.indexPage matches)
+      (matches, noSubTime) <- liftSQL fetchSubArrays
+      fromBlaze (SubArrays.indexPage matches noSubTime)
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
