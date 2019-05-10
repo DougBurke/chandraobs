@@ -32,6 +32,7 @@ help:
 	@echo "   cabupdate   - cabal run updateschedule"
 	@echo "   cabget      - cabal run getschedule"
 	@echo "   cabsimbad   - cabal run querysimbad"
+	@echo "   cabprob     - cabal run getproposals"
 	@echo "   cabweb      - cabal run webserver"
 	@echo "   cabrepl     - cabal repl"
 	@echo ""
@@ -94,6 +95,13 @@ cabsimbad:
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@DATABASE_URL=${DATABASE_URL} cabal v2-run querysimbad
+
+cabprop:
+	@echo "### run getproposals on production db via cabal"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@DATABASE_URL=${DATABASE_URL} cabal v2-run getproposals
 
 cabweb:
 	@echo "### run webserver on production db via cabal"
