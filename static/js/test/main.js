@@ -1233,7 +1233,7 @@ const main = (function() {
 	    .done(parseFOVs)
 	    .then(() => {
 		wwt = wwtlib.WWTControl.initControl("WWTCanvas");
-		wwt.loadImageCollection("/chandra.wtml");
+	        wwt.loadImageCollection("/chandra.wtml");
 		wwt.add_ready(wwtReadyFunc);
 		wwt.endInit();
 
@@ -1348,10 +1348,7 @@ const main = (function() {
 		  i2(raElems.minutes) + "m" +
 		  f2(raElems.seconds, 2) + "s";
 
-	    var decSign;
-	    if (dec < 0.0) { decSign = "-"; } else { decSign = "+"; }
-
-	    const decStr = decSign +
+	    const decStr = decElems.sign +
 		  i2(decElems.degrees) + "d" +
 		  i2(decElems.minutes) + "'" +
 		  f2(decElems.seconds, 1) + '"';
@@ -1392,11 +1389,11 @@ const main = (function() {
     // return value is an object.
     //
     function raToTokens(ra) {
-        ra /= 15.0;
+        const hours = ra /= 15.0;
 
-        var rah = Math.floor(ra);
-        var delta = 60.0 * (ra - rah);
-        var ram = Math.floor(delta);
+        const rah = Math.floor(hours);
+        const delta = 60.0 * (hours - rah);
+        const ram = Math.floor(delta);
         var ras = 60.0 * (delta - ram);
         ras = Math.floor(ras * 100.0 + 0.5) / 100.0;
 
@@ -1408,12 +1405,11 @@ const main = (function() {
     //
     function decToTokens(dec) {
         const is_neg = dec < 0.0;
-        var sign;
-        if (is_neg) { sign = "-"; } else { sign = "+"; }
+        const sign = (dec < 0.0) ? "-" : "+";
 
-        dec = Math.abs(dec);
-        const decd = Math.floor(dec);
-        const delta = 60.0 * (dec - decd);
+        const adec = Math.abs(dec);
+        const decd = Math.floor(adec);
+        const delta = 60.0 * (adec - decd);
         const decm = Math.floor(delta);
         var decs = 60.0 * (delta - decm);
         decs = Math.floor(decs * 10.0 + 0.5) / 10.0;
@@ -1454,6 +1450,9 @@ const main = (function() {
     // we just check every n seconds.
     //
     // This is an experiment.
+    //
+    // TODO: change this to an interval rather than a timeout
+    //
 
     var lastLoc = "";
     var lastFOV = "";
