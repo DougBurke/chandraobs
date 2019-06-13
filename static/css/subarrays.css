@@ -9,6 +9,8 @@ div.cells {
 .cell {
     /* from main.css:div#observation */
     /* background-color: rgba(0, 131, 179, 0.1); */
+    background: rgba(0, 0, 0, 0.05);
+    
     padding: 0.2em 0.5em;
 }
 
@@ -79,4 +81,20 @@ div.colorbar {
 div.colorbar span {
     height: 1em;
     width: 2em;
+}
+
+.hist {
+    fill: rgba(70, 130, 180, 0.5);
+    stroke: steelblue;  /* aka 70,130,180 or #4682b4 */
+    stroke-width: 1.5px;
+}
+
+.all {
+    fill: rgba(0, 0, 0, 0.2);
+    stroke: rgba(0, 0, 0, 0.7);
+    stroke-width: 2px;
+}
+
+.sel {
+    display: none;
 }

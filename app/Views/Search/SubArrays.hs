@@ -10,12 +10,16 @@ import Prelude (Maybe(..), Int, ($), (.)
                , (<), (>), (>=), (<=)
                , (+), {- (-), -} (*), (/)
                , floor
+               , fromEnum
                , fst
                , log
                , maybe
                , otherwise
-               , round)
+               , round
+               )
 
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Encoding as Encoding
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
 import qualified Text.Blaze.Html5 as H
@@ -23,6 +27,7 @@ import qualified Text.Blaze.Html5 as H
 import Control.Arrow (first)
 import Control.Monad (forM_)
 
+import Data.List (foldl')
 import Data.Monoid ((<>))
 
 import Text.Blaze (dataAttribute)
@@ -31,6 +36,8 @@ import Text.Blaze.Html5.Attributes hiding (span, start, title, width)
 
 -- import API (constraintLinkSearch)
 -- import Layout (dquote, standardTable)
+import API (jsScript)
+import Layout (d3Meta)
 import Types (-- RestrictedSchedule, 
               TimeKS
              , fromTimeKS
@@ -38,11 +45,12 @@ import Types (-- RestrictedSchedule,
              , zeroKS
              , showExpTime)
 -- import Utils (getScienceTimeRestricted)
-import Utils (showInt)
+import Utils (showInt
+             , toJSVarObj)
 
 -- import Views.Record (CurrentPage(..))
 import Views.Render (-- standardRestrictedSchedulePage,
-                    standardExplorePage)
+                    extraExplorePage)
 
 indexPage :: 
   [((Int, Int), TimeKS)]
@@ -55,7 +63,10 @@ indexPage cs noSub =
       bodyBlock = renderSubArrays cs noSub
       mid = Just "explorebox"
       css = Just "/css/subarrays.css"
-  in standardExplorePage css hdrTitle bodyBlock mid
+      jsLoad = "subArrayView.init();"
+      jsCts = d3Meta <> jsScript "/js/subarray-view.js"
+      js = Just (jsLoad, jsCts)
+  in extraExplorePage js css hdrTitle bodyBlock mid
 
 {-
 -- | Render the results for a single class of constraints.
@@ -84,7 +95,15 @@ matchPage mcs sched =
 data I8 = I1 | I2 | I3 | I4 | I5 | I6 | I7 | I8
   deriving (P.Enum, P.Eq, P.Ord)
 
---   deriving (Bounded, Enum, Eq, Ord)
+instance Aeson.ToJSON I8 where
+  toJSON = Aeson.toJSON . fromEnum
+
+-- Not convinced it's worth it
+instance Aeson.ToJSONKey I8 where
+  toJSONKey =
+    let f = showInt . fromEnum
+    in Aeson.ToJSONKeyText f (Encoding.text . f)
+
 
 toI8 :: Int -> I8
 toI8 x | x < 129   = I1
@@ -97,8 +116,8 @@ toI8 x | x < 129   = I1
        | otherwise = I8
 
 fromI8 :: I8 -> T.Text
-fromI8 I1 = "1 - 126"
-fromI8 I2 = "126 - 256"
+fromI8 I1 = "1 - 128"
+fromI8 I2 = "129 - 256"
 fromI8 I3 = "257 - 384"
 fromI8 I4 = "385 - 512"
 fromI8 I5 = "513 - 640"
@@ -106,6 +125,7 @@ fromI8 I6 = "641 - 768"
 fromI8 I7 = "769 - 896"
 fromI8 I8 = "897 - 1024"
 
+{-
 fromI8Compact :: I8 -> T.Text
 fromI8Compact I1 = "1-126"
 fromI8Compact I2 = "126-256"
@@ -115,6 +135,7 @@ fromI8Compact I5 = "513-640"
 fromI8Compact I6 = "641-768"
 fromI8Compact I7 = "769-896"
 fromI8Compact I8 = "897-1024"
+-}
 
 -- | Render the list of sub-arrays.
 --
@@ -129,6 +150,29 @@ renderSubArrays cs noSub =
       xs = P.map (first i8s) cs
       vals = M.fromListWith addTimeKS xs
 
+      -- Have decided to try sending in the number of days, rather than
+      -- kiloseconds, in the JSON. This is (currently) not used i
+      -- constructing the table, which still uses kiloseconds.
+      --
+      toDays ks = fromTimeKS ks / (24 * 3.6)
+      valsInDays = M.map toDays vals
+      
+      ids = [I1 .. I8]
+
+      -- I feel like there's a nicer way to do all this.
+      --
+      sumCols f mCol idx1 =
+        let extract m idx2 =
+              let key = f idx1 idx2
+              in maybe m (\v -> M.insert idx2 v m) (M.lookup key valsInDays)
+
+            newMap = foldl' extract M.empty ids
+            
+        in M.insert idx1 newMap mCol
+
+      byStart = foldl' (sumCols (\out -> \inn -> (out, inn))) M.empty ids
+      byWidth = foldl' (sumCols (\out -> \inn -> (inn, out))) M.empty ids
+        
       withSub = M.foldl' addTimeKS zeroKS vals
 
       pcenTime :: Int
@@ -146,7 +190,7 @@ renderSubArrays cs noSub =
       -- scheme with 9 values, so have labels q1 to q9. Use a logarithmic
       -- scaling
       --
-      clabel tks =
+      clabel (Just tks) =
         let t = fromTimeKS tks
             -- ts = 9 * t / (maxExp - minExp)   linear scaling
             ts = 9 * (log t / log maxExp)
@@ -159,24 +203,32 @@ renderSubArrays cs noSub =
                   else if t <= 0 then 0
                        else bounds (floor ts)
                             
-        in toValue ("q" <> showInt (1 + idx))
+        in "q" <> showInt (1 + idx)
 
-      cell s w v =
-        let attr = toValue (fromTimeKS v)
-            lbl = toHtml (showExpTime v)
-            idVal = toValue ("s" <> fromI8Compact s <> "-w" <> fromI8Compact w)
-        in (H.span ! class_ ("cell " <> clabel v)
+      clabel Nothing = ""
+
+      -- Have decided to not include a text value for each cell,
+      -- as it is "too-much" information.
+      --
+      cell s w mv =
+        let attr = toValue (maybe 0 fromTimeKS mv)
+            -- lbl = toHtml (showExpTime v)
+            lbl = "" :: Html
+            slbl = "s" <> showInt (fromEnum s)
+            wlbl = "w" <> showInt (fromEnum w)
+            idVal = toValue (slbl <> "-" <> wlbl)
+        in (H.span ! class_ (toValue ("cell " <> slbl <> " " <> wlbl
+                                      <> " " <> clabel mv))
                    ! id idVal
+                   ! dataAttribute "start" (toValue slbl)
+                   ! dataAttribute "width" (toValue wlbl)
                    ! dataAttribute "timeks" attr)
            lbl
-                   
+
       cellE = (H.span ! class_ "cell empty") ("" :: Html)
       cellH = (H.span ! class_ "cell header") . toHtml
-      
-      toCell s8 w8 = 
-        case M.lookup (s8, w8) vals of
-          Just tks -> cell s8 w8 tks
-          _ -> cellE
+
+      toCell s8 w8 = cell s8 w8 (M.lookup (s8, w8) vals)
         
   in div $ do
     h2 "ACIS sub-arrays"
@@ -190,9 +242,8 @@ renderSubArrays cs noSub =
       <> "degree of 'pile up' that happens (as this is a real pain to "
       <> "try and account for when analysing data).")
 
-    p ("This is an experiment and will be improved soon (e.g. use an "
-      <> "image rather than table, summarize the selected row/column, "
-      <> "and links; oh so many links)!")
+    p ("This is an experiment and may be improved soon (mainly by adding "
+      <> "links, because who doesn't like more links?).")
 
     p ("The total exposure time of ACIS observations with no subarray is "
       <> toHtml (showExpTime noSub) <> ", and the time using subarrays is "
@@ -208,7 +259,6 @@ renderSubArrays cs noSub =
                                   in (H.span ! class_ cls) ("" :: Html)
     
     -- have no width = I8 values
-    let ids = [I1 .. I8]
     (div ! class_ "cells") $
       do
         forM_ (P.reverse ids) (\w8 -> do
@@ -218,7 +268,14 @@ renderSubArrays cs noSub =
                               )
         cellE
         forM_ ids (\s8 -> cellH ("Start row: " <> fromI8 s8))
-          
+
+    -- Really just need to send in valsInDays
+    toJSVarObj "vals" valsInDays
+    toJSVarObj "valsByStart" byStart
+    toJSVarObj "valsByWidth" byWidth
+
+    (div ! id "plots") ("" :: Html)
+    
     {-
     (p ! class_ "footnote")
       (sup "1" <> " The roll angle of the satellite refers to how "

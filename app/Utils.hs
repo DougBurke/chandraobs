@@ -479,7 +479,7 @@ toJSVar ::
   -> T.Text
   -- ^ The name of the JS variable to create.
   -> a
-  -- ^ The value to convert to JSON; if it can not be decodeded
+  -- ^ The value to convert to JSON; if it can not be decoded
   --   because of a UTF-8 conversion error then the default value
   --   will be used instead.
   -> H.Html
