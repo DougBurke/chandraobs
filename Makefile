@@ -21,6 +21,8 @@ DATABASE_URL:=$(shell heroku config:get --app ${APP} DATABASE_URL)
 # How portable is this?
 SOURCE_VERSION:=$(shell git rev-parse HEAD)
 
+CABAL_RUN=cabal v2-run -ftools
+
 help:
 	@echo "Targets are:"
 	@echo "   help        - this page"
@@ -73,42 +75,42 @@ cabcurrent:
 	@echo "##"
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
-	@DATABASE_URL=${DATABASE_URL} cabal v2-run getcurrent
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} getcurrent
 
 cabupdate:
 	@echo "### run updateschedule on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
-	@DATABASE_URL=${DATABASE_URL} cabal v2-run updateschedule
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} updateschedule
 
 cabget:
 	@echo "### run getschedule on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
-	@DATABASE_URL=${DATABASE_URL} cabal v2-run getschedule
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} getschedule
 
 cabsimbad:
 	@echo "### run querysimbad on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
-	@DATABASE_URL=${DATABASE_URL} cabal v2-run querysimbad
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} querysimbad
 
 cabprop:
 	@echo "### run getproposals on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
-	@DATABASE_URL=${DATABASE_URL} cabal v2-run getproposals
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} getproposals
 
 cabweb:
 	@echo "### run webserver on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
-	@DATABASE_URL=${DATABASE_URL} cabal v2-run webserver
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} webserver
 
 cabrepl:
 	@echo "### run repl on production db via cabal"
