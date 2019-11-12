@@ -81,21 +81,18 @@ cabupdate:
 	@echo "### run updateschedule on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
-	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} updateschedule
 
 cabget:
 	@echo "### run getschedule on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
-	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} getschedule
 
 cabsimbad:
 	@echo "### run querysimbad on production db via cabal"
 	@echo "##"
 	@echo "## APP=${APP}"
-	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} querysimbad
 
 cabprop:
