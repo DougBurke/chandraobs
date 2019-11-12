@@ -8,7 +8,7 @@ let
 
   chandra = import ./default.nix { inherit nixpkgs compiler; };
 
-  extra = [ haskellPackages.cabal-install pkgs.heroku ];
+  extra = [ haskellPackages.cabal-install pkgs.heroku pkgs.git ];
 
 in pkgs.stdenv.mkDerivation {
   name = "chandraobs-shell";

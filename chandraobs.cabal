@@ -1,5 +1,5 @@
 name:                chandraobs
-version:             0.2.0
+version:             0.3.0
 stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
 license:             PublicDomain
@@ -58,6 +58,10 @@ library
        , base >= 4.9 && < 5.0
        , blaze-html >= 0.7 && < 0.10
        , bytestring == 0.10.*
+       -- scrabbling around trying to get nixtools to work
+       -- and was hoping this might get nix-build to work, but
+       -- alas it does not
+       , Cabal
        , containers >= 0.4 && < 0.7
        , formatting >= 6.2 && < 6.4
        , groundhog >= 0.8 && < 0.11
