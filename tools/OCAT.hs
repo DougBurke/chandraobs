@@ -167,7 +167,8 @@ import Database.Groundhog.Postgresql (insert_)
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
-import Data.Text.Encoding (decodeUtf8')
+-- import Data.Text.Encoding (decodeUtf8')
+import Data.Text.Encoding (decodeLatin1)
 import Data.Time (TimeLocale, UTCTime
                  , defaultTimeLocale
                  , getCurrentTime
@@ -757,10 +758,16 @@ getTextFromOCAT req = do
   rsp <- NHC.httpLbs req' mgr
 
   let rsplbs = NHC.responseBody rsp
-  
+
+      {- turns out we use Latin1 / ISO 8859-1 and not Utf8
       lbsToText :: L.ByteString -> Either T.Text T.Text
       lbsToText lbs =
         either (Left . T.pack . show) Right (decodeUtf8' (L.toStrict lbs))
+      -}
+
+      -- for now do not try to catch any errors, which isn't ideal
+      lbsToText :: L.ByteString -> Either T.Text T.Text
+      lbsToText = Right . decodeLatin1 . L.toStrict
 
   return (lbsToText rsplbs)
   
