@@ -286,7 +286,7 @@ renderLinks tNow mprop msimbad so@ScienceObs{..} =
                
       obsid5 = toValue (take nzeros "00000")
                <> toValue soObsId
-      urlHead = "http://asc.harvard.edu/targets/"
+      urlHead = "https://cxc.harvard.edu/targets/"
                 <> toValue soSequence
                 <> "/"
                 <> toValue soSequence

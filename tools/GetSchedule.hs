@@ -119,7 +119,7 @@ import Types (Proposal(propNum))
 -- temporal order.
 --
 baseLoc, startPage :: String
-baseLoc = "http://cxc.harvard.edu/target_lists/stscheds/"
+baseLoc = "https://cxc.harvard.edu/target_lists/stscheds/"
 startPage = "oldscheds.html"
 
 -- | TODO: Add in identifier to the request for tracking by CDA.
