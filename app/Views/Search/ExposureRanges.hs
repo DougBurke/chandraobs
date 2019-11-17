@@ -121,7 +121,7 @@ renderList rgs =
 
     p ("An additional complication is that as Chandra spends longer "
         <> "in space (2019 is the "
-        <> extLink StaticHtml "http://chandra.si.edu/20th/"
+        <> extLink StaticHtml "https://chandra.si.edu/20th/"
         ("twentieth year for Chandra" :: Html)
         <> ") it becomes harder to schedule single long observations"
         <> sup "2"

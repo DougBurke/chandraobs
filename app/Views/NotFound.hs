@@ -58,7 +58,7 @@ errPage =
         <> (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open") "issue tracker"
         <> ".")
   <> p ("You could while away the time by "
-        <> (a ! href "http://joshworth.com/dev/pixelspace/pixelspace_solarsystem.html") "exploring the Solar System"
+        <> (a ! href "https://joshworth.com/dev/pixelspace/pixelspace_solarsystem.html") "exploring the Solar System"
         <> " from the comfort of your web browser. If you scroll "
         <> "out to Jupiter - which shows remarkable dedication - "
         <> "you should have spent enough time for any database updates to have "

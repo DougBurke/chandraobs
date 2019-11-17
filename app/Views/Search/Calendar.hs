@@ -72,7 +72,7 @@ renderMatches cts =
         ]
 
       deployLink = 
-        extLink StaticHtml "http://chandra.harvard.edu/about/deployment.html"
+        extLink StaticHtml "https://chandra.harvard.edu/about/deployment.html"
         ("on July 23, 1999" :: Html)
 
       arLacSearchLink = nameLinkSearch StaticHtml "ArLac" (Just "Ar Lac")

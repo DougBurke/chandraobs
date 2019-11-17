@@ -93,10 +93,10 @@ renderSchedule sched =
         <> "circles overlap! The shaded regions trace "
         <> "the Milky Way galaxy. "
         <> "The points are plotted in the "
-        <> extLink StaticHtml "http://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy"
+        <> extLink StaticHtml "https://en.wikipedia.org/wiki/Equatorial_coordinate_system#Use_in_astronomy"
         ("Equatorial coordinate system" :: T.Text)
         <> ", using the "
-        <> extLink StaticHtml "http://en.wikipedia.org/wiki/Aitoff_projection"
+        <> extLink StaticHtml "https://en.wikipedia.org/wiki/Aitoff_projection"
         ("Aitoff projection" :: T.Text)
         <> ". See "
         <> extLink StaticHtml "http://burro.astr.cwru.edu/"

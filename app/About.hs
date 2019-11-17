@@ -74,9 +74,9 @@ introSection = do
    p ("The Chandra X-ray Observatory - hereafter Chandra - is "
       <> "one of NASA's four great observatories, the other three being: "
       <> "the "
-      <> alink "http://hubblesite.org/" "Hubble Space Telescope"
+      <> alink "https://hubblesite.org/" "Hubble Space Telescope"
       <> "; the "
-      <> alink "http://heasarc.gsfc.nasa.gov/docs/cgro/"
+      <> alink "https://heasarc.gsfc.nasa.gov/docs/cgro/"
       "Compton Gamma-Ray Observatory"
       <> "; and the "
       <> alink "http://www.spitzer.caltech.edu/" "Spitzer Space Telescope"
@@ -95,22 +95,22 @@ introSection = do
       <> "indicated as such, and have no science abstract or imaging data. "
       <> "There are times when Chandra is not taking data, "
       <> "either because the orbit of Chandra is taking it through the "
-      <> alink "http://www-spof.gsfc.nasa.gov/Education/Iradbelt.html"
+      <> alink "https://www-spof.gsfc.nasa.gov/Education/Iradbelt.html"
       "radiation belts around Earth"
       <> " - in which case the instruments are moved out of the focal plane "
       <> "of the telescope to prevent radiation damage - or "
       <> "because the telescope has to change its direction to point "
       <> "to a new target. This latter case is known as "
-      <> alink "http://en.wikipedia.org/wiki/Slew_%28spacecraft%29" "slewing"
+      <> alink "https://en.wikipedia.org/wiki/Slew_%28spacecraft%29" "slewing"
       <> " and for Chandra this is a slow process, "
       <> "since it is a large, heavy, spacecraft and so fast moves would "
       <> "make it harder to obtain the pointing accuracy needed "
       <> "to maximise the high spatial resolution of the telescope. "
       <> "This is in contrast to some missions such as the "
-      <> alink "http://swift.gsfc.nasa.gov/about_swift/"
+      <> alink "https://swift.gsfc.nasa.gov/about_swift/"
       "Swift Gamma-Ray Burst Mission"
       <> ", which is designed to be able to "
-      <> alink "http://swift.gsfc.nasa.gov/help/swiftfaq.html#slew"
+      <> alink "https://swift.gsfc.nasa.gov/help/swiftfaq.html#slew"
       "slew very quickly"
       <> " (as it's primary science goal is to observe sources which "
       <> "vary " <> em "very" <> " quickly).")
@@ -122,21 +122,21 @@ orbitSection = do
   (h2 ! id "orbit") "Where is Chandra?"
 
   p ("The "
-     <> alink "http://chandra.harvard.edu/about/tracking.html"
+     <> alink "https://chandra.harvard.edu/about/tracking.html"
      "Tracking Chandra"
      <> " page provides information on Chandra's orbit. "
      <> "The recent trend in placing telescopes into orbit has included "
      <> "a Low-Earth Orbit - such as used by the Hubble Space Telescope and "
-     <> alink "http://en.wikipedia.org/wiki/Suzaku_(satellite)"
+     <> alink "https://en.wikipedia.org/wiki/Suzaku_(satellite)"
      "the Suzaku X-ray telescope"
      <> " - and at the "
-     <> alink "http://en.wikipedia.org/wiki/L2_point#L2"
+     <> alink "https://en.wikipedia.org/wiki/L2_point#L2"
      "L2 point of the Sun-Earth system"
      <> " - such as the "
-     <> alink "http://en.wikipedia.org/wiki/Herschel_Space_Observatory"
+     <> alink "https://en.wikipedia.org/wiki/Herschel_Space_Observatory"
      "Herschel Space Observatory"
      <> " and "
-     <> alink "http://en.wikipedia.org/wiki/Gaia_(spacecraft)" "Gaia"
+     <> alink "https://en.wikipedia.org/wiki/Gaia_(spacecraft)" "Gaia"
      <> ". The Chandra orbit is different, in that it is a highly "
      <> "elliptical orbit around the Earth that extends out (at apogee, "
      <> "the furthest point from Earth) to almost one-third the way to "
@@ -208,7 +208,7 @@ furtherSection = do
 
   p ("More information on the Chandra X-ray Observatory can be "
      <> "found on its official "
-     <> alink "http://chandra.harvard.edu/" "home page"
+     <> alink "https://chandra.harvard.edu/" "home page"
      <> ".")
 
   p ("The tour functionality provided on the "
@@ -224,10 +224,10 @@ furtherSection = do
      <> " is done by the "
      <> alink "http://tablesorter.com/docs/" "TableSorter jQuery plugin"
      <> " and "
-     <> alink "http://d3js.org/" "D3"
+     <> alink "https://d3js.org/" "D3"
      <> " is used to display the scheduled observations on the sky, "
      <> "following the approach used for the "
-     <> alink "http://xrtpub.harvard.edu/photo/map/" "Chandra Sky Map"
+     <> alink "https://xrtpub.harvard.edu/photo/map/" "Chandra Sky Map"
      <> ". The outline of the Milky Way, shown on the "
      <> alink "/schedule/" "schedule view"
      <> " pages, and the constellation boundaries, on the "
@@ -262,7 +262,7 @@ furtherSection = do
       item url cts = (dd ! class_ "term") (thumb url <> cts)
       
   (dl ! class_ "credits") (
-    hdr "http://www.nasa.gov/mission_pages/planck/index.html" "Planck"
+    hdr "https://www.nasa.gov/mission_pages/planck/index.html" "Planck"
     <>
     item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck"
        (p ("Planck is a European Space Agency mission, with significant " <>
@@ -272,6 +272,7 @@ furtherSection = do
            "scientists work together to analyze the Planck data."))
     
     <>
+    {- Is this URL dead now? -}
     hdr "http://lwa.nrl.navy.mil/VLSS/" "VLA Low-frequency Sky Survey (VLSS)"
     <>
     item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA"
@@ -289,7 +290,7 @@ furtherSection = do
     -}
 
     <>
-    hdr "http://www.ipac.caltech.edu/2mass/" "2MASS"
+    hdr "https://www.ipac.caltech.edu/2mass/" "2MASS"
     <>
     item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass"
        (p ("This publication makes use of data products from the Two Micron " <>
@@ -300,14 +301,14 @@ furtherSection = do
            "Foundation."))
 
     <>
-    hdr "http://gsss.stsci.edu/Acknowledgements/DataCopyrights.htm" "DSS"
+    hdr "https://gsss.stsci.edu/Acknowledgements/DataCopyrights.htm" "DSS"
     <>
     item "http://www.worldwidetelescope.org/thumbnails/DSS.png"
        (p "Copyright DSS Consortium")
 
     {-
     <>
-    hdr "http://www.astro.princeton.edu/~dfink/halpha/processing.html" "Hα"
+    hdr "https://www.astro.princeton.edu/~dfink/halpha/processing.html" "Hα"
     <>
     dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=halpha"
         <>
@@ -331,7 +332,7 @@ furtherSection = do
            "(RASS3hb)"))
 
     <>
-    hdr "http://www.nasa.gov/mission_pages/GLAST/main/index.html" "Fermi"
+    hdr "https://www.nasa.gov/mission_pages/GLAST/main/index.html" "Fermi"
     <>
     item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
        (p "NASA and the FERMI-LAT Team.")
@@ -345,7 +346,7 @@ furtherSection = do
      <> alink "https://bitbucket.org/doug_burke/chandraobs"
      "code is available on bitbucket"
     <> ", is coded in "
-    <> alink "http://www.haskell.org/" "Haskell"
+    <> alink "https://www.haskell.org/" "Haskell"
     <> ", and runs on the "
     <> alink "https://www.heroku.com/" "Heroku platform"
     <> ". The version of the code used to create this site can "
@@ -354,7 +355,7 @@ furtherSection = do
     <> ".")
 
   p ("For questions on this site try either "
-     <> alink "http://twitter.com/doug_burke" "@doug_burke"
+     <> alink "https://twitter.com/doug_burke" "@doug_burke"
      <> " (Twitter) or the "
      <> alink "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open"
      "issues page"

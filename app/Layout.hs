@@ -144,7 +144,7 @@ renderFooter =
     mconcat [
       "The 'What is Chandra doing now?' web site is developed by "
       , "the Science Data Systems group of the "
-      , extLink StaticHtml "http://chandra.si.edu/"
+      , extLink StaticHtml "https://chandra.si.edu/"
         ("Chandra X-ray Center" :: T.Text)
       , ". The information on this site is intended for "
       , "educational purposes and should not be relied on for "
