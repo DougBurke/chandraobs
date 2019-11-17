@@ -146,9 +146,7 @@ insertSimbadInfo sm = do
           eval = error "programmer error: no key"
 
       mans <- get oldkey
-      case mans of
-        Just ans -> handle ans
-        Nothing -> eval
+      maybe eval handle mans
 
 
 -- | Returns True if the database was updated.
@@ -268,12 +266,12 @@ cleanTargetName tgtName =
                 cleanName = T.unwords toks5
             in if "E0102-72" `T.isPrefixOf` cleanName 
                then toTargetName "1E 0102.2-7219"
-               else if ("CAS A," `T.isPrefixOf` cleanName ||
-                        "CAS A[" `T.isPrefixOf` cleanName ||
-                        "CAS A " `T.isPrefixOf` cleanName)
+               else if "CAS A," `T.isPrefixOf` cleanName ||
+                       "CAS A[" `T.isPrefixOf` cleanName ||
+                       "CAS A " `T.isPrefixOf` cleanName
                     then toTargetName "Cassiopeia A"
-                    else if ("G21.5-09" `T.isPrefixOf` cleanName ||
-                             "G21.5-0.9" `T.isPrefixOf` cleanName)
+                    else if "G21.5-09" `T.isPrefixOf` cleanName ||
+                            "G21.5-0.9" `T.isPrefixOf` cleanName
                          then toTargetName "PSR J1833-1034"
                          else toTargetName cleanName
 

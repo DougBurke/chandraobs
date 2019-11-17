@@ -12,7 +12,7 @@ import Prelude (Maybe(..), Int, ($), (.)
                , floor
                , fromEnum
                , fst
-               , log
+               , logBase
                , maybe
                , otherwise
                , round
@@ -193,15 +193,15 @@ renderSubArrays cs noSub =
       clabel (Just tks) =
         let t = fromTimeKS tks
             -- ts = 9 * t / (maxExp - minExp)   linear scaling
-            ts = 9 * (log t / log maxExp)
+            ts = 9 * logBase maxExp t
 
             bounds x | x < 0 = 0
                      | x > 8 = 8
                      | otherwise = x
 
-            idx = if t >= maxExp then (8 :: Int)
-                  else if t <= 0 then 0
-                       else bounds (floor ts)
+            idx | t >= maxExp = 8 :: Int
+                | t <= 0 = 0
+                | otherwise = bounds (floor ts)
                             
         in "q" <> showInt (1 + idx)
 

@@ -167,9 +167,7 @@ makeScheduleRestricted RestrictedSchedule {..} =
              utcTimeToPOSIXSeconds . fromChandraTime
                
       aTime :: RestrictedRecord -> AttributeValue
-      aTime r = toValue (case rrecordStartTime r of
-                          Just t -> getT t
-                          Nothing -> 0)
+      aTime r = toValue (maybe 0 getT (rrecordStartTime r))
 
       hover r = let lbl = toValue (ridLabel r)
                 in tr ! id (toValue lbl)

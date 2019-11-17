@@ -935,9 +935,8 @@ dumpScienceObs ScienceObs{..} = do
   T.putStrLn (fromObsIdStatus soStatus)
   print (fromObsId soObsId)
   T.putStrLn (fromTargetName soTarget)
-  T.putStrLn (case soStartTime of
-               Nothing -> "** Observation has no scheduled observation date"
-               Just t -> showCTime t)
+  T.putStrLn (maybe "** Observation has no scheduled observation date"
+              showCTime soStartTime)
   T.putStrLn (showExpTime soApprovedTime)
   print (fmap showExpTime soObservedTime)
   T.putStrLn ("Public availability: " <> T.pack (show soPublicRelease))

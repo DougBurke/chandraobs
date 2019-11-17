@@ -41,7 +41,7 @@ aboutPage dbInfo =
     head (H.title "What is the 'What is Chandra doing now?' site?" <>
           defaultMeta <>
           (cssLink "/css/main.css" ! A.title "Default") <>
-          (cssLink "/css/about.css")
+          cssLink "/css/about.css"
           )
     <>
     body
