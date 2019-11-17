@@ -11,6 +11,7 @@ ENV LANG C.UTF-8
 # Set up needed code for using Stack and the installation
 #
 RUN apt-get update \
+  && apt-get remove -y --assume-yes imagemagick imagemagick-6-common \
   && apt-get upgrade -y --assume-yes \
   && apt-get install -y --assume-yes \
   g++ \
@@ -35,14 +36,14 @@ WORKDIR /opt/chandraobs/src
 
 # Copy over files in stages to avoid unnescessary rebuilds; the assumption
 # is that stack.yaml changes less than the cabal file, which is less than
-# the code itself.
+# the code itself. It seems that changes to stack have made this less
+# obvious a "win".
 #
 ENV PATH "$PATH:/opt/stack/bin:/opt/chandraobs/bin"
 
 COPY ./stack.yaml /opt/chandraobs/src/stack.yaml
-RUN stack --no-terminal setup
-
 COPY ./chandraobs.cabal /opt/chandraobs/src/chandraobs.cabal
+RUN stack --no-terminal setup
 
 # Install dependencies and check they are okay
 ENV FLAGS --flag chandraobs:server --flag chandraobs:-redirectserver --flag chandraobs:-tools
@@ -85,9 +86,15 @@ COPY --from=build /opt/chandraobs/static/ /opt/chandraobs/static/
 # Occasionally I review the output of 'apt list' and add or remove
 # packages. Not exactly robust
 #
+# This used to include imagemagick but that caused some problems
+# (an update lead to confusion because the configuration file had been
+#  updated, which meant that the update failed), so I have removed it
+# above.
+#
+#  imagemagick \
+#
 RUN apt-get remove -y --assume-yes \
   ghostscript \
-  imagemagick \
   geoip-database \
   ruby \
   rake \
