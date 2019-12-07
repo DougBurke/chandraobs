@@ -353,3 +353,25 @@ executable getproposals
 
   else
     buildable:  False
+
+
+executable gettimeline
+  main-is:             GetTimeline.hs
+  hs-source-dirs:      tools/
+
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , chandraobs
+     , containers
+     , groundhog
+     , groundhog-postgresql
+     , formatting
+     , text
+     , time
+
+  else
+    buildable:  False
