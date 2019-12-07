@@ -78,6 +78,11 @@ showUTCTime ut =
   in showFloat x
   
 
+-- Write out, as tab-separated values
+report :: [T.Text] -> IO ()
+report = T.putStrLn . T.intercalate "\t"
+
+
 -- the timeline doesn't include ra,dec - which we need...
 --
 getPos ::
@@ -114,20 +119,19 @@ dumpScience simbadMap proposalMap catMap posMap so =
       pos = maybe (-1.0, -100.0) gp (M.lookup obsidVal posMap)
       gp (ra, dec) = (fromRA ra, fromDec dec)
       
-      -- assume no commas in targetName
-      out = T.intercalate "," [ showInt (fromObsId obsidVal)
-                              , showFloat (fst pos)
-                              , showFloat (snd pos)
-                              , startTime
-                              , showFloat obsLen
-                              , fromInstrument instrument
-                              , fromGrating grating
-                              , cat
-                              , si
-                              , fromTargetName targetName
-                              ]
+      cols = [ showInt (fromObsId obsidVal)
+             , showFloat (fst pos)
+             , showFloat (snd pos)
+             , startTime
+             , showFloat obsLen
+             , fromInstrument instrument
+             , fromGrating grating
+             , cat
+             , si
+             , fromTargetName targetName
+             ]
       
-  in T.putStrLn out
+  in report cols
 
 
 dumpTimeline :: IO ()
@@ -138,16 +142,17 @@ dumpTimeline = do
                       return (posInfo, sciences, simbadMap, proposals)
                   )
 
-  T.putStrLn "obsid,ra,dec,start,obslen_ks,instrument,grating,category,simbad,target"
+  report ["obsid", "ra", "dec", "start", "obslen_ks", "instrument", "grating", "category", "simbad", "target"]
   
   let (posInfo, sciences, simbadMap, proposals) = dbData
   
       proposalMap = M.fromList (map (\p -> (propNum p, p)) proposals)
-      posMap = M.fromList ((map (\(k, r, d) -> (k, (r, d)))) posInfo)
+      posMap = M.fromList (map (\(k, r, d) -> (k, (r, d))) posInfo)
 
       -- convert proposal category into an enumeration
       --   this saves space
       --   and hides the "," problem in 'SN, SNR ...'
+      --   (although now switching to tab separation)
       --
       -- we don't report the enumeration type, which makes interpreting
       -- the results a bit annoying
