@@ -7,8 +7,9 @@
 const createMapping = (function(baseObj) {
     
     const margin = {top: 1, right: 1, bottom: 6, left: 1},
-        width = 960 - margin.left - margin.right,
-        height = 3000 - margin.top - margin.bottom;
+        // width = 960 - margin.left - margin.right,
+        width = 1500 - margin.left - margin.right,
+        height = 5500 - margin.top - margin.bottom;
 
     const totWidth = width + margin.left + margin.right;
     const totHeight = height + margin.top + margin.bottom;
@@ -18,7 +19,7 @@ const createMapping = (function(baseObj) {
 
     const sankey = d3.sankey()
           .nodeWidth(15)
-          .nodePadding(10)
+          .nodePadding(16)
           .size([width, height]);
 
     const path = sankey.link();

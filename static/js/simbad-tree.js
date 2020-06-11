@@ -11,19 +11,25 @@
 
 const createTree = (function () {
     
-    const totWidth = 1400;
-    const totHeight = 3500;
+    const totWidth = 1800;
+    // const totHeight = 5500;
 
     const margin = {top: 20, right: 120, bottom: 20, left: 120},
-	  width = totWidth - margin.right - margin.left,
-	  height = totHeight - margin.top - margin.bottom;
+	  width = totWidth - margin.right - margin.left;
+	  // height = totHeight - margin.top - margin.bottom;
 
     const baseOpacity = 1;
     const unselOpacity = 0.5;
-    
-    const dx = 20;
+
+  // dy actually controls the width and dx the height: values found
+  // by trial and error
+    // const dx = 20;
+    const dx = 60;
     const dy = (width / 6);
 
+  // const nodeHeight = 40;  // Does this make sense?
+  const nodeHeight = 0;  // Does this make sense?
+  
     const tree = d3.tree().nodeSize([dx, dy])
 
     const diagonal = d3.linkHorizontal().x(d => d.y).y(d => d.x);
@@ -213,9 +219,10 @@ const createTree = (function () {
 	svg = d3.select('div#tree')
 	    .append("svg")
 	    .attr("width", width)
-	    .attr("height", dx)
-	    .attr("viewBox", [-margin.left, -margin.top, width, dx])
-	    .style("font", "10px sans-serif")
+	    // .attr("height", dx)
+	    // .attr("viewBox", [-margin.left, -margin.top, width, dx])
+	    .attr("height", nodeHeight)
+	    .attr("viewBox", [-margin.left, -margin.top, width, nodeHeight])
 	    .style("user-select", "none");
 
 	gLink = svg.append("g")

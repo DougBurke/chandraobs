@@ -20,10 +20,10 @@ const createCalendar = (function () {
 
     const format = d3.timeFormat("%Y-%m-%d");
 
-    var color;
-
-    var svg;
     var rect;
+    const color = d3.scaleQuantize()
+            .domain([0, 8])
+            .range(d3.range(9).map(d => `q${d}-9`));
 
     // replacement for d3.time.weekOfYear from d3 v3
     //
@@ -67,11 +67,13 @@ const createCalendar = (function () {
 	const maxCount = d3.max(d3.values(counts)) || minCount;
 
 	// TODO: can now go to a scale starting at 0 counts;
-	//       would be nice to go to 9+ rather than 8+
+      //       would be nice to go to 9+ rather than 8+
+      /***
 	color = d3.scaleQuantize()
             .domain([0, 8])
             .range(d3.range(9).map(d => `q${d}-9`));
-
+      ***/
+      
 	addColorbar(0);
 
 	// What order do we want the years displayed in (increasing or
@@ -79,16 +81,26 @@ const createCalendar = (function () {
 	//
 	// var years = d3.range(startYear, endYear + 1);
 	const years = d3.range(endYear, startYear - 1, -1);
-    
-	svg = d3.select("div#calendar").selectAll(".year")
+
+      // vertical spacing, in pixels, between the graphs
+      const spacing = 4;
+      
+      const svg = d3.select("div#calendar")
+            .append("svg")
+	      .attr('id', 'calendars')
+	    .attr("width", width)
+            .attr("height", years.length * height + (years.length - 1) * spacing)
+	    .selectAll(".year")
             .data(years)
-            .enter().append("svg")
-            .attr("class", "year")
-            .attr("width", width)
-            .attr("height", height)
-            .append("g")
-            .attr("transform",
-		  "translate(" + ((width - cellSize * 53) / 2) + "," + (height - cellSize * 7 - 1) + ")");
+            .enter().append("g")
+            .attr("id", d => `year-${d}`)
+            .attr("transform", (d, i) => {
+	      const dx = (width - cellSize * 53) / 2;
+	      const dy = height - cellSize * 7 - 1 + i * (height + spacing);
+	      return `translate(${dx},${dy})`;
+	    }
+	    );
+		  
 
 	// year label
 	svg.append("text")
@@ -178,6 +190,23 @@ const createCalendar = (function () {
 
 	addColorbar(15);
 
+      /***
+      const calDiv = document.getElementById('calendar');
+      let p = document.createElement('p');
+      calDiv.appendChild(p);
+
+      const calSVG = document.getElementById('calendars');
+	
+      const link = document.createElement('a');
+      link.innerHTML = 'To SVG';
+
+      link.addEventListener('click', () => {
+	const win = window.open();
+	win.document.write(`<iframe src='${svgToLink(calSVG)}' frameborder='0' style='border: 0; bottom: 0; left: 0; right: 0; top: 0; height; 100%; width: 100%;' allowfullscreeen></iframe>`); 
+      });
+
+      p.appendChild(link);
+      ***/
     }
 
     /*
@@ -282,6 +311,122 @@ const createCalendar = (function () {
 	    + "H" + (w0 + 1) * cellSize + "Z";
     }
 
+  // HACK
+//
+// See
+// https://stackoverflow.com/questions/23218174/how-do-i-save-export-an-svg-file-after-creating-an-svg-with-d3-js-ie-safari-an
+// http://bl.ocks.org/Rokotyan/0556f8facbaf344507cdc45dc3622177
+//
+// for the code and inspiration used in this file
+//
+
+// Given a document node (assumed to be a SVG item) do something.
+//
+function svgToLink(svg) {
+  const node = svg.cloneNode(true);
+  // const node = svg.node();
+  node.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
+
+  const styles = getStyles(node);
+  addStyles(styles, node);
+
+  const serializer = new XMLSerializer();
+  let out = serializer.serializeToString(node);
+  
+  // Fix root xlink without namespace
+  out = out.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink=');
+  
+  // Safari NS namespace fix
+  out = out.replace(/NS\d+:href/g, 'xlink:href');
+
+  /***
+
+This is from similar code
+
+  //add name spaces.
+if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)){
+    source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+}
+if(!source.match(/^<svg[^>]+"http\:\/\/www\.w3\.org\/1999\/xlink"/)){
+    source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+}
+
+//add xml declaration
+source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+***/
+
+  out = '<?xml version="1.0" standalone="no"?>\n' + out;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(out);
+}
+
+function contains(str, arr) {
+  return arr.indexOf(str) !== -1;
+}
+
+function getStyles(element) {
+  const selectors = [];
+  
+  // Add Parent element Id and Classes to the list
+  selectors.push('#' + element.id);
+  for (let className of element.classList) {
+    const selector = '.' + className;
+    if (!contains(selector, selectors)) {
+      selectors.push(selector);
+    }
+  }
+  
+  // Add Children element Ids and Classes to the list
+  const nodes = element.getElementsByTagName("*");
+  for (let node of nodes) {
+    const selector = '#' + node.id;
+    if (!contains(selector, selectors)) {
+      selectors.push(selector);
+    }
+
+    for (let className of node.classList) {
+      const selector2 = '.' + className;
+      if (!contains(selector2, selectors)) {
+	selectors.push(selector2);
+      }
+    }
+  }
+    
+  // Extract CSS Rules
+  var out = "";
+  for (let sheet of document.styleSheets) {
+    try {
+      if (!sheet.cssRules) { continue; }
+    } catch (e) {
+      if (e.name !== 'SecurityError') { throw e; }
+      continue;
+    }
+
+    for (let rule of sheet.cssRules) {
+      if (!contains(rule.selectorText, selectors)) { continue; }
+      out += rule.cssText;
+    }
+  }
+
+  console.log(`styles=\n${out}`);
+  
+  return out;
+}
+
+
+// Add the styles (given as a string) to the element.
+//
+function addStyles(cssText, element) {
+  const style = document.createElement("style");
+  style.setAttribute("type","text/css"); 
+  style.innerHTML = cssText;
+  
+  const refNode = element.hasChildNodes() ? element.children[0] : null;
+  element.insertBefore(style, refNode);
+}
+
+  
+  // END HACK
+  
     return createCalendar;
     
 })();
