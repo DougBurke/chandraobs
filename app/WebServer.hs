@@ -75,7 +75,8 @@ import Network.Wai.Middleware.Static (CacheContainer
                                      , CachingStrategy(PublicStaticCaching)
                                      , (>->)
                                      , addBase, initCaching, noDots
-                                     , staticPolicy')
+                                     , staticPolicyWithOptions
+                                     , defaultOptions, cacheContainer)
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
@@ -457,7 +458,10 @@ webapp cm scache cache = do
     --
     -- middleware logStdoutDev
     -- middleware (staticPolicy (noDots >-> addBase "static"))
-    middleware (staticPolicy' scache (noDots >-> addBase "static"))
+    -- middleware (staticPolicy' scache (noDots >-> addBase "static"))
+
+    let cacheOpts = defaultOptions { cacheContainer = scache }
+    middleware (staticPolicyWithOptions cacheOpts (noDots >-> addBase "static"))
 
     let {-
         dbQuery :: Parsable p
