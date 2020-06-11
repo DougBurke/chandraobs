@@ -404,7 +404,7 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       -- API for the mission info (to many functions returning a
       -- Maybe)
       --
-      missToLink mission = maybe (toHtml mission) id
+      missToLink mission = fromMaybe (toHtml mission)
         (toMission mission >>= fromMissionLongLink ctx)
                            
       toJ (l,v) = keyVal "Joint with:"

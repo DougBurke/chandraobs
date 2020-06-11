@@ -622,7 +622,7 @@ targetInfo ctx cTime so@ScienceObs{..} (msimbad, (mproposal, matches)) =
       -- invariant in the database, but this gives flexibility in
       -- case new missions are added).
       --
-      missToLink mission = maybe (toHtml mission) P.id
+      missToLink mission = fromMaybe (toHtml mission)
         (toMission mission >>= fromMissionLongLink ctx)
 
       toJ (l, tks) = missToLink l
