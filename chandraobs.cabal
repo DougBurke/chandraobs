@@ -73,7 +73,7 @@ library
        , scotty >= 0.7 && < 0.12
        , split == 0.2.*
        , text >= 1.0 && < 1.3
-       , time >= 1.5 && < 1.9
+       , time >= 1.5 && < 1.10
        , transformers >= 0.3 && < 0.6
        , vector >= 0.12 && < 0.13         
        , vector-algorithms >= 0.8 && < 0.9         

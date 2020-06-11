@@ -1,4 +1,4 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "ghc865" }:
+{ nixpkgs ? import <nixpkgs> {}, compiler ? "ghc883" }:
 let
 
   # Based on https://maybevoid.com/posts/2019-01-27-getting-started-haskell-nix.html
