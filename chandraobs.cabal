@@ -64,9 +64,9 @@ library
        , Cabal
        , containers >= 0.4 && < 0.7
        , formatting >= 6.2 && < 6.4
-       , groundhog >= 0.8 && < 0.11
-       , groundhog-postgresql >= 0.8 && < 0.11
-       , groundhog-th >= 0.8 && < 0.11
+       , groundhog >= 0.8 && < 0.12
+       , groundhog-postgresql >= 0.8 && < 0.12
+       , groundhog-th >= 0.8 && < 0.12
        , heroku == 0.1.*
        , http-types >= 0.8 && < 1.0
        , monad-control == 1.0.*
@@ -143,7 +143,7 @@ executable webserver
        , time
        , transformers
        , wai-middleware-static >= 0.5 && < 0.9
-       , warp >= 2.1 && < 3.3
+       , warp >= 2.1 && < 3.4
 
   else
     buildable:  False
