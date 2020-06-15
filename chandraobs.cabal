@@ -190,8 +190,6 @@ executable getschedule
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.4
      , http-types
-     -- network is now in need of a bump as 3.0 is released
-     , network >= 2.4 && < 2.9
      , parsec == 3.1.*
      , process >= 1.1 && < 1.7
      , tagsoup >= 0.13 && < 0.15
@@ -221,7 +219,6 @@ executable updateschedule
      , groundhog-postgresql
      , http-conduit
      , http-types
-     , network
      , process
      , tagsoup
      , temporary
@@ -252,8 +249,6 @@ executable addobsidlist
      , groundhog-postgresql
      , http-conduit >= 2.1 && < 2.4
      , http-types
-     , network >= 2.4 && < 2.9
-     -- , parsec == 3.1.*
      , process >= 1.1 && < 1.7
      , tagsoup >= 0.13 && < 0.15
      , temporary >= 1.1 && < 1.4
