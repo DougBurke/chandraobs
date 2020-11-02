@@ -263,7 +263,7 @@ renderSubArrays cs noSub =
         forM_ (P.reverse ids) (\w8 -> do
                                   let title = "Number of rows: " <> fromI8 w8
                                   cellH title
-                                  forM_ ids (\s8 -> toCell s8 w8)
+                                  forM_ ids (`toCell` w8)
                               )
         cellE
         forM_ ids (\s8 -> cellH ("Start row: " <> fromI8 s8))
