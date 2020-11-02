@@ -314,6 +314,7 @@ updateObsId ::
   -- ^ ObsId to query
   -> IO ()
 updateObsId oi = do
+  T.putStrLn ("Updating ObsId: " <> showInt (fromObsId oi))
   n <- runDb (count (IoObsIdField ==. oi))
   when (n == 0)
     (do
