@@ -13,3 +13,6 @@ static/about/index.html
 
 # used to set up CIAO installation for tools Docker image 
 ciao/
+
+# haskell-language-server related
+*_flymake.hs
