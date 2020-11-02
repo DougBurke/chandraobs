@@ -53,7 +53,6 @@ import Data.Aeson (ToJSON, Value, (.=), object)
 import Data.Default (def)
 import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
-import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, addUTCTime, getCurrentTime)
 

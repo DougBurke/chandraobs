@@ -26,7 +26,6 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Data.Char (intToDigit)
 import Data.Maybe (fromJust, fromMaybe, isJust, mapMaybe)
-import Data.Monoid ((<>))
 import Data.Time (UTCTime)
 
 import System.Random (Random(..), getStdRandom)

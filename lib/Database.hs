@@ -179,7 +179,7 @@ import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
                  )
 
 import Database.Groundhog.Core (Action, PersistEntity, EntityConstr
-                               , Field, Projection'
+                               , Projection'
                                , DbDescriptor, RestrictionHolder
                                , HasSelectOptions
                                , HasLimit, HFalse

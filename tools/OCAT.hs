@@ -166,7 +166,6 @@ import Database.Groundhog.Postgresql (insert_)
 
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
-import Data.Monoid ((<>))
 -- import Data.Text.Encoding (decodeUtf8')
 import Data.Text.Encoding (decodeLatin1)
 import Data.Time (TimeLocale, UTCTime

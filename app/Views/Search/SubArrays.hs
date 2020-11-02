@@ -30,7 +30,6 @@ import Control.Monad (forM_)
 import Data.List (foldl')
 import Data.Monoid ((<>))
 
-import Text.Blaze (dataAttribute)
 import Text.Blaze.Html5 hiding (map, span, title)
 import Text.Blaze.Html5.Attributes hiding (span, start, title, width)
 

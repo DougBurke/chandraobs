@@ -7,7 +7,6 @@ module Main (main) where
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
 import Database (getObsInfo, reportSize, runDb)
