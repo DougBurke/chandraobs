@@ -17,9 +17,8 @@ module Views.Render (standardRestrictedSchedulePage
 import Prelude ((.), ($), (==), (+)
                , Int, Integer, Either(..), Maybe(..)
                , fmap, map, mapM_, maybe, not, return, snd, truncate
+               , mconcat, mempty
                , zip)
-
-import Prelude (mconcat, mempty)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as M

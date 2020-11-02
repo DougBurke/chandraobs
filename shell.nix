@@ -1,4 +1,6 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "ghc865" }:
+{ nixpkgs ? import ./nix {}
+, compiler ? "ghc884"
+}:
 let
 
   # Based on https://maybevoid.com/posts/2019-01-27-getting-started-haskell-nix.html
@@ -8,7 +10,7 @@ let
 
   chandra = import ./default.nix { inherit nixpkgs compiler; };
 
-  extra = [ haskellPackages.cabal-install pkgs.heroku pkgs.git ];
+  extra = [ haskellPackages.cabal-install pkgs.heroku pkgs.postgresql pkgs.git ];
 
 in pkgs.stdenv.mkDerivation {
   name = "chandraobs-shell";

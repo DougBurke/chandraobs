@@ -170,8 +170,8 @@ renderSubArrays cs noSub =
             
         in M.insert idx1 newMap mCol
 
-      byStart = foldl' (sumCols (\out -> \inn -> (out, inn))) M.empty ids
-      byWidth = foldl' (sumCols (\out -> \inn -> (inn, out))) M.empty ids
+      byStart = foldl' (sumCols (\out inn -> (out, inn))) M.empty ids
+      byWidth = foldl' (sumCols (\out inn -> (inn, out))) M.empty ids
         
       withSub = M.foldl' addTimeKS zeroKS vals
 

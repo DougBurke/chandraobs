@@ -5,7 +5,6 @@
 module Views.Search.Mission (indexPage, matchPage)
        where
 
-import qualified Prelude as P
 import Prelude (($), Int, Maybe(..), compare, fst, maybe)
 
 import qualified Data.Text as T
@@ -14,6 +13,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Control.Monad (mapM_)
 
+import Data.Maybe (fromMaybe)
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Monoid ((<>))
@@ -68,7 +68,7 @@ renderMissions jms =
                     td (missToLink jm)
                     (td ! A.title (toValue lbl)) (toHtml n)
 
-      missToLink m = maybe "Another observatory" P.id
+      missToLink m = fromMaybe "Another observatory"
         (fromMissionLongLink StaticHtml m)
 
       lbl = "Number of observations" :: T.Text

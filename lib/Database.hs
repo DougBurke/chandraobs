@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
@@ -11,6 +10,8 @@
 -- doesn't export EntityConstr'. Well, maybe they can and I just haven't
 -- found the magic sauce.
 --
+-- New versions of hlint point out that MonoLocalBinds is implied by
+-- TypeFamilies, so it has been removed.
 
 -- | Simple database access shims.
 --
