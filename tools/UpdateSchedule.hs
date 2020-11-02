@@ -36,7 +36,6 @@ import qualified Data.Text.IO as T
 import Control.Monad (unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 
-import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
 import Database.Groundhog (PersistBackend, Cond(Not), Order(Desc)

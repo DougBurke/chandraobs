@@ -284,7 +284,6 @@ import Data.Bits (Bits(..), FiniteBits(..))
 import Data.Char (isDigit, isSpace, toLower)
 import Data.Function (on)
 import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Monoid ((<>))
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, TimeLocale

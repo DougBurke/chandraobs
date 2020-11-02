@@ -56,12 +56,10 @@ import Prelude hiding (log)
 import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, putMVar
                                , readMVar, takeMVar)
 
-import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO)
 import Control.Monad (void)
 
 import Data.Maybe (fromJust, isNothing)
-import Data.Monoid ((<>))
 import Data.Pool (Pool)
 import Data.Time (UTCTime, getCurrentTime)
 

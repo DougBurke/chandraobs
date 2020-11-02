@@ -68,7 +68,6 @@ import qualified Data.Text.IO as T
 import Data.Char (digitToInt, isDigit, isSpace)
 import Data.Functor (void)
 import Data.List (intercalate)
-import Data.Monoid ((<>))
 
 import Formatting (int, sformat)
 

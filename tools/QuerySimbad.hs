@@ -49,7 +49,6 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
-import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 

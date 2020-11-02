@@ -49,8 +49,6 @@ import Database.Groundhog.Postgresql (Cond(CondEmpty), Order(Asc)
                                      , orderBy
                                      , project)
 
-import Data.Monoid ((<>))
-
 import Numeric.Natural
 
 import System.Environment (getArgs, getProgName)

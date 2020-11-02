@@ -58,8 +58,6 @@ import Data.Foldable (toList)
 import Data.List (foldl')
 import Data.Maybe (fromMaybe)
 
-import Data.Monoid ((<>))
-
 import Data.Text.Encoding (decodeUtf8')
 import Data.Time (Day, NominalDiffTime, UTCTime
                  , addUTCTime, diffUTCTime, showGregorian)

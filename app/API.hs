@@ -70,7 +70,6 @@ import Text.Blaze.Html5.Attributes (href, media, onclick, rel, src, type_)
 import Blaze.ByteString.Builder (toByteString)
 
 import Data.Maybe (fromMaybe)
-import Data.Monoid ((<>))
 import Data.Time.Calendar (Day)
 
 import Network.HTTP.Types.URI (encodePathSegments

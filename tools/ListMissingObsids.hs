@@ -21,7 +21,6 @@ import qualified Data.Text.IO as T
 import Control.Monad (forM_)
 
 import Data.List (sort)
-import Data.Monoid ((<>))
 
 import Database.Groundhog (PersistBackend
                           , (&&.)

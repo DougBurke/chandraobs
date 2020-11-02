@@ -27,7 +27,6 @@ import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class (liftIO)
 
 import Data.Either (partitionEithers)
-import Data.Monoid ((<>))
 import Data.Time (getCurrentTime)
 
 import Database.Groundhog (PersistBackend
