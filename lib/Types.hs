@@ -1664,8 +1664,9 @@ toTOORequest too =
         | otherwise = Slow
 
       -- NOTE: assume that >x or >=x is only valid for x=30
+      --       although ObsId 24755 has >=40
       mlbl =
-        if too `elem` [">30", ">=30"]
+        if too `elem` [">30", ">=30", ">40", ">=40"]
         then Just Slow
         else case toksHyphen of
           [Just _, Just highVal] -> Just (ladder highVal)
