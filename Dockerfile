@@ -119,6 +119,8 @@ RUN apt-get remove -y --assume-yes \
   fonts-dejavu-core \
   rsync \
   mtools \
+  libxcb1 \
+  libxml2 \
   && apt-get autoremove -y --assume-yes \
   && apt-get purge -y --assume-yes \
   && apt-get clean \
