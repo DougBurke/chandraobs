@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# Language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
 
 --
 -- Usage:
 --    ./updateobsidlist <filename>
+--    ./updateobsidlist <obsid1> <obsid2>
 --
 -- Aim:
 --
@@ -47,6 +49,7 @@ import OCAT (OCAT, isScienceObsE
 
 import Types (ObsIdVal(..), InvalidObsId(..)
              , Field(NsObsIdField, SoObsIdField)
+             , unsafeToObsIdVal
              , toObsIdValStr)
 
 
@@ -301,12 +304,28 @@ run infile = do
       hPutStrLn stderr "Invalid lines found"
       forM_ fails (\f -> hPutStrLn stderr ("  " <> f))
       exitFailure
-      
+
+
+-- Check the range o1 to o2, inclusive.
+--
+runObsIds ::
+  ObsIdVal
+  -> ObsIdVal
+  -> IO ()
+runObsIds o2 o1 | o2 > o1 = runObsIds o1 o2
+runObsIds o1 o2 = do
+  let x1 = fromObsId o1
+      x2 = fromObsId o2
+      obsids = unsafeToObsIdVal `fmap` [x1..x2]
+
+  addObsIds obsids
+
 
 usage :: IO ()
 usage = do
   pName <- T.pack <$> getProgName
   T.hPutStrLn stderr ("Usage: " <> pName <> " infile")
+  T.hPutStrLn stderr ("Usage: " <> pName <> " <obsid1> <obsid2>")
   exitFailure
   
 main :: IO ()
@@ -314,5 +333,8 @@ main = do
   args <- getArgs
   case args of
     [infile] -> run infile
+    [ostr1, ostr2] | Just o1 <- toObsIdValStr (T.pack ostr1),
+                     Just o2 <- toObsIdValStr (T.pack ostr2)
+                     -> runObsIds o1 o2
     _ -> usage
   
