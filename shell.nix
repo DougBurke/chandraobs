@@ -10,11 +10,20 @@ let
 
   chandra = import ./default.nix { inherit nixpkgs compiler; };
 
-  extra = [ haskellPackages.cabal-install pkgs.heroku pkgs.postgresql pkgs.git ];
+  hsPkgs = pkgs.haskell.packages.${compiler}.override {
+    overrides = self: super: {
+      ghcide = self.callCabal2nix "ghcide-0.5.0" {};
+    };
+  };
+
+  # extra = [ hsPkgs.ghcide hsPkgs.cabal-install
+  extra = [ hsPkgs.cabal-install
+            pkgs.heroku pkgs.postgresql pkgs.git ];
+  buildInputs = chandra.env.nativeBuildInputs ++ extra;
 
 in pkgs.stdenv.mkDerivation {
   name = "chandraobs-shell";
-  buildInputs = chandra.env.nativeBuildInputs ++ extra;
+  buildInputs = buildInputs;
 
   # Hmm, not really building chandraobs, so presumably the phases
   # aren't getting triggered by 'nix-shell'. Should look at
