@@ -979,7 +979,7 @@ dumpScienceObs ScienceObs{..} = do
 
   T.putStrLn (maybe "No TOO constraint" tooValue soTOO)
   T.putStrLn (showRA soRA)
-  T.putStrLn (showDec soDec)
+  T.putStrLn (showDec False soDec)
   T.putStrLn ("which is in constellation: " <> fromConShort soConstellation)
   print soRoll
   print soSubArrayStart

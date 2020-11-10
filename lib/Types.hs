@@ -49,6 +49,7 @@ module Types ( ObsIdVal
                
              , Telescope
              , toTelescope
+             , fromTelescope
                
              , TargetName
              , toTargetName
@@ -1011,8 +1012,12 @@ htmlRA ra =
 -- "d" it uses "\176", aka \u00b0, the degree symbol.
 --
 -- TODO: use Data.Text.Format
-showDec :: Dec -> T.Text
-showDec (Dec dec) = 
+showDec ::
+  Bool
+  -- ^ If True then use UTF-8 for degrees, otherwise 'd'
+  -> Dec
+  -> T.Text
+showDec flag (Dec dec) = 
   let dabs = abs dec
       d, m :: Int
       r1, r2 :: Double
@@ -1022,14 +1027,16 @@ showDec (Dec dec) =
       s = r2 * 60
       c = if dec < 0 then '-' else '+'
 
-  in sformat (char % int2 % "\176 " % int2 % "' " % float4 % "\"") c d m s
+      sep = if flag then '\176' else 'd'
+
+  in sformat (char % int2 % char % " " % int2 % "' " % float4 % "\"") c d sep m s
 
 instance H.ToMarkup RA where
   -- toMarkup = H.toMarkup . showRA
   toMarkup = H.toMarkup . htmlRA
 
 instance H.ToMarkup Dec where
-  toMarkup = H.toMarkup . showDec
+  toMarkup = H.toMarkup . (showDec True)
 
 -- I could imagine we might want these to be the decimal values
 instance H.ToValue RA where

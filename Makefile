@@ -34,6 +34,7 @@ help:
 	@echo "   cabupdate   - cabal run updateschedule"
 	@echo "   cabget      - cabal run getschedule"
 	@echo "   cabsimbad   - cabal run querysimbad"
+	@echo "   cabobsid    - cabal run queryobsid"
 	@echo "   cabprob     - cabal run getproposals"
 	@echo "   cabtimeline - cabal run gettimeline"
 	@echo "   cabweb      - cabal run webserver"
@@ -95,6 +96,14 @@ cabsimbad:
 	@echo "##"
 	@echo "## APP=${APP}"
 	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} querysimbad
+
+cabobsid:
+	@echo "### run queryobsid on production db via cabal"
+	@echo "##"
+	@echo "## USE ARGS=<obsid> to set the obsid to query"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} queryobsid $(ARGS)
 
 cabprop:
 	@echo "### run getproposals on production db via cabal"
