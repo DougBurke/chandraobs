@@ -48,9 +48,11 @@ import OCAT (OCAT, isScienceObsE
             , showInt)
 
 import Types (ObsIdVal(..), InvalidObsId(..)
+             , ScienceObs(soTarget)
              , Field(NsObsIdField, SoObsIdField)
              , unsafeToObsIdVal
-             , toObsIdValStr)
+             , toObsIdValStr
+             , fromTargetName)
 
 
 type OCATMap = [(ObsIdVal, Maybe OCAT)]
@@ -94,7 +96,7 @@ processScience oi ocat =
   let act now sobs = do
         flag <- replaceScienceObs sobs
         when flag (updateLastModified now)
-        return flag
+        pure flag
 
       obsid = showInt (fromObsId oi)
 
@@ -105,14 +107,15 @@ processScience oi ocat =
          now <- getCurrentTime
          flag <- runDb (act now sobs)
          when flag $
-           T.putStrLn ("Updated science observation " <> obsid)
-         return True
+           T.putStrLn ("Updated science observation " <> obsid <>
+                       " - " <> fromTargetName (soTarget sobs))
+         pure True
          
        Left emsg -> do
          T.hPutStrLn stderr ("ERROR converting science obsid " <> obsid)
          T.hPutStrLn stderr emsg
          -- exitFailure
-         return False
+         pure False
   
 
 
@@ -135,13 +138,13 @@ processEngineering oi ocat =
       T.hPutStrLn stderr ("ERROR converting engineering obsid " <> obsid)
       T.hPutStrLn stderr emsg
       -- exitFailure
-      return False
+      pure False
 
     Right ns -> do
       now <- getCurrentTime
       runDb (act now ns)
       T.putStrLn ("Added engineering observation " <> obsid)
-      return True
+      pure True
 -}
   
     
