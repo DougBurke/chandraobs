@@ -237,7 +237,12 @@ processOCAT input omap = do
       putStrLn ""
 
   -- Should probably the errors here
-  flags <- forM okay addFromOCAT
+  flags <- forM (zip [1..] okay) $ \(i, o) -> do
+    when (i `mod` (100 :: Int) == 0)
+      (T.putStrLn (" - processing " <> T.pack (show i) <> " of " <>
+                   T.pack (show (length okay))))
+    addFromOCAT o
+
   let nfail = length (filter not flags)
       failedObsIds = map snd (filter (not . fst) (zip flags (map fst okay)))
 
