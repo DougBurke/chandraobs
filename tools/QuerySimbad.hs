@@ -48,7 +48,7 @@ import Control.Monad (forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
-import Data.Maybe (fromMaybe, isNothing, listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
@@ -314,13 +314,14 @@ removeSquareBrackets tgtName =
 type SearchResults = (TargetName, TargetName, UTCTime)
 
 querySIMBAD ::
-  SimbadLoc
+  NHC.Manager
+  -> SimbadLoc
   -> Bool        -- ^ @True@ for debug output
   -> TargetName  -- ^ object name
   -> Int         -- ^ current iteration number
   -> Int         -- ^ Maximum iteration number
   -> IO (SearchResults, Maybe SimbadInfo)
-querySIMBAD sloc f objname cur total = do
+querySIMBAD mgr sloc f objname cur total = do
   T.putStrLn ("[" <> showInt cur <> "/" <> showInt total <>
               "] Querying SIMBAD for " <> fromTargetName objname)
   let -- we POST the script to SIMBAD
@@ -345,7 +346,6 @@ querySIMBAD sloc f objname cur total = do
       req' = req { NHC.requestHeaders = hdrs }
       req'' = NHC.urlEncodedBody [("script", script)] req'
 
-  mgr <- NHC.newManager NHC.tlsManagerSettings
   rsp <- NHC.httpLbs req'' mgr
   let body = decodeUtf8 (L8.toStrict (NHC.responseBody rsp))
   
@@ -357,11 +357,6 @@ querySIMBAD sloc f objname cur total = do
   when f (T.putStrLn ">> Response:" >> T.putStrLn body >> T.putStrLn ">> object info:" >> print ls)
   let rval = listToMaybe ls >>= parseObject
       
-  -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) (T.putStrLn " -- no match found"
-                         -- >> T.putStrLn " -- response:" >> T.putStrLn body
-                        )
-
   let searchRes = (objname, searchTerm, cTime)
 
   case rval of
@@ -373,7 +368,11 @@ querySIMBAD sloc f objname cur total = do
                         }
         in return (searchRes, Just si)
 
-    _ -> return (searchRes, Nothing)
+    Nothing -> do
+      -- TODO: should have displayed the error string so this can be ignored
+      T.putStrLn " -- no match found"
+      -- >> T.putStrLn " -- response:" >> T.putStrLn body
+      return (searchRes, Nothing)
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
@@ -468,13 +467,14 @@ updateDB sloc mndays f = do
 
   T.putStrLn "# Querying the database"
 
-  obs <- runDb (project SoTargetField
-                (CondEmpty `orderBy` [Asc SoTargetField]
-                 `distinctOn` SoTargetField))
+  (obs, matchTargets, noMatchTargets) <- runDb $ do
+      o1 <- project SoTargetField
+            (CondEmpty `orderBy` [Asc SoTargetField]
+              `distinctOn` SoTargetField)
 
-  matchTargets <- runDb (project SmmTargetField CondEmpty)
-
-  noMatchTargets <- runDb (project SmnTargetField CondEmpty)
+      m1 <- project SmmTargetField CondEmpty
+      n1 <- project SmnTargetField CondEmpty
+      pure (o1, m1, n1)
 
   -- these numbers aren't that useful, since the number of
   -- obsids and targets aren't the same, but leave for now
@@ -502,17 +502,13 @@ updateDB sloc mndays f = do
 
   T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
 
-  -- Could do all the database changes at once, but let's see
-  -- how this works out.
+  -- Process each request separately.
   --
-  -- It would also be best to run all the SIMBAD queries at once, in
-  -- terms of not having to create/tear down the HTTP manager, but
-  -- leave that for a later revision (the assumption here is that
-  -- there are not going to be too many calls to SIMBAD).
-  --
+  mgr <- NHC.newManager NHC.tlsManagerSettings
+
   forM_ (zip [1..] (S.toList unidSet)) $ 
     \(ctr, tgt) -> do
-      (searchRes, minfo) <- querySIMBAD sloc f tgt ctr nUnid
+      (searchRes, minfo) <- querySIMBAD mgr sloc f tgt ctr nUnid
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
@@ -563,10 +559,7 @@ updateDB sloc mndays f = do
           blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
           void (insertSimbadNoMatch (toNM searchRes))
 
-      -- Update the last-modified date after each transaction;
-      -- in production this should not matter, as this tool should not
-      -- be running against the production server, but for now
-      -- do it "properly"
+      -- Update the last-modified date after each transaction
       --
       liftIO getCurrentTime >>= updateLastModified
 
@@ -586,15 +579,15 @@ updateDB sloc mndays f = do
   -- for ease of initial implimentation, but should try and
   -- amalgamate where possible.
   --
-  updateOldRecords sloc mndays f
+  updateOldRecords mgr sloc mndays f
 
 
 -- Technically should look for "updated search term" matches
 -- even when ndays == Nothing, but easier to use the same logic.
 --
-updateOldRecords :: SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateOldRecords _ Nothing _ = return ()
-updateOldRecords sloc (Just ndays) f = do
+updateOldRecords :: NHC.Manager -> SimbadLoc -> Maybe Int -> Bool -> IO ()
+updateOldRecords _ _ Nothing _ = return ()
+updateOldRecords mgr sloc (Just ndays) f = do
 
   T.putStrLn "\n"
   T.putStrLn ">>> Searching for old and updated records"
@@ -634,7 +627,7 @@ updateOldRecords sloc (Just ndays) f = do
   -- This is *very* similar to the previous version
   forM_ (zip [1..] todo) $ 
     \(ctr, SimbadNoMatch{..}) -> do
-      (searchRes, minfo) <- querySIMBAD sloc f smnTarget ctr ntodo
+      (searchRes, minfo) <- querySIMBAD mgr sloc f smnTarget ctr ntodo
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
