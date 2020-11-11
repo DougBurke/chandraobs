@@ -44,7 +44,7 @@ import qualified Data.Set as S
 
 import qualified Network.HTTP.Conduit as NHC
 
-import Control.Monad (forM_, when)
+import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
@@ -95,7 +95,8 @@ import Types (SimbadMatch(..)
              , fromTargetName
              , toTargetName
              , _2
-             , Field(SmnTargetField, SmnLastCheckedField,
+             , Field(SmnTargetField,
+                     SmnLastCheckedField,
                      SmmTargetField,
                      SoTargetField)
              )
@@ -206,6 +207,8 @@ cleanupName s =
 --   that potentially could be a valid identifier.
 --
 -- TODO: need a better scheme for the "special cases"
+-- TODO: now the target names have been recalculated all this logic
+--       needs to be checked
 --
 cleanTargetName :: TargetName -> TargetName
 cleanTargetName tgtName =
@@ -497,8 +500,23 @@ updateDB sloc mndays f = do
 
       unidSet = allSet `S.difference` (matchSet `S.union` noMatchSet)
       nUnid = S.size unidSet
+
+      delMatchSet = matchSet `S.difference` allSet
+      delNoMatchSet = noMatchSet `S.difference` allSet
       
       -- tgs = filter ((`S.member` unidSet) . fst) allTgs
+
+  unless (S.null delNoMatchSet) $ do
+    T.putStrLn ("# cleanup: removing " <> showInt (S.size delNoMatchSet) <> " no-matches")
+    runDb $ forM_ delNoMatchSet $ \n -> delete (SmnTargetField ==. n)
+
+  unless (S.null delMatchSet) $ do
+    T.putStrLn ("# cleanup: removing " <> showInt (S.size delMatchSet) <> " matches")
+    runDb $ forM_ delMatchSet $ \n -> delete (SmmTargetField ==. n)
+
+  -- NOTE: no attempt to cleanup the SimbadInfo table, which is
+  --       going to be a bit awkward to do as we remove the SimbadMatch
+  --       fields
 
   T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
 
@@ -654,7 +672,7 @@ updateOldRecords mgr sloc (Just ndays) f = do
       --
       liftIO getCurrentTime >>= updateLastModified
      
-    
+
 toNM :: SearchResults -> SimbadNoMatch
 toNM (a,b,c) = SimbadNoMatch {
                  smnTarget = a 
@@ -669,6 +687,7 @@ toM (a,b,c) k = SimbadMatch {
                 , smmInfo = k
                 , smmLastChecked = c
                 }
+
 
 usage :: IO ()
 usage = do
