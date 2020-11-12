@@ -16,9 +16,17 @@ let
   #   };
   # };
 
+  # hsPkgs = pkgs.haskell.packages.${compiler}.override {
+  #   overrides = self: super: {
+  #     "implicit-hie" = self.callCabal2nix "implicit-hie-0.1.2.3" {};
+  #   };
+  # };
+
   # extra = [ hsPkgs.ghcide hsPkgs.cabal-install
   extra = [ haskellPackages.cabal-install
             # haskellPackages.haskell-language-server
+	    # hsPkgs.cabal-install
+	    # "hsPkgs.implicit-hie"
             pkgs.heroku pkgs.postgresql pkgs.git ];
   buildInputs = chandra.env.nativeBuildInputs ++ extra;
 
@@ -26,13 +34,15 @@ in pkgs.stdenv.mkDerivation {
   name = "chandraobs-shell";
   buildInputs = buildInputs;
 
-  # Hmm, not really building chandraobs, so presumably the phases
-  # aren't getting triggered by 'nix-shell'. Should look at
-  # https://github.com/maybevoid/maybevoid.com/blob/master/projects/2019-01-27-getting-started-haskell-nix/external.nix
+  # The default LANG I use of en_US.UTF-8 doesn't seem to
+  # work for some of the characters I see, so try the C
+  # version.
   #
-  postPhase = ''
+  shellHook = ''
+    export LANG=C.UTF-8
     echo "***"
     echo "*** Welcome to chandraobservatory"
     echo "***"
   '';
+
 }
