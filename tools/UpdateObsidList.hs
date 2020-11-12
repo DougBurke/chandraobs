@@ -80,8 +80,12 @@ splitWhen f =
 
 -- | report an obsid value.
 --
-showObsId :: ObsIdVal -> IO ()
-showObsId = putStrLn . ("  " <> ) . show . fromObsId
+printObsId :: ObsIdVal -> IO ()
+printObsId = putStrLn . ("  " <> ) . show . fromObsId
+
+
+showObsId :: ObsIdVal -> T.Text
+showObsId = showInt . fromObsId
 
 
 -- | This does *NOT* error out if an ocat can not be processed; instead
@@ -98,7 +102,7 @@ processScience oi ocat =
         when flag (updateLastModified now)
         pure flag
 
-      obsid = showInt (fromObsId oi)
+      obsid = showObsId oi
 
   in do
      ans <- ocatToScience ocat
@@ -131,7 +135,7 @@ processEngineering oi ocat =
         insert_ ns
         updateLastModified now
 
-      obsid = showInt (fromObsId oi)
+      obsid = showObsId oi
       
   in case ocatToNonScience ocat of
     Left emsg -> do
@@ -169,7 +173,7 @@ findKnownObs obsids = do
 
   unless (null invalid) $ do
       put "# Skipping the following invalid obsids:"
-      mapM_ (liftIO . showObsId) invalid
+      mapM_ (liftIO . printObsId) invalid
       put ""
 
   let scField = SoObsIdField `in_` valid
@@ -184,7 +188,7 @@ findKnownObs obsids = do
 
   unless (null unknown) $ do
       put "# Skipping the following unknown observations:"
-      mapM_ (liftIO . showObsId) unknown
+      mapM_ (liftIO . printObsId) unknown
       put ""
 
   pure known
@@ -202,8 +206,10 @@ addFromOCAT ::
 addFromOCAT (oi, ocat) =
   -- skip engineering at the moment
   case isScienceObsE ocat of
-    Left emsg -> T.hPutStrLn stderr emsg
-                 >> exitFailure
+    Left emsg -> do
+      T.hPutStrLn stderr (">> Unable to decode OCAT response for ObsId " <> showObsId oi)
+      T.hPutStrLn stderr emsg
+      pure False
     Right flag -> if flag
                   then processScience oi ocat
                   else pure True
@@ -226,7 +232,7 @@ processOCAT input omap = do
   -- Not sure if this is possible, but keep it in for the moment
   unless (Set.null missing) $ do
       putStrLn "# No responses for the following:"
-      forM_ (Set.toList missing) showObsId
+      forM_ (Set.toList missing) printObsId
       putStrLn ""
 
   let isOkay (oi, Just v) = Right (oi, v)
@@ -236,7 +242,7 @@ processOCAT input omap = do
   -- Should these be added to the invalid ObsId table?
   unless (null failed) $ do
       putStrLn "# Error querying OCAT for the following:"
-      forM_ failed showObsId
+      forM_ failed printObsId
       putStrLn ""
 
   -- Should probably the errors here
@@ -251,7 +257,7 @@ processOCAT input omap = do
 
       report (i, oi) =
         let msg = "  [" <> showInt i <> "/" <> showInt nfail <>
-                  "] " <> showInt (fromObsId oi)
+                  "] " <> showObsId oi
         in T.hPutStrLn stderr msg
 
       doFail = do

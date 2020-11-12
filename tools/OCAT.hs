@@ -256,7 +256,7 @@ nonScienceType = "ER"
 
 isScienceObsE :: OCAT -> Either T.Text Bool
 isScienceObsE m =
-  toTextE m "TYPE" >>= \ans -> return (ans /= nonScienceType)
+  toTextE m "TYPE" >>= \ans -> pure (ans /= nonScienceType)
 
 -- make it easy to compile on different systems for now
 readsTime :: TimeLocale -> String -> ReadS UTCTime
@@ -305,7 +305,7 @@ getConstellation ra dec = do
     
       cName <- T.hGetLine outHdl
       case toConShort cName of
-        Just con -> return con
+        Just con -> pure con
         Nothing -> do
           let merr = "Unexpected constellation short form: '" <> cName <> "'"
           T.hPutStrLn stderr merr
@@ -318,7 +318,7 @@ type OCAT = M.Map T.Text T.Text
 
 lookupE :: T.Text -> OCAT -> Either T.Text T.Text
 lookupE k m = case M.lookup k m of
-  Just ans -> return ans
+  Just ans -> pure ans
   Nothing -> Left ("Missing key: " <> k)
 
 readMaybeText :: Read a => T.Text -> Maybe a
@@ -416,7 +416,7 @@ toRAE mm = do
         in toRA (15.0 * (h + (m + s/60.0) / 60.0))
 
   raVal <- lookupE "RA" mm
-  return (tR raVal)
+  pure (tR raVal)
 
 -- TODO: catch parse errors
 toDecE :: OCAT -> Either T.Text Dec
@@ -431,7 +431,7 @@ toDecE mm = do
         in toDec (sval * (abs d + (m + s/60.0) / 60.0))
 
   decVal <- lookupE "Dec" mm
-  return (tD decVal)
+  pure (tD decVal)
 
 conv :: T.Text -> (T.Text -> Maybe a) -> T.Text -> Either T.Text a
 conv lbl f a = maybe (Left ("Unknown " <> lbl <> ": " <> a)) Right (f a)
@@ -483,7 +483,7 @@ toProposalE m = do
   let defAns = if pType == "CAL" then "Calibration Observation" else "Unknown"
       pName = fromMaybe defAns (toText m "PROP_TITLE")
       
-  return Proposal {
+  pure Proposal {
         propNum = pNum
         , propName = pName
         , propPI = piName
@@ -497,7 +497,7 @@ toPos m = do
   ra <- toRAE m
   dec <- toDecE m
   roll <- toReadE m "SOE_ROLL"
-  return (ra, dec, roll)
+  pure (ra, dec, roll)
 
 
 toSOE :: OCAT -> ConShort -> Either T.Text ScienceObs
@@ -603,7 +603,7 @@ toSOE m con = do
   let subStart = toRead m "STRT_ROW" >>= \s -> if s > 0 then Just s else Nothing
       subSize = toRead m "ROW_CNT" >>= \s -> if s > 0 then Just s else Nothing
 
-  return ScienceObs {
+  pure ScienceObs {
     soSequence = seqNum
     , soProposal = pNum
     , soStatus = status
@@ -686,7 +686,7 @@ ocatToNonScience m = do
       -- the nsName field was used to encode the status.
       --
                                                        
-  return NonScienceObs {
+  pure NonScienceObs {
     nsStatus = status
     -- , nsName = name
     , nsObsId = obsid
@@ -732,7 +732,7 @@ makeObsCatQuery ::
   --   does not contain information on one, some, or all
   --   of the input obsids.
   --
-makeObsCatQuery _ [] = return (Right [])  
+makeObsCatQuery _ [] = pure (Right [])
 makeObsCatQuery flag oids = do
 
   req <- NHC.parseRequest (getObsCatQuery oids)
@@ -742,7 +742,7 @@ makeObsCatQuery flag oids = do
         
     Left emsg -> do
       T.hPutStrLn stderr ("Unable to query OCAT: " <> emsg)
-      return (Left emsg)
+      pure (Left emsg)
 
 
 -- Add in the user agent header, query OCAT, and convert response
@@ -768,7 +768,7 @@ getTextFromOCAT req = do
       lbsToText :: L.ByteString -> Either T.Text T.Text
       lbsToText = Right . decodeLatin1 . L.toStrict
 
-  return (lbsToText rsplbs)
+  pure (lbsToText rsplbs)
   
 
 processResponse ::
@@ -801,7 +801,7 @@ processResponse flag rsp = do
     forM_ (M.toList m) print     
     T.putStrLn ("##### Map " <> itxt <> " END #####")
 
-  return out
+  pure out
 
 
 -- | What does OCAT know about these observations?
@@ -821,9 +821,9 @@ queryOCAT oids = do
     Right ans -> let omap = M.fromList (mapMaybe getKV ans)
                      find oid = (oid, M.lookup oid omap)
                      out = map find oids
-                 in return (Right out)
+                 in pure (Right out)
 
-    Left emsg -> return (Left emsg)
+    Left emsg -> pure (Left emsg)
   
 
 -- | The ObsId is not recognized by OCAT.
@@ -839,15 +839,15 @@ ocatToScience ocat =
         prop <- toProposalE ocat
         ra <- toRAE ocat
         dec <- toDecE ocat
-        return (prop, ra, dec)
+        pure (prop, ra, dec)
         
   in case vals of
-      Left emsg -> return (Left emsg)
+      Left emsg -> pure (Left emsg)
       Right (prop, ra, dec) -> do
         con <- getConstellation ra dec
         case toSOE ocat con of
-          Left emsg -> return (Left emsg)
-          Right so -> return (Right (prop, so))
+          Left emsg -> pure (Left emsg)
+          Right so -> pure (Right (prop, so))
 
 
 slen :: [a] -> T.Text
@@ -888,7 +888,7 @@ getOverlaps oid ra dec = do
             rdist = read rdiststr
         in OverlapObs oid idval rdist now
 
-  return (map toO (drop 1 (lines sout)))
+  pure (map toO (drop 1 (lines sout)))
 
 
 -- | add in the overlap observations; that is, the table of
@@ -1028,7 +1028,7 @@ addProposal pnum = do
       errPrint ("Problem querying propNum: "
                 <> showInt (fromPropNum pnum))
       errPrint emsg
-      return False
+      pure False
 
 
 -- There is no check that the database constraints hold - i.e.
@@ -1057,7 +1057,7 @@ extractAbstract pnum txt = do
       
       insert_ missingAbs
       updateLastModified now
-      return False
+      pure False
 
     Right (absTitle, absText) -> do
       let newAbs = ProposalAbstract {
@@ -1068,7 +1068,7 @@ extractAbstract pnum txt = do
 
       insert_ newAbs
       updateLastModified now
-      return True
+      pure True
 
 
 -- It is possible for an abstract to be incomplete - e.g.

@@ -481,8 +481,8 @@ updateDB sloc mndays f = do
 
   -- these numbers aren't that useful, since the number of
   -- obsids and targets aren't the same, but leave for now
-  T.putStrLn ("# " <> slen obs <> " obsids / " <>
-              slen matchTargets <> " targets " <>
+  T.putStrLn ("# " <> slen obs <> " unique tatgets / " <>
+              slen matchTargets <> " names " <>
               slen noMatchTargets <> " no match ")
 
   -- Do steps A and B - ie identify those fields for which
