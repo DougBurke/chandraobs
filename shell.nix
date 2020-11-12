@@ -10,14 +10,15 @@ let
 
   chandra = import ./default.nix { inherit nixpkgs compiler; };
 
-  hsPkgs = pkgs.haskell.packages.${compiler}.override {
-    overrides = self: super: {
-      ghcide = self.callCabal2nix "ghcide-0.5.0" {};
-    };
-  };
+  # hsPkgs = pkgs.haskell.packages.${compiler}.override {
+  #   overrides = self: super: {
+  #     ghcide = self.callCabal2nix "ghcide-0.5.0" {};
+  #   };
+  # };
 
   # extra = [ hsPkgs.ghcide hsPkgs.cabal-install
-  extra = [ hsPkgs.cabal-install
+  extra = [ haskellPackages.cabal-install
+            # haskellPackages.haskell-language-server
             pkgs.heroku pkgs.postgresql pkgs.git ];
   buildInputs = chandra.env.nativeBuildInputs ++ extra;
 
