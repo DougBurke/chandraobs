@@ -481,9 +481,12 @@ updateDB sloc mndays f = do
 
   -- these numbers aren't that useful, since the number of
   -- obsids and targets aren't the same, but leave for now
-  T.putStrLn ("# " <> slen obs <> " unique tatgets / " <>
+  T.putStrLn ("# " <> slen obs <> " unique targets / " <>
               slen matchTargets <> " names " <>
               slen noMatchTargets <> " no match ")
+
+  when (length matchTargets + length noMatchTargets /= length obs) $
+    T.putStrLn "#    - mis-match in counts"
 
   -- Do steps A and B - ie identify those fields for which
   -- we have no Simbad information.
