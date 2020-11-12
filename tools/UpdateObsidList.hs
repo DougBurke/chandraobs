@@ -242,8 +242,8 @@ processOCAT input omap = do
   -- Should probably the errors here
   flags <- forM (zip [1..] okay) $ \(i, o) -> do
     when (i `mod` (100 :: Int) == 0)
-      (T.putStrLn (" - processing " <> T.pack (show i) <> " of " <>
-                   T.pack (show (length okay))))
+      (T.putStrLn (" - processing " <> showInt i <> " of " <>
+                   showInt (length okay)))
     addFromOCAT o
 
   let nfail = length (filter not flags)
