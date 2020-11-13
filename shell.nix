@@ -1,5 +1,6 @@
 { nixpkgs ? import ./nix {}
 , compiler ? "ghc884"
+, support ? false
 }:
 let
 
@@ -22,12 +23,10 @@ let
   #   };
   # };
 
-  # extra = [ hsPkgs.ghcide hsPkgs.cabal-install
+  opt = if support then [ haskellPackages.haskell-language-server ] else [];
   extra = [ haskellPackages.cabal-install
-            # haskellPackages.haskell-language-server
-	    # hsPkgs.cabal-install
-	    # "hsPkgs.implicit-hie"
-            pkgs.heroku pkgs.postgresql pkgs.git ];
+            pkgs.heroku pkgs.postgresql pkgs.git ]
+	  ++ opt;
   buildInputs = chandra.env.nativeBuildInputs ++ extra;
 
 in pkgs.stdenv.mkDerivation {
