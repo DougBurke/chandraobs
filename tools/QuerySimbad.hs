@@ -470,58 +470,55 @@ updateDB sloc mndays f = do
 
   T.putStrLn "# Querying the database"
 
-  (obs, matchTargets, noMatchTargets) <- runDb $ do
-      o1 <- project SoTargetField
+  let put = liftIO . T.putStrLn
+      setLen = showInt . S.size
+
+  unidSet <- runDb $ do
+      obs <- project SoTargetField
             (CondEmpty `orderBy` [Asc SoTargetField]
               `distinctOn` SoTargetField)
 
-      m1 <- project SmmTargetField CondEmpty
-      n1 <- project SmnTargetField CondEmpty
-      pure (o1, m1, n1)
+      matchTargets <- project SmmTargetField CondEmpty
+      noMatchTargets <- project SmnTargetField CondEmpty
 
-  -- these numbers aren't that useful, since the number of
-  -- obsids and targets aren't the same, but leave for now
-  T.putStrLn ("# " <> slen obs <> " unique targets / " <>
-              slen matchTargets <> " names " <>
-              slen noMatchTargets <> " no match ")
+      -- Do steps A and B - ie identify those fields for which
+      -- we have no Simbad information.
+      --
+      let allSet = S.fromList obs
+          matchSet = S.fromList matchTargets
+          noMatchSet = S.fromList noMatchTargets
 
-  when (length matchTargets + length noMatchTargets /= length obs) $
-    T.putStrLn "#    - mis-match in counts"
+          delMatchSet = matchSet `S.difference` allSet
+          delNoMatchSet = noMatchSet `S.difference` allSet
 
-  -- Do steps A and B - ie identify those fields for which
-  -- we have no Simbad information.
+      -- these numbers aren't that useful, since the number of
+      -- obsids and targets aren't the same, but leave for now
+      put ("# " <> setLen allSet <> " unique targets / " <>
+            setLen matchSet <> " names " <>
+            setLen noMatchSet <> " no match ")
 
-  {-
-  let allTgs = groupSorted obs
+      unless (S.null delNoMatchSet) $ do
+        put ("# cleanup: removing " <> setLen delNoMatchSet <> " no-matches")
+        forM_ delNoMatchSet $ \n -> delete (SmnTargetField ==. n)
 
-      allSet = S.fromList $ map fst allTgs
-  -}
+      unless (S.null delMatchSet) $ do
+        put ("# cleanup: removing " <> setLen delMatchSet <> " matches")
+        forM_ delMatchSet $ \n -> delete (SmmTargetField ==. n)
 
-  let allSet = S.fromList obs
-      matchSet = S.fromList matchTargets
-      noMatchSet = S.fromList noMatchTargets
+      -- Update the last-modified date if necessary
+      --
+      unless (S.null delNoMatchSet && S.null delMatchSet) $
+        liftIO getCurrentTime >>= updateLastModified
 
-      unidSet = allSet `S.difference` (matchSet `S.union` noMatchSet)
-      nUnid = S.size unidSet
+      pure (allSet `S.difference` (matchSet `S.union` noMatchSet))
 
-      delMatchSet = matchSet `S.difference` allSet
-      delNoMatchSet = noMatchSet `S.difference` allSet
-      
-      -- tgs = filter ((`S.member` unidSet) . fst) allTgs
-
-  unless (S.null delNoMatchSet) $ do
-    T.putStrLn ("# cleanup: removing " <> showInt (S.size delNoMatchSet) <> " no-matches")
-    runDb $ forM_ delNoMatchSet $ \n -> delete (SmnTargetField ==. n)
-
-  unless (S.null delMatchSet) $ do
-    T.putStrLn ("# cleanup: removing " <> showInt (S.size delMatchSet) <> " matches")
-    runDb $ forM_ delMatchSet $ \n -> delete (SmmTargetField ==. n)
+  let nUnid = S.size unidSet
 
   -- NOTE: no attempt to cleanup the SimbadInfo table, which is
   --       going to be a bit awkward to do as we remove the SimbadMatch
   --       fields
-
-  T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
+  unless (nUnid == 0) $
+    T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
 
   -- Process each request separately.
   --
