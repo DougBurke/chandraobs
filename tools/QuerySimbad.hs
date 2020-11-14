@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Query SIMBAD for observations. This is to
 --
@@ -48,7 +49,7 @@ import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe ({- catMaybes, -} fromMaybe, listToMaybe)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
@@ -98,6 +99,7 @@ import Types (SimbadMatch(..)
              , Field(SmnTargetField,
                      SmnLastCheckedField,
                      SmmTargetField,
+                     {- SmiNameField, -}
                      SoTargetField)
              )
 
@@ -505,9 +507,33 @@ updateDB sloc mndays f = do
         put ("# cleanup: removing " <> setLen delMatchSet <> " matches")
         forM_ delMatchSet $ \n -> delete (SmmTargetField ==. n)
 
+      -- How can we clean up the SimbadInfo table? The only real way
+      -- is that if smmTarget is no longer valid then we can delete
+      -- the SimbadMatch and **if no other matches** the associated
+      -- SimBadInfo entry. We have deleted the SimbadMatch entry
+      -- above, but how do we clean out un-referenced items?
+      --
+      -- This is not quick, so only enable when I want to check
+      {-
+      matches :: [SimbadMatch] <- select CondEmpty
+      minfos <- mapM get (smmInfo <$> matches)
+      let infos = catMaybes minfos
+
+      allInfos <- project SmiNameField CondEmpty
+
+      let wantSet = S.fromList (map smiName infos)
+          haveSet = S.fromList allInfos
+
+          delSet = haveSet `S.difference` wantSet
+
+      unless (S.null delSet) $ do
+        put ("# cleanup: removing " <> setLen delSet <> " simbad records")
+        forM_ delSet $ \n -> delete (SmiNameField ==. n)
+      -}
+
       -- Update the last-modified date if necessary
       --
-      unless (S.null delNoMatchSet && S.null delMatchSet) $
+      unless (S.null delNoMatchSet && S.null delMatchSet {- && S.null delSet -}) $
         liftIO getCurrentTime >>= updateLastModified
 
       pure (allSet `S.difference` (matchSet `S.union` noMatchSet))
