@@ -173,9 +173,39 @@ cleanupName s =
 -- | Convert the target field into the value to search
 --   for in SIMBAD. The checks are case insensitive.
 --
+--   * Special cases:
+--       Cheshire Cat Lens -> Cheshire Cat
+--
+--   * NAME xxx -> xxx
+--
+--   * xxx (yyy) -> xxx
+--     There are some times that the yyy may be more useful,
+--     but assume that xxx is sufficient
+--
+--   * xxx/yyy -> xxx
+--     These are used for multiple sources, but let's just
+--     pick the first one.
+--
+cleanTargetName :: TargetName -> TargetName
+cleanTargetName tgtName =
+  let tgt = fromTargetName tgtName
+      tgt1 = cleanupName tgt
+      tgt2 = removeSeparator '(' tgt1
+      tgt3 = removeSeparator '/' tgt2
+
+  in toTargetName $ if tgt == "Cheshire Cat Lens"
+                    then "Cheshire Cat"
+                    else tgt3
+
+{-
+
+-- | Convert the target field into the value to search
+--   for in SIMBAD. The checks are case insensitive.
+--
 --   The rules are built from looking at the names that
 --   have been used and coming up with simple rules to
---   normalize the names.
+--   normalize the names. However, they are now out of date,
+--   as the target names have been reworked.
 --
 --   *) Special case conversion from 'ArLac' to 'ar lac'
 --      as this is an often-observed calibration target.
@@ -209,11 +239,9 @@ cleanupName s =
 --   that potentially could be a valid identifier.
 --
 -- TODO: need a better scheme for the "special cases"
--- TODO: now the target names have been recalculated all this logic
---       needs to be checked
 --
-cleanTargetName :: TargetName -> TargetName
-cleanTargetName tgtName =
+oldCleanTargetName :: TargetName -> TargetName
+oldCleanTargetName tgtName =
   let tgt = removeSquareBrackets tgtName
 
       lc = T.toLower
@@ -291,15 +319,20 @@ compassDirs = ["ne", "se", "sw", "nw"
 -- them in if we find them.
 --
 removeSquareBrackets :: TargetName -> T.Text
-removeSquareBrackets tgtName =
-  let orig = fromTargetName tgtName
+removeSquareBrackets = removeSeparator '[' . fromTargetName
 
-      firstChar = maybe ' ' fst (T.uncons orig)
-      cleaned = case T.split (== '[') orig of
+-}
+
+-- Remove (... text
+removeSeparator :: Char -> T.Text -> T.Text
+removeSeparator sep orig =
+  let firstChar = maybe ' ' fst (T.uncons orig)
+      cleaned = case T.split (== sep) orig of
         [x, _] -> T.strip x
         _ -> orig
 
-  in if firstChar == '[' then orig else cleaned
+  in if firstChar == sep then orig else cleaned
+
 
 -- Note that I choose to use a text-based format for returning the data,
 -- rather than a VoTable, since it's easier to create a parser for the
