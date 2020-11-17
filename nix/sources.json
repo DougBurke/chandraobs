@@ -5,22 +5,22 @@
         "homepage": "https://github.com/nmattia/niv",
         "owner": "nmattia",
         "repo": "niv",
-        "rev": "9d35b9e4837ab88517210b1701127612c260eccf",
-        "sha256": "0q50xhnm8g2yfyakrh0nly4swyygxpi0a8cb9gp65wcakcgvzvdh",
+        "rev": "ba57d5a29b4e0f2085917010380ef3ddc3cf380f",
+        "sha256": "1kpsvc53x821cmjg1khvp1nz7906gczq8mp83664cr15h94sh8i4",
         "type": "tarball",
-        "url": "https://github.com/nmattia/niv/archive/9d35b9e4837ab88517210b1701127612c260eccf.tar.gz",
+        "url": "https://github.com/nmattia/niv/archive/ba57d5a29b4e0f2085917010380ef3ddc3cf380f.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "release-20.03",
+        "branch": "release-20.09",
         "description": "Nix Packages collection",
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "6a6e7c9512549cb4ec61c0a8ba4571082f92cbb0",
-        "sha256": "0c7gxcvy9q3k8b09ia7y8w5ri8r27lmky49b8jq8rypjm2yi3n62",
+        "rev": "26187cb4d3b63e783eb498deac396b14aed7d1ce",
+        "sha256": "15k8zqh7yr6mw4z2jalh3ibfjrkh22sndlnv4gng33ifwjk5nqgl",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/6a6e7c9512549cb4ec61c0a8ba4571082f92cbb0.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/26187cb4d3b63e783eb498deac396b14aed7d1ce.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

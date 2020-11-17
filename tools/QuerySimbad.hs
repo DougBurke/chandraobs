@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Query SIMBAD for observations. This is to
 --
@@ -44,11 +45,11 @@ import qualified Data.Set as S
 
 import qualified Network.HTTP.Conduit as NHC
 
-import Control.Monad (forM_, when)
+import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
-import Data.Maybe (fromMaybe, isNothing, listToMaybe)
+import Data.Maybe ({- catMaybes, -} fromMaybe, listToMaybe)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
@@ -95,8 +96,10 @@ import Types (SimbadMatch(..)
              , fromTargetName
              , toTargetName
              , _2
-             , Field(SmnTargetField, SmnLastCheckedField,
+             , Field(SmnTargetField,
+                     SmnLastCheckedField,
                      SmmTargetField,
+                     {- SmiNameField, -}
                      SoTargetField)
              )
 
@@ -170,9 +173,39 @@ cleanupName s =
 -- | Convert the target field into the value to search
 --   for in SIMBAD. The checks are case insensitive.
 --
+--   * Special cases:
+--       Cheshire Cat Lens -> Cheshire Cat
+--
+--   * NAME xxx -> xxx
+--
+--   * xxx (yyy) -> xxx
+--     There are some times that the yyy may be more useful,
+--     but assume that xxx is sufficient
+--
+--   * xxx/yyy -> xxx
+--     These are used for multiple sources, but let's just
+--     pick the first one.
+--
+cleanTargetName :: TargetName -> TargetName
+cleanTargetName tgtName =
+  let tgt = fromTargetName tgtName
+      tgt1 = cleanupName tgt
+      tgt2 = removeSeparator '(' tgt1
+      tgt3 = removeSeparator '/' tgt2
+
+  in toTargetName $ if tgt == "Cheshire Cat Lens"
+                    then "Cheshire Cat"
+                    else tgt3
+
+{-
+
+-- | Convert the target field into the value to search
+--   for in SIMBAD. The checks are case insensitive.
+--
 --   The rules are built from looking at the names that
 --   have been used and coming up with simple rules to
---   normalize the names.
+--   normalize the names. However, they are now out of date,
+--   as the target names have been reworked.
 --
 --   *) Special case conversion from 'ArLac' to 'ar lac'
 --      as this is an often-observed calibration target.
@@ -207,8 +240,8 @@ cleanupName s =
 --
 -- TODO: need a better scheme for the "special cases"
 --
-cleanTargetName :: TargetName -> TargetName
-cleanTargetName tgtName =
+oldCleanTargetName :: TargetName -> TargetName
+oldCleanTargetName tgtName =
   let tgt = removeSquareBrackets tgtName
 
       lc = T.toLower
@@ -286,15 +319,20 @@ compassDirs = ["ne", "se", "sw", "nw"
 -- them in if we find them.
 --
 removeSquareBrackets :: TargetName -> T.Text
-removeSquareBrackets tgtName =
-  let orig = fromTargetName tgtName
+removeSquareBrackets = removeSeparator '[' . fromTargetName
 
-      firstChar = maybe ' ' fst (T.uncons orig)
-      cleaned = case T.split (== '[') orig of
+-}
+
+-- Remove (... text
+removeSeparator :: Char -> T.Text -> T.Text
+removeSeparator sep orig =
+  let firstChar = maybe ' ' fst (T.uncons orig)
+      cleaned = case T.split (== sep) orig of
         [x, _] -> T.strip x
         _ -> orig
 
-  in if firstChar == '[' then orig else cleaned
+  in if firstChar == sep then orig else cleaned
+
 
 -- Note that I choose to use a text-based format for returning the data,
 -- rather than a VoTable, since it's easier to create a parser for the
@@ -314,13 +352,14 @@ removeSquareBrackets tgtName =
 type SearchResults = (TargetName, TargetName, UTCTime)
 
 querySIMBAD ::
-  SimbadLoc
+  NHC.Manager
+  -> SimbadLoc
   -> Bool        -- ^ @True@ for debug output
   -> TargetName  -- ^ object name
   -> Int         -- ^ current iteration number
   -> Int         -- ^ Maximum iteration number
   -> IO (SearchResults, Maybe SimbadInfo)
-querySIMBAD sloc f objname cur total = do
+querySIMBAD mgr sloc f objname cur total = do
   T.putStrLn ("[" <> showInt cur <> "/" <> showInt total <>
               "] Querying SIMBAD for " <> fromTargetName objname)
   let -- we POST the script to SIMBAD
@@ -345,7 +384,6 @@ querySIMBAD sloc f objname cur total = do
       req' = req { NHC.requestHeaders = hdrs }
       req'' = NHC.urlEncodedBody [("script", script)] req'
 
-  mgr <- NHC.newManager NHC.tlsManagerSettings
   rsp <- NHC.httpLbs req'' mgr
   let body = decodeUtf8 (L8.toStrict (NHC.responseBody rsp))
   
@@ -357,11 +395,6 @@ querySIMBAD sloc f objname cur total = do
   when f (T.putStrLn ">> Response:" >> T.putStrLn body >> T.putStrLn ">> object info:" >> print ls)
   let rval = listToMaybe ls >>= parseObject
       
-  -- TODO: should have displayed the error string so this can be ignored
-  when (isNothing rval) (T.putStrLn " -- no match found"
-                         -- >> T.putStrLn " -- response:" >> T.putStrLn body
-                        )
-
   let searchRes = (objname, searchTerm, cTime)
 
   case rval of
@@ -373,7 +406,11 @@ querySIMBAD sloc f objname cur total = do
                         }
         in return (searchRes, Just si)
 
-    _ -> return (searchRes, Nothing)
+    Nothing -> do
+      -- TODO: should have displayed the error string so this can be ignored
+      T.putStrLn " -- no match found"
+      -- >> T.putStrLn " -- response:" >> T.putStrLn body
+      return (searchRes, Nothing)
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
@@ -468,51 +505,87 @@ updateDB sloc mndays f = do
 
   T.putStrLn "# Querying the database"
 
-  obs <- runDb (project SoTargetField
-                (CondEmpty `orderBy` [Asc SoTargetField]
-                 `distinctOn` SoTargetField))
+  let put = liftIO . T.putStrLn
+      setLen = showInt . S.size
 
-  matchTargets <- runDb (project SmmTargetField CondEmpty)
+  unidSet <- runDb $ do
+      obs <- project SoTargetField
+            (CondEmpty `orderBy` [Asc SoTargetField]
+              `distinctOn` SoTargetField)
 
-  noMatchTargets <- runDb (project SmnTargetField CondEmpty)
+      matchTargets <- project SmmTargetField CondEmpty
+      noMatchTargets <- project SmnTargetField CondEmpty
 
-  -- these numbers aren't that useful, since the number of
-  -- obsids and targets aren't the same, but leave for now
-  T.putStrLn ("# " <> slen obs <> " obsids / " <>
-              slen matchTargets <> " targets " <>
-              slen noMatchTargets <> " no match ")
+      -- Do steps A and B - ie identify those fields for which
+      -- we have no Simbad information.
+      --
+      let allSet = S.fromList obs
+          matchSet = S.fromList matchTargets
+          noMatchSet = S.fromList noMatchTargets
 
-  -- Do steps A and B - ie identify those fields for which
-  -- we have no Simbad information.
+          delMatchSet = matchSet `S.difference` allSet
+          delNoMatchSet = noMatchSet `S.difference` allSet
 
-  {-
-  let allTgs = groupSorted obs
+      -- these numbers aren't that useful, since the number of
+      -- obsids and targets aren't the same, but leave for now
+      put ("# " <> setLen allSet <> " unique targets / " <>
+            setLen matchSet <> " names " <>
+            setLen noMatchSet <> " no match ")
 
-      allSet = S.fromList $ map fst allTgs
-  -}
+      unless (S.null delNoMatchSet) $ do
+        put ("# cleanup: removing " <> setLen delNoMatchSet <> " no-matches")
+        forM_ delNoMatchSet $ \n -> delete (SmnTargetField ==. n)
 
-  let allSet = S.fromList obs
-      matchSet = S.fromList matchTargets
-      noMatchSet = S.fromList noMatchTargets
+      unless (S.null delMatchSet) $ do
+        put ("# cleanup: removing " <> setLen delMatchSet <> " matches")
+        forM_ delMatchSet $ \n -> delete (SmmTargetField ==. n)
 
-      unidSet = allSet `S.difference` (matchSet `S.union` noMatchSet)
-      nUnid = S.size unidSet
-      
-      -- tgs = filter ((`S.member` unidSet) . fst) allTgs
+      -- How can we clean up the SimbadInfo table? The only real way
+      -- is that if smmTarget is no longer valid then we can delete
+      -- the SimbadMatch and **if no other matches** the associated
+      -- SimBadInfo entry. We have deleted the SimbadMatch entry
+      -- above, but how do we clean out un-referenced items?
+      --
+      -- This is not quick, so only enable when I want to check
+      {-
+      matches :: [SimbadMatch] <- select CondEmpty
+      minfos <- mapM get (smmInfo <$> matches)
+      let infos = catMaybes minfos
 
-  T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
+      allInfos <- project SmiNameField CondEmpty
 
-  -- Could do all the database changes at once, but let's see
-  -- how this works out.
+      let wantSet = S.fromList (map smiName infos)
+          haveSet = S.fromList allInfos
+
+          delSet = haveSet `S.difference` wantSet
+
+      unless (S.null delSet) $ do
+        put ("# cleanup: removing " <> setLen delSet <> " simbad records")
+        forM_ delSet $ \n -> delete (SmiNameField ==. n)
+      -}
+
+      -- Update the last-modified date if necessary
+      --
+      unless (S.null delNoMatchSet && S.null delMatchSet {- && S.null delSet -}) $
+        liftIO getCurrentTime >>= updateLastModified
+
+      pure (allSet `S.difference` (matchSet `S.union` noMatchSet))
+
+  let nUnid = S.size unidSet
+
+  -- NOTE: no attempt to cleanup the SimbadInfo table, which is
+  --       going to be a bit awkward to do as we remove the SimbadMatch
+  --       fields
+  unless (nUnid == 0) $
+    T.putStrLn ("# -> " <> showInt nUnid <> " have no Simbad info")
+
+  -- Process each request separately.
   --
-  -- It would also be best to run all the SIMBAD queries at once, in
-  -- terms of not having to create/tear down the HTTP manager, but
-  -- leave that for a later revision (the assumption here is that
-  -- there are not going to be too many calls to SIMBAD).
-  --
+  mgr <- NHC.newManager NHC.tlsManagerSettings
+
   forM_ (zip [1..] (S.toList unidSet)) $ 
     \(ctr, tgt) -> do
-      (searchRes, minfo) <- querySIMBAD sloc f tgt ctr nUnid
+      (searchRes, minfo) <- querySIMBAD mgr sloc f tgt ctr nUnid
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
@@ -563,10 +636,7 @@ updateDB sloc mndays f = do
           blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
           void (insertSimbadNoMatch (toNM searchRes))
 
-      -- Update the last-modified date after each transaction;
-      -- in production this should not matter, as this tool should not
-      -- be running against the production server, but for now
-      -- do it "properly"
+      -- Update the last-modified date after each transaction
       --
       liftIO getCurrentTime >>= updateLastModified
 
@@ -586,15 +656,15 @@ updateDB sloc mndays f = do
   -- for ease of initial implimentation, but should try and
   -- amalgamate where possible.
   --
-  updateOldRecords sloc mndays f
+  updateOldRecords mgr sloc mndays f
 
 
 -- Technically should look for "updated search term" matches
 -- even when ndays == Nothing, but easier to use the same logic.
 --
-updateOldRecords :: SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateOldRecords _ Nothing _ = return ()
-updateOldRecords sloc (Just ndays) f = do
+updateOldRecords :: NHC.Manager -> SimbadLoc -> Maybe Int -> Bool -> IO ()
+updateOldRecords _ _ Nothing _ = return ()
+updateOldRecords mgr sloc (Just ndays) f = do
 
   T.putStrLn "\n"
   T.putStrLn ">>> Searching for old and updated records"
@@ -634,7 +704,7 @@ updateOldRecords sloc (Just ndays) f = do
   -- This is *very* similar to the previous version
   forM_ (zip [1..] todo) $ 
     \(ctr, SimbadNoMatch{..}) -> do
-      (searchRes, minfo) <- querySIMBAD sloc f smnTarget ctr ntodo
+      (searchRes, minfo) <- querySIMBAD mgr sloc f smnTarget ctr ntodo
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
@@ -661,7 +731,7 @@ updateOldRecords sloc (Just ndays) f = do
       --
       liftIO getCurrentTime >>= updateLastModified
      
-    
+
 toNM :: SearchResults -> SimbadNoMatch
 toNM (a,b,c) = SimbadNoMatch {
                  smnTarget = a 
@@ -676,6 +746,7 @@ toM (a,b,c) k = SimbadMatch {
                 , smmInfo = k
                 , smmLastChecked = c
                 }
+
 
 usage :: IO ()
 usage = do

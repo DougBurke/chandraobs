@@ -258,6 +258,36 @@ executable addobsidlist
   else
     buildable:  False
 
+executable updateobsidlist
+  main-is:             UpdateObsidList.hs
+  hs-source-dirs:      tools/
+  other-modules:       OCAT
+                                              
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     -- TODO: may want to store the ocat output as files
+     -- , directory >= 1.2 && < 1.4
+     , formatting
+     , groundhog
+     , groundhog-postgresql
+     , http-conduit >= 2.1 && < 2.4
+     , http-types
+     , process >= 1.1 && < 1.7
+     , tagsoup >= 0.13 && < 0.15
+     , temporary >= 1.1 && < 1.4
+     , text
+     , time
+
+  else
+    buildable:  False
+
 executable listmissingobsids
   main-is:             ListMissingObsids.hs
   hs-source-dirs:      tools/
@@ -299,6 +329,34 @@ executable querysimbad
      , text
      , time
      , transformers
+
+  else
+    buildable:  False
+
+executable queryobsid
+  main-is:             QueryObsid.hs
+  hs-source-dirs:      tools/
+  other-modules:       OCAT
+
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     , formatting
+     , groundhog
+     , groundhog-postgresql
+     , http-conduit >= 2.1 && < 2.4
+     , http-types
+     , process >= 1.1 && < 1.7
+     , tagsoup >= 0.13 && < 0.15
+     , temporary >= 1.1 && < 1.4
+     , text
+     , time
 
   else
     buildable:  False

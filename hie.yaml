@@ -1,0 +1,136 @@
+cradle:
+  cabal:
+    - path: "lib/"
+      component: "lib:chandraobs"
+
+    - path: "app/WebServer.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/About.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/API.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Cache.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Layout.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Utils.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Index.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/NotFound.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Proposal.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Record.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Render.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Schedule.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Calendar.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Category.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Constellation.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Constraint.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Cycle.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/ExposureRanges.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Instrument.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Mapping.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Mission.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/PropType.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/SubArrays.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Target.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/Types.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "app/Views/Search/TOO.hs"
+      component: "chandraobs:exe:webserver"
+
+    - path: "tools/Redirect.hs"
+      component: "chandraobs:exe:redirect"
+
+    - path: "tools/GetSchedule.hs"
+      component: "chandraobs:exe:getschedule"
+
+    - path: "tools/Parser.hs"
+      component: "chandraobs:exe:getschedule"
+
+    - path: "tools/OCAT.hs"
+      component: "chandraobs:exe:getschedule"
+
+    - path: "tools/UpdateSchedule.hs"
+      component: "chandraobs:exe:updateschedule"
+
+    - path: "tools/OCAT.hs"
+      component: "chandraobs:exe:updateschedule"
+
+    - path: "tools/AddObsidList.hs"
+      component: "chandraobs:exe:addobsidlist"
+
+    - path: "tools/OCAT.hs"
+      component: "chandraobs:exe:addobsidlist"
+
+    - path: "tools/UpdateObsidList.hs"
+      component: "chandraobs:exe:updateobsidlist"
+
+    - path: "tools/OCAT.hs"
+      component: "chandraobs:exe:updateobsidlist"
+
+    - path: "tools/ListMissingObsids.hs"
+      component: "chandraobs:exe:listmissingobsids"
+
+    - path: "tools/QuerySimbad.hs"
+      component: "chandraobs:exe:querysimbad"
+
+    - path: "tools/QueryObsid.hs"
+      component: "chandraobs:exe:queryobsid"
+
+    - path: "tools/OCAT.hs"
+      component: "chandraobs:exe:queryobsid"
+
+    - path: "tools/GetCurrent.hs"
+      component: "chandraobs:exe:getcurrent"
+
+    - path: "tools/GetProposals.hs"
+      component: "chandraobs:exe:getproposals"
+
+    - path: "tools/OCAT.hs"
+      component: "chandraobs:exe:getproposals"
+
+    - path: "tools/GetTimeline.hs"
+      component: "chandraobs:exe:gettimeline"

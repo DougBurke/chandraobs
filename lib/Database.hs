@@ -2826,7 +2826,8 @@ replaceNonScienceObs ns = do
 replaceScienceObs ::
   PersistBackend m
   => ScienceObs
-  -> m ()
+  -> m Bool
+  -- ^ If the observation was added/replaced.
 replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
 
 -- | Checks that the proposal is not known about before inserting it.
@@ -2878,14 +2879,15 @@ insertOrReplace ::
   , Conn m ~ conn)
   => opts
   -> v
-  -> m ()
+  -> m Bool
+  -- ^ Returns True if the data was added or changed.
 insertOrReplace cond newVal = do
   mAns <- maybeSelect cond
   case mAns of
-    (Just oldVal) -> when
-                     (oldVal /= newVal)
-                     (delete cond >> insert_ newVal)
-    Nothing -> insert_ newVal
+    Just oldVal -> if oldVal /= newVal
+                   then delete cond >> insert_ newVal >> pure True
+                   else pure False
+    Nothing -> insert_ newVal >> pure True
 
 -- | Update the last-modified field with the time.
 --
