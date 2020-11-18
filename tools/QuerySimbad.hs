@@ -130,7 +130,7 @@ insertSimbadInfo sm = do
   -- There's only one constraint on SimbadInfo
   ems <- insertByAll sm
   case ems of
-    Right newkey -> return (newkey, False)
+    Right newkey -> pure (newkey, False)
     Left oldkey -> do
       -- Need to handle the possibility of failure to appease the
       -- MonadFail pantheon of deities.
@@ -143,7 +143,7 @@ insertSimbadInfo sm = do
             -- the replacement.
             --
             when (oldsm /= sm) (replace oldkey sm)
-            return (oldkey, True)
+            pure (oldkey, True)
 
           eval = error "programmer error: no key"
 
@@ -351,6 +351,18 @@ removeSeparator sep orig =
 -- requires the database key to create
 type SearchResults = (TargetName, TargetName, UTCTime)
 
+-- Do we have a planet name. This is not intended to be robust.
+-- It is assumed that the target name has already been cleaned up.
+--
+isPlanet :: TargetName -> Bool
+isPlanet tn =
+  let txt = T.toLower (fromTargetName (cleanTargetName tn))
+  in txt `elem` ["mercury", "venus", "mars", "jupiter",
+                 "saturn", "uranus", "neptune", "pluto"]
+
+-- Note that I fake planet searches to always fail, since we know that
+-- SIMBAD does not support planetary bodies. This probably needs work.
+--
 querySIMBAD ::
   NHC.Manager
   -> SimbadLoc
@@ -359,6 +371,13 @@ querySIMBAD ::
   -> Int         -- ^ current iteration number
   -> Int         -- ^ Maximum iteration number
   -> IO (SearchResults, Maybe SimbadInfo)
+querySIMBAD _ _ f objname _ _ | isPlanet objname = do
+                                  -- special case planets
+                                  when f (T.putStrLn (">> Hard-coding planet: " <> fromTargetName objname))
+                                  cTime <- getCurrentTime
+                                  let searchRes = (objname, objname, cTime)
+                                  pure (searchRes, Nothing)
+
 querySIMBAD mgr sloc f objname cur total = do
   T.putStrLn ("[" <> showInt cur <> "/" <> showInt total <>
               "] Querying SIMBAD for " <> fromTargetName objname)
@@ -404,13 +423,13 @@ querySIMBAD mgr sloc f objname cur total = do
                         , smiType3 = sType3
                         , smiType = sType
                         }
-        in return (searchRes, Just si)
+        in pure (searchRes, Just si)
 
     Nothing -> do
       -- TODO: should have displayed the error string so this can be ignored
       T.putStrLn " -- no match found"
       -- >> T.putStrLn " -- response:" >> T.putStrLn body
-      return (searchRes, Nothing)
+      pure (searchRes, Nothing)
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
@@ -630,7 +649,7 @@ updateDB sloc mndays f = do
                 liftIO (T.putStrLn ("&&&&& deleting " <> stxt))
                 delete (SmnTargetField ==. smiName si)
 
-              Nothing -> return ()
+              Nothing -> pure ()
       
         _ -> do
           blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
@@ -663,7 +682,7 @@ updateDB sloc mndays f = do
 -- even when ndays == Nothing, but easier to use the same logic.
 --
 updateOldRecords :: NHC.Manager -> SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateOldRecords _ _ Nothing _ = return ()
+updateOldRecords _ _ Nothing _ = pure ()
 updateOldRecords mgr sloc (Just ndays) f = do
 
   T.putStrLn "\n"
