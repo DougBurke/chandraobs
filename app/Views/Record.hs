@@ -85,7 +85,7 @@ import Utils (HtmlContext(..)
              )
 
 wwtLoc :: AttributeValue
-wwtLoc = "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"
+wwtLoc = "https://www.worldwidetelescope.org/webclient/sdk/wwtsdk.js"
 
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
@@ -108,7 +108,8 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
 
       -- only need WWT JS for science observations
       wwtJS = either (const mempty)
-              (const (jsScript wwtLoc <> jsScript "/js/wwt.js"))
+              (const (jsScript wwtLoc <>
+                      jsScript "/js/wwt.js"))
               thisObs
               
   in docTypeHtml ! lang "en-US" $

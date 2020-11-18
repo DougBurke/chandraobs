@@ -4,6 +4,8 @@
  * and
  * http://www.worldwidetelescope.org/docs/worldwidetelescopewebcontrolscriptreference.html
  *
+ * it is now updated to the WebGL client at
+ * https://docs.worldwidetelescope.org/webgl-reference/latest/getting-started/
  */
 
 "use strict";
@@ -497,7 +499,7 @@ var wwt = (function (baseObj) {
 
     function initialize(obsdata) {
         baseObj.hide_nojs();
-        wwt = wwtlib.WWTControl.initControl("WWTCanvas");
+        wwt = wwtlib.WWTControl.initControlParam("WWTCanvas", true);
 
         wwt.loadImageCollection("/chandra.wtml");
         
