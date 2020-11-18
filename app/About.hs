@@ -250,8 +250,8 @@ furtherSection = do
     )
 
   p ("The " <> alink "views.html#WWT" "interactive view" <>
-     " uses the HTML5 version of the American Astronomical Society's "
-     <> alink "http://www.worldwidetelescope.org/webclient/"
+     " uses the WebGL version of the American Astronomical Society's "
+     <> alink "https://www.worldwidetelescope.org/webclient/"
      "WorldWide Telescope"
      <> " - aka WWT - web client. The background images have been "
      <> "provided by a variety of institutions and groups:")
@@ -264,7 +264,7 @@ furtherSection = do
   (dl ! class_ "credits") (
     hdr "https://www.nasa.gov/mission_pages/planck/index.html" "Planck"
     <>
-    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck"
+    item "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=planck"
        (p ("Planck is a European Space Agency mission, with significant " <>
            "participation from NASA. NASAs Planck Project Office is based at " <>
            "JPL. JPL contributed mission-enabling technology for both of " <>
@@ -275,7 +275,7 @@ furtherSection = do
     {- Is this URL dead now? -}
     hdr "http://lwa.nrl.navy.mil/VLSS/" "VLA Low-frequency Sky Survey (VLSS)"
     <>
-    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA"
+    item "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=VLA"
        (p ("VLSS Cohen, A. S.; Lane, W. M.; Cotton, W. D.; Kassim, N. E.; Lazio, " <>
            "T. J. W.; Perley, R. A.; Condon, J. J.; Erickson, W. C.; " <>
            "Served From NASA Skyview"))
@@ -284,7 +284,7 @@ furtherSection = do
     <>
     hdr "http://wise.ssl.berkeley.edu/" "WISE"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=wise"
+    dd (thumb "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=wise"
         <>
         p "NASA/JPL-Caltech/UCLA")
     -}
@@ -292,7 +292,7 @@ furtherSection = do
     <>
     hdr "https://www.ipac.caltech.edu/2mass/" "2MASS"
     <>
-    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass"
+    item "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=2mass"
        (p ("This publication makes use of data products from the Two Micron " <>
            "All Sky Survey, which is a joint project of the University of " <>
            "Massachusetts and the Infrared Processing and Analysis " <>
@@ -303,14 +303,14 @@ furtherSection = do
     <>
     hdr "https://gsss.stsci.edu/Acknowledgements/DataCopyrights.htm" "DSS"
     <>
-    item "http://www.worldwidetelescope.org/thumbnails/DSS.png"
+    item "https://www.worldwidetelescope.org/thumbnails/DSS.png"
        (p "Copyright DSS Consortium")
 
     {-
     <>
     hdr "https://www.astro.princeton.edu/~dfink/halpha/processing.html" "Hα"
     <>
-    dd (thumb "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=halpha"
+    dd (thumb "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=halpha"
         <>
         p ("Image Courtesy Douglas Finkbeiner. The full-sky H-alpha map (6' " <>
            "FWHM resolution) is a composite of the Virginia Tech Spectral " <>
@@ -323,7 +323,7 @@ furtherSection = do
     <>
     hdr "http://www.xray.mpe.mpg.de/cgi-bin/rosat/rosat-survey" "RASS"
     <>
-    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=rosatcolor"
+    item "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=rosatcolor"
        (p ("This is a composite of three RASS3 surveys from the ROSAT Data " <>
            "Archive of the Max-Planck-Institut fur extraterrestrische Physik " <>
            "(MPE) at Garching, Germany. TOAST-formatted data was obtained " <>
@@ -334,7 +334,7 @@ furtherSection = do
     <>
     hdr "https://www.nasa.gov/mission_pages/GLAST/main/index.html" "Fermi"
     <>
-    item "http://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
+    item "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
        (p "NASA and the FERMI-LAT Team.")
     )
     

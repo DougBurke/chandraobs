@@ -76,7 +76,7 @@ tourElements =
   <> jsScript "/js/tour.js"
 
 wwtLoc :: AttributeValue
-wwtLoc = "http://www.worldwidetelescope.org/scripts/wwtsdk.aspx"
+wwtLoc = "https://www.worldwidetelescope.org/webclient/sdk/wwtsdk.js"
 
 -- | TODO: this should be merged with Views.Record.recordPage
 introPage :: 
@@ -94,7 +94,8 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
 
       -- only need WWT JS for science observations
       wwtJS = either (const mempty)
-              (const (jsScript wwtLoc <> jsScript "/js/wwt.js"))
+              (const (jsScript wwtLoc <>
+                      jsScript "/js/wwt.js"))
               currentObs
 
   in docTypeHtml ! lang "en-US" $
