@@ -149,8 +149,10 @@ function fixedEncodeURIComponent(str) {
   });
 }
 
-function selected(prefix) {
-  return function(event, ui) {
+$("#namesearch").autocomplete({
+  minLength: 3,
+  source: '/api/search/name',
+  close: function(event, ui) {
     // skip if the event has been cancelled; for now only support
     // event=Enter, as not sure what the event types can be, but
     // this may need to be changed (e.g. touch screens).
@@ -158,53 +160,49 @@ function selected(prefix) {
     if (event.key !== "Enter") { return; }
 
     var term = event.target.value;
-    window.location = prefix + fixedEncodeURIComponent(term);
-  };
-}
-    
-    $("#namesearch").autocomplete({
-      minLength: 3,
-      source: '/api/search/name',
-      close: selected("/search/name?target="),
-      select: function (event, ui) {
-	event.preventDefault();
-	this.value = ui.item.name;
-      },
-      focus: function (event, ui) {
-	event.preventDefault();
-	this.value = ui.item.name;
-      }
-    })
+    window.location = "/search/name?target=" + fixedEncodeURIComponent(term);
+  },
+  select: function (event, ui) {
+    event.preventDefault();
+    this.value = ui.item.name;
+  },
+  focus: function (event, ui) {
+    event.preventDefault();
+    this.value = ui.item.name;
+  }
+})
   .data('ui-autocomplete')._renderItem = function(ul, item) {
     return $("<li>")
       .append(item.name)
       .appendTo(ul);
   };
 
-    /* the UI is a bit confusing here since the text gets replaced by
-       the number; there must be a better way */
-    $("#propnamesearch").autocomplete({
-    minLength: 3,
-    source: function(request, response) {
-    $.ajax({
-          url: "/api/search/proposal",
-          dataType: "json",
-          data: {
-            term: request.term
-          },
-          success: function(data) {
-    response(data.map(function(d) {
-      return { label: d.title, value: d.number };
-    }));
-          },
-          error: function(data) {
-            /* not sure what the expected behavior here is */
-            response([]);
-          },
-        });
-    },
-    close: selected("/proposal/")
-    });
+$("#propnamesearch").autocomplete({
+  minLength: 3,
+  source: '/api/search/proposal',
+  close: function(event, ui) {
+    if (event.key !== "Enter") { return; }
+
+    var number = event.target.getAttribute('data-number');
+    window.location = "/proposal/" + number;
+  },
+
+  select: function (event, ui) {
+    event.preventDefault();
+    this.value = ui.item.title;
+    this.setAttribute('data-number', ui.item.number);
+  },
+  focus: function (event, ui) {
+    event.preventDefault();
+    this.value = ui.item.title;
+    this.setAttribute('data-number', ui.item.number);
+  }
+})
+  .data('ui-autocomplete')._renderItem = function(ul, item) {
+    return $("<li>")
+      .append(item.title)
+      .appendTo(ul);
+  };
 </script>
 
   <footer>
