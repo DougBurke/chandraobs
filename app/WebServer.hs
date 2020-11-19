@@ -17,6 +17,8 @@ module Main (main) where
 
 import qualified Data.Map.Strict as M
 
+import qualified Data.Set as S
+
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy as L
@@ -858,7 +860,7 @@ webapp cm scache cache = do
     get "/api/search/name" (apiSearchName
                             (dbQuery "term" findNameMatch))
 
-    
+
     get "/api/search/proposal" (apiSearchProposal
                                 (dbQuery "term" findProposalNameMatch))
 
@@ -1539,15 +1541,27 @@ apiSearchDtype getData = do
 -}
 
 
+-- For now we map the results to a dictionary which may or may not have
+-- a location, and we remove matches from the "other" response with
+-- a case-insensitive match to extractAll.
+--
+-- Although not enforced by the type, the TargetName,Ra,Dec tuple
+-- should not contain multiple target name fields (other than
+-- case or space differences)
+--
 apiSearchName ::
-  ActionM (String, ([TargetName], [TargetName]))
+  ActionM (String, ([(TargetName, RA, Dec)], [TargetName]))
   -> ActionM ()
 apiSearchName getData = do
-  (_, (exact, other)) <- getData
-  -- for now, flatten out the response
-  -- TODO: should also remove excess spaces, but this requires some
-  --       thought on how the search functionality should work
-  json (nub (exact ++ other))
+  (_, (exactAll, other)) <- getData
+  let getName = T.toLower . fromTargetName
+      names = S.fromList (map (\(a, _, _) -> getName a) exactAll)
+      otherFilt = filter (\n -> getName n `S.notMember` names) other
+
+      t1 = map (\(n, ra, dec) -> object ["name" .= n, "ra" .= fromRA ra, "dec" .= fromDec dec]) exactAll
+      t2 = map (\n -> object ["name" .= n]) otherFilt
+
+  json (t1 ++ t2)
 
 
 apiSearchProposal ::

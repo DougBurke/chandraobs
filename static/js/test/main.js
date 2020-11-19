@@ -542,7 +542,7 @@ const main = (function() {
 	const tfind = document.querySelector("#targetFind");
 	if (tfind !== null) {
 	    tfind
-		.addEventListener("click", () => { findTargetName(); });
+	    .addEventListener("click", () => { findTargetName(); });
 	}
 
         /* Allow the user to start the search by hitting enter in the
@@ -1135,70 +1135,93 @@ const main = (function() {
     }
 
 
-    // click handler for targetFind.
-    // - get user-selected name
-    // - is it a position; if so jump to it
-    // - otherwise send it to the lookUP service
-    //
-    function findTargetName() {
-        var target = document.querySelector("#targetName").value;
-	if (target.trim() === "") {
-	    // this should not happen, but just in case
-	    console.log("Unexpected targetName=[" + target + "]");
-	    return;
-	}
-
-	// For now use a single comma as a simple indicator that we have
-	// a location, and not a target name.
-	//
-	const toks = target.split(",");
-
-	if (toks.length === 2) {
-	    const ra = strToRA(toks[0]);
-	    if (ra !== null) {
-		const dec = strToDec(toks[1]);
-		if (dec !== null) {
-
-		    const zoom = wwt.get_fov();
-		    wwt.gotoRaDecZoom(ra, dec, zoom);
-		    return;
-		}
-	    }
-	}
-
-	// Got this far, assume the input was a name to be resolved.
-	//
-	const host = getHost();
-	if (host === null) {
-	    return;
-	}
-
-	const spin = spinner.createSpinner();
-	host.appendChild(spin);
-
-	// disable both; note that on success both get re-enabled,
-	// which is okay because the user-entered target is still
-	// in the box (ie has content), so targetFind can be enabled.
-	//
-	const targetName = document.querySelector('#targetName');
-	const targetFind = document.querySelector('#targetFind');
-
-	targetName.setAttribute('disabled', 'disabled');
-	targetFind.setAttribute('disabled', 'disabled');
-
-	lookup.lookupName(target,
-			  (ra, dec) => {
-			      const zoom = wwt.get_fov();
-			      wwt.gotoRaDecZoom(ra, dec, zoom);
-			      host.removeChild(spin);
-
-			      targetName.removeAttribute('disabled');
-			      targetFind.removeAttribute('disabled');
-			  },
-			  (emsg) => reportLookupFailure(host, spin,
-							targetName, targetFind,
-							emsg));
+  // click handler for targetFind.
+  // - If it contains a location (from internal name lookup)
+  //   use it, if it is valid
+  // - get user-selected name
+  // - is it a position; if so jump to it
+  // - otherwise send it to the lookUP service
+  //
+  function findTargetName() {
+    const tgt = document.querySelector("#targetName");
+    var target = tgt.value;
+    if (target.trim() === "") {
+      // this should not happen, but just in case
+      console.log("Unexpected targetName=[" + target + "]");
+      return;
     }
+
+    // Do we have a location? There is a check to ensure the target name
+    // matches the recored values to allow for the user editing the field
+    // (it is easier to check here rather than at each update, and it
+    // allows a user to edit then go back to a known value).
+    //
+    const nameStr = tgt.getAttribute('data-name');
+    if (nameStr === target) {
+      const raStr = tgt.getAttribute('data-ra');
+      const decStr = tgt.getAttribute('data-dec');
+      if ((raStr !== null) && (decStr !== null)) {
+	const ra = parseFloat(raStr);
+	const dec = parseFloat(decStr);
+	const zoom = wwt.get_fov();
+	wwt.gotoRaDecZoom(ra, dec, zoom);
+	return;
+      }
+    }
+
+    console.log("Searching [" + target + "]");
+
+    // For now use a single comma as a simple indicator that we have
+    // a location, and not a target name.
+    //
+    const toks = target.split(",");
+
+    if (toks.length === 2) {
+      const ra = strToRA(toks[0]);
+      if (ra !== null) {
+	const dec = strToDec(toks[1]);
+	if (dec !== null) {
+
+	  const zoom = wwt.get_fov();
+	  wwt.gotoRaDecZoom(ra, dec, zoom);
+	  return;
+	}
+      }
+    }
+
+    // Got this far, assume the input was a name to be resolved.
+    //
+    const host = getHost();
+    if (host === null) {
+      return;
+    }
+
+    const spin = spinner.createSpinner();
+    host.appendChild(spin);
+
+    // disable both; note that on success both get re-enabled,
+    // which is okay because the user-entered target is still
+    // in the box (ie has content), so targetFind can be enabled.
+    //
+    const targetName = document.querySelector('#targetName');
+    const targetFind = document.querySelector('#targetFind');
+
+    targetName.setAttribute('disabled', 'disabled');
+    targetFind.setAttribute('disabled', 'disabled');
+
+    lookup.lookupName(target,
+		      (ra, dec) => {
+			const zoom = wwt.get_fov();
+			wwt.gotoRaDecZoom(ra, dec, zoom);
+			host.removeChild(spin);
+
+			targetName.removeAttribute('disabled');
+			targetFind.removeAttribute('disabled');
+		      },
+		      (emsg) => reportLookupFailure(host, spin,
+						    targetName, targetFind,
+						    emsg));
+  }
 
     // TODO: improve styling
     //
@@ -1260,6 +1283,56 @@ const main = (function() {
 		host.addEventListener('dragover',
 				      event => event.preventDefault());
 		host.addEventListener('drop', draggable.stopDrag);
+
+	      // Set up autocomplete
+	      // - see https://stackoverflow.com/a/15713592
+	      //   for over-riding the default autocomplete handler
+	      //
+	      // Since we allow the user to enter their own text we have
+	      // to track when the names match and when they don't. This
+	      // means that the #targetName keyup handler needs to handle
+	      // the data fields.
+	      //
+	        $("#targetName").autocomplete({
+		  minLength: 3,
+		  source: '/api/search/name',
+		  close: function(event, ui) {
+		    // Do we really need this?
+		    //
+		    if (event.key !== "Enter") { return; }
+		  },
+		  select: function (event, ui) {
+		    event.preventDefault();
+		    this.value = ui.item.name;
+		    if (ui.item.ra) {
+		      this.setAttribute('data-name', ui.item.name);
+		      this.setAttribute('data-ra', ui.item.ra);
+		      this.setAttribute('data-dec', ui.item.dec);
+		    } else {
+		      this.removeAttribute('data-name');
+		      this.removeAttribute('data-ra');
+		      this.removeAttribute('data-dec');
+		    }
+		  },
+		  focus: function (event, ui) {
+		    event.preventDefault();
+		    this.value = ui.item.name;
+		    if (ui.item.ra) {
+		      this.setAttribute('data-name', ui.item.name);
+		      this.setAttribute('data-ra', ui.item.ra);
+		      this.setAttribute('data-dec', ui.item.dec);
+		    } else {
+		      this.removeAttribute('data-name');
+		      this.removeAttribute('data-ra');
+		      this.removeAttribute('data-dec');
+		    }
+		  }
+		})
+	        .data('ui-autocomplete')._renderItem = function(ul, item) {
+		    return $("<li>")
+		      .append(item.name)
+		      .appendTo(ul);
+		};
 
 	    })
 	    .fail((xhr, status, e) => {

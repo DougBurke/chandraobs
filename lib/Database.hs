@@ -167,7 +167,7 @@ import Control.Monad (filterM, forM, forM_, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Control (MonadBaseControl)
 
-import Data.Char (toUpper)
+import Data.Char (isSpace, toUpper)
 import Data.Either (partitionEithers)
 import Data.Function (on)
 import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
@@ -444,7 +444,7 @@ findRecord t = do
                                 &&. notNsDiscarded)
                               `orderBy` [Desc NsStartTimeField])
                  
-  return (identifyLatestRecord mScience mNonScience)
+  pure (identifyLatestRecord mScience mNonScience)
 
 findRecordRestricted ::
   DbSql m
@@ -462,7 +462,7 @@ findRecordRestricted t = do
                    &&. notNsDiscarded)
                   `orderBy` [Desc NsStartTimeField])
 
-  return (identifyLatestRestrictedRecord mScience mNonScience)
+  pure (identifyLatestRestrictedRecord mScience mNonScience)
 
 -- | Return information on this obsid, if known about. This includes
 --   discarded and non-scheduled observations.
@@ -471,10 +471,10 @@ findObsId :: PersistBackend m => ObsIdVal -> m (Maybe Record)
 findObsId oi = do
   msobs <- findScience oi
   case msobs of
-    Just sobs -> return (Just (Right sobs))
+    Just sobs -> pure (Just (Right sobs))
     _ -> do
       ans <- findNonScience oi
-      return (Left <$> ans)
+      pure (Left <$> ans)
 
 -- | Select a single item (the first returned by the query).
 --
@@ -535,7 +535,7 @@ getNextObs ::
   => ObsIdVal
   -> Maybe ChandraTime
   -> m (Maybe Record)
-getNextObs _ Nothing = return Nothing  
+getNextObs _ Nothing = pure Nothing
 getNextObs oid mt = do
 
   mScience <- maybeSelect (((SoStartTimeField >. mt)
@@ -547,7 +547,7 @@ getNextObs oid mt = do
                                &&. notNsDiscarded)
                               `orderBy` [Asc NsStartTimeField])
   
-  return (identifyEarliestRecord mScience mNonScience)
+  pure (identifyEarliestRecord mScience mNonScience)
 
 
 -- | Return the last observation to have started before the given time,
@@ -561,7 +561,7 @@ getPrevObs ::
   => ObsIdVal
   -> Maybe ChandraTime
   -> m (Maybe Record)
-getPrevObs _ Nothing = return Nothing  
+getPrevObs _ Nothing = pure Nothing
 getPrevObs oid mt = do
 
   mScience <- maybeSelect (((SoStartTimeField <. mt)
@@ -573,7 +573,7 @@ getPrevObs oid mt = do
                                &&. notNsDiscarded)
                               `orderBy` [Desc NsStartTimeField])
   
-  return (identifyLatestRecord mScience mNonScience)
+  pure (identifyLatestRecord mScience mNonScience)
   
 
 -- | Find the current observation and the previous/next ones.
@@ -598,7 +598,7 @@ getObsInfo = do
   mobs <- getCurrentObs
   case mobs of
     Just obs -> Just <$> extractObsInfo obs
-    Nothing -> return Nothing
+    Nothing -> pure Nothing
 
 -- | Given an observation, extract the previous and next observations.
 --
@@ -616,11 +616,11 @@ extractObsInfo obs = do
                      NsStatusField ==. Discarded)
   
   if n /= 0
-    then return (ObsInfo obs Nothing Nothing)
+    then pure (ObsInfo obs Nothing Nothing)
     else do
       mprev <- getPrevObs obsid startTime
       mnext <- getNextObs obsid startTime
-      return (ObsInfo obs mprev mnext)
+      pure (ObsInfo obs mprev mnext)
 
 -- | Return information on the given observation, including
 --   preceeding and following observations.
@@ -633,7 +633,7 @@ findObsInfo oi = do
   mrec <- findObsId oi
   case mrec of
     Just r -> Just <$> extractObsInfo r
-    _ -> return Nothing
+    _ -> pure Nothing
 
 -- | Return the requested "science" observation,
 --   including discarded and unscheduled observations.
@@ -723,7 +723,7 @@ getObsInRange tStart tEnd = do
 
       res = mergeSL rrecordStartTime (unsafeToSL xs) (unsafeToSL ys)
 
-  return (fromSL res)
+  pure (fromSL res)
 
 {-
 getObsInRange ::
@@ -758,7 +758,7 @@ getObsInRange tStart tEnd = do
 
       res = mergeSL recordStartTime (unsafeToSL xs) (unsafeToSL ys)
 
-  return (fromSL res)
+  pure (fromSL res)
 -}
 
 
@@ -812,7 +812,7 @@ getSchedule ndays = do
       todoFirstTime = utcUnsafe <$> listToMaybe todo
         
   simbad <- getSimbadListRestricted res
-  return RestrictedSchedule
+  pure RestrictedSchedule
     { rrTime = now
     , rrUpdateTime = todoFirstTime
     , rrDays = ndays
@@ -878,7 +878,7 @@ getScheduleDate day ndays = do
         [] -> (Nothing, [])
         (current:cs) -> (Just current, reverse cs)
 
-  return sched
+  pure sched
 
 -- | Creates a schedule structure of the list of observations.
 --
@@ -916,7 +916,7 @@ makeSchedule rs = do
       (done, todo) = span ((<= cnow) . recordStartTimeUnsafe) others
 
   simbad <- getSimbadList cleanrs
-  return (Schedule now 0 done (listToMaybe nows) todo simbad)
+  pure (Schedule now 0 done (listToMaybe nows) todo simbad)
 
 -}
 
@@ -962,7 +962,7 @@ makeScheduleRestricted rs = do
       todoFirstTime = utcUnsafe <$> listToMaybe todo
   
   simbad <- getSimbadListRestricted cleanrs
-  return RestrictedSchedule
+  pure RestrictedSchedule
     { rrTime = now
     , rrUpdateTime = todoFirstTime
     , rrDays = 0
@@ -1042,9 +1042,9 @@ getSimbadList rs = do
 
   toMap <- forM mtargs $ \(tname, key) -> do
     val <- get key
-    return ((tname, ) <$> val)
+    pure ((tname, ) <$> val)
 
-  return (M.fromList (catMaybes toMap))
+  pure (M.fromList (catMaybes toMap))
 
 -}
 
@@ -1061,9 +1061,9 @@ getSimbadListRestricted rs = do
 
   toMap <- forM mtargs $ \(tname, key) -> do
     val <- get key
-    return ((tname, ) <$> val)
+    pure ((tname, ) <$> val)
 
-  return (M.fromList (catMaybes toMap))
+  pure (M.fromList (catMaybes toMap))
 
 
 -- | Do we have any SIMBAD information about the target?
@@ -1107,15 +1107,15 @@ fetchSIMBADType stype = do
                                                )
                                                `orderBy` [Asc SoStartTimeField])
 
-                          return (concat obs)
+                          pure (concat obs)
 
                -- could create sorted lists and then combine them,
                -- but that has issues, so do it manually
                let xs = concat sos
                    ys = toSL soStartTime xs
-               return (Just ((stype, ltype), ys))
+               pure (Just ((stype, ltype), ys))
 
-    _ -> return Nothing
+    _ -> pure Nothing
 
 -}
 
@@ -1139,16 +1139,16 @@ fetchSIMBADType stype = do
                      ((SoTargetField ==. t &&. isValidScienceObs)
                       `orderBy` [Asc SoStartTimeField])
 
-        return (concat obs)
+        pure (concat obs)
 
       -- could create sorted lists and then combine them,
       -- but that has issues, so do it manually
       --
       let xs = concat sos
           ys = toSL rsoStartTime xs
-      return (Just ((stype, ltype), ys))
+      pure (Just ((stype, ltype), ys))
 
-    Nothing -> return Nothing
+    Nothing -> pure Nothing
 
 
 
@@ -1171,7 +1171,7 @@ fetchNoSIMBADType = do
 
       out = unsafeToSL (filter noSimbad sobs)
 
-  return ((noSimbadType, noSimbadLabel), out)
+  pure ((noSimbadType, noSimbadLabel), out)
 
 -}
 
@@ -1192,7 +1192,7 @@ fetchNoSIMBADType = do
 
       out = unsafeToSL (filter noSimbad sobs)
 
-  return ((noSimbadType, noSimbadLabel), out)
+  pure ((noSimbadType, noSimbadLabel), out)
 
 
 {-
@@ -1230,7 +1230,7 @@ fetchSIMBADDescendentTypes parent = do
   sinfos <- project (SmiType3Field, SmiTypeField) (distinct constraint)
   keys <- project AutoKeyField constraint
   if null keys
-    then return ([], emptySL)
+    then pure ([], emptySL)
     else do
       -- can use foldl1 below because have checked that keys is not empty
       let keycons = map (SmmInfoField ==.) keys
@@ -1255,7 +1255,7 @@ fetchSIMBADDescendentTypes parent = do
             xs@(p:_) | p == ptype -> xs
             xs -> ptype : xs
       
-      return (out, unsafeToSL obs)
+      pure (out, unsafeToSL obs)
 
 -}
 
@@ -1276,7 +1276,7 @@ fetchSIMBADDescendentTypes parent = do
   sinfos <- project (SmiType3Field, SmiTypeField) (distinct constraint)
   keys <- project AutoKeyField constraint
   if null keys
-    then return ([], emptySL)
+    then pure ([], emptySL)
     else do
       -- can use foldl1 below because have checked that keys is not empty
       let keycons = map (SmmInfoField ==.) keys
@@ -1302,7 +1302,7 @@ fetchSIMBADDescendentTypes parent = do
             xs@(p:_) | p == ptype -> xs
             xs -> ptype : xs
       
-      return (out, unsafeToSL obs)
+      pure (out, unsafeToSL obs)
 
 
 -- | Return all observations that are joint with the given mission.
@@ -1322,7 +1322,7 @@ fetchJointMission jm = do
                   &&. notDiscarded)
                   `orderBy` [Asc SoStartTimeField])
 
-  return (unsafeToSL sobs)
+  pure (unsafeToSL sobs)
   -}
 
   {-
@@ -1342,7 +1342,7 @@ fetchJointMission jm = do
         Just ms -> includesMission jm ms
         Nothing -> False
 
-  return (unsafeToSL (filter hasMission sobs))
+  pure (unsafeToSL (filter hasMission sobs))
 
 -}
 
@@ -1361,7 +1361,7 @@ fetchJointMission jm = do
                   &&. notDiscarded)
                   `orderBy` [Asc SoStartTimeField])
 
-  return (unsafeToSL sobs)
+  pure (unsafeToSL sobs)
   -}
 
   {-
@@ -1379,7 +1379,7 @@ fetchJointMission jm = do
         Just ms -> includesMission jm ms
         Nothing -> False
 
-  return (unsafeToSL (filter hasMission sobs))
+  pure (unsafeToSL (filter hasMission sobs))
 
 
 -- | Return basic information on the joint-with observations.
@@ -1399,7 +1399,7 @@ fetchMissionInfo = do
           &&. isValidScienceObs)
 
   let toks = map (,1) (concatMap splitToMission jws)
-  return (M.toList (M.fromListWith (+) toks))
+  pure (M.toList (M.fromListWith (+) toks))
 
 -- | Return information on the object types we have stored.
 --
@@ -1418,7 +1418,7 @@ fetchObjectTypes = do
   let srt = groupBy ((==) `on` smiType3) res
       t [] = error "impossible fetchObjectTypes condition occurred"
       t xs@(x:_) = ((smiType3 x, smiType x), length xs)
-  return (map t srt)
+  pure (map t srt)
 
 -- | Return observations which match this constellation, excluding
 --   discarded observations.
@@ -1432,7 +1432,7 @@ fetchConstellation con = do
   ans <- select ((SoConstellationField ==. con
                   &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+  pure (unsafeToSL ans)
 
 -}
 
@@ -1483,7 +1483,7 @@ fetchConstellationTypes = do
 
   let ms = map (second (uncurry fromMaybe)) res
       ts = M.fromListWith addTimeKS ms
-  return (M.toAscList ts)
+  pure (M.toAscList ts)
 
 
 -- | Note that trying to get "all" returns the empty set.
@@ -1492,7 +1492,7 @@ fetchCycle ::
   DbSql m
   => Cycle
   -> m (SortedList StartTimeOrder RestrictedSO)
-fetchCycle cyc | cyc == allCycles = return emptySL
+fetchCycle cyc | cyc == allCycles = pure emptySL
                | otherwise = do
                    props <- project PropNumField (PropCycleField ==. fromCycle cyc)
                    fetchScienceObsBy (SoProposalField `in_` props)
@@ -1507,7 +1507,7 @@ fetchCycles = do
 
   -- assume that the conversion to a Cycle can not fail here
   let cycles = map unsafeToCycle cys
-  return (countUp cycles)
+  pure (countUp cycles)
 
 
 sortExposures ::
@@ -1520,7 +1520,7 @@ sortExposures exps =
       let exps0 = V.fromList (map (fromTimeKS . uncurry fromMaybe) exps)
       m <- V.unsafeThaw exps0
       VA.sort m
-      return m)
+      pure m)
 
 -- | What is the number of observations, and exposure range, for each
 --   range bin?
@@ -1563,7 +1563,7 @@ fetchExposureRanges = do
       eranges = zip ebins (tail ebins)
       res = zip nbins eranges
 
-  return (zip [minBound .. maxBound] res)
+  pure (zip [minBound .. maxBound] res)
 
 
 -- | Return observations broken down by where there exposure
@@ -1581,7 +1581,7 @@ fetchExposureRange pr = do
   rgs <- fetchExposureRanges
   case lookup pr rgs of
     Just (_, (tlo, thi)) -> getExposureRange (pr == PR100) tlo thi
-    Nothing -> return emptySL -- should not happen
+    Nothing -> pure emptySL -- should not happen
 
 
 getExposureRange ::
@@ -1629,7 +1629,7 @@ fetchCategory cat = do
   sobs <- select ((SoProposalField `in_` propNums
                    &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL sobs)
+  pure (unsafeToSL sobs)
 -}
 
 fetchCategory ::
@@ -1663,13 +1663,13 @@ fetchCategorySubType cat mtype = do
         mkey <- project SmmInfoField (SmmTargetField ==. soTarget)
         case mkey of
           (key:_) -> case mtype of
-            Nothing -> return False
+            Nothing -> pure False
             Just _ -> do
               otype <- listToMaybe
                        <$> project SmiType3Field (AutoKeyField ==. key)
-              return (otype == mtype)
+              pure (otype == mtype)
                         
-          [] -> return (isNothing mtype)
+          [] -> pure (isNothing mtype)
 
   unsafeToSL <$> filterM matchSIMBAD sobs
 
@@ -1696,7 +1696,7 @@ fetchProposal pn = do
   mprop <- getProposalFromNumber pn
   mabs <- maybeSelect (PaNumField ==. pn)
   ms <- fetchScienceObsBy (SoProposalField ==. pn)
-  return (mprop, mabs, ms)
+  pure (mprop, mabs, ms)
 
 -- | Return all the observations which match this instrument,
 --   excluding discarded.
@@ -1709,7 +1709,7 @@ fetchInstrument ::
 fetchInstrument inst = do
   ans <- select $ (SoInstrumentField ==. inst &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
-  return (unsafeToSL ans)
+  pure (unsafeToSL ans)
 -}
 
 fetchInstrument ::
@@ -1729,7 +1729,7 @@ fetchGrating ::
 fetchGrating grat = do
   ans <- select ((SoGratingField ==. grat &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+  pure (unsafeToSL ans)
 
 -}
 
@@ -1753,7 +1753,7 @@ fetchIG (inst, grat) = do
                    &&. (SoGratingField ==. grat)
                    &&. isValidScienceObs)
          `orderBy` [Asc SoStartTimeField]
-  return (unsafeToSL ans)
+  pure (unsafeToSL ans)
 -}
 
 fetchIG ::
@@ -1836,7 +1836,7 @@ fetchTOOs = do
       ms = map (first tooTime) toos
       ts = M.fromListWith addTimeKS ms
       
-  return (M.toAscList ts, noneTime)
+  pure (M.toAscList ts, noneTime)
 
 -- | Return the schedule for a given TOO period.
 --
@@ -1863,7 +1863,7 @@ fetchTOO too = do
   let ans = filter isTOO allAns
       isTOO so = tooTime `fmap` rsoTOO so == too
       
-  return (unsafeToSL ans)
+  pure (unsafeToSL ans)
 
 
 -- | What is the breakdown of the constraints?
@@ -1897,7 +1897,7 @@ fetchConstraints = do
 
       ts = M.fromListWith addTimeKS cs
       
-  return (M.toAscList ts, noneTime)
+  pure (M.toAscList ts, noneTime)
 
 
 getCon ::
@@ -1924,7 +1924,7 @@ fetchConstraint mcs = do
   ans <- select ((getCon mcs
                   &&. isValidScienceObs)
                  `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL ans)
+  pure (unsafeToSL ans)
 -}
 
 fetchConstraint ::
@@ -2030,11 +2030,11 @@ getProposalInfo ::
   DbSql m
   => Record
   -> m (Maybe Proposal, SortedList StartTimeOrder ScienceObs)
-getProposalInfo (Left _) = return (Nothing, emptySL)
+getProposalInfo (Left _) = pure (Nothing, emptySL)
 getProposalInfo (Right so) = do
   mproposal <- getProposal so
   matches <- getProposalObs so
-  return (mproposal, matches)
+  pure (mproposal, matches)
 
 -- | Report on the observational status of the science observations.
 --   The values are ordered in descending order of the counts (the list
@@ -2062,16 +2062,31 @@ findNameMatch ::
   => String
   -- ^ a case-insensitive match is made for this string; an empty string matches
   --   everything
-  -> m ([TargetName], [TargetName])
+  -> m ([(TargetName, RA, Dec)], [TargetName])
   -- ^ object names - first the target names, then the "also known as" from SIMBAD
-  --   - names in the database.
+  --   - names in the database. We don't have a location for the "also known"
+  --   locations (we could try and reverse search but I don't want to try that
+  --   yet).
+  --
+  --   We pick one location for targets which have matching names (using a
+  --   case-insensitive match, and removing spaces). This means we could end
+  --   up selecting an "off-center" value.
+  --
 findNameMatch instr = do
   let matchStr = '%' : map toUpper instr ++ "%"
-  targets <- project SoTargetField
+  targets <- project (SoTargetField, SoRAField, SoDecField)
              (distinct (upper SoTargetField `like` matchStr))
   simbads <- project SmiNameField
              (distinct (upper SmiNameField `like` matchStr))
-  return (targets, simbads)
+
+  -- Pick the last seen element in the case of matches and match
+  -- on lower-case, with all space characters removed.
+  --
+  let tgs = M.fromList (map (\t@(tn, _, _) -> (toName tn, t)) targets)
+      toName = T.toLower . T.filter (not . isSpace) . fromTargetName
+
+  -- elems says it returns in ascending order
+  pure (M.elems tgs, simbads)
 
 
 -- | Find proposals whose titles match the given string
@@ -2139,7 +2154,7 @@ findTarget target = do
 
   -- hopefully there are no repeats in these two lists
   let sobs = mergeSL rsoStartTime direct indirect
-  return (sobs, snames)
+  pure (sobs, snames)
 
 type NumSrc = Int
 type NumObs = Int
@@ -2215,7 +2230,7 @@ getProposalObjectMapping = do
   simDb <- forM simList $ \(target, key) -> do
     ans <- maybeProject (SmiTypeField, SmiType3Field)
            (AutoKeyField ==. key)
-    return ((target,) . SK <$> ans)
+    pure ((target,) . SK <$> ans)
     
   let simMap :: M.Map TargetName SIMKey
       simMap = M.fromList (catMaybes simDb)
@@ -2232,7 +2247,7 @@ getProposalObjectMapping = do
   let convert (a, b, aTime, oTime) = do
         let scat = fromMaybe unidentifiedKey (M.lookup a simMap)
         pcat <- M.lookup b propMap
-        return (a, [((pcat, scat), (fromMaybe aTime oTime, 1))])
+        pure (a, [((pcat, scat), (fromMaybe aTime oTime, 1))])
 
       obsMap1 :: M.Map TargetName [((PropCategory, SIMKey), (TimeKS, NumObs))]
       obsMap1 = M.fromListWith (++) (mapMaybe convert obsDb)
@@ -2329,14 +2344,14 @@ getTimeline = do
                                    -- fail; it still has that assumption
                                    -- but is now more explicit about it
                                    case msi of
-                                     Just si -> return (name, si)
+                                     Just si -> pure (name, si)
                                      Nothing -> error "programming error: unexpected key")
 
   -- TODO: should simbadMap be evaluated?
   let simbadMap = M.fromList simbadInfo
 
   props <- map snd <$> selectAll
-  return (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
+  pure (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
 
 
 -- | Grab the last-modified date from the database and include
@@ -2350,7 +2365,7 @@ addLastMod ::
   --   field is found in the database.
 addLastMod out = do
   lastMod <- getLastModifiedFixed
-  return (out, lastMod)
+  pure (out, lastMod)
 
   
 -- | Work out a timeline based on instrument configuration; that is,
@@ -2393,7 +2408,7 @@ getExposureBreakdown maxDay = do
       perDay = M.fromAscListWith addElem days
       total = M.foldl' addElem M.empty perDay
         
-  return (total, perDay)
+  pure (total, perDay)
 
 
 -- | Get the number of science observations per day.
@@ -2419,7 +2434,7 @@ getNumObsPerDay maxDay = do
   let ctimes = catMaybes times
       days = map (\t -> ((utctDay . fromChandraTime) t, 1)) ctimes
 
-  return (M.fromAscListWith (+) days)
+  pure (M.fromAscListWith (+) days)
 
 {-
 -- | Return some hopefully-interesting statistics about the
@@ -2496,7 +2511,7 @@ getProposalTypeBreakdown = do
   -- exposure time of the proposals for each proposal
   -- type.
   --
-  return (M.map propAdd propMap)
+  pure (M.map propAdd propMap)
 
 -- | This does not include discarded observatons.
 {-
@@ -2510,7 +2525,7 @@ getProposalType ptype = do
   sobs <- select (((SoProposalField `in_` pnums)
                    &&. isValidScienceObs)
                   `orderBy` [Asc SoStartTimeField])
-  return (unsafeToSL sobs)
+  pure (unsafeToSL sobs)
 -}
 
 getProposalType ::
@@ -2570,7 +2585,7 @@ getExposureValues = do
       out = ("all", unsafeToSL all2) :
             map (second unsafeToSL) (M.toList map2)
 
-  return out
+  pure out
 
 
 -- **EXPERIMENT**
@@ -2724,7 +2739,7 @@ showSize ::
 showSize l t = do
   n <- countAll t
   putIO (sformat ("Number of " % stext % " : " % int) l n)
-  return n
+  pure n
 
 -- | Quick on-screen summary of the database size.
 --
@@ -2764,7 +2779,7 @@ reportSize = do
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8, nbad]
   putIO ""
   putIO (sformat ("Number of rows              : " % int) ntot)
-  return ntot
+  pure ntot
 
 -- Need to make sure the following match the constraints on the tables found
 -- in Types.hs
@@ -2852,7 +2867,7 @@ insertIfUnknown o cond = do
   n <- count cond
   let unknown = n == 0
   when unknown (insert_ o)
-  return unknown
+  pure unknown
 
 
 -- | If the record is not known - as defined by the condition
@@ -2963,7 +2978,7 @@ getDataBaseInfo = do
       texp (t, Nothing) = fromTimeKS t
       tscience = unsafeToTimeKS (sum (map texp stimes))
                          
-  return (nscience, nprop, tscience, lastMod)
+  pure (nscience, nprop, tscience, lastMod)
                      
 
 -- | Hard-coded connection string for the database connection.
@@ -3011,7 +3026,7 @@ timeDb act = do
   ans <- withPostgresqlConn connStr (runDbConn (handleMigration >> act))
   t2 <- liftIO getCurrentTime
   let diff = t2 `diffUTCTime` t1
-  return (ans, realToFrac diff)
+  pure (ans, realToFrac diff)
 
 
 
