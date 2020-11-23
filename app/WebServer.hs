@@ -15,8 +15,6 @@ module Main (main) where
 -- import qualified Data.Conduit as C
 -- import qualified Data.Conduit.Combinators as CC
 
-import qualified Data.ByteString.Lazy as BL
-
 import qualified Data.Map.Strict as M
 
 import qualified Data.Set as S
@@ -51,10 +49,11 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (MVar, newMVar, putMVar, readMVar)
+import Control.Concurrent.MVar (newMVar, putMVar, readMVar)
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Reader (ask, lift, runReaderT)
 
 import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Default (def)
@@ -92,7 +91,7 @@ import System.IO (hFlush, stderr)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
 
-import Web.Scotty
+import Web.Scotty.Trans
 
 import Cache (Cache, CacheKey
              , fromCacheData, getFromCache, makeCache, toCacheKey)
@@ -258,7 +257,8 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , rsoExposureTime
              
              )
-import Utils (fromBlaze, standardResponse
+import Utils (ActionM, ScottyM
+             , fromBlaze, standardResponse
              , timeToRFC1123
              , showInt
              , isChandraImageViewable
@@ -268,6 +268,9 @@ import Utils (fromBlaze, standardResponse
              , fromETag
              , HtmlContext(DynamicHtml)
              )
+
+
+
 
 production :: 
   Int  -- ^ The port number to use
@@ -311,12 +314,6 @@ main = do
   case eopts of
     Left emsg -> uerror emsg
     Right opts -> 
-      -- TODO: what is a sensible number for the pool size?
-        {-
-      withPostgresqlPool connStr 5 $ 
-        scottyOpts opts . webapp
-        -}
-
         do
           scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
@@ -437,7 +434,9 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            scottyOpts opts (webapp pool scache cache obsInfoCache)
+            let wrap r = runReaderT r obsInfoCache
+            scottyOptsT opts wrap (webapp pool scache cache)
+
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -476,9 +475,8 @@ webapp ::
   Pool Postgresql
   -> CacheContainer
   -> Cache
-  -> MVar BL.ByteString
   -> ScottyM ()
-webapp cm scache cache obsInfoCache = do
+webapp cm scache cache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
 
@@ -526,6 +524,7 @@ webapp cm scache cache obsInfoCache = do
     --
     get "/api/current" $ do
       do
+        obsInfoCache <- lift ask
         jdata <- liftAndCatchIO (readMVar obsInfoCache)
         -- since storing JSON stored as a string we can not use json
         --- but have to manually recreate it
