@@ -15,6 +15,8 @@ module Main (main) where
 -- import qualified Data.Conduit as C
 -- import qualified Data.Conduit.Combinators as CC
 
+import qualified Data.ByteString.Lazy as BL
+
 import qualified Data.Map.Strict as M
 
 import qualified Data.Set as S
@@ -48,10 +50,13 @@ import qualified Views.Search.TOO as TOO
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.MVar (MVar, newMVar, putMVar, readMVar)
+
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
-import Data.Aeson (ToJSON, Value, (.=), object)
+import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Default (def)
 import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
@@ -235,6 +240,8 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromPropType
              , recordObsId
              , recordTarget
+             , recordStartTime
+             , recordEndTime
 
              , fromConShort
              , fromConLong
@@ -314,6 +321,28 @@ main = do
           scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
+
+            -- Invent a different caching strategy than used below for the
+            -- observation-info data.
+            --
+            -- Should probably also store the last-modified date in some form.
+            --
+            let getObsInfoJSON = do
+                  mobs <- runDbConn getObsInfo pool
+                  pure $ case mobs of
+                           Just obs ->
+                             let ans = ("Success" :: T.Text,
+                                         object [ "current" .= simpleObject (oiCurrentObs obs)
+                                                , "previous" .= (simpleObject <$> oiPrevObs obs)
+                                                , "next" .= (simpleObject <$> oiNextObs obs)
+                                                ])
+                             in ans `seq` encode ans  -- what should be sequenced
+                           Nothing -> encode ("Failed" :: T.Text)
+
+            obsInfoCache <- getObsInfoJSON >>= newMVar
+            _ <- forkIO $ do
+              threadDelay 60000000
+              getObsInfoJSON >>= putMVar obsInfoCache
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -408,7 +437,7 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            scottyOpts opts (webapp pool scache cache)
+            scottyOpts opts (webapp pool scache cache obsInfoCache)
 
 -- Hack; needs cleaning up
 getDBInfo :: 
@@ -447,8 +476,9 @@ webapp ::
   Pool Postgresql
   -> CacheContainer
   -> Cache
+  -> MVar BL.ByteString
   -> ScottyM ()
-webapp cm scache cache = do
+webapp cm scache cache obsInfoCache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
 
@@ -491,15 +521,16 @@ webapp cm scache cache = do
           setHeader "Last-Modified" (timeToRFC1123 lastMod)
           setHeader "ETag" (fromETag etag))
 
-    -- for now always return JSON; need a better success/failure
+    -- For now always return JSON; need a better success/failure
     -- set up.
     --
-    -- the amount of information returned by getObsId is
-    -- excessive here; probably just need the preceeding and
-    -- next obsid values (if any), but leave as is for now.
-    --
-
-    get "/api/current" (apiCurrent (liftSQL getObsInfo))
+    get "/api/current" $ do
+      do
+        jdata <- liftAndCatchIO (readMVar obsInfoCache)
+        -- since storing JSON stored as a string we can not use json
+        --- but have to manually recreate it
+        setHeader "Content-Type" "application/json; charset=utf-8"
+        raw jdata
 
     -- TODO: this is completely experimental
     --       add support for cache
@@ -1440,32 +1471,20 @@ debug msg = liftAndCatchIO (T.putStrLn ("<< " <> msg <> " >>"))
 --      target
 --
 simpleObject :: Record -> Value
-simpleObject r = object [ "obsid" .= fromObsId (recordObsId r)
-                        , "target" .= recordTarget r
-                        ]
+simpleObject r =
+  let mtimes = do
+        s <- recordStartTime r
+        e <- recordEndTime r
+        Just (s, e)
 
-
--- Return the obsid and target for the selected, previous, and next
--- observations.
---
--- The return is an object with fields 'current', 'previous', and
--- 'next' which are themselves objects with 'obsid' and 'target'
--- fields.
---
-apiCurrent :: ActionM (Maybe ObsInfo) -> ActionM ()
-apiCurrent getData = do
-
-  -- note: this is creating/throwing away a bunch of info that could be useful
-  mobs <- getData
-
-  case mobs of
-    Just obs -> json ("Success" :: T.Text,
-                      object [ "current" .= simpleObject (oiCurrentObs obs)
-                             , "previous" .= (simpleObject <$> oiPrevObs obs)
-                             , "next" .= (simpleObject <$> oiNextObs obs)
-                             ])
-
-    _ -> json ("Failed" :: T.Text)
+  in object ([ "obsid" .= fromObsId (recordObsId r)
+             , "target" .= recordTarget r
+             ] ++ case mtimes of
+                    Just (stime, etime) ->
+                      [ "start" .= fromChandraTime stime
+                      , "end" .= fromChandraTime etime
+                      ]
+                    Nothing -> [])
 
 
 {-
@@ -1892,7 +1911,7 @@ fromScienceObs propMap simbadMap tNow so =
         Just pDate -> pDate < tNow
         Nothing -> False
 
-      -- It would be good not to encode this aling with isPublic,
+      -- It would be good not to encode this along with isPublic,
       -- but I dont' see a sensible way of encoding the URL
       -- from within Exhibit (the 0-padded obsid value)
       -- without help from here. I guess could have a "label-ified"
