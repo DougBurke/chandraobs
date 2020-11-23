@@ -53,7 +53,7 @@ import Control.Concurrent.MVar (newMVar, putMVar, readMVar)
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Reader (ask, lift, runReaderT)
+import Control.Monad.Reader (lift, reader,runReaderT)
 
 import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Default (def)
@@ -258,6 +258,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              
              )
 import Utils (ActionM, ScottyM
+             , ChandraData(..), newReader
              , fromBlaze, standardResponse
              , timeToRFC1123
              , showInt
@@ -322,11 +323,16 @@ main = do
             -- Invent a different caching strategy than used below for the
             -- observation-info data.
             --
-            -- Should probably also store the last-modified date in some form.
+            -- I am randomly adding seq for fun here.
             --
-            let getObsInfoJSON = do
-                  mobs <- runDbConn getObsInfo pool
-                  pure $ case mobs of
+            let cacheData = do
+                  let getData = do
+                        a <- getObsInfo
+                        b <- getLastModifiedFixed
+                        return (a, b)
+
+                  (mobs, timeData) <- runDbConn getData pool
+                  let obsData = case mobs of
                            Just obs ->
                              let ans = ("Success" :: T.Text,
                                          object [ "current" .= simpleObject (oiCurrentObs obs)
@@ -336,10 +342,17 @@ main = do
                              in ans `seq` encode ans  -- what should be sequenced
                            Nothing -> encode ("Failed" :: T.Text)
 
-            obsInfoCache <- getObsInfoJSON >>= newMVar
+                  pure $ let out = (obsData, timeData `seq` timeData) in out `seq` out
+
+            (ca, cb) <- cacheData
+            obsInfoCache <- newMVar ca
+            lastModCache <- newMVar cb
+
             _ <- forkIO $ do
               threadDelay 60000000
-              getObsInfoJSON >>= putMVar obsInfoCache
+              (a, b) <- cacheData
+              putMVar obsInfoCache a
+              putMVar lastModCache b
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -434,7 +447,8 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            let wrap r = runReaderT r obsInfoCache
+            let chandraApp = newReader obsInfoCache lastModCache
+                wrap r = runReaderT r chandraApp
             scottyOptsT opts wrap (webapp pool scache cache)
 
 
@@ -513,7 +527,8 @@ webapp cm scache cache = do
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
-          lastMod <- liftSQL getLastModifiedFixed
+          lastModCache <- lift (reader cdLastModCache)
+          lastMod <- liftAndCatchIO (readMVar lastModCache)
           let etag = makeETag gitCommitId "/api/allfov" lastMod
 
           setHeader "Last-Modified" (timeToRFC1123 lastMod)
@@ -524,7 +539,7 @@ webapp cm scache cache = do
     --
     get "/api/current" $ do
       do
-        obsInfoCache <- lift ask
+        obsInfoCache <- lift (reader cdObsInfoCache)
         jdata <- liftAndCatchIO (readMVar obsInfoCache)
         -- since storing JSON stored as a string we can not use json
         --- but have to manually recreate it

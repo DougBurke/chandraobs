@@ -6,6 +6,8 @@
 module Utils (
      ActionM
      , ScottyM
+     , ChandraData(..)
+     , newReader
 
      , HtmlContext(..)
      , toLink
@@ -91,7 +93,19 @@ import Types (ScienceObs(..)
              )
 
 
-type ChandraData = MVar LB.ByteString
+-- Reuse the Web.Scotty names to avoid too many changes
+
+data ChandraData = ChandraData {
+  cdObsInfoCache :: MVar LB.ByteString
+  , cdLastModCache :: MVar UTCTime
+  }
+
+newReader ::
+  MVar LB.ByteString
+  -> MVar UTCTime
+  -> ChandraData
+newReader = ChandraData
+
 type ChandraApp = ReaderT ChandraData IO
 type ActionM = ActionT L.Text ChandraApp
 type ScottyM = ScottyT L.Text ChandraApp
