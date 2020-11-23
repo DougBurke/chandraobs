@@ -49,7 +49,7 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (newMVar, putMVar, readMVar)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar)
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -325,6 +325,9 @@ main = do
             --
             -- I am randomly adding seq for fun here.
             --
+            obsInfoCache <- newEmptyMVar
+            lastModCache <- newEmptyMVar
+
             let cacheData = do
                   let getData = do
                         a <- getObsInfo
@@ -334,25 +337,22 @@ main = do
                   (mobs, timeData) <- runDbConn getData pool
                   let obsData = case mobs of
                            Just obs ->
-                             let ans = ("Success" :: T.Text,
-                                         object [ "current" .= simpleObject (oiCurrentObs obs)
-                                                , "previous" .= (simpleObject <$> oiPrevObs obs)
-                                                , "next" .= (simpleObject <$> oiNextObs obs)
-                                                ])
-                             in ans `seq` encode ans  -- what should be sequenced
+                             let t1 = "Success" :: T.Text
+                                 t2 = object [ "current" .= simpleObject (oiCurrentObs obs)
+                                             , "previous" .= (simpleObject <$> oiPrevObs obs)
+                                             , "next" .= (simpleObject <$> oiNextObs obs)
+                                             ]
+                                 ans = encode (t1, t2)
+                             in ans `seq` ans
                            Nothing -> encode ("Failed" :: T.Text)
 
-                  pure $ let out = (obsData, timeData `seq` timeData) in out `seq` out
-
-            (ca, cb) <- cacheData
-            obsInfoCache <- newMVar ca
-            lastModCache <- newMVar cb
+                  obsData `seq` putMVar obsInfoCache obsData
+                  timeData `seq` putMVar lastModCache timeData
+                  pure ()
 
             _ <- forkIO $ do
+              cacheData
               threadDelay 60000000
-              (a, b) <- cacheData
-              putMVar obsInfoCache a
-              putMVar lastModCache b
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
