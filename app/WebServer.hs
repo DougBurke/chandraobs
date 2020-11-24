@@ -535,7 +535,7 @@ webapp cm scache cache = do
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
     get "/api/allfov" (apiAllFOV
-                        (liftSQL getLastModifiedFixed)
+                        (getCache cdLastModCache)
                         (liftSQL findAllObs))
 
     -- is adding HEAD support, and including modified info, sensible?
@@ -925,7 +925,7 @@ webapp cm scache cache = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" (apiMappings
-                          (liftSQL getLastModifiedFixed)
+                          (getCache cdLastModCache)
                           (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
@@ -938,7 +938,7 @@ webapp cm scache cache = do
 
     -- highly experimental
     get "/api/exposures" (apiExposures
-                           (liftSQL getLastModifiedFixed)
+                           (getCache cdLastModCache)
                            (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
