@@ -6,6 +6,7 @@
 module Utils (
      ActionM
      , ScottyM
+     , DBInfo
      , ChandraData(..)
      , newReader
 
@@ -78,10 +79,12 @@ import Text.Blaze.Html.Renderer.Text
 import Web.Scotty.Trans
 
 import Git (CommitId, fromCommitId)
+import Sorted (SortedList, StartTimeOrder)
 import Types (ScienceObs(..)
              , ChandraTime, toChandraTime, fromChandraTime
              , Instrument(..)
              , ObsIdVal(..)
+             , ObsInfo, SimbadInfo, Proposal, RestrictedSchedule
              , TimeKS, fromTimeKS
              , Record
              , Schedule(..)
@@ -96,12 +99,20 @@ import Types (ScienceObs(..)
 -- Reuse the Web.Scotty names to avoid too many changes
 
 data ChandraData = ChandraData {
-  cdObsInfoCache :: MVar LB.ByteString
+  cdObsInfoCache :: MVar (Maybe ObsInfo)
+  , cdObsInfoJSONCache :: MVar LB.ByteString
+  , cddbInfoCache :: MVar (Maybe DBInfo)
+  , cdCurrentObsCache :: MVar (Maybe Record)
+  , cdSchedule3Cache :: MVar RestrictedSchedule
   , cdLastModCache :: MVar UTCTime
   }
 
 newReader ::
-  MVar LB.ByteString
+  MVar (Maybe ObsInfo)
+  -> MVar LB.ByteString
+  -> MVar (Maybe DBInfo)
+  -> MVar (Maybe Record)
+  -> MVar RestrictedSchedule
   -> MVar UTCTime
   -> ChandraData
 newReader = ChandraData
@@ -110,6 +121,7 @@ type ChandraApp = ReaderT ChandraData IO
 type ActionM = ActionT L.Text ChandraApp
 type ScottyM = ScottyT L.Text ChandraApp
 
+type DBInfo = (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
 
 -- | Should HTML be generated for the static or dynamic version
 --   of a page.

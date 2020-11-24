@@ -173,7 +173,6 @@ import Database (NumObs, NumSrc, SIMKey
 import Git (gitCommitId)
 
 import Layout (getFact, renderObsIdDetails)
--- import Layout (getFact, renderLinks)
 import Sorted (SortedList
               , nullSL, fromSL, mergeSL, unsafeToSL, lengthSL
               , StartTimeOrder, ExposureTimeOrder)
@@ -258,6 +257,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              
              )
 import Utils (ActionM, ScottyM
+             , DBInfo
              , ChandraData(..), newReader
              , fromBlaze, standardResponse
              , timeToRFC1123
@@ -326,15 +326,24 @@ main = do
             -- I am randomly adding seq for fun here.
             --
             obsInfoCache <- newEmptyMVar
+            dbInfoCache <- newEmptyMVar
+            obsInfoJSONCache <- newEmptyMVar
+            currentObsCache <- newEmptyMVar
+            schedule3Cache <- newEmptyMVar
             lastModCache <- newEmptyMVar
 
             let cacheData = do
                   let getData = do
                         a <- getObsInfo
-                        b <- getLastModifiedFixed
-                        return (a, b)
+                        b <- case a of
+                               Just obs -> Just <$> getDBInfo (oiCurrentObs obs)
+                               Nothing -> pure Nothing
+                        c <- getCurrentObs
+                        d <- getSchedule 3
+                        e <- getLastModifiedFixed
+                        return (a, b, c, d, e)
 
-                  (mobs, timeData) <- runDbConn getData pool
+                  (mobs, mdbInfo, mRec, sched, timeData) <- runDbConn getData pool
                   let obsData = case mobs of
                            Just obs ->
                              let t1 = "Success" :: T.Text
@@ -346,7 +355,11 @@ main = do
                              in ans `seq` ans
                            Nothing -> encode ("Failed" :: T.Text)
 
-                  obsData `seq` putMVar obsInfoCache obsData
+                  putMVar obsInfoCache mobs
+                  obsData `seq` putMVar obsInfoJSONCache obsData
+                  mdbInfo `seq` putMVar dbInfoCache mdbInfo
+                  mRec `seq` putMVar currentObsCache mRec
+                  sched `seq` putMVar schedule3Cache sched
                   timeData `seq` putMVar lastModCache timeData
                   pure ()
 
@@ -447,7 +460,7 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            let chandraApp = newReader obsInfoCache lastModCache
+            let chandraApp = newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache
                 wrap r = runReaderT r chandraApp
             scottyOptsT opts wrap (webapp pool scache cache)
 
@@ -456,7 +469,7 @@ main = do
 getDBInfo :: 
   (MonadIO m, PersistBackend m, SqlDb (Conn m)) 
   => Record 
-  -> m (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
+  -> m DBInfo
 getDBInfo r = do
   as <- either (const (return Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
@@ -493,6 +506,7 @@ webapp ::
 webapp cm scache cache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
+        getCache f = lift (reader f) >>= liftAndCatchIO . readMVar
 
     defaultHandler errHandle
 
@@ -527,8 +541,7 @@ webapp cm scache cache = do
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
-          lastModCache <- lift (reader cdLastModCache)
-          lastMod <- liftAndCatchIO (readMVar lastModCache)
+          lastMod <- getCache cdLastModCache
           let etag = makeETag gitCommitId "/api/allfov" lastMod
 
           setHeader "Last-Modified" (timeToRFC1123 lastMod)
@@ -539,8 +552,7 @@ webapp cm scache cache = do
     --
     get "/api/current" $ do
       do
-        obsInfoCache <- lift (reader cdObsInfoCache)
-        jdata <- liftAndCatchIO (readMVar obsInfoCache)
+        jdata <- getCache cdObsInfoJSONCache
         -- since storing JSON stored as a string we can not use json
         --- but have to manually recreate it
         setHeader "Content-Type" "application/json; charset=utf-8"
@@ -952,17 +964,19 @@ webapp cm scache cache = do
     get "/obsid/:obsid/wwt" redirectObsid
 
     get "/index.html" $ do
-      mobs <- liftSQL getObsInfo
-      cTime <- liftIO getCurrentTime
-      case mobs of
-        Just obs -> do
-          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
+      mobs <- getCache cdObsInfoCache
+      mdb <- getCache cddbInfoCache
+      case (mobs, mdb) of
+        (Just obs, Just dbInfo) -> do
+          cTime <- liftIO getCurrentTime
           fromBlaze (Index.introPage cTime obs dbInfo)
+
         _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
+
 
     get "/obsid/:obsid" (obsidOnly
                          (snd <$> queryObsidParam)
-                         (liftSQL getCurrentObs)
+                         (getCache cdCurrentObsCache)
                          (liftSQL . getDBInfo . oiCurrentObs)
                         )
 
@@ -971,7 +985,8 @@ webapp cm scache cache = do
                               (snd <$> dbQuery "propnum" fetchProposal)
                               (liftSQL . makeScheduleRestricted))
       
-    let querySchedule n = do
+    let querySchedule 3 = queryScheduleCache
+        querySchedule n = do
           sched <- liftSQL (getSchedule n)
           fromBlaze (Schedule.schedPage sched)
           
@@ -983,9 +998,13 @@ webapp cm scache cache = do
           val <- param name
           when (val <= 0) next  -- TODO: better error message
           querySchedule (mul * val)
-          
+
+        -- just cache the 3-day result
+        queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
+
     get "/schedule" (redirect "/schedule/index.html")
-    get "/schedule/index.html" (querySchedule 3)
+    -- get "/schedule/index.html" (querySchedule 3)
+    get "/schedule/index.html" queryScheduleCache
     get "/schedule/day" (querySchedule 1)
     get "/schedule/week" (querySchedule 7)
     get "/schedule/day/:ndays" (queryScheduleTime "ndays" 1)
