@@ -85,7 +85,7 @@ import Utils (HtmlContext(..)
              )
 
 wwtLoc :: AttributeValue
-wwtLoc = "https://www.worldwidetelescope.org/webclient/sdk/wwtsdk.js"
+wwtLoc = "https://web.wwtassets.org/engine/7/wwtsdk.js"
 
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.

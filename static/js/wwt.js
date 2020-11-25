@@ -501,7 +501,7 @@ var wwt = (function (baseObj) {
         baseObj.hide_nojs();
         wwt = wwtlib.WWTControl.initControlParam("WWTCanvas", true);
 
-        wwt.loadImageCollection("/chandra.wtml");
+        // wwt.loadImageCollection("/chandra.wtml");
         
         baseObj.hide_class("nowwt");
         wwt.add_ready(wwtReadyFunc(obsdata));
@@ -677,35 +677,18 @@ var wwt = (function (baseObj) {
 
     }
 
-    /*
-     * What data is the WWT showing? It would be nice to allow foreground and
-     * background images, with an opacity setting, but this may be a confusing
-     * UI so just stick with a single image for the time being.
-     *
-     * The wtml "dictionary" mapping from short to long names is based on an
-     * analysis of a WTML file created by WWT on Windows. Not all images
-     * are planned to be used, but left in for now.
-     */
-    var wtml = {'wmap': 'WMAP ILC 5-Year Cosmic Microwave Background',
-                'dust': 'SFD Dust Map (Infrared)',
-                '2mass-cat': '2MASS: Catalog (Synthetic, Near Infrared)',
-                '2mass-image': '2Mass: Imagery (Infrared)',
-                'dss': 'Digitized Sky Survey (Color)',
-                'vlss': 'VLSS: VLA Low-frequency Sky Survey (Radio)',
-                'planck-cmb': 'Planck CMB',
-                'planck-dust-gas': 'Planck Dust & Gas',
-                'iris': 'IRIS: Improved Reprocessing of IRAS Survey (Infrared)',
-                'wise': 'WISE All Sky (Infrared)',
-                'halpha': 'Hydrogen Alpha Full Sky Map',
-                'sdss': 'SDSS: Sloan Digital Sky Survey (Optical)',
-                'tycho': 'Tycho (Synthetic, Optical)',
-                'usnob1': 'USNOB: US Naval Observatory B 1.0 (Synthetic, Optical)',
-                'galex4-nuv': 'GALEX 4 Near-UV',
-                'galex4-fuv': 'GALEX 4 Far-UV',
-                'galex': 'GALEX (Ultraviolet)',
-                'rass': 'RASS: ROSAT All Sky Survey (X-ray)',
-                'fermi3': 'Fermi Year Three (Gamma)'
-               };
+    // Mapping from short to long names based on the output of
+    // wwtlib.WWTControl.imageSets.map(d => d._name)
+    //
+    const wtml = {'2mass-image': '2Mass: Imagery (Infrared)',
+                  'dss': 'Digitized Sky Survey (Color)',
+                  'vlss': 'VLSS: VLA Low-frequency Sky Survey (Radio)',
+                  'planck-cmb': 'Planck CMB',
+                  'wise': 'WISE All Sky (Infrared)',
+                  'halpha': 'Hydrogen Alpha Full Sky Map',
+                  'rass': 'RASS: ROSAT All Sky Survey (X-ray)',
+                  'fermi': 'Fermi LAT 8-year (gamma)'
+		 };
 
     /*
      * Special case the DSS image, since can just hide the foreground image
