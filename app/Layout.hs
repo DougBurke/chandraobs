@@ -600,7 +600,7 @@ renderWWT ScienceObs{..} =
                                  optS "dss" "Optical (DSS)" <>
                                  -- opt "halpha" "Optical (Hα)" <>
                                  opt "rass" "X-ray (RASS)" <>
-                                 opt "fermi3" "Gamma (Fermi)")
+                                 opt "fermi" "Gamma (Fermi)")
 
             button name =
               H.button H.! A.class_ "button"

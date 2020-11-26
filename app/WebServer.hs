@@ -48,10 +48,14 @@ import qualified Views.Search.TOO as TOO
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar)
+
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Reader (lift, reader,runReaderT)
 
-import Data.Aeson (ToJSON, Value, (.=), object)
+import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Default (def)
 import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
@@ -87,7 +91,7 @@ import System.IO (hFlush, stderr)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
 
-import Web.Scotty
+import Web.Scotty.Trans
 
 import Cache (Cache, CacheKey
              , fromCacheData, getFromCache, makeCache, toCacheKey)
@@ -169,7 +173,6 @@ import Database (NumObs, NumSrc, SIMKey
 import Git (gitCommitId)
 
 import Layout (getFact, renderObsIdDetails)
--- import Layout (getFact, renderLinks)
 import Sorted (SortedList
               , nullSL, fromSL, mergeSL, unsafeToSL, lengthSL
               , StartTimeOrder, ExposureTimeOrder)
@@ -235,6 +238,8 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromPropType
              , recordObsId
              , recordTarget
+             , recordStartTime
+             , recordEndTime
 
              , fromConShort
              , fromConLong
@@ -251,7 +256,10 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , rsoExposureTime
              
              )
-import Utils (fromBlaze, standardResponse
+import Utils (ActionM, ScottyM
+             , DBInfo
+             , ChandraData(..), newReader
+             , fromBlaze, standardResponse
              , timeToRFC1123
              , showInt
              , isChandraImageViewable
@@ -261,6 +269,9 @@ import Utils (fromBlaze, standardResponse
              , fromETag
              , HtmlContext(DynamicHtml)
              )
+
+
+
 
 production :: 
   Int  -- ^ The port number to use
@@ -304,16 +315,57 @@ main = do
   case eopts of
     Left emsg -> uerror emsg
     Right opts -> 
-      -- TODO: what is a sensible number for the pool size?
-        {-
-      withPostgresqlPool connStr 5 $ 
-        scottyOpts opts . webapp
-        -}
-
         do
           scache <- initCaching PublicStaticCaching
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
+
+            -- Invent a different caching strategy than used below for the
+            -- observation-info data.
+            --
+            -- I am randomly adding seq for fun here.
+            --
+            obsInfoCache <- newEmptyMVar
+            dbInfoCache <- newEmptyMVar
+            obsInfoJSONCache <- newEmptyMVar
+            currentObsCache <- newEmptyMVar
+            schedule3Cache <- newEmptyMVar
+            lastModCache <- newEmptyMVar
+
+            let cacheData = do
+                  let getData = do
+                        a <- getObsInfo
+                        b <- case a of
+                               Just obs -> Just <$> getDBInfo (oiCurrentObs obs)
+                               Nothing -> pure Nothing
+                        c <- getCurrentObs
+                        d <- getSchedule 3
+                        e <- getLastModifiedFixed
+                        return (a, b, c, d, e)
+
+                  (mobs, mdbInfo, mRec, sched, timeData) <- runDbConn getData pool
+                  let obsData = case mobs of
+                           Just obs ->
+                             let t1 = "Success" :: T.Text
+                                 t2 = object [ "current" .= simpleObject (oiCurrentObs obs)
+                                             , "previous" .= (simpleObject <$> oiPrevObs obs)
+                                             , "next" .= (simpleObject <$> oiNextObs obs)
+                                             ]
+                                 ans = encode (t1, t2)
+                             in ans `seq` ans
+                           Nothing -> encode ("Failed" :: T.Text)
+
+                  putMVar obsInfoCache mobs
+                  obsData `seq` putMVar obsInfoJSONCache obsData
+                  mdbInfo `seq` putMVar dbInfoCache mdbInfo
+                  mRec `seq` putMVar currentObsCache mRec
+                  sched `seq` putMVar schedule3Cache sched
+                  timeData `seq` putMVar lastModCache timeData
+                  pure ()
+
+            _ <- forkIO $ do
+              cacheData
+              threadDelay 60000000
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -408,13 +460,16 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            scottyOpts opts (webapp pool scache cache)
+            let chandraApp = newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache
+                wrap r = runReaderT r chandraApp
+            scottyOptsT opts wrap (webapp pool scache cache)
+
 
 -- Hack; needs cleaning up
 getDBInfo :: 
   (MonadIO m, PersistBackend m, SqlDb (Conn m)) 
   => Record 
-  -> m (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
+  -> m DBInfo
 getDBInfo r = do
   as <- either (const (return Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
@@ -451,6 +506,7 @@ webapp ::
 webapp cm scache cache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
+        getCache f = lift (reader f) >>= liftAndCatchIO . readMVar
 
     defaultHandler errHandle
 
@@ -479,27 +535,28 @@ webapp cm scache cache = do
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
     get "/api/allfov" (apiAllFOV
-                        (liftSQL getLastModifiedFixed)
+                        (getCache cdLastModCache)
                         (liftSQL findAllObs))
 
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
-          lastMod <- liftSQL getLastModifiedFixed
+          lastMod <- getCache cdLastModCache
           let etag = makeETag gitCommitId "/api/allfov" lastMod
 
           setHeader "Last-Modified" (timeToRFC1123 lastMod)
           setHeader "ETag" (fromETag etag))
 
-    -- for now always return JSON; need a better success/failure
+    -- For now always return JSON; need a better success/failure
     -- set up.
     --
-    -- the amount of information returned by getObsId is
-    -- excessive here; probably just need the preceeding and
-    -- next obsid values (if any), but leave as is for now.
-    --
-
-    get "/api/current" (apiCurrent (liftSQL getObsInfo))
+    get "/api/current" $ do
+      do
+        jdata <- getCache cdObsInfoJSONCache
+        -- since storing JSON stored as a string we can not use json
+        --- but have to manually recreate it
+        setHeader "Content-Type" "application/json; charset=utf-8"
+        raw jdata
 
     -- TODO: this is completely experimental
     --       add support for cache
@@ -868,7 +925,7 @@ webapp cm scache cache = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" (apiMappings
-                          (liftSQL getLastModifiedFixed)
+                          (getCache cdLastModCache)
                           (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
@@ -881,7 +938,7 @@ webapp cm scache cache = do
 
     -- highly experimental
     get "/api/exposures" (apiExposures
-                           (liftSQL getLastModifiedFixed)
+                           (getCache cdLastModCache)
                            (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
@@ -907,17 +964,19 @@ webapp cm scache cache = do
     get "/obsid/:obsid/wwt" redirectObsid
 
     get "/index.html" $ do
-      mobs <- liftSQL getObsInfo
-      cTime <- liftIO getCurrentTime
-      case mobs of
-        Just obs -> do
-          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
+      mobs <- getCache cdObsInfoCache
+      mdb <- getCache cddbInfoCache
+      case (mobs, mdb) of
+        (Just obs, Just dbInfo) -> do
+          cTime <- liftIO getCurrentTime
           fromBlaze (Index.introPage cTime obs dbInfo)
+
         _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
+
 
     get "/obsid/:obsid" (obsidOnly
                          (snd <$> queryObsidParam)
-                         (liftSQL getCurrentObs)
+                         (getCache cdCurrentObsCache)
                          (liftSQL . getDBInfo . oiCurrentObs)
                         )
 
@@ -926,7 +985,8 @@ webapp cm scache cache = do
                               (snd <$> dbQuery "propnum" fetchProposal)
                               (liftSQL . makeScheduleRestricted))
       
-    let querySchedule n = do
+    let querySchedule 3 = queryScheduleCache
+        querySchedule n = do
           sched <- liftSQL (getSchedule n)
           fromBlaze (Schedule.schedPage sched)
           
@@ -938,9 +998,13 @@ webapp cm scache cache = do
           val <- param name
           when (val <= 0) next  -- TODO: better error message
           querySchedule (mul * val)
-          
+
+        -- just cache the 3-day result
+        queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
+
     get "/schedule" (redirect "/schedule/index.html")
-    get "/schedule/index.html" (querySchedule 3)
+    -- get "/schedule/index.html" (querySchedule 3)
+    get "/schedule/index.html" queryScheduleCache
     get "/schedule/day" (querySchedule 1)
     get "/schedule/week" (querySchedule 7)
     get "/schedule/day/:ndays" (queryScheduleTime "ndays" 1)
@@ -1440,32 +1504,20 @@ debug msg = liftAndCatchIO (T.putStrLn ("<< " <> msg <> " >>"))
 --      target
 --
 simpleObject :: Record -> Value
-simpleObject r = object [ "obsid" .= fromObsId (recordObsId r)
-                        , "target" .= recordTarget r
-                        ]
+simpleObject r =
+  let mtimes = do
+        s <- recordStartTime r
+        e <- recordEndTime r
+        Just (s, e)
 
-
--- Return the obsid and target for the selected, previous, and next
--- observations.
---
--- The return is an object with fields 'current', 'previous', and
--- 'next' which are themselves objects with 'obsid' and 'target'
--- fields.
---
-apiCurrent :: ActionM (Maybe ObsInfo) -> ActionM ()
-apiCurrent getData = do
-
-  -- note: this is creating/throwing away a bunch of info that could be useful
-  mobs <- getData
-
-  case mobs of
-    Just obs -> json ("Success" :: T.Text,
-                      object [ "current" .= simpleObject (oiCurrentObs obs)
-                             , "previous" .= (simpleObject <$> oiPrevObs obs)
-                             , "next" .= (simpleObject <$> oiNextObs obs)
-                             ])
-
-    _ -> json ("Failed" :: T.Text)
+  in object ([ "obsid" .= fromObsId (recordObsId r)
+             , "target" .= recordTarget r
+             ] ++ case mtimes of
+                    Just (stime, etime) ->
+                      [ "start" .= fromChandraTime stime
+                      , "end" .= fromChandraTime etime
+                      ]
+                    Nothing -> [])
 
 
 {-
@@ -1892,7 +1944,7 @@ fromScienceObs propMap simbadMap tNow so =
         Just pDate -> pDate < tNow
         Nothing -> False
 
-      -- It would be good not to encode this aling with isPublic,
+      -- It would be good not to encode this along with isPublic,
       -- but I dont' see a sensible way of encoding the URL
       -- from within Exhibit (the 0-padded obsid value)
       -- without help from here. I guess could have a "label-ified"

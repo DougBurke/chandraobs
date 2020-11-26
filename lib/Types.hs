@@ -123,6 +123,7 @@ module Types ( ObsIdVal
              , Record
              , recordObsId
              , recordStartTime
+             , recordEndTime
              , recordTime
              , recordTarget
                
@@ -712,6 +713,12 @@ recordTarget = either nsTarget soTarget
 
 recordStartTime :: Record -> Maybe ChandraTime
 recordStartTime = either nsStartTime soStartTime
+
+recordEndTime :: Record -> Maybe ChandraTime
+recordEndTime r =
+  let stime = recordStartTime r
+      duration = recordTime r
+  in flip endCTime duration <$> stime
 
 {-
 recordStartTimeUnsafe :: Record -> ChandraTime

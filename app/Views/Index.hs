@@ -76,7 +76,7 @@ tourElements =
   <> jsScript "/js/tour.js"
 
 wwtLoc :: AttributeValue
-wwtLoc = "https://www.worldwidetelescope.org/webclient/sdk/wwtsdk.js"
+wwtLoc = "https://web.wwtassets.org/engine/7/wwtsdk.js"
 
 -- | TODO: this should be merged with Views.Record.recordPage
 introPage :: 

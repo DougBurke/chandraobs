@@ -4,7 +4,13 @@
 -- | general routines
 
 module Utils (
-     HtmlContext(..)
+     ActionM
+     , ScottyM
+     , DBInfo
+     , ChandraData(..)
+     , newReader
+
+     , HtmlContext(..)
      , toLink
      , extLink
      
@@ -42,16 +48,20 @@ module Utils (
 
 import qualified Data.Aeson as Aeson
 
+import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Lazy.Char8 as LB8
 
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy as L
 
 import qualified Formatting as F
 import qualified Formatting.Time as FT
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
+
+import Control.Concurrent.MVar (MVar)
+import Control.Monad.Reader (ReaderT)
 
 import Data.Either (rights)
 import Data.Foldable (toList)
@@ -66,13 +76,15 @@ import Formatting ((%.))
 
 import Text.Blaze.Html.Renderer.Text
 
-import Web.Scotty
+import Web.Scotty.Trans
 
 import Git (CommitId, fromCommitId)
+import Sorted (SortedList, StartTimeOrder)
 import Types (ScienceObs(..)
              , ChandraTime, toChandraTime, fromChandraTime
              , Instrument(..)
              , ObsIdVal(..)
+             , ObsInfo, SimbadInfo, Proposal, RestrictedSchedule
              , TimeKS, fromTimeKS
              , Record
              , Schedule(..)
@@ -82,6 +94,34 @@ import Types (ScienceObs(..)
              , rsoExposureTime
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
+
+
+-- Reuse the Web.Scotty names to avoid too many changes
+
+data ChandraData = ChandraData {
+  cdObsInfoCache :: MVar (Maybe ObsInfo)
+  , cdObsInfoJSONCache :: MVar LB.ByteString
+  , cddbInfoCache :: MVar (Maybe DBInfo)
+  , cdCurrentObsCache :: MVar (Maybe Record)
+  , cdSchedule3Cache :: MVar RestrictedSchedule
+  , cdLastModCache :: MVar UTCTime
+  }
+
+newReader ::
+  MVar (Maybe ObsInfo)
+  -> MVar LB.ByteString
+  -> MVar (Maybe DBInfo)
+  -> MVar (Maybe Record)
+  -> MVar RestrictedSchedule
+  -> MVar UTCTime
+  -> ChandraData
+newReader = ChandraData
+
+type ChandraApp = ReaderT ChandraData IO
+type ActionM = ActionT L.Text ChandraApp
+type ScottyM = ScottyT L.Text ChandraApp
+
+type DBInfo = (Maybe SimbadInfo, (Maybe Proposal, SortedList StartTimeOrder ScienceObs))
 
 -- | Should HTML be generated for the static or dynamic version
 --   of a page.
@@ -401,7 +441,7 @@ makeCodeLink =
   in (H.a H.! A.href (H.toValue uri))
 -}
 
-newtype ETag = ET { fromETag :: LT.Text }
+newtype ETag = ET { fromETag :: L.Text }
 
 
 -- | What is the etag for a resource?
@@ -437,7 +477,7 @@ makeETag cid path lastMod =
       pathTxt = showInt (T.length path)
       dquot = "\""
       txt = dquot <> T.take 8 cval <> pathTxt <> time <> dquot
-  in ET (LT.fromStrict txt)
+  in ET (L.fromStrict txt)
 
 -- | Perhaps should use HTTPDate here, but unsure about the
 -- conversion from UTCTime to HTTPDate. The format for
@@ -449,7 +489,7 @@ makeETag cid path lastMod =
 -- Would it be worth proposing rfc822DateFormat to formatting
 -- (and have I exactly captured this RFC here)?
 --
-timeToRFC1123 :: UTCTime -> LT.Text
+timeToRFC1123 :: UTCTime -> L.Text
 timeToRFC1123 =
   let tfmt = FT.dayNameShort <> ", "
              F.% FT.dayOfMonth <> " "
@@ -462,7 +502,7 @@ timeToRFC1123 =
 -- This was
 --  -- let rfc822DateFormat = "%a, %_d %b %Y %H:%M:%S %Z"
 --  let rfc822DateFormat = "%a, %d %b %Y %H:%M:%S %Z"
---  in LT.pack . formatTime defaultTimeLocale rfc822DateFormat
+--  in L.pack . formatTime defaultTimeLocale rfc822DateFormat
 --
 -- note ghc 7.8 does not export rfc822DateFormat
 
