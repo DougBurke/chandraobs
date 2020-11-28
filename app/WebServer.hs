@@ -325,6 +325,10 @@ main = do
             --
             -- I am randomly adding seq for fun here.
             --
+            {-
+
+               SOMETHING IS NOT RIGHT HERE
+
             obsInfoCache <- newEmptyMVar
             dbInfoCache <- newEmptyMVar
             obsInfoJSONCache <- newEmptyMVar
@@ -367,6 +371,8 @@ main = do
               cacheData
               threadDelay 60000000
 
+            -}
+            
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
                 snSnrIsolatedNS = "SN, SNR AND ISOLATED NS"
@@ -460,9 +466,13 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
+            {-
             let chandraApp = newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache
                 wrap r = runReaderT r chandraApp
             scottyOptsT opts wrap (webapp pool scache cache)
+            -}
+
+            scottyOptsT opts id (webapp pool scache cache)
 
 
 -- Hack; needs cleaning up
@@ -534,14 +544,24 @@ webapp cm scache cache = do
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
+    {-
     get "/api/allfov" (apiAllFOV
                         (getCache cdLastModCache)
+                        (liftSQL findAllObs))
+    -}
+    get "/api/allfov" (apiAllFOV
+                        (liftSQL getLastModifiedFixed)
                         (liftSQL findAllObs))
 
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
+          {-
           lastMod <- getCache cdLastModCache
+          -}
+
+          lastMod <- liftSQL getLastModifiedFixed
+          
           let etag = makeETag gitCommitId "/api/allfov" lastMod
 
           setHeader "Last-Modified" (timeToRFC1123 lastMod)
@@ -550,6 +570,7 @@ webapp cm scache cache = do
     -- For now always return JSON; need a better success/failure
     -- set up.
     --
+    {-
     get "/api/current" $ do
       do
         jdata <- getCache cdObsInfoJSONCache
@@ -557,6 +578,9 @@ webapp cm scache cache = do
         --- but have to manually recreate it
         setHeader "Content-Type" "application/json; charset=utf-8"
         raw jdata
+    -}
+    
+    get "/api/current" (apiCurrent (liftSQL getObsInfo))
 
     -- TODO: this is completely experimental
     --       add support for cache
@@ -925,7 +949,8 @@ webapp cm scache cache = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" (apiMappings
-                          (getCache cdLastModCache)
+                          -- (getCache cdLastModCache)
+                          (liftSQL getLastModifiedFixed)
                           (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
@@ -938,7 +963,8 @@ webapp cm scache cache = do
 
     -- highly experimental
     get "/api/exposures" (apiExposures
-                           (getCache cdLastModCache)
+                           -- (getCache cdLastModCache)
+                           (liftSQL getLastModifiedFixed)
                            (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
@@ -964,6 +990,7 @@ webapp cm scache cache = do
     get "/obsid/:obsid/wwt" redirectObsid
 
     get "/index.html" $ do
+      {-
       mobs <- getCache cdObsInfoCache
       mdb <- getCache cddbInfoCache
       case (mobs, mdb) of
@@ -972,11 +999,22 @@ webapp cm scache cache = do
           fromBlaze (Index.introPage cTime obs dbInfo)
 
         _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
+      -}
+
+      mobs <- liftSQL getObsInfo
+      cTime <- liftIO getCurrentTime
+      case mobs of
+        Just obs -> do
+          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
+          fromBlaze (Index.introPage cTime obs dbInfo)
+
+        _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
 
 
     get "/obsid/:obsid" (obsidOnly
                          (snd <$> queryObsidParam)
-                         (getCache cdCurrentObsCache)
+                         -- (getCache cdCurrentObsCache)
+                         (liftSQL getCurrentObs)
                          (liftSQL . getDBInfo . oiCurrentObs)
                         )
 
@@ -985,7 +1023,7 @@ webapp cm scache cache = do
                               (snd <$> dbQuery "propnum" fetchProposal)
                               (liftSQL . makeScheduleRestricted))
       
-    let querySchedule 3 = queryScheduleCache
+    let -- querySchedule 3 = queryScheduleCache
         querySchedule n = do
           sched <- liftSQL (getSchedule n)
           fromBlaze (Schedule.schedPage sched)
@@ -1000,11 +1038,11 @@ webapp cm scache cache = do
           querySchedule (mul * val)
 
         -- just cache the 3-day result
-        queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
+        -- queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
 
     get "/schedule" (redirect "/schedule/index.html")
-    -- get "/schedule/index.html" (querySchedule 3)
-    get "/schedule/index.html" queryScheduleCache
+    get "/schedule/index.html" (querySchedule 3)
+    -- get "/schedule/index.html" queryScheduleCache
     get "/schedule/day" (querySchedule 1)
     get "/schedule/week" (querySchedule 7)
     get "/schedule/day/:ndays" (queryScheduleTime "ndays" 1)
@@ -1518,6 +1556,29 @@ simpleObject r =
                       , "end" .= fromChandraTime etime
                       ]
                     Nothing -> [])
+
+
+-- Return the obsid and target for the selected, previous, and next
+-- observations.
+--
+-- The return is an object with fields 'current', 'previous', and
+-- 'next' which are themselves objects with 'obsid' and 'target'
+-- fields.
+--
+apiCurrent :: ActionM (Maybe ObsInfo) -> ActionM ()
+apiCurrent getData = do
+
+  -- note: this is creating/throwing away a bunch of info that could be useful
+  mobs <- getData
+
+  case mobs of
+    Just obs -> json ("Success" :: T.Text,
+                      object [ "current" .= simpleObject (oiCurrentObs obs)
+                             , "previous" .= (simpleObject <$> oiPrevObs obs)
+                             , "next" .= (simpleObject <$> oiNextObs obs)
+                             ])
+
+    _ -> json ("Failed" :: T.Text)
 
 
 {-

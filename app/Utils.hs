@@ -117,7 +117,8 @@ newReader ::
   -> ChandraData
 newReader = ChandraData
 
-type ChandraApp = ReaderT ChandraData IO
+-- type ChandraApp = ReaderT ChandraData IO
+type ChandraApp = IO
 type ActionM = ActionT L.Text ChandraApp
 type ScottyM = ScottyT L.Text ChandraApp
 
