@@ -402,7 +402,10 @@ const main = (function() {
     }
 
     // Note: if the obsid is already selected (the pane already
-    //       exists) then we just jump to the source
+    //       exists) then we just jump to the source.
+    //
+    //       Perhaps we should always recreate (or at least
+    //       update the main text).
     //
     function showObsId(obsid) {
 
@@ -438,6 +441,7 @@ const main = (function() {
 	
         $.ajax({
 	    url: "/api/page/" + obsid,
+	    cache: false,
 	    dataType: "json"
         }).done(function (rsp) {
 	    host.removeChild(spin);
@@ -467,6 +471,7 @@ const main = (function() {
 
         $.ajax({
             url: "/api/current",
+            cache: false,
             dataType: "json"
         }).done(function(rsp) {
 
