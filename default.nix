@@ -1,5 +1,5 @@
 { nixpkgs ? import ./nix {}
-, compiler ? "ghc884" }:
+, compiler ? "ghc8102" }:
 
 let
   myHaskellPackages = nixpkgs.pkgs.haskell.packages.${compiler}.override {

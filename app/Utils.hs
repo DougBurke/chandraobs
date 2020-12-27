@@ -101,24 +101,25 @@ import Types (ScienceObs(..)
 data ChandraData = ChandraData {
   cdObsInfoCache :: MVar (Maybe ObsInfo)
   , cdObsInfoJSONCache :: MVar LB.ByteString
-  , cddbInfoCache :: MVar (Maybe DBInfo)
+  , cddbInfoCache :: MVar DBInfo
   , cdCurrentObsCache :: MVar (Maybe Record)
   , cdSchedule3Cache :: MVar RestrictedSchedule
   , cdLastModCache :: MVar UTCTime
+  , cdLastUpdatedCache :: MVar UTCTime
   }
 
 newReader ::
   MVar (Maybe ObsInfo)
   -> MVar LB.ByteString
-  -> MVar (Maybe DBInfo)
+  -> MVar DBInfo
   -> MVar (Maybe Record)
   -> MVar RestrictedSchedule
+  -> MVar UTCTime
   -> MVar UTCTime
   -> ChandraData
 newReader = ChandraData
 
--- type ChandraApp = ReaderT ChandraData IO
-type ChandraApp = IO
+type ChandraApp = ReaderT ChandraData IO
 type ActionM = ActionT L.Text ChandraApp
 type ScottyM = ScottyT L.Text ChandraApp
 

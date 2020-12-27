@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# Language RecordWildCards #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- TODO:
 --   provide cache information for JSON responses; could have a last-updated
@@ -49,11 +49,11 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar)
+import Control.Concurrent.MVar (newMVar, readMVar, swapMVar)
 
-import Control.Monad (when)
+import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Reader (lift, reader,runReaderT)
+import Control.Monad.Reader (lift, reader,runReaderT, ask)
 
 import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Default (def)
@@ -174,7 +174,7 @@ import Git (gitCommitId)
 
 import Layout (getFact, renderObsIdDetails)
 import Sorted (SortedList
-              , nullSL, fromSL, mergeSL, unsafeToSL, lengthSL
+              , nullSL, emptySL, fromSL, mergeSL, unsafeToSL, lengthSL
               , StartTimeOrder, ExposureTimeOrder)
 
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
@@ -323,56 +323,8 @@ main = do
             -- Invent a different caching strategy than used below for the
             -- observation-info data.
             --
-            -- I am randomly adding seq for fun here.
-            --
-            {-
+            chandraApp <- setupCache pool
 
-               SOMETHING IS NOT RIGHT HERE
-
-            obsInfoCache <- newEmptyMVar
-            dbInfoCache <- newEmptyMVar
-            obsInfoJSONCache <- newEmptyMVar
-            currentObsCache <- newEmptyMVar
-            schedule3Cache <- newEmptyMVar
-            lastModCache <- newEmptyMVar
-
-            let cacheData = do
-                  let getData = do
-                        a <- getObsInfo
-                        b <- case a of
-                               Just obs -> Just <$> getDBInfo (oiCurrentObs obs)
-                               Nothing -> pure Nothing
-                        c <- getCurrentObs
-                        d <- getSchedule 3
-                        e <- getLastModifiedFixed
-                        return (a, b, c, d, e)
-
-                  (mobs, mdbInfo, mRec, sched, timeData) <- runDbConn getData pool
-                  let obsData = case mobs of
-                           Just obs ->
-                             let t1 = "Success" :: T.Text
-                                 t2 = object [ "current" .= simpleObject (oiCurrentObs obs)
-                                             , "previous" .= (simpleObject <$> oiPrevObs obs)
-                                             , "next" .= (simpleObject <$> oiNextObs obs)
-                                             ]
-                                 ans = encode (t1, t2)
-                             in ans `seq` ans
-                           Nothing -> encode ("Failed" :: T.Text)
-
-                  putMVar obsInfoCache mobs
-                  obsData `seq` putMVar obsInfoJSONCache obsData
-                  mdbInfo `seq` putMVar dbInfoCache mdbInfo
-                  mRec `seq` putMVar currentObsCache mRec
-                  sched `seq` putMVar schedule3Cache sched
-                  timeData `seq` putMVar lastModCache timeData
-                  pure ()
-
-            _ <- forkIO $ do
-              cacheData
-              threadDelay 60000000
-
-            -}
-            
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
                 snSnrIsolatedNS = "SN, SNR AND ISOLATED NS"
@@ -466,13 +418,73 @@ main = do
                      , conkind (Just TimeCritical)
                      ]
 
-            {-
-            let chandraApp = newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache
-                wrap r = runReaderT r chandraApp
+            let wrap r = runReaderT r chandraApp
             scottyOptsT opts wrap (webapp pool scache cache)
-            -}
 
-            scottyOptsT opts id (webapp pool scache cache)
+
+-- | Create one of the caches used by the app.
+--
+--   This is used via a reader environment, and updates the cache every
+--   60 seconds.
+--
+setupCache :: Pool Postgresql -> IO ChandraData
+setupCache pool = do
+
+  let cacheData = do
+        let getData = do
+              a <- getObsInfo
+              b <- case a of
+                     Just obs -> getDBInfo (oiCurrentObs obs)
+                     Nothing -> pure (Nothing, (Nothing, emptySL))
+              c <- getCurrentObs
+              d <- getSchedule 3
+              e <- getLastModifiedFixed
+              return (a, b, c, d, e)
+
+        (mobs, dbInfo, mRec, sched, timeData) <- runDbConn getData pool
+        let obsData = case mobs of
+                 Just obs ->
+                   let t1 = "Success" :: T.Text
+                       t2 = object [ "current" .= simpleObject (oiCurrentObs obs)
+                                   , "previous" .= (simpleObject <$> oiPrevObs obs)
+                                   , "next" .= (simpleObject <$> oiNextObs obs)
+                                   ]
+                       ans = t2 `seq` encode (t1, t2)
+                   in ans
+                 Nothing -> encode ("Failed" :: T.Text)
+
+        now <- getCurrentTime
+        pure (mobs, obsData, dbInfo, mRec, sched, timeData, now)
+
+  -- We could just use a single MVar to access this info. This would
+  -- be **much** better since it then ensures that all the values are
+  -- coherent, and not that a subset of fields have just been updates
+  -- while processing a page.
+  --
+  (mobs1, obsData1, dbInfo1, mRec1, sched1, timeData1, now1) <- cacheData
+  obsInfoCache <- newMVar mobs1
+  obsInfoJSONCache <- newMVar obsData1
+  dbInfoCache <- newMVar dbInfo1
+  currentObsCache <- newMVar mRec1
+  schedule3Cache <- newMVar sched1
+  lastModCache <- newMVar timeData1
+  lastUpdatedCache <- newMVar now1
+
+  _ <- forkIO $ forever $ do
+    threadDelay 60000000
+    (mobs, obsData, dbInfo, mRec, sched, timeData, now) <- cacheData
+
+    -- I am randomly adding seq for fun here.
+    --
+    void $ mobs `seq` swapMVar obsInfoCache mobs
+    void $ obsData `seq` swapMVar obsInfoJSONCache obsData
+    void $ dbInfo `seq` swapMVar dbInfoCache dbInfo
+    void $ mRec `seq` swapMVar currentObsCache mRec
+    void $ sched `seq` swapMVar schedule3Cache sched
+    void $ timeData `seq` swapMVar lastModCache timeData
+    void $ now `seq` swapMVar lastUpdatedCache now
+
+  pure $ newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache lastUpdatedCache
 
 
 -- Hack; needs cleaning up
@@ -481,7 +493,7 @@ getDBInfo ::
   => Record 
   -> m DBInfo
 getDBInfo r = do
-  as <- either (const (return Nothing)) (getSimbadInfo . soTarget) r
+  as <- either (const (pure Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
   return (as, bs)
 
@@ -544,114 +556,161 @@ webapp cm scache cache = do
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
 
-    {-
+    -- TEST
+    get "/cache" $ do
+      r <- lift ask
+      let cget f = liftAndCatchIO (readMVar (f r))
+      lastUpdated <- cget cdLastUpdatedCache
+      lastMod <- cget cdLastModCache
+      mCurrent <- cget cdCurrentObsCache
+      dbInfo <- cget cddbInfoCache
+      let page = H5.div ("Cache updated: " <> (H5.toHtml . timeToRFC1123) lastUpdated)
+                 <>
+                 H5.div ("Last modified: " <> (H5.toHtml . timeToRFC1123) lastMod)
+                 <>
+                 H5.div ("Observation: " <> H5.toHtml obs <> " - " <> H5.toHtml tgt)
+                 <>
+                 H5.div ("Proposal: " <> H5.toHtml prop)
+
+          obs = maybe "none" (showInt . fromObsId . recordObsId) mCurrent
+          tgt = maybe "none" (fromTargetName . recordTarget) mCurrent
+
+          prop = maybe "none"
+            (\p -> showInt (fromPropNum (propNum p)) <> ": " <> propName p)
+            (fst (snd dbInfo))
+
+      fromBlaze $ H5.docTypeHtml H5.! A5.lang "en-US" $
+        H5.head (H5.title "Cache")
+        <>
+        H5.body page
+
+
     get "/api/allfov" (apiAllFOV
                         (getCache cdLastModCache)
-                        (liftSQL findAllObs))
-    -}
-    get "/api/allfov" (apiAllFOV
-                        (liftSQL getLastModifiedFixed)
                         (liftSQL findAllObs))
 
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
-          {-
           lastMod <- getCache cdLastModCache
-          -}
-
-          lastMod <- liftSQL getLastModifiedFixed
-          
-          let etag = makeETag gitCommitId "/api/allfov" lastMod
-
-          setHeader "Last-Modified" (timeToRFC1123 lastMod)
-          setHeader "ETag" (fromETag etag))
+          let toETag = makeETag gitCommitId "/api/allfov"
+          setCacheHeaders toETag lastMod)
 
     -- For now always return JSON; need a better success/failure
     -- set up.
     --
-    {-
     get "/api/current" $ do
       do
-        jdata <- getCache cdObsInfoJSONCache
-        -- since storing JSON stored as a string we can not use json
-        --- but have to manually recreate it
-        setHeader "Content-Type" "application/json; charset=utf-8"
-        raw jdata
-    -}
-    
-    get "/api/current" (apiCurrent (liftSQL getObsInfo))
+        -- We use the time the cache was last updated as the query time,
+        -- which means it's going to be invalidated every minute, which
+        -- is a bit short, but it should be "safe".
+        let toEtag = makeETag gitCommitId "/api/current"
+            getData = do
+              jdata <- getCache cdObsInfoJSONCache
+              lastMod <- getCache cdLastUpdatedCache
+              -- since storing JSON stored as a string we can not use json
+              --- but have to manually recreate it
+              setHeader "Content-Type" "application/json; charset=utf-8"
+              pure (jdata, lastMod)
+
+        cacheApiQueryRaw raw toEtag (getCache cdLastUpdatedCache) getData
 
     -- TODO: this is completely experimental
     --       add support for cache
     --
+    --       NOTE: we don't want this result to be cached for longer than
+    --       a minute (as the page contents get updated on a minute
+    --       time scale).
+    --
     get "/api/page/:obsid" $ do
       obsid <- param "obsid"
 
+      -- Is there a way to get the URL without having to recreate it?
+      let toETag = makeETag gitCommitId ("/api/page/" <> showInt (fromObsId obsid))
+
       -- TODO: rethink this once I know what information I actually need
       --
-      cTime <- liftIO getCurrentTime
-      dbans <- liftSQL (do
-                           mobs <- getObsId obsid
-                           -- do I need all of findRecord
-                           b <- findRecord cTime
-                           c <- case mobs of
-                             Just o -> Just <$> getDBInfo (oiCurrentObs o)
-                             Nothing -> return Nothing
-                           return (mobs, b, c))
-
-      let (mobs, mCurrent, mDbInfo) = dbans
-          mCurrentObsId = recordObsId <$> mCurrent
+      let getData = do
+            cTime <- liftIO getCurrentTime
       
-      jsobj <- case (mobs, mDbInfo) of
-        (Just obs, Just dbInfo) -> do
+            -- note that we could use the cached data for the current observation
+            --
+            dbans <- liftSQL (do
+                                 mobs <- getObsId obsid
+                                 -- do I need all of findRecord
+                                 b <- findRecord cTime
+                                 c <- case mobs of
+                                   Just o -> Just <$> getDBInfo (oiCurrentObs o)
+                                   Nothing -> return Nothing
+                                 pure (mobs, b, c))
 
-          let thisObs = oiCurrentObs obs
-              (msimbad, (mprop, matches)) = dbInfo
+            let (mobs, mCurrent, mDbInfo) = dbans
+                mCurrentObsId = recordObsId <$> mCurrent
 
-          mpropText <- case thisObs of
-            Left _ -> pure Nothing
-            Right so -> liftSQL (maybeProject PaAbstractField (PaNumField ==. soProposal so))
+            case (mobs, mDbInfo) of
+              (Just obs, Just dbInfo) -> do
 
-          let obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
+                let thisObs = oiCurrentObs obs
+                    (msimbad, (mprop, matches)) = dbInfo
 
-              mDetails = either (const Nothing) Just
-                (renderObsIdDetails DynamicHtml mprop msimbad <$> thisObs)
+                mpropText <- case thisObs of
+                  Left _ -> pure Nothing
+                  Right so -> liftSQL (maybeProject PaAbstractField (PaNumField ==. soProposal so))
 
-              -- could add number of observations we know about this proposal
-              mProposal = case mpropText of
-                Just prop -> Just ((H5.div H5.! A5.class_ "abstract")
-                                    (H5.p (H5.toHtml prop)))
-                _ -> Nothing
+                let obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
 
-              mRelated = case thisObs of
-                Left _ -> Nothing
-                Right so -> Record.renderRelatedObs (soTarget so) matches
+                    mDetails = either (const Nothing) Just
+                               (renderObsIdDetails DynamicHtml mprop msimbad <$> thisObs)
 
-              mKV k v = [k .= renderHtml v]
+                    -- could add number of observations we know about this proposal
+                    mProposal = case mpropText of
+                      Just prop -> Just ((H5.div H5.! A5.class_ "abstract")
+                                         (H5.p (H5.toHtml prop)))
+                      _ -> Nothing
 
-              objItems = ["status" .= ("success" :: T.Text)
-                         , "overview" .= renderHtml obshtml
-                         , "ra" .= fromRA (either nsRa soRA thisObs)
-                         , "dec" .= fromDec (either nsDec soDec thisObs)
-                         , "isCurrent" .= (mCurrentObsId == Just obsid)
-                         , "observation" .= simpleObject thisObs
-                         , "previous" .= (simpleObject <$> oiPrevObs obs)
-                         , "next" .= (simpleObject <$> oiNextObs obs)
-                         ]
-                         ++ maybe [] (mKV "details") mDetails
-                         ++ maybe [] (mKV "related") mRelated
-                         ++ maybe [] (mKV "proposal") mProposal
+                    mRelated = case thisObs of
+                      Left _ -> Nothing
+                      Right so -> Record.renderRelatedObs (soTarget so) matches
 
-          return (object objItems)
+                    mKV k v = [k .= renderHtml v]
 
-        _  -> do
-          fact <- liftIO getFact
-          let nohtml = Index.noDataDiv fact
-          return (object ["status" .= ("error" :: T.Text)
-                         , "error" .= renderHtml nohtml])
+                    objItems = ["status" .= ("success" :: T.Text)
+                               , "overview" .= renderHtml obshtml
+                               , "ra" .= fromRA (either nsRa soRA thisObs)
+                               , "dec" .= fromDec (either nsDec soDec thisObs)
+                               , "isCurrent" .= (mCurrentObsId == Just obsid)
+                               , "observation" .= simpleObject thisObs
+                               , "previous" .= (simpleObject <$> oiPrevObs obs)
+                               , "next" .= (simpleObject <$> oiNextObs obs)
+                               ]
+                               ++ maybe [] (mKV "details") mDetails
+                               ++ maybe [] (mKV "related") mRelated
+                               ++ maybe [] (mKV "proposal") mProposal
 
-      json jsobj
+                pure (object objItems)
+
+              _  -> do
+                fact <- liftIO getFact
+                let nohtml = Index.noDataDiv fact
+                pure (object ["status" .= ("error" :: T.Text)
+                             , "error" .= renderHtml nohtml])
+
+
+          getData' = getCache cdLastUpdatedCache
+                     >>= \a -> getData
+                     >>= \b -> pure (b, a)
+
+      -- NOTE: we use the cache update time as the "last-modified" time,
+      --       even though nothing is cached here, as we just want something
+      --       to say "don't update it less than every minute".
+      --
+      cacheApiQuery toETag (getCache cdLastUpdatedCache) getData'
+
+    addroute HEAD "/api/page/:obsid" $ do
+      obsid <- param "obsid"
+      lastMod <- getCache cdLastUpdatedCache  -- use time of last update
+      let toETag = makeETag gitCommitId ("/api/page/" <> showInt (fromObsId obsid))
+      setCacheHeaders toETag lastMod
 
     -- support "category" searches (e.g. ACIS-I observations or
     -- related proposals)
@@ -949,8 +1008,7 @@ webapp cm scache cache = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" (apiMappings
-                          -- (getCache cdLastModCache)
-                          (liftSQL getLastModifiedFixed)
+                          (getCache cdLastModCache)
                           (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
@@ -963,8 +1021,7 @@ webapp cm scache cache = do
 
     -- highly experimental
     get "/api/exposures" (apiExposures
-                           -- (getCache cdLastModCache)
-                           (liftSQL getLastModifiedFixed)
+                           (getCache cdLastModCache)
                            (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
@@ -990,22 +1047,11 @@ webapp cm scache cache = do
     get "/obsid/:obsid/wwt" redirectObsid
 
     get "/index.html" $ do
-      {-
       mobs <- getCache cdObsInfoCache
-      mdb <- getCache cddbInfoCache
-      case (mobs, mdb) of
-        (Just obs, Just dbInfo) -> do
+      db <- getCache cddbInfoCache
+      case (mobs, db) of
+        (Just obs, dbInfo) -> do
           cTime <- liftIO getCurrentTime
-          fromBlaze (Index.introPage cTime obs dbInfo)
-
-        _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
-      -}
-
-      mobs <- liftSQL getObsInfo
-      cTime <- liftIO getCurrentTime
-      case mobs of
-        Just obs -> do
-          dbInfo <- liftSQL (getDBInfo (oiCurrentObs obs))
           fromBlaze (Index.introPage cTime obs dbInfo)
 
         _  -> liftIO getFact >>= fromBlaze . Index.noDataPage
@@ -1013,8 +1059,8 @@ webapp cm scache cache = do
 
     get "/obsid/:obsid" (obsidOnly
                          (snd <$> queryObsidParam)
-                         -- (getCache cdCurrentObsCache)
-                         (liftSQL getCurrentObs)
+                         (getCache cdCurrentObsCache)
+                         -- (liftSQL getCurrentObs)
                          (liftSQL . getDBInfo . oiCurrentObs)
                         )
 
@@ -1038,11 +1084,10 @@ webapp cm scache cache = do
           querySchedule (mul * val)
 
         -- just cache the 3-day result
-        -- queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
+        queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
 
     get "/schedule" (redirect "/schedule/index.html")
-    get "/schedule/index.html" (querySchedule 3)
-    -- get "/schedule/index.html" queryScheduleCache
+    get "/schedule/index.html" queryScheduleCache
     get "/schedule/day" (querySchedule 1)
     get "/schedule/week" (querySchedule 7)
     get "/schedule/day/:ndays" (queryScheduleTime "ndays" 1)
@@ -1412,6 +1457,7 @@ webapp cm scache cache = do
       status notFound404
       fromBlaze (NotFound.notFoundPage fact)
 
+
 -- | Exception handler. We should log the error.
 errHandle :: L.Text -> ActionM ()
 errHandle txt = do
@@ -1430,6 +1476,18 @@ logMsg = const (return ())
 -}
 
 
+-- | Set up the cache headers (last-modified and etag).
+--
+setCacheHeaders ::
+  (UTCTime -> ETag)
+  -> UTCTime
+  -> ActionM ()
+setCacheHeaders toETag lastMod = do
+  let etag = toETag lastMod
+  setHeader "Last-Modified" (timeToRFC1123 lastMod)
+  setHeader "ETag" (fromETag etag)
+
+
 -- | Attempt to support cache controll access to the JSON data
 --   in this resource.
 --
@@ -1438,18 +1496,19 @@ logMsg = const (return ())
 --   can be the same but the cache hit fails (if the ETag is different).
 --   This is different to my reading of wai-middleware-cache.
 --
-cacheApiQuery ::
-  ToJSON a
-  => (UTCTime -> ETag)
+cacheApiQueryRaw ::
+  (a -> ActionM ())
+  -- ^ Convert the data into a response.
+  -> (UTCTime -> ETag)
   -- ^ Create the ETag for this resource, based on the last-updated
   --   value from the database.
   -> ActionM UTCTime
-  -- ^ Returns the last-modified time oto use
+  -- ^ Returns the last-modified time to use
   -> ActionM (a, UTCTime)
   -- ^ Returns the data to convert and the last-modified time (which
   --   could have changed since the original query).
   -> ActionM ()
-cacheApiQuery toETag getLastMod getData = do
+cacheApiQueryRaw toData toETag getLastMod getData = do
   hdrs <- headers
   let readHeader = flip lookup hdrs
       qryLastMod = readHeader "If-Modified-Since"
@@ -1458,17 +1517,13 @@ cacheApiQuery toETag getLastMod getData = do
   lastModUTC <- getLastMod
   let -- isNotModified = (Just etag == qryETag) || (Just lastMod == qryLastMod)
 
-      isNotModified = case qryETag of
-                        Just e -> etag == e
-                        Nothing -> Just lastMod == qryLastMod
-                        
       lastMod = timeToRFC1123 lastModUTC
-      etag = fromETag (toETag lastModUTC)
+      isNotModified = case qryETag of
+                        Just e -> e == fromETag (toETag lastModUTC)
+                        Nothing -> Just lastMod == qryLastMod
 
-      notModified = do
-        setHeader "Last-Modified" lastMod
-        setHeader "ETag" etag
-        status notModified304
+      -- I was setting the cache headers here, but a bit pointless
+      notModified = status notModified304
 
       modified = do
         -- since the lastMod date could have changed since we last requested
@@ -1476,14 +1531,29 @@ cacheApiQuery toETag getLastMod getData = do
         --
         (ans, lastMod') <- getData
 
-        setHeader "Last-Modified" (timeToRFC1123 lastMod')
-        setHeader "ETag" ((fromETag . toETag) lastMod')
+        -- The times here are longer than the expected update time of 60 seconds,
+        -- but it's not terrible if things are cached for a few minutes.
+        --
+        setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
+        setHeader "Vary" "Accept-Encoding"
+        setCacheHeaders toETag lastMod'
+        toData ans
 
-        json ans
-
-  setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
-  setHeader "Vary" "Accept-Encoding"
   if isNotModified then notModified else modified
+
+
+cacheApiQuery ::
+  ToJSON a
+  => (UTCTime -> ETag)
+  -- ^ Create the ETag for this resource, based on the last-updated
+  --   value from the database.
+  -> ActionM UTCTime
+  -- ^ Returns the last-modified time to use
+  -> ActionM (a, UTCTime)
+  -- ^ Returns the data to convert and the last-modified time (which
+  --   could have changed since the original query).
+  -> ActionM ()
+cacheApiQuery = cacheApiQueryRaw json
 
 
 -- TODO: define a data type to represent the JSON response, so that
@@ -1557,28 +1627,6 @@ simpleObject r =
                       ]
                     Nothing -> [])
 
-
--- Return the obsid and target for the selected, previous, and next
--- observations.
---
--- The return is an object with fields 'current', 'previous', and
--- 'next' which are themselves objects with 'obsid' and 'target'
--- fields.
---
-apiCurrent :: ActionM (Maybe ObsInfo) -> ActionM ()
-apiCurrent getData = do
-
-  -- note: this is creating/throwing away a bunch of info that could be useful
-  mobs <- getData
-
-  case mobs of
-    Just obs -> json ("Success" :: T.Text,
-                      object [ "current" .= simpleObject (oiCurrentObs obs)
-                             , "previous" .= (simpleObject <$> oiPrevObs obs)
-                             , "next" .= (simpleObject <$> oiNextObs obs)
-                             ])
-
-    _ -> json ("Failed" :: T.Text)
 
 
 {-
@@ -1801,8 +1849,8 @@ apiTimeline getData = do
   -- something). The inclusion of the isPublic field complicates
   -- the cacheing, so turn it off for now.
   --
-  -- setHeader "Last-Modified" (timeToRFC1123 lastMod)
-  -- setHeader "ETag" (makeETag gitCommitId "/api/timeline" lastMod)
+  -- let toETag = makeETag gitCommitId "/api/timeline"
+  -- setCacgeHeaders toETag lastMod
 
   json (object ["items" .= fromSL items])
 
@@ -1927,7 +1975,7 @@ toHoursLabel :: TimeKS -> T.Text
 toHoursLabel ks =
   let th = toHours ks
       nd, nh, nm :: Int
-      nd = (floor th) `div` 24
+      nd = floor th `div` 24
       nh = floor (th - fromIntegral (nd * 24))
 
       -- don't need this much gymnastics
