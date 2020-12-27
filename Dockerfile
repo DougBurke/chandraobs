@@ -4,7 +4,7 @@
 # but all mistakes are mine
 #
 
-FROM heroku/heroku:18 AS build
+FROM heroku/heroku:20 AS build
 
 ENV LANG C.UTF-8
 
@@ -62,6 +62,11 @@ COPY ./configure /opt/chandraobs/src
 COPY lib/ /opt/chandraobs/src/lib/
 COPY app/ /opt/chandraobs/src/app/
 
+# stack complains if there's no tools directory, as referenced in the
+# cabal file, but not used here.
+#
+RUN mkdir -p /opt/chandraobs/src/tools
+
 RUN stack --no-terminal build ${FLAGS}
 RUN stack --no-terminal --local-bin-path /opt/chandraobs/bin install ${FLAGS}
 
@@ -75,7 +80,7 @@ RUN stack --version
 #
 COPY static/ /opt/chandraobs/static/
 
-FROM heroku/heroku:18 AS deploy
+FROM heroku/heroku:20 AS deploy
 
 ENV LANG C.UTF-8
 
@@ -92,6 +97,9 @@ COPY --from=build /opt/chandraobs/static/ /opt/chandraobs/static/
 # above.
 #
 #  imagemagick \
+#
+# Then I noticed complaints about removing fonts-dejavu-core
+# (a requirement for fontconfig-config)
 #
 RUN apt-get remove -y --assume-yes \
   ghostscript \
@@ -110,13 +118,11 @@ RUN apt-get remove -y --assume-yes \
   zip \
   bzip2 \
   perl \
-  python2.7 \
-  python3.6 \
+  python3 \
   mysql-common \
   openssh-client \
   openssh-server \
   gsfonts \
-  fonts-dejavu-core \
   rsync \
   mtools \
   libxcb1 \
