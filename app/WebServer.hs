@@ -1521,21 +1521,24 @@ cacheApiQueryRaw toData toETag getLastMod getData = do
       isNotModified = case qryETag of
                         Just e -> e == fromETag (toETag lastModUTC)
                         Nothing -> Just lastMod == qryLastMod
-                        
-      notModified = do
-        setCacheHeaders toETag lastModUTC
-        status notModified304
+
+      -- I was setting the cache headers here, but a bit pointless
+      notModified = status notModified304
 
       modified = do
         -- since the lastMod date could have changed since we last requested
         -- it, requery for it.
         --
         (ans, lastMod') <- getData
+
+        -- The times here are longer than the expected update time of 60 seconds,
+        -- but it's not terrible if things are cached for a few minutes.
+        --
+        setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
+        setHeader "Vary" "Accept-Encoding"
         setCacheHeaders toETag lastMod'
         toData ans
 
-  setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
-  setHeader "Vary" "Accept-Encoding"
   if isNotModified then notModified else modified
 
 
