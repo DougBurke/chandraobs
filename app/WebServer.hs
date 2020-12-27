@@ -49,7 +49,7 @@ import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (newMVar, readMVar, swapMVar)
+import Control.Concurrent.MVar (MVar, newMVar, readMVar, swapMVar)
 
 import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -60,7 +60,7 @@ import Data.Default (def)
 import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Pool (Pool)
-import Data.Time (UTCTime(utctDay), addDays, addUTCTime, getCurrentTime)
+import Data.Time (UTCTime(utctDay), NominalDiffTime, addDays, addUTCTime, diffUTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , Conn
@@ -324,6 +324,7 @@ main = do
             -- observation-info data.
             --
             chandraApp <- setupCache pool
+            makeAnApp <- setupLongCache pool
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -419,7 +420,7 @@ main = do
                      ]
 
             let wrap r = runReaderT r chandraApp
-            scottyOptsT opts wrap (webapp pool scache cache)
+            scottyOptsT opts wrap (webapp pool scache cache makeAnApp)
 
 
 -- | Create one of the caches used by the app.
@@ -487,6 +488,44 @@ setupCache pool = do
   pure $ newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache lastUpdatedCache
 
 
+-- Grab the timeline data, but at a significantly lower cadence than
+-- setupCache. Also, since the initial query takes a long time to
+-- run we handle the cache setup differently.
+--
+
+type TimelineCacheData =
+  (SortedList StartTimeOrder ScienceTimeline,
+   SortedList StartTimeOrder EngineeringTimeline,
+   M.Map TargetName SimbadInfo,
+   [Proposal])
+
+setupLongCache :: Pool Postgresql -> IO (MVar (TimelineCacheData, UTCTime, NominalDiffTime))
+setupLongCache pool = do
+
+  -- For the "empty" case could we use the current observation?
+  now1 <- getCurrentTime
+  let empty = (emptySL, emptySL, M.empty, [])
+  mvar <- newMVar (empty, now1, 0.0)
+
+  _ <- forkIO $ forever $ do
+    t1 <- getCurrentTime
+    cd <- runDbConn getTimeline pool
+    t2 <- getCurrentTime
+
+    let dt = diffUTCTime t2 t1
+
+    -- now <- getCurrentTime
+    let now = t2
+
+    -- I am randomly adding seq for fun here.
+    --
+    void $ cd `seq` dt `seq` swapMVar mvar (cd, now, dt)
+
+    threadDelay (60000000 * 5)
+
+  pure mvar
+
+
 -- Hack; needs cleaning up
 getDBInfo :: 
   (MonadIO m, PersistBackend m, SqlDb (Conn m)) 
@@ -524,8 +563,9 @@ webapp ::
   Pool Postgresql
   -> CacheContainer
   -> Cache
+  -> MVar (TimelineCacheData, UTCTime, NominalDiffTime)
   -> ScottyM ()
-webapp cm scache cache = do
+webapp cm scache cache timeCache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
         getCache f = lift (reader f) >>= liftAndCatchIO . readMVar
@@ -564,6 +604,9 @@ webapp cm scache cache = do
       lastMod <- cget cdLastModCache
       mCurrent <- cget cdCurrentObsCache
       dbInfo <- cget cddbInfoCache
+
+      ((sObs, nsObs, tgs, props), timeLineNow, dt) <- liftAndCatchIO (readMVar timeCache)
+
       let page = H5.div ("Cache updated: " <> (H5.toHtml . timeToRFC1123) lastUpdated)
                  <>
                  H5.div ("Last modified: " <> (H5.toHtml . timeToRFC1123) lastMod)
@@ -571,6 +614,17 @@ webapp cm scache cache = do
                  H5.div ("Observation: " <> H5.toHtml obs <> " - " <> H5.toHtml tgt)
                  <>
                  H5.div ("Proposal: " <> H5.toHtml prop)
+                 <>
+                 H5.div ("Timeline: nScience=" <> count sObs <>
+                        " nEngineering=" <> count nsObs <>
+                        " targets=" <> (H5.toHtml (show (M.size tgs))) <>
+                        " proposals=" <> (H5.toHtml (show (length props))) <>
+                        H5.br <>
+                        H5.toHtml (timeToRFC1123 timeLineNow) <>
+                        H5.br <>
+                        "Runtime: " <> H5.toHtml (showInt (round dt :: Int)) <> "s")
+
+          count = H5.toHtml . showInt . lengthSL
 
           obs = maybe "none" (showInt . fromObsId . recordObsId) mCurrent
           tgt = maybe "none" (fromTargetName . recordTarget) mCurrent
@@ -1017,7 +1071,10 @@ webapp cm scache cache = do
     -- (on my local machine; 10s vs 2s, approx) so switch to it for
     -- now (turns out not to be as big a saving on heroku :-(
     --
-    get "/api/timeline" (apiTimeline (liftSQL getTimeline))
+    -- get "/api/timeline" (apiTimeline (liftSQL getTimeline))
+    get "/api/timeline" $ do
+      (cd, tnow, _) <- liftAndCatchIO (readMVar timeCache)
+      apiTimeline cd tnow
 
     -- highly experimental
     get "/api/exposures" (apiExposures
@@ -1806,53 +1863,69 @@ apiMappings getLastMod getData =
 -- and send the converted data. This may be the best intermediate
 -- approach.
 --
-
+-- Can we return a failure case if the timeline data is "empty",
+-- so the exhibit page can say "hey, no data yet"?
+--
 apiTimeline ::
-  ActionM (SortedList StartTimeOrder ScienceTimeline,
-           SortedList StartTimeOrder EngineeringTimeline,
-           M.Map TargetName SimbadInfo,
-           [Proposal])
+  -- ActionM TimelineCacheData
+  TimelineCacheData
+  -> UTCTime
   -> ActionM ()
-apiTimeline getData = do
+apiTimeline getData tNow = do
 
   -- debug "/api/timeline"
 
-  (stline, nstline, simbadMap, props) <- getData
-  tNow <- liftIO getCurrentTime
+  hdrs <- headers
+  let readHeader = flip lookup hdrs
+      qryLastMod = readHeader "If-Modified-Since"
+      qryETag = readHeader "If-None-Match"
+
+      toETag = makeETag gitCommitId "/api/timeline"
   
-  -- What information do we want - e.g. Simbad type?
-  --
-  let propMap = M.fromList (map (\p -> (propNum p, p)) props)
-      fromSO = fromScienceObs propMap simbadMap tNow
-      
-      sitems = fmap fromSO stline
-      nsitems = fmap fromNonScienceObs nstline
+  let lastMod = timeToRFC1123 tNow
+      isNotModified = case qryETag of
+                        Just e -> e == fromETag (toETag tNow)
+                        Nothing -> Just lastMod == qryLastMod
 
-      -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
-      -- to remove the Maybe.
-      --
-      noMaybe :: SortedList f (Maybe a) -> SortedList f a
-      noMaybe = unsafeToSL . catMaybes . fromSL
-      
-      --
-      -- Use the time value, already pulled out by from*Science,
-      -- to merge the records. This saves having to query the
-      -- JSON itself.
-      --
-      items = fmap snd (mergeSL fst
-                        (noMaybe sitems)
-                        (noMaybe nsitems))
-      
-  -- As we keep changing the structure of the JSON, using the
-  -- last-modified date in the header does not work well (although
-  -- it's use does at least validate that the caching was doing
-  -- something). The inclusion of the isPublic field complicates
-  -- the cacheing, so turn it off for now.
-  --
-  -- let toETag = makeETag gitCommitId "/api/timeline"
-  -- setCacgeHeaders toETag lastMod
+      -- I was setting the cache headers here, but a bit pointless
+      notModified = status notModified304
 
-  json (object ["items" .= fromSL items])
+      modified = do
+
+        -- (stline, nstline, simbadMap, props) <- getData
+        -- tNow <- liftIO getCurrentTime
+
+        let (stline, nstline, simbadMap, props) = getData
+
+        -- What information do we want - e.g. Simbad type?
+        --
+        let propMap = M.fromList (map (\p -> (propNum p, p)) props)
+            fromSO = fromScienceObs propMap simbadMap tNow
+
+            sitems = fmap fromSO stline
+            nsitems = fmap fromNonScienceObs nstline
+
+            -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
+            -- to remove the Maybe.
+            --
+            noMaybe :: SortedList f (Maybe a) -> SortedList f a
+            noMaybe = unsafeToSL . catMaybes . fromSL
+
+            -- Use the time value, already pulled out by from*Science,
+            -- to merge the records. This saves having to query the
+            -- JSON itself.
+            --
+            items = fmap snd (mergeSL fst
+                              (noMaybe sitems)
+                              (noMaybe nsitems))
+
+        -- TODO: change these times !!!
+        setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
+        setHeader "Vary" "Accept-Encoding"
+        setCacheHeaders toETag tNow
+        json (object ["items" .= fromSL items])
+
+  if isNotModified then notModified else modified
 
 
 apiExposures ::
