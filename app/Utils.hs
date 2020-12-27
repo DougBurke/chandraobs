@@ -101,7 +101,7 @@ import Types (ScienceObs(..)
 data ChandraData = ChandraData {
   cdObsInfoCache :: MVar (Maybe ObsInfo)
   , cdObsInfoJSONCache :: MVar LB.ByteString
-  , cddbInfoCache :: MVar (Maybe DBInfo)
+  , cddbInfoCache :: MVar DBInfo
   , cdCurrentObsCache :: MVar (Maybe Record)
   , cdSchedule3Cache :: MVar RestrictedSchedule
   , cdLastModCache :: MVar UTCTime
@@ -111,7 +111,7 @@ data ChandraData = ChandraData {
 newReader ::
   MVar (Maybe ObsInfo)
   -> MVar LB.ByteString
-  -> MVar (Maybe DBInfo)
+  -> MVar DBInfo
   -> MVar (Maybe Record)
   -> MVar RestrictedSchedule
   -> MVar UTCTime

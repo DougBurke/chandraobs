@@ -174,7 +174,7 @@ import Git (gitCommitId)
 
 import Layout (getFact, renderObsIdDetails)
 import Sorted (SortedList
-              , nullSL, fromSL, mergeSL, unsafeToSL, lengthSL
+              , nullSL, emptySL, fromSL, mergeSL, unsafeToSL, lengthSL
               , StartTimeOrder, ExposureTimeOrder)
 
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
@@ -434,14 +434,14 @@ setupCache pool = do
         let getData = do
               a <- getObsInfo
               b <- case a of
-                     Just obs -> Just <$> getDBInfo (oiCurrentObs obs)
-                     Nothing -> pure Nothing
+                     Just obs -> getDBInfo (oiCurrentObs obs)
+                     Nothing -> pure (Nothing, (Nothing, emptySL))
               c <- getCurrentObs
               d <- getSchedule 3
               e <- getLastModifiedFixed
               return (a, b, c, d, e)
 
-        (mobs, mdbInfo, mRec, sched, timeData) <- runDbConn getData pool
+        (mobs, dbInfo, mRec, sched, timeData) <- runDbConn getData pool
         let obsData = case mobs of
                  Just obs ->
                    let t1 = "Success" :: T.Text
@@ -454,14 +454,17 @@ setupCache pool = do
                  Nothing -> encode ("Failed" :: T.Text)
 
         now <- getCurrentTime
+        pure (mobs, obsData, dbInfo, mRec, sched, timeData, now)
 
-        pure (mobs, obsData, mdbInfo, mRec, sched, timeData, now)
-
-  -- We could just use a single MVar to access this info.
-  (mobs1, obsData1, mdbInfo1, mRec1, sched1, timeData1, now1) <- cacheData
+  -- We could just use a single MVar to access this info. This would
+  -- be **much** better since it then ensures that all the values are
+  -- coherent, and not that a subset of fields have just been updates
+  -- while processing a page.
+  --
+  (mobs1, obsData1, dbInfo1, mRec1, sched1, timeData1, now1) <- cacheData
   obsInfoCache <- newMVar mobs1
   obsInfoJSONCache <- newMVar obsData1
-  dbInfoCache <- newMVar mdbInfo1
+  dbInfoCache <- newMVar dbInfo1
   currentObsCache <- newMVar mRec1
   schedule3Cache <- newMVar sched1
   lastModCache <- newMVar timeData1
@@ -469,13 +472,13 @@ setupCache pool = do
 
   _ <- forkIO $ forever $ do
     threadDelay 60000000
-    (mobs, obsData, mdbInfo, mRec, sched, timeData, now) <- cacheData
+    (mobs, obsData, dbInfo, mRec, sched, timeData, now) <- cacheData
 
     -- I am randomly adding seq for fun here.
     --
     void $ mobs `seq` swapMVar obsInfoCache mobs
     void $ obsData `seq` swapMVar obsInfoJSONCache obsData
-    void $ mdbInfo `seq` swapMVar dbInfoCache mdbInfo
+    void $ dbInfo `seq` swapMVar dbInfoCache dbInfo
     void $ mRec `seq` swapMVar currentObsCache mRec
     void $ sched `seq` swapMVar schedule3Cache sched
     void $ timeData `seq` swapMVar lastModCache timeData
@@ -490,7 +493,7 @@ getDBInfo ::
   => Record 
   -> m DBInfo
 getDBInfo r = do
-  as <- either (const (return Nothing)) (getSimbadInfo . soTarget) r
+  as <- either (const (pure Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
   return (as, bs)
 
@@ -556,16 +559,25 @@ webapp cm scache cache = do
     -- TEST
     get "/cache" $ do
       r <- lift ask
-      lastUpdated <- liftAndCatchIO (readMVar (cdLastUpdatedCache r))
-      lastMod <- liftAndCatchIO (readMVar (cdLastModCache r))
-      mCurrent <- liftAndCatchIO (readMVar (cdCurrentObsCache r))
+      let cget f = liftAndCatchIO (readMVar (f r))
+      lastUpdated <- cget cdLastUpdatedCache
+      lastMod <- cget cdLastModCache
+      mCurrent <- cget cdCurrentObsCache
+      dbInfo <- cget cddbInfoCache
       let page = H5.div ("Cache updated: " <> (H5.toHtml . timeToRFC1123) lastUpdated)
                  <>
                  H5.div ("Last modified: " <> (H5.toHtml . timeToRFC1123) lastMod)
                  <>
-                 H5.div ("Observation: " <> H5.toHtml obs)
+                 H5.div ("Observation: " <> H5.toHtml obs <> " - " <> H5.toHtml tgt)
+                 <>
+                 H5.div ("Proposal: " <> H5.toHtml prop)
 
           obs = maybe "none" (showInt . fromObsId . recordObsId) mCurrent
+          tgt = maybe "none" (fromTargetName . recordTarget) mCurrent
+
+          prop = maybe "none"
+            (\p -> showInt (fromPropNum (propNum p)) <> ": " <> propName p)
+            (fst (snd dbInfo))
 
       fromBlaze $ H5.docTypeHtml H5.! A5.lang "en-US" $
         H5.head (H5.title "Cache")
@@ -1036,9 +1048,9 @@ webapp cm scache cache = do
 
     get "/index.html" $ do
       mobs <- getCache cdObsInfoCache
-      mdb <- getCache cddbInfoCache
-      case (mobs, mdb) of
-        (Just obs, Just dbInfo) -> do
+      db <- getCache cddbInfoCache
+      case (mobs, db) of
+        (Just obs, dbInfo) -> do
           cTime <- liftIO getCurrentTime
           fromBlaze (Index.introPage cTime obs dbInfo)
 
