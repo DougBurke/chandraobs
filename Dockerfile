@@ -135,7 +135,8 @@ RUN apt-get remove -y --assume-yes \
 # Ensure what we do have left is up to date.
 #
 RUN apt-get update \
-  && apt-get upgrade -y --assume-yes
+  && apt-get upgrade -y --assume-yes \
+  && apt-get autoremove -y --assume-yes
 
 # Remove apt caches to reduce the size of our container.
 #
