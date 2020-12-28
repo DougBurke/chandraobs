@@ -7,13 +7,16 @@
 --   field in the database which is used to seed the last-Modified header,
 --   as a simple case
 --
+--   Actually, need to decide what data:
+--     - can be cached until the last-update has changed
+--     - until some "indeterminate time" (e.g. next observation)
+--     - those settings that could be cached but need a time value
+--       to be applied to the cache
+--
 
 -- | A test webserver.
 -- 
 module Main (main) where
-
--- import qualified Data.Conduit as C
--- import qualified Data.Conduit.Combinators as CC
 
 import qualified Data.Map.Strict as M
 
@@ -1071,10 +1074,11 @@ webapp cm scache cache timeCache = do
     -- (on my local machine; 10s vs 2s, approx) so switch to it for
     -- now (turns out not to be as big a saving on heroku :-(
     --
-    -- get "/api/timeline" (apiTimeline (liftSQL getTimeline))
-    get "/api/timeline" $ do
+    get "/api/timeline" (apiTimeline (liftSQL getTimeline))
+    
+    get "/api/timeline2" $ do
       (cd, tnow, _) <- liftAndCatchIO (readMVar timeCache)
-      apiTimeline cd tnow
+      apiTimeline2 cd tnow
 
     -- highly experimental
     get "/api/exposures" (apiExposures
@@ -1867,11 +1871,45 @@ apiMappings getLastMod getData =
 -- so the exhibit page can say "hey, no data yet"?
 --
 apiTimeline ::
-  -- ActionM TimelineCacheData
+  ActionM TimelineCacheData
+  -> ActionM ()
+apiTimeline getData = do
+
+  -- debug "/api/timeline"
+
+  (stline, nstline, simbadMap, props) <- getData
+  tNow <- liftIO getCurrentTime
+
+  -- What information do we want - e.g. Simbad type?
+  --
+  let propMap = M.fromList (map (\p -> (propNum p, p)) props)
+      fromSO = fromScienceObs propMap simbadMap tNow
+
+      sitems = fmap fromSO stline
+      nsitems = fmap fromNonScienceObs nstline
+
+      -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
+      -- to remove the Maybe.
+      --
+      noMaybe :: SortedList f (Maybe a) -> SortedList f a
+      noMaybe = unsafeToSL . catMaybes . fromSL
+
+      -- Use the time value, already pulled out by from*Science,
+      -- to merge the records. This saves having to query the
+      -- JSON itself.
+      --
+      items = fmap snd (mergeSL fst
+                        (noMaybe sitems)
+                        (noMaybe nsitems))
+
+  json (object ["items" .= fromSL items])
+
+
+apiTimeline2 ::
   TimelineCacheData
   -> UTCTime
   -> ActionM ()
-apiTimeline getData tNow = do
+apiTimeline2 getData tNow = do
 
   -- debug "/api/timeline"
 
