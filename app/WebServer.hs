@@ -63,7 +63,7 @@ import Data.Default (def)
 import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Pool (Pool)
-import Data.Time (UTCTime(utctDay), NominalDiffTime, addDays, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Time (UTCTime(utctDay), addDays, addUTCTime, diffUTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , Conn
@@ -261,7 +261,11 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              )
 import Utils (ActionM, ScottyM
              , DBInfo
-             , ChandraData(..), newReader
+             , ChandraData(..)
+             , ChandraCache(..)
+             , ChandraLongCache(..)
+             , TimelineCacheData
+             , newReader
              , fromBlaze, standardResponse
              , timeToRFC1123
              , showInt
@@ -326,8 +330,8 @@ main = do
             -- Invent a different caching strategy than used below for the
             -- observation-info data.
             --
-            chandraApp <- setupCache pool
-            makeAnApp <- setupLongCache pool
+            shortCache <- setupCache pool
+            longCache <- setupLongCache pool
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -423,7 +427,8 @@ main = do
                      ]
 
             let wrap r = runReaderT r chandraApp
-            scottyOptsT opts wrap (webapp pool scache cache makeAnApp)
+                chandraApp = newReader shortCache longCache
+            scottyOptsT opts wrap (webapp pool scache cache)
 
 
 -- | Create one of the caches used by the app.
@@ -431,7 +436,7 @@ main = do
 --   This is used via a reader environment, and updates the cache every
 --   60 seconds.
 --
-setupCache :: Pool Postgresql -> IO ChandraData
+setupCache :: Pool Postgresql -> IO (MVar ChandraCache)
 setupCache pool = do
 
   let cacheData = do
@@ -457,38 +462,18 @@ setupCache pool = do
                    in ans
                  Nothing -> encode ("Failed" :: T.Text)
 
-        now <- getCurrentTime
-        pure (mobs, obsData, dbInfo, mRec, sched, timeData, now)
+        -- TODO: do we need seq or equivalent here?
+        ChandraCache mobs obsData dbInfo mRec sched timeData <$> getCurrentTime
 
-  -- We could just use a single MVar to access this info. This would
-  -- be **much** better since it then ensures that all the values are
-  -- coherent, and not that a subset of fields have just been updates
-  -- while processing a page.
-  --
-  (mobs1, obsData1, dbInfo1, mRec1, sched1, timeData1, now1) <- cacheData
-  obsInfoCache <- newMVar mobs1
-  obsInfoJSONCache <- newMVar obsData1
-  dbInfoCache <- newMVar dbInfo1
-  currentObsCache <- newMVar mRec1
-  schedule3Cache <- newMVar sched1
-  lastModCache <- newMVar timeData1
-  lastUpdatedCache <- newMVar now1
+  cd1 <- cacheData
+  cache <- newMVar cd1
 
   _ <- forkIO $ forever $ do
     threadDelay 60000000
-    (mobs, obsData, dbInfo, mRec, sched, timeData, now) <- cacheData
+    cd <- cacheData
+    void $ swapMVar cache cd
 
-    -- I am randomly adding seq for fun here.
-    --
-    void $ mobs `seq` swapMVar obsInfoCache mobs
-    void $ obsData `seq` swapMVar obsInfoJSONCache obsData
-    void $ dbInfo `seq` swapMVar dbInfoCache dbInfo
-    void $ mRec `seq` swapMVar currentObsCache mRec
-    void $ sched `seq` swapMVar schedule3Cache sched
-    void $ timeData `seq` swapMVar lastModCache timeData
-    void $ now `seq` swapMVar lastUpdatedCache now
-
-  pure $ newReader obsInfoCache obsInfoJSONCache dbInfoCache currentObsCache schedule3Cache lastModCache lastUpdatedCache
+  pure cache
 
 
 -- Grab the timeline data, but at a significantly lower cadence than
@@ -496,19 +481,13 @@ setupCache pool = do
 -- run we handle the cache setup differently.
 --
 
-type TimelineCacheData =
-  (SortedList StartTimeOrder ScienceTimeline,
-   SortedList StartTimeOrder EngineeringTimeline,
-   M.Map TargetName SimbadInfo,
-   [Proposal])
-
-setupLongCache :: Pool Postgresql -> IO (MVar (TimelineCacheData, UTCTime, NominalDiffTime))
+setupLongCache :: Pool Postgresql -> IO (MVar ChandraLongCache)
 setupLongCache pool = do
 
   -- For the "empty" case could we use the current observation?
   now1 <- getCurrentTime
-  let empty = (emptySL, emptySL, M.empty, [])
-  mvar <- newMVar (empty, now1, 0.0)
+  let empty = ChandraLongCache (emptySL, emptySL, M.empty, []) now1 0.0
+  cache <- newMVar empty
 
   _ <- forkIO $ forever $ do
     t1 <- getCurrentTime
@@ -522,11 +501,11 @@ setupLongCache pool = do
 
     -- I am randomly adding seq for fun here.
     --
-    void $ cd `seq` dt `seq` swapMVar mvar (cd, now, dt)
+    void $ cd `seq` dt `seq` swapMVar cache (ChandraLongCache cd now dt)
 
     threadDelay (60000000 * 5)
 
-  pure mvar
+  pure cache
 
 
 -- Hack; needs cleaning up
@@ -566,12 +545,11 @@ webapp ::
   Pool Postgresql
   -> CacheContainer
   -> Cache
-  -> MVar (TimelineCacheData, UTCTime, NominalDiffTime)
   -> ScottyM ()
-webapp cm scache cache timeCache = do
+webapp cm scache cache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
-        getCache f = lift (reader f) >>= liftAndCatchIO . readMVar
+        getCache f = lift (reader cdCache) >>= liftAndCatchIO . fmap f . readMVar
 
     defaultHandler errHandle
 
@@ -602,13 +580,17 @@ webapp cm scache cache timeCache = do
     -- TEST
     get "/cache" $ do
       r <- lift ask
-      let cget f = liftAndCatchIO (readMVar (f r))
-      lastUpdated <- cget cdLastUpdatedCache
-      lastMod <- cget cdLastModCache
-      mCurrent <- cget cdCurrentObsCache
-      dbInfo <- cget cddbInfoCache
+      shortCache <- liftAndCatchIO (readMVar (cdCache r))
+      longCache <- liftAndCatchIO (readMVar (clCache r))
 
-      ((sObs, nsObs, tgs, props), timeLineNow, dt) <- liftAndCatchIO (readMVar timeCache)
+      let lastUpdated = ccLastUpdatedCache shortCache
+          lastMod = ccLastModCache shortCache
+          mCurrent = ccCurrentObsCache shortCache
+          dbInfo = ccdbInfoCache shortCache
+
+          (sObs, nsObs, tgs, props) = clTimeLineCache longCache
+          timeLineNow = clLastUpdatedCache longCache
+          dt = clRuntime longCache
 
       let page = H5.div ("Cache updated: " <> (H5.toHtml . timeToRFC1123) lastUpdated)
                  <>
@@ -620,8 +602,8 @@ webapp cm scache cache timeCache = do
                  <>
                  H5.div ("Timeline: nScience=" <> count sObs <>
                         " nEngineering=" <> count nsObs <>
-                        " targets=" <> (H5.toHtml (show (M.size tgs))) <>
-                        " proposals=" <> (H5.toHtml (show (length props))) <>
+                        " targets=" <> H5.toHtml (show (M.size tgs)) <>
+                        " proposals=" <> H5.toHtml (show (length props)) <>
                         H5.br <>
                         H5.toHtml (timeToRFC1123 timeLineNow) <>
                         H5.br <>
@@ -643,13 +625,13 @@ webapp cm scache cache timeCache = do
 
 
     get "/api/allfov" (apiAllFOV
-                        (getCache cdLastModCache)
+                        (getCache ccLastModCache)
                         (liftSQL findAllObs))
 
     -- is adding HEAD support, and including modified info, sensible?
     addroute HEAD "/api/allfov"
       (do
-          lastMod <- getCache cdLastModCache
+          lastMod <- getCache ccLastModCache
           let toETag = makeETag gitCommitId "/api/allfov"
           setCacheHeaders toETag lastMod)
 
@@ -658,19 +640,23 @@ webapp cm scache cache timeCache = do
     --
     get "/api/current" $ do
       do
+        shortCache <- lift (reader cdCache) >>= liftAndCatchIO . readMVar
+
         -- We use the time the cache was last updated as the query time,
         -- which means it's going to be invalidated every minute, which
         -- is a bit short, but it should be "safe".
-        let toEtag = makeETag gitCommitId "/api/current"
+        --
+        let jdata = ccObsInfoJSONCache shortCache
+            lastMod = ccLastUpdatedCache shortCache
+
+            toEtag = makeETag gitCommitId "/api/current"
             getData = do
-              jdata <- getCache cdObsInfoJSONCache
-              lastMod <- getCache cdLastUpdatedCache
               -- since storing JSON stored as a string we can not use json
               --- but have to manually recreate it
               setHeader "Content-Type" "application/json; charset=utf-8"
               pure (jdata, lastMod)
 
-        cacheApiQueryRaw raw toEtag (getCache cdLastUpdatedCache) getData
+        cacheApiQueryRaw raw toEtag (pure lastMod) getData
 
     -- TODO: this is completely experimental
     --       add support for cache
@@ -753,7 +739,7 @@ webapp cm scache cache timeCache = do
                              , "error" .= renderHtml nohtml])
 
 
-          getData' = getCache cdLastUpdatedCache
+          getData' = getCache ccLastUpdatedCache
                      >>= \a -> getData
                      >>= \b -> pure (b, a)
 
@@ -761,11 +747,11 @@ webapp cm scache cache timeCache = do
       --       even though nothing is cached here, as we just want something
       --       to say "don't update it less than every minute".
       --
-      cacheApiQuery toETag (getCache cdLastUpdatedCache) getData'
+      cacheApiQuery toETag (getCache ccLastUpdatedCache) getData'
 
     addroute HEAD "/api/page/:obsid" $ do
       obsid <- param "obsid"
-      lastMod <- getCache cdLastUpdatedCache  -- use time of last update
+      lastMod <- getCache ccLastUpdatedCache  -- use time of last update
       let toETag = makeETag gitCommitId ("/api/page/" <> showInt (fromObsId obsid))
       setCacheHeaders toETag lastMod
 
@@ -1065,18 +1051,20 @@ webapp cm scache cache timeCache = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" (apiMappings
-                          (getCache cdLastModCache)
+                          (getCache ccLastModCache)
                           (liftSQL getProposalObjectMapping))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
     get "/api/timeline" $ do
-      (cd, tnow, _) <- liftAndCatchIO (readMVar timeCache)
+      longCache <- lift (reader clCache) >>= liftAndCatchIO . readMVar
+      let cd = clTimeLineCache longCache
+          tnow = clLastUpdatedCache longCache
       apiTimeline cd tnow
 
     -- highly experimental
     get "/api/exposures" (apiExposures
-                           (getCache cdLastModCache)
+                           (getCache ccLastModCache)
                            (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
@@ -1102,8 +1090,10 @@ webapp cm scache cache timeCache = do
     get "/obsid/:obsid/wwt" redirectObsid
 
     get "/index.html" $ do
-      mobs <- getCache cdObsInfoCache
-      db <- getCache cddbInfoCache
+      shortCache <- lift (reader cdCache) >>= liftAndCatchIO . readMVar
+      let mobs = ccObsInfoCache shortCache
+          db = ccdbInfoCache shortCache
+
       case (mobs, db) of
         (Just obs, dbInfo) -> do
           cTime <- liftIO getCurrentTime
@@ -1114,8 +1104,7 @@ webapp cm scache cache timeCache = do
 
     get "/obsid/:obsid" (obsidOnly
                          (snd <$> queryObsidParam)
-                         (getCache cdCurrentObsCache)
-                         -- (liftSQL getCurrentObs)
+                         (getCache ccCurrentObsCache)
                          (liftSQL . getDBInfo . oiCurrentObs)
                         )
 
@@ -1139,7 +1128,7 @@ webapp cm scache cache timeCache = do
           querySchedule (mul * val)
 
         -- just cache the 3-day result
-        queryScheduleCache = getCache cdSchedule3Cache >>= fromBlaze . Schedule.schedPage
+        queryScheduleCache = getCache ccSchedule3Cache >>= fromBlaze . Schedule.schedPage
 
     get "/schedule" (redirect "/schedule/index.html")
     get "/schedule/index.html" queryScheduleCache

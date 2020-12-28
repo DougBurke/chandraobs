@@ -8,6 +8,9 @@ module Utils (
      , ScottyM
      , DBInfo
      , ChandraData(..)
+     , ChandraCache(..)
+     , ChandraLongCache(..)
+     , TimelineCacheData
      , newReader
 
      , HtmlContext(..)
@@ -51,6 +54,8 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Lazy.Char8 as LB8
 
+import qualified Data.Map.Strict as M
+
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 
@@ -89,6 +94,9 @@ import Types (ScienceObs(..)
              , Record
              , Schedule(..)
              , RestrictedSchedule(..), RestrictedRecord
+             , TargetName
+             , ScienceTimeline
+             , EngineeringTimeline
              , recordStartTime
              , recordTime
              , rsoExposureTime
@@ -99,23 +107,35 @@ import Types (ScienceObs(..)
 -- Reuse the Web.Scotty names to avoid too many changes
 
 data ChandraData = ChandraData {
-  cdObsInfoCache :: MVar (Maybe ObsInfo)
-  , cdObsInfoJSONCache :: MVar LB.ByteString
-  , cddbInfoCache :: MVar DBInfo
-  , cdCurrentObsCache :: MVar (Maybe Record)
-  , cdSchedule3Cache :: MVar RestrictedSchedule
-  , cdLastModCache :: MVar UTCTime
-  , cdLastUpdatedCache :: MVar UTCTime
+  cdCache :: MVar ChandraCache
+  , clCache :: MVar ChandraLongCache
+  }
+
+data ChandraCache = ChandraCache {
+  ccObsInfoCache :: Maybe ObsInfo
+  , ccObsInfoJSONCache :: LB.ByteString
+  , ccdbInfoCache :: DBInfo
+  , ccCurrentObsCache :: Maybe Record
+  , ccSchedule3Cache :: RestrictedSchedule
+  , ccLastModCache :: UTCTime
+  , ccLastUpdatedCache :: UTCTime
+  }
+
+type TimelineCacheData =
+  (SortedList StartTimeOrder ScienceTimeline,
+   SortedList StartTimeOrder EngineeringTimeline,
+   M.Map TargetName SimbadInfo,
+   [Proposal])
+
+data ChandraLongCache = ChandraLongCache {
+  clTimeLineCache :: TimelineCacheData
+  , clLastUpdatedCache :: UTCTime
+  , clRuntime :: NominalDiffTime
   }
 
 newReader ::
-  MVar (Maybe ObsInfo)
-  -> MVar LB.ByteString
-  -> MVar DBInfo
-  -> MVar (Maybe Record)
-  -> MVar RestrictedSchedule
-  -> MVar UTCTime
-  -> MVar UTCTime
+  MVar ChandraCache
+  -> MVar ChandraLongCache
   -> ChandraData
 newReader = ChandraData
 
