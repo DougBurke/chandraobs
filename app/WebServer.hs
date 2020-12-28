@@ -1070,15 +1070,9 @@ webapp cm scache cache timeCache = do
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
-    -- Looks like the "new" version is ~ 5 times faster at the moment
-    -- (on my local machine; 10s vs 2s, approx) so switch to it for
-    -- now (turns out not to be as big a saving on heroku :-(
-    --
-    get "/api/timeline" (apiTimeline (liftSQL getTimeline))
-    
-    get "/api/timeline2" $ do
+    get "/api/timeline" $ do
       (cd, tnow, _) <- liftAndCatchIO (readMVar timeCache)
-      apiTimeline2 cd tnow
+      apiTimeline cd tnow
 
     -- highly experimental
     get "/api/exposures" (apiExposures
@@ -1871,47 +1865,10 @@ apiMappings getLastMod getData =
 -- so the exhibit page can say "hey, no data yet"?
 --
 apiTimeline ::
-  ActionM TimelineCacheData
-  -> ActionM ()
-apiTimeline getData = do
-
-  -- debug "/api/timeline"
-
-  (stline, nstline, simbadMap, props) <- getData
-  tNow <- liftIO getCurrentTime
-
-  -- What information do we want - e.g. Simbad type?
-  --
-  let propMap = M.fromList (map (\p -> (propNum p, p)) props)
-      fromSO = fromScienceObs propMap simbadMap tNow
-
-      sitems = fmap fromSO stline
-      nsitems = fmap fromNonScienceObs nstline
-
-      -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
-      -- to remove the Maybe.
-      --
-      noMaybe :: SortedList f (Maybe a) -> SortedList f a
-      noMaybe = unsafeToSL . catMaybes . fromSL
-
-      -- Use the time value, already pulled out by from*Science,
-      -- to merge the records. This saves having to query the
-      -- JSON itself.
-      --
-      items = fmap snd (mergeSL fst
-                        (noMaybe sitems)
-                        (noMaybe nsitems))
-
-  json (object ["items" .= fromSL items])
-
-
-apiTimeline2 ::
   TimelineCacheData
   -> UTCTime
   -> ActionM ()
-apiTimeline2 getData tNow = do
-
-  -- debug "/api/timeline"
+apiTimeline getData tNow = do
 
   hdrs <- headers
   let readHeader = flip lookup hdrs
