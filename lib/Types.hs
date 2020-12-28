@@ -1043,7 +1043,7 @@ instance H.ToMarkup RA where
   toMarkup = H.toMarkup . htmlRA
 
 instance H.ToMarkup Dec where
-  toMarkup = H.toMarkup . (showDec True)
+  toMarkup = H.toMarkup . showDec True
 
 -- I could imagine we might want these to be the decimal values
 instance H.ToValue RA where
