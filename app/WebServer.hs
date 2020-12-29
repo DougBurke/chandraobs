@@ -264,6 +264,7 @@ import Utils (ActionM, ScottyM
              , ChandraData(..)
              , ChandraCache(..)
              , ChandraLongCache(..)
+             , ChandraMappingCache(..)
              , TimelineCacheData
              , newReader
              , fromBlaze, standardResponse
@@ -332,6 +333,7 @@ main = do
             --
             shortCache <- setupCache pool
             longCache <- setupLongCache pool
+            mapCache <- setupMappingCache pool
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -427,7 +429,7 @@ main = do
                      ]
 
             let wrap r = runReaderT r chandraApp
-                chandraApp = newReader shortCache longCache
+                chandraApp = newReader shortCache longCache mapCache
             scottyOptsT opts wrap (webapp pool scache cache)
 
 
@@ -508,6 +510,29 @@ setupLongCache pool = do
   pure cache
 
 
+setupMappingCache :: Pool Postgresql -> IO (MVar ChandraMappingCache)
+setupMappingCache pool = do
+
+  now1 <- getCurrentTime
+  let empty = ChandraMappingCache M.empty now1 0.0
+  cache <- newMVar empty
+
+  _ <- forkIO $ forever $ do
+    t1 <- getCurrentTime
+    (cd, lastMod) <- runDbConn getProposalObjectMapping pool
+    t2 <- getCurrentTime
+
+    let dt = diffUTCTime t2 t1
+
+    -- I am randomly adding seq for fun here.
+    --
+    void $ cd `seq` dt `seq` swapMVar cache (ChandraMappingCache cd lastMod dt)
+
+    threadDelay (60000000 * 20)
+
+  pure cache
+
+
 -- Hack; needs cleaning up
 getDBInfo :: 
   (MonadIO m, PersistBackend m, SqlDb (Conn m)) 
@@ -582,6 +607,7 @@ webapp cm scache cache = do
       r <- lift ask
       shortCache <- liftAndCatchIO (readMVar (cdCache r))
       longCache <- liftAndCatchIO (readMVar (clCache r))
+      mapCache <- liftAndCatchIO (readMVar (cmCache r))
 
       let lastUpdated = ccLastUpdatedCache shortCache
           lastMod = ccLastModCache shortCache
@@ -607,9 +633,16 @@ webapp cm scache cache = do
                         H5.br <>
                         H5.toHtml (timeToRFC1123 timeLineNow) <>
                         H5.br <>
-                        "Runtime: " <> H5.toHtml (showInt (round dt :: Int)) <> "s")
+                        "Runtime: " <> num (round dt :: Int) <> "s")
+                 <>
+                 H5.div ("Mapping: size=" <> H5.toHtml (show (M.size (cmMapCache mapCache))) <>
+                        H5.br <>
+                        H5.toHtml (timeToRFC1123 (cmLastUpdatedCache mapCache)) <>
+                        H5.br <>
+                        "Runtime: " <> num (round (cmRuntime mapCache) :: Int) <> "s")
 
-          count = H5.toHtml . showInt . lengthSL
+          num = H5.toHtml . showInt
+          count = num . lengthSL
 
           obs = maybe "none" (showInt . fromObsId . recordObsId) mCurrent
           tgt = maybe "none" (fromTargetName . recordTarget) mCurrent
@@ -1052,7 +1085,7 @@ webapp cm scache cache = do
     --
     get "/api/mappings" (apiMappings
                           (getCache ccLastModCache)
-                          (liftSQL getProposalObjectMapping))
+                          (liftSQL getProposalObjectMapping)) -- TODO: use the cache, luke
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --

@@ -10,6 +10,7 @@ module Utils (
      , ChandraData(..)
      , ChandraCache(..)
      , ChandraLongCache(..)
+     , ChandraMappingCache(..)
      , TimelineCacheData
      , newReader
 
@@ -97,18 +98,20 @@ import Types (ScienceObs(..)
              , TargetName
              , ScienceTimeline
              , EngineeringTimeline
+             , PropCategory
              , recordStartTime
              , recordTime
              , rsoExposureTime
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
-
+import Database (NumSrc, NumObs, SIMKey)
 
 -- Reuse the Web.Scotty names to avoid too many changes
 
 data ChandraData = ChandraData {
   cdCache :: MVar ChandraCache
   , clCache :: MVar ChandraLongCache
+  , cmCache :: MVar ChandraMappingCache
   }
 
 data ChandraCache = ChandraCache {
@@ -133,9 +136,16 @@ data ChandraLongCache = ChandraLongCache {
   , clRuntime :: NominalDiffTime
   }
 
+data ChandraMappingCache = ChandraMappingCache {
+  cmMapCache :: M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)
+  , cmLastUpdatedCache :: UTCTime
+  , cmRuntime :: NominalDiffTime
+  }
+
 newReader ::
   MVar ChandraCache
   -> MVar ChandraLongCache
+  -> MVar ChandraMappingCache
   -> ChandraData
 newReader = ChandraData
 
