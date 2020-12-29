@@ -1894,59 +1894,41 @@ apiTimeline ::
   TimelineCacheData
   -> UTCTime
   -> ActionM ()
-apiTimeline getData tNow = do
+apiTimeline cache tNow = do
 
-  hdrs <- headers
-  let readHeader = flip lookup hdrs
-      qryLastMod = readHeader "If-Modified-Since"
-      qryETag = readHeader "If-None-Match"
+  let toETag = makeETag gitCommitId "/api/timeline"
 
-      toETag = makeETag gitCommitId "/api/timeline"
-  
-  let lastMod = timeToRFC1123 tNow
-      isNotModified = case qryETag of
-                        Just e -> e == fromETag (toETag tNow)
-                        Nothing -> Just lastMod == qryLastMod
+      (stline, nstline, simbadMap, props) = cache
 
-      -- I was setting the cache headers here, but a bit pointless
-      notModified = status notModified304
+      -- What information do we want - e.g. Simbad type?
+      --
+      propMap = M.fromList (map (\p -> (propNum p, p)) props)
+      fromSO = fromScienceObs propMap simbadMap tNow
 
-      modified = do
+      sitems = fmap fromSO stline
+      nsitems = fmap fromNonScienceObs nstline
 
-        -- (stline, nstline, simbadMap, props) <- getData
-        -- tNow <- liftIO getCurrentTime
+      -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
+      -- to remove the Maybe.
+      --
+      noMaybe :: SortedList f (Maybe a) -> SortedList f a
+      noMaybe = unsafeToSL . catMaybes . fromSL
 
-        let (stline, nstline, simbadMap, props) = getData
+      -- Use the time value, already pulled out by from*Science,
+      -- to merge the records. This saves having to query the
+      -- JSON itself.
+      --
+      items = fmap snd (mergeSL fst
+                        (noMaybe sitems)
+                        (noMaybe nsitems))
 
-        -- What information do we want - e.g. Simbad type?
-        --
-        let propMap = M.fromList (map (\p -> (propNum p, p)) props)
-            fromSO = fromScienceObs propMap simbadMap tNow
+      out = object ["items" .= fromSL items]
 
-            sitems = fmap fromSO stline
-            nsitems = fmap fromNonScienceObs nstline
+      -- TODO: Need to check handling of tNow
+      getLastMod = pure tNow
+      getData = pure (out, tNow)
 
-            -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
-            -- to remove the Maybe.
-            --
-            noMaybe :: SortedList f (Maybe a) -> SortedList f a
-            noMaybe = unsafeToSL . catMaybes . fromSL
-
-            -- Use the time value, already pulled out by from*Science,
-            -- to merge the records. This saves having to query the
-            -- JSON itself.
-            --
-            items = fmap snd (mergeSL fst
-                              (noMaybe sitems)
-                              (noMaybe nsitems))
-
-        -- TODO: change these times !!!
-        setHeader "Cache-Control" "no-transform,public,max-age=300,s-maxage=900"
-        setHeader "Vary" "Accept-Encoding"
-        setCacheHeaders toETag tNow
-        json (object ["items" .= fromSL items])
-
-  if isNotModified then notModified else modified
+  cacheApiQuery toETag getLastMod getData
 
 
 apiExposures ::
