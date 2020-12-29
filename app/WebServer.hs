@@ -98,8 +98,7 @@ import Web.Scotty.Trans
 
 import Cache (Cache, CacheKey
              , fromCacheData, getFromCache, makeCache, toCacheKey)
-import Database (NumObs, NumSrc, SIMKey
-                , findRecord
+import Database (findRecord
                 , getCurrentObs
                 , getObsInfo
                 , getObsId
@@ -198,7 +197,6 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromObsIdStatus
              
              -- , PropType(..)
-             , SIMCategory
              , SimbadTypeInfo
              , TargetName(..)
              , TimeKS
@@ -1084,8 +1082,7 @@ webapp cm scache cache = do
     -- form that is closely tied to the visualization.
     --
     get "/api/mappings" (apiMappings
-                          (getCache ccLastModCache)
-                          (liftSQL getProposalObjectMapping)) -- TODO: use the cache, luke
+                         (lift (reader cmCache) >>= liftAndCatchIO . readMVar))
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
@@ -1816,56 +1813,63 @@ apiSearchProposal getData = do
   json out
 
 
+-- TODO: we should probably just cache the JSON serialization of
+--       the data and not create it here each time.
+--
 apiMappings ::
-  ActionM UTCTime
-  -> ActionM (M.Map (SIMCategory, SIMKey) (TimeKS, NumSrc, NumObs), UTCTime)
+  ActionM ChandraMappingCache
   -> ActionM ()
-apiMappings getLastMod getData =
+apiMappings getCache = do
+  cache <- getCache
+
   let toETag = makeETag gitCommitId "/api/mappings"
 
-      getData' = do
-        (mapping, lastMod) <- getData
+      mapping = cmMapCache cache
+      lastMod = cmLastUpdatedCache cache
 
-        let names = M.keys mapping
-            propNames = nub (map fst names)
-            simKeys = nub (map (keyToPair . snd) names)
-            simNames = map fst simKeys
+      -- is this a good idea given how cacheApiQuery works?
+      getLastMod = pure lastMod
 
-            -- remove the object that would be created by the
-            -- ToJSON instance of SimbadType
-            toPair (k, v) = k .= fromSimbadType v
-            symbols = map toPair simKeys
+      names = M.keys mapping
+      propNames = nub (map fst names)
+      simKeys = nub (map (keyToPair . snd) names)
+      simNames = map fst simKeys
+
+      -- remove the object that would be created by the
+      -- ToJSON instance of SimbadType
+      toPair (k, v) = k .= fromSimbadType v
+      symbols = map toPair simKeys
       
-            -- Need to provide unique numeric identifiers than
-            -- can be used to index into the 'nodes' array.
-            --
-            nprop = length propNames
-            zero = 0 :: Int
-            propMap = M.fromList (zip propNames [zero..])
-            simMap = M.fromList (zip simNames [nprop, nprop+1..])
+      -- Need to provide unique numeric identifiers than
+      -- can be used to index into the 'nodes' array.
+      --
+      nprop = length propNames
+      zero = 0 :: Int
+      propMap = M.fromList (zip propNames [zero..])
+      simMap = M.fromList (zip simNames [nprop, nprop+1..])
   
-            makeName n = object [ "name" .= n ]
-            getVal n m = fromJust (M.lookup n m)
+      makeName n = object [ "name" .= n ]
+      getVal n m = fromJust (M.lookup n m)
       
-            makeLink ((prop,skey), (texp, nsrc, nobs)) =
-              let stype = fst (keyToPair skey)
-              in object [ "source" .= getVal prop propMap
-                        , "target" .= getVal stype simMap
-                        , "totalExp" .= fromTimeKS texp
-                        , "numSource" .= nsrc
-                        , "numObs" .= nobs ]
+      makeLink ((prop,skey), (texp, nsrc, nobs)) =
+        let stype = fst (keyToPair skey)
+        in object [ "source" .= getVal prop propMap
+                  , "target" .= getVal stype simMap
+                  , "totalExp" .= fromTimeKS texp
+                  , "numSource" .= nsrc
+                  , "numObs" .= nobs ]
 
-            out = object [
-              "nodes" .= map makeName (propNames ++ simNames)
-              , "links" .= map makeLink (M.toList mapping)
-              , "proposals" .= propNames
-              , "simbadNames" .= simNames
-              , "simbadMap" .= object symbols
-              ]
+      out = object [
+        "nodes" .= map makeName (propNames ++ simNames)
+        , "links" .= map makeLink (M.toList mapping)
+        , "proposals" .= propNames
+        , "simbadNames" .= simNames
+        , "simbadMap" .= object symbols
+        ]
 
-        return (out, lastMod)
+      getData = pure (out, lastMod)
 
-  in cacheApiQuery toETag getLastMod getData'
+  cacheApiQuery toETag getLastMod getData
  
 
 -- IF we remove the current time from the conversion of
