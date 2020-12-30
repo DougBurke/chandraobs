@@ -19,6 +19,7 @@
 module Main (main) where
 
 import qualified Data.Map.Strict as M
+import qualified Data.HashMap.Strict as HM
 
 import qualified Data.Set as S
 
@@ -90,6 +91,7 @@ import Network.Wai.Handler.Warp (defaultSettings, setPort)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
+import System.Metrics (Store, newStore, registerGcMetrics, sampleAll)
 
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
@@ -332,6 +334,9 @@ main = do
             longCache <- setupLongCache pool
             mapCache <- setupMappingCache pool
 
+            ekgStore <- newStore
+            registerGcMetrics ekgStore
+
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
                 snSnrIsolatedNS = "SN, SNR AND ISOLATED NS"
@@ -427,7 +432,7 @@ main = do
 
             let wrap r = runReaderT r chandraApp
                 chandraApp = newReader shortCache longCache mapCache
-            scottyOptsT opts wrap (webapp pool scache cache)
+            scottyOptsT opts wrap (webapp pool scache cache ekgStore)
 
 
 -- | Create one of the caches used by the app.
@@ -640,8 +645,9 @@ webapp ::
   Pool Postgresql
   -> CacheContainer
   -> Cache
+  -> Store
   -> ScottyM ()
-webapp cm scache cache = do
+webapp cm scache cache ekgStore = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
         getCache f = lift (reader cdCache) >>= liftAndCatchIO . fmap f . readMVar
@@ -680,6 +686,8 @@ webapp cm scache cache = do
       longCache <- liftAndCatchIO (readMVar (clCache r))
       mapCache <- liftAndCatchIO (readMVar (cmCache r))
 
+      samples <- liftAndCatchIO (sampleAll ekgStore)
+
       let lastUpdated = ccLastUpdatedCache shortCache
           lastMod = ccLastModCache shortCache
           mCurrent = ccCurrentObsCache shortCache
@@ -713,6 +721,18 @@ webapp cm scache cache = do
                          H5.toHtml (timeToRFC1123 (cmLastUpdatedCache mapCache)) <>
                          H5.br <>
                          "Runtime: " <> num (round (cmRuntime mapCache) :: Int) <> "s")
+                 <>
+                 H5.div ("GC stats:" <>
+                         H5.table (
+                            H5.thead (H5.tr (H5.th "Field" <> H5.th "Value"))
+                            <>
+                            H5.tbody (mapM_ showStat (HM.toList samples))
+                            )
+                        )
+
+          showStat (k, v) = H5.tr (H5.td (H5.toHtml k) <>
+                                   H5.td (showValue v))
+          showValue = H5.toHtml . show
 
           num = H5.toHtml . showInt
           -- count = num . lengthSL
