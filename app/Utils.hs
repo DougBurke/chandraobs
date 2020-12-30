@@ -11,7 +11,6 @@ module Utils (
      , ChandraCache(..)
      , ChandraLongCache(..)
      , ChandraMappingCache(..)
-     , TimelineCacheData
      , newReader
 
      , HtmlContext(..)
@@ -55,8 +54,6 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Lazy.Char8 as LB8
 
-import qualified Data.Map.Strict as M
-
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 
@@ -95,16 +92,11 @@ import Types (ScienceObs(..)
              , Record
              , Schedule(..)
              , RestrictedSchedule(..), RestrictedRecord
-             , TargetName
-             , ScienceTimeline
-             , EngineeringTimeline
-             , PropCategory
              , recordStartTime
              , recordTime
              , rsoExposureTime
              , addTimeKS, zeroKS, isZeroKS, showExpTime
              )
-import Database (NumSrc, NumObs, SIMKey)
 
 -- Reuse the Web.Scotty names to avoid too many changes
 
@@ -124,20 +116,14 @@ data ChandraCache = ChandraCache {
   , ccLastUpdatedCache :: UTCTime
   }
 
-type TimelineCacheData =
-  (SortedList StartTimeOrder ScienceTimeline,
-   SortedList StartTimeOrder EngineeringTimeline,
-   M.Map TargetName SimbadInfo,
-   [Proposal])
-
 data ChandraLongCache = ChandraLongCache {
-  clTimeLineCache :: TimelineCacheData
+  clTimeLineCache :: Aeson.Value
   , clLastUpdatedCache :: UTCTime
   , clRuntime :: NominalDiffTime
   }
 
 data ChandraMappingCache = ChandraMappingCache {
-  cmMapCache :: M.Map (PropCategory, SIMKey) (TimeKS, NumSrc, NumObs)
+  cmMapCache :: Aeson.Value
   , cmLastUpdatedCache :: UTCTime
   , cmRuntime :: NominalDiffTime
   }

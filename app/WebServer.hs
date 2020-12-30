@@ -263,7 +263,6 @@ import Utils (ActionM, ScottyM
              , ChandraCache(..)
              , ChandraLongCache(..)
              , ChandraMappingCache(..)
-             , TimelineCacheData
              , newReader
              , fromBlaze, standardResponse
              , timeToRFC1123
@@ -486,7 +485,8 @@ setupLongCache pool = do
 
   -- For the "empty" case could we use the current observation?
   now1 <- getCurrentTime
-  let empty = ChandraLongCache (emptySL, emptySL, M.empty, []) now1 0.0
+  let emptyObj = object ["items" .= ([] :: [Bool])] -- type does not matter
+      empty = ChandraLongCache emptyObj now1 0.0
   cache <- newMVar empty
 
   _ <- forkIO $ forever $ do
@@ -499,9 +499,36 @@ setupLongCache pool = do
     -- now <- getCurrentTime
     let now = t2
 
+        (stline, nstline, simbadMap, props) = cd
+
+        -- What information do we want - e.g. Simbad type?
+        --
+        propMap = M.fromList (map (\p -> (propNum p, p)) props)
+        fromSO = fromScienceObs propMap simbadMap now
+
+        sitems = fmap fromSO stline
+        nsitems = fmap fromNonScienceObs nstline
+
+        -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
+        -- to remove the Maybe.
+        --
+        noMaybe :: SortedList f (Maybe a) -> SortedList f a
+        noMaybe = unsafeToSL . catMaybes . fromSL
+
+        -- Use the time value, already pulled out by from*Science,
+        -- to merge the records. This saves having to query the
+        -- JSON itself.
+        --
+        items = fmap snd (mergeSL fst
+                          (noMaybe sitems)
+                          (noMaybe nsitems))
+
+        itemList = fromSL items
+        out = object ["items" .= itemList]
+
     -- I am randomly adding seq for fun here.
     --
-    void $ cd `seq` dt `seq` swapMVar cache (ChandraLongCache cd now dt)
+    void $ itemList `seq` out `seq` swapMVar cache (ChandraLongCache out now dt)
 
     threadDelay (60000000 * 5)
 
@@ -512,19 +539,64 @@ setupMappingCache :: Pool Postgresql -> IO (MVar ChandraMappingCache)
 setupMappingCache pool = do
 
   now1 <- getCurrentTime
-  let empty = ChandraMappingCache M.empty now1 0.0
+  let empty = ChandraMappingCache emptyObj now1 0.0
+      emptyList = [] :: [Bool]
+      emptyObj = object [ "nodes" .= emptyList
+                        , "links" .= emptyList
+                        , "proposals" .= emptyList
+                        , "simbadNames" .= emptyList
+                        , "simbadMap" .= object []
+                        ]
+
   cache <- newMVar empty
 
   _ <- forkIO $ forever $ do
     t1 <- getCurrentTime
-    (cd, lastMod) <- runDbConn getProposalObjectMapping pool
+    (mapping, lastMod) <- runDbConn getProposalObjectMapping pool
     t2 <- getCurrentTime
 
     let dt = diffUTCTime t2 t1
 
+        names = M.keys mapping
+        propNames = nub (map fst names)
+        simKeys = nub (map (keyToPair . snd) names)
+        simNames = map fst simKeys
+
+        -- remove the object that would be created by the
+        -- ToJSON instance of SimbadType
+        toPair (k, v) = k .= fromSimbadType v
+        symbols = map toPair simKeys
+
+        -- Need to provide unique numeric identifiers than
+        -- can be used to index into the 'nodes' array.
+        --
+        nprop = length propNames
+        zero = 0 :: Int
+        propMap = M.fromList (zip propNames [zero..])
+        simMap = M.fromList (zip simNames [nprop, nprop+1..])
+
+        makeName n = object [ "name" .= n ]
+        getVal n m = fromJust (M.lookup n m)
+
+        makeLink ((prop,skey), (texp, nsrc, nobs)) =
+          let stype = fst (keyToPair skey)
+          in object [ "source" .= getVal prop propMap
+                    , "target" .= getVal stype simMap
+                    , "totalExp" .= fromTimeKS texp
+                    , "numSource" .= nsrc
+                    , "numObs" .= nobs ]
+
+        out = object [
+          "nodes" .= map makeName (propNames ++ simNames)
+          , "links" .= map makeLink (M.toList mapping)
+          , "proposals" .= propNames
+          , "simbadNames" .= simNames
+          , "simbadMap" .= object symbols
+          ]
+
     -- I am randomly adding seq for fun here.
     --
-    void $ cd `seq` dt `seq` swapMVar cache (ChandraMappingCache cd lastMod dt)
+    void $ propNames `seq` simNames `seq` symbols `seq` out `seq` dt `seq` swapMVar cache (ChandraMappingCache out lastMod dt)
 
     threadDelay (60000000 * 20)
 
@@ -573,6 +645,7 @@ webapp cm scache cache = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
         getCache f = lift (reader cdCache) >>= liftAndCatchIO . fmap f . readMVar
+        getAnyCache f = lift (reader f) >>= liftAndCatchIO . readMVar
 
     defaultHandler errHandle
 
@@ -612,7 +685,7 @@ webapp cm scache cache = do
           mCurrent = ccCurrentObsCache shortCache
           dbInfo = ccdbInfoCache shortCache
 
-          (sObs, nsObs, tgs, props) = clTimeLineCache longCache
+          -- timeLine = clTimeLineCache longCache
           timeLineNow = clLastUpdatedCache longCache
           dt = clRuntime longCache
 
@@ -624,23 +697,25 @@ webapp cm scache cache = do
                  <>
                  H5.div ("Proposal: " <> H5.toHtml prop)
                  <>
-                 H5.div ("Timeline: nScience=" <> count sObs <>
-                        " nEngineering=" <> count nsObs <>
-                        " targets=" <> H5.toHtml (show (M.size tgs)) <>
-                        " proposals=" <> H5.toHtml (show (length props)) <>
-                        H5.br <>
-                        H5.toHtml (timeToRFC1123 timeLineNow) <>
-                        H5.br <>
-                        "Runtime: " <> num (round dt :: Int) <> "s")
+                 H5.div ("Timeline: " <>
+                         -- "nScience=" <> count sObs <>
+                         -- " nEngineering=" <> count nsObs <>
+                         -- " targets=" <> H5.toHtml (show (M.size tgs)) <>
+                         -- " proposals=" <> H5.toHtml (show (length props)) <>
+                         H5.br <>
+                         H5.toHtml (timeToRFC1123 timeLineNow) <>
+                         H5.br <>
+                         "Runtime: " <> num (round dt :: Int) <> "s")
                  <>
-                 H5.div ("Mapping: size=" <> H5.toHtml (show (M.size (cmMapCache mapCache))) <>
-                        H5.br <>
-                        H5.toHtml (timeToRFC1123 (cmLastUpdatedCache mapCache)) <>
-                        H5.br <>
-                        "Runtime: " <> num (round (cmRuntime mapCache) :: Int) <> "s")
+                 H5.div ("Mapping: " <>
+                         -- "size=" <> H5.toHtml (show (M.size (cmMapCache mapCache))) <>
+                         H5.br <>
+                         H5.toHtml (timeToRFC1123 (cmLastUpdatedCache mapCache)) <>
+                         H5.br <>
+                         "Runtime: " <> num (round (cmRuntime mapCache) :: Int) <> "s")
 
           num = H5.toHtml . showInt
-          count = num . lengthSL
+          -- count = num . lengthSL
 
           obs = maybe "none" (showInt . fromObsId . recordObsId) mCurrent
           tgt = maybe "none" (fromTargetName . recordTarget) mCurrent
@@ -671,7 +746,7 @@ webapp cm scache cache = do
     --
     get "/api/current" $ do
       do
-        shortCache <- lift (reader cdCache) >>= liftAndCatchIO . readMVar
+        shortCache <- getAnyCache cdCache
 
         -- We use the time the cache was last updated as the query time,
         -- which means it's going to be invalidated every minute, which
@@ -1081,13 +1156,16 @@ webapp cm scache cache = do
     -- How to best serialize the mapping data? For now go with a
     -- form that is closely tied to the visualization.
     --
-    get "/api/mappings" (apiMappings
-                         (lift (reader cmCache) >>= liftAndCatchIO . readMVar))
+    get "/api/mappings" $ do
+      mappingCache <- getAnyCache cmCache
+      let  mapping = cmMapCache mappingCache
+           lastMod = cmLastUpdatedCache mappingCache
+      apiMappings mapping lastMod
 
     -- HIGHLY EXPERIMENTAL: explore a timeline visualization
     --
     get "/api/timeline" $ do
-      longCache <- lift (reader clCache) >>= liftAndCatchIO . readMVar
+      longCache <- getAnyCache clCache
       let cd = clTimeLineCache longCache
           tnow = clLastUpdatedCache longCache
       apiTimeline cd tnow
@@ -1120,7 +1198,7 @@ webapp cm scache cache = do
     get "/obsid/:obsid/wwt" redirectObsid
 
     get "/index.html" $ do
-      shortCache <- lift (reader cdCache) >>= liftAndCatchIO . readMVar
+      shortCache <- getAnyCache cdCache
       let mobs = ccObsInfoCache shortCache
           db = ccdbInfoCache shortCache
 
@@ -1817,59 +1895,17 @@ apiSearchProposal getData = do
 --       the data and not create it here each time.
 --
 apiMappings ::
-  ActionM ChandraMappingCache
+  Value
+  -> UTCTime
   -> ActionM ()
-apiMappings getCache = do
-  cache <- getCache
-
+apiMappings mapping lastMod =
   let toETag = makeETag gitCommitId "/api/mappings"
-
-      mapping = cmMapCache cache
-      lastMod = cmLastUpdatedCache cache
 
       -- is this a good idea given how cacheApiQuery works?
       getLastMod = pure lastMod
+      getData = pure (mapping, lastMod)
 
-      names = M.keys mapping
-      propNames = nub (map fst names)
-      simKeys = nub (map (keyToPair . snd) names)
-      simNames = map fst simKeys
-
-      -- remove the object that would be created by the
-      -- ToJSON instance of SimbadType
-      toPair (k, v) = k .= fromSimbadType v
-      symbols = map toPair simKeys
-      
-      -- Need to provide unique numeric identifiers than
-      -- can be used to index into the 'nodes' array.
-      --
-      nprop = length propNames
-      zero = 0 :: Int
-      propMap = M.fromList (zip propNames [zero..])
-      simMap = M.fromList (zip simNames [nprop, nprop+1..])
-  
-      makeName n = object [ "name" .= n ]
-      getVal n m = fromJust (M.lookup n m)
-      
-      makeLink ((prop,skey), (texp, nsrc, nobs)) =
-        let stype = fst (keyToPair skey)
-        in object [ "source" .= getVal prop propMap
-                  , "target" .= getVal stype simMap
-                  , "totalExp" .= fromTimeKS texp
-                  , "numSource" .= nsrc
-                  , "numObs" .= nobs ]
-
-      out = object [
-        "nodes" .= map makeName (propNames ++ simNames)
-        , "links" .= map makeLink (M.toList mapping)
-        , "proposals" .= propNames
-        , "simbadNames" .= simNames
-        , "simbadMap" .= object symbols
-        ]
-
-      getData = pure (out, lastMod)
-
-  cacheApiQuery toETag getLastMod getData
+  in cacheApiQuery toETag getLastMod getData
  
 
 -- IF we remove the current time from the conversion of
@@ -1891,44 +1927,15 @@ apiMappings getCache = do
 -- so the exhibit page can say "hey, no data yet"?
 --
 apiTimeline ::
-  TimelineCacheData
+  Value
   -> UTCTime
   -> ActionM ()
-apiTimeline cache tNow = do
+apiTimeline out tNow = do
 
   let toETag = makeETag gitCommitId "/api/timeline"
-
-      (stline, nstline, simbadMap, props) = cache
-
-      -- What information do we want - e.g. Simbad type?
-      --
-      propMap = M.fromList (map (\p -> (propNum p, p)) props)
-      fromSO = fromScienceObs propMap simbadMap tNow
-
-      sitems = fmap fromSO stline
-      nsitems = fmap fromNonScienceObs nstline
-
-      -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
-      -- to remove the Maybe.
-      --
-      noMaybe :: SortedList f (Maybe a) -> SortedList f a
-      noMaybe = unsafeToSL . catMaybes . fromSL
-
-      -- Use the time value, already pulled out by from*Science,
-      -- to merge the records. This saves having to query the
-      -- JSON itself.
-      --
-      items = fmap snd (mergeSL fst
-                        (noMaybe sitems)
-                        (noMaybe nsitems))
-
-      out = object ["items" .= fromSL items]
-
-      -- TODO: Need to check handling of tNow
-      getLastMod = pure tNow
       getData = pure (out, tNow)
 
-  cacheApiQuery toETag getLastMod getData
+  cacheApiQuery toETag (pure tNow) getData
 
 
 apiExposures ::
