@@ -18,6 +18,8 @@
 -- 
 module Main (main) where
 
+import qualified Data.ByteString.Lazy as LB
+
 import qualified Data.Map.Strict as M
 import qualified Data.HashMap.Strict as HM
 
@@ -491,8 +493,10 @@ setupLongCache pool = do
   -- For the "empty" case could we use the current observation?
   now1 <- getCurrentTime
   let emptyObj = object ["items" .= ([] :: [Bool])] -- type does not matter
-      empty = ChandraLongCache emptyObj now1 0.0
-  cache <- newMVar empty
+      encoded1 = encode emptyObj
+      empty = ChandraLongCache encoded1 now1 0.0
+
+  cache <- encoded1 `seq` newMVar empty
 
   _ <- forkIO $ forever $ do
     t1 <- getCurrentTime
@@ -531,9 +535,11 @@ setupLongCache pool = do
         itemList = fromSL items
         out = object ["items" .= itemList]
 
+        encoded = encode out
+
     -- I am randomly adding seq for fun here.
     --
-    void $ itemList `seq` out `seq` swapMVar cache (ChandraLongCache out now dt)
+    void $ itemList `seq` encoded `seq` swapMVar cache (ChandraLongCache encoded now dt)
 
     threadDelay (60000000 * 5)
 
@@ -544,7 +550,7 @@ setupMappingCache :: Pool Postgresql -> IO (MVar ChandraMappingCache)
 setupMappingCache pool = do
 
   now1 <- getCurrentTime
-  let empty = ChandraMappingCache emptyObj now1 0.0
+  let empty = ChandraMappingCache encoded1 now1 0.0
       emptyList = [] :: [Bool]
       emptyObj = object [ "nodes" .= emptyList
                         , "links" .= emptyList
@@ -553,7 +559,9 @@ setupMappingCache pool = do
                         , "simbadMap" .= object []
                         ]
 
-  cache <- newMVar empty
+      encoded1 = encode emptyObj
+
+  cache <- encoded1 `seq` newMVar empty
 
   _ <- forkIO $ forever $ do
     t1 <- getCurrentTime
@@ -599,9 +607,11 @@ setupMappingCache pool = do
           , "simbadMap" .= object symbols
           ]
 
+        encoded = encode out
+
     -- I am randomly adding seq for fun here.
     --
-    void $ propNames `seq` simNames `seq` symbols `seq` out `seq` dt `seq` swapMVar cache (ChandraMappingCache out lastMod dt)
+    void $ propNames `seq` simNames `seq` symbols `seq` encoded `seq` dt `seq` swapMVar cache (ChandraMappingCache encoded lastMod dt)
 
     threadDelay (60000000 * 20)
 
@@ -1915,7 +1925,7 @@ apiSearchProposal getData = do
 --       the data and not create it here each time.
 --
 apiMappings ::
-  Value
+  LB.ByteString
   -> UTCTime
   -> ActionM ()
 apiMappings mapping lastMod =
@@ -1923,9 +1933,13 @@ apiMappings mapping lastMod =
 
       -- is this a good idea given how cacheApiQuery works?
       getLastMod = pure lastMod
-      getData = pure (mapping, lastMod)
+      getData = do
+        -- since storing JSON stored as a string we can not use json
+        --- but have to manually recreate it
+        setHeader "Content-Type" "application/json; charset=utf-8"
+        pure (mapping, lastMod)
 
-  in cacheApiQuery toETag getLastMod getData
+  in cacheApiQueryRaw raw toETag getLastMod getData
  
 
 -- IF we remove the current time from the conversion of
@@ -1947,15 +1961,19 @@ apiMappings mapping lastMod =
 -- so the exhibit page can say "hey, no data yet"?
 --
 apiTimeline ::
-  Value
+  LB.ByteString
   -> UTCTime
   -> ActionM ()
 apiTimeline out tNow = do
 
   let toETag = makeETag gitCommitId "/api/timeline"
-      getData = pure (out, tNow)
+      getData = do
+        -- since storing JSON stored as a string we can not use json
+        --- but have to manually recreate it
+        setHeader "Content-Type" "application/json; charset=utf-8"
+        pure (out, tNow)
 
-  cacheApiQuery toETag (pure tNow) getData
+  cacheApiQueryRaw raw toETag (pure tNow) getData
 
 
 apiExposures ::

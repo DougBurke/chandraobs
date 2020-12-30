@@ -117,13 +117,13 @@ data ChandraCache = ChandraCache {
   }
 
 data ChandraLongCache = ChandraLongCache {
-  clTimeLineCache :: Aeson.Value
+  clTimeLineCache :: LB.ByteString
   , clLastUpdatedCache :: UTCTime
   , clRuntime :: NominalDiffTime
   }
 
 data ChandraMappingCache = ChandraMappingCache {
-  cmMapCache :: Aeson.Value
+  cmMapCache :: LB.ByteString
   , cmLastUpdatedCache :: UTCTime
   , cmRuntime :: NominalDiffTime
   }
