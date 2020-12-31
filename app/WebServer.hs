@@ -63,7 +63,7 @@ import Control.Monad.Reader (lift, reader,runReaderT, ask)
 
 import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Default (def)
-import Data.List (foldl', nub)
+import Data.List (foldl', nub, sortOn)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), addDays, addUTCTime, diffUTCTime, getCurrentTime)
@@ -76,12 +76,17 @@ import Database.Groundhog.Postgresql (Postgresql(..)
                                      , runDbConn
                                      , withPostgresqlPool)
 
+import Formatting (Buildable)
+
 -- import Network.HTTP.Date (HTTPDate, epochTimeToHTTPDate, formatHTTPDate)
-import Network.HTTP.Types (StdMethod(HEAD)
+import Network.HTTP.Types (StdMethod(GET, HEAD)
                           , notModified304
                           , notFound404
-                          , serviceUnavailable503)
+                          , parseMethod
+                          , serviceUnavailable503
+                          , statusCode)
 -- import Network.Wai.Middleware.RequestLogger
+import Network.Wai (Middleware, requestMethod, responseStatus)
 import Network.Wai.Middleware.Static (CacheContainer
                                      , CachingStrategy(PublicStaticCaching)
                                      , (>->)
@@ -93,7 +98,10 @@ import Network.Wai.Handler.Warp (defaultSettings, setPort)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr)
-import System.Metrics (Store, newStore, registerGcMetrics, sampleAll)
+import System.Metrics (Store, createCounter, createDistribution
+                      , newStore, registerGcMetrics, sampleAll)
+import System.Metrics.Counter (Counter, inc)
+import System.Metrics.Distribution (Distribution, add)
 
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Read (readMaybe)
@@ -338,6 +346,7 @@ main = do
 
             ekgStore <- newStore
             registerGcMetrics ekgStore
+            wm <- registerWaiMetrics ekgStore
 
             let activeGalaxiesAndQuasars = "ACTIVE GALAXIES AND QUASARS"
                 clustersOfGalaxies = "CLUSTERS OF GALAXIES"
@@ -434,7 +443,7 @@ main = do
 
             let wrap r = runReaderT r chandraApp
                 chandraApp = newReader shortCache longCache mapCache
-            scottyOptsT opts wrap (webapp pool scache cache ekgStore)
+            scottyOptsT opts wrap (webapp pool scache cache ekgStore wm)
 
 
 -- | Create one of the caches used by the app.
@@ -656,8 +665,9 @@ webapp ::
   -> CacheContainer
   -> Cache
   -> Store
+  -> WaiMetrics
   -> ScottyM ()
-webapp cm scache cache ekgStore = do
+webapp cm scache cache ekgStore wm = do
 
     let liftSQL a = liftAndCatchIO (runDbConn a cm)
         getCache f = lift (reader cdCache) >>= liftAndCatchIO . fmap f . readMVar
@@ -674,6 +684,7 @@ webapp cm scache cache ekgStore = do
 
     let cacheOpts = defaultOptions { cacheContainer = scache }
     middleware (staticPolicyWithOptions cacheOpts (noDots >-> addBase "static"))
+    middleware (waiMetrics wm)
 
     let {-
         dbQuery :: Parsable p
@@ -703,9 +714,11 @@ webapp cm scache cache ekgStore = do
           mCurrent = ccCurrentObsCache shortCache
           dbInfo = ccdbInfoCache shortCache
 
-          -- timeLine = clTimeLineCache longCache
+          timeLine = clTimeLineCache longCache
           timeLineNow = clLastUpdatedCache longCache
           dt = clRuntime longCache
+
+          mapping = cmMapCache mapCache
 
       let page = H5.div ("Cache updated: " <> (H5.toHtml . timeToRFC1123) lastUpdated)
                  <>
@@ -716,17 +729,14 @@ webapp cm scache cache ekgStore = do
                  H5.div ("Proposal: " <> H5.toHtml prop)
                  <>
                  H5.div ("Timeline: " <>
-                         -- "nScience=" <> count sObs <>
-                         -- " nEngineering=" <> count nsObs <>
-                         -- " targets=" <> H5.toHtml (show (M.size tgs)) <>
-                         -- " proposals=" <> H5.toHtml (show (length props)) <>
+                         "length=" <> num (LB.length timeLine) <>
                          H5.br <>
                          H5.toHtml (timeToRFC1123 timeLineNow) <>
                          H5.br <>
                          "Runtime: " <> num (round dt :: Int) <> "s")
                  <>
                  H5.div ("Mapping: " <>
-                         -- "size=" <> H5.toHtml (show (M.size (cmMapCache mapCache))) <>
+                         "length=" <> num (LB.length mapping) <>
                          H5.br <>
                          H5.toHtml (timeToRFC1123 (cmLastUpdatedCache mapCache)) <>
                          H5.br <>
@@ -736,7 +746,7 @@ webapp cm scache cache ekgStore = do
                          H5.table (
                             H5.thead (H5.tr (H5.th "Field" <> H5.th "Value"))
                             <>
-                            H5.tbody (mapM_ showStat (HM.toList samples))
+                            H5.tbody (mapM_ showStat (sortOn fst (HM.toList samples)))
                             )
                         )
 
@@ -744,6 +754,7 @@ webapp cm scache cache ekgStore = do
                                    H5.td (showValue v))
           showValue = H5.toHtml . show
 
+          num :: (Integral a, Buildable a) => a -> H5.Html
           num = H5.toHtml . showInt
           -- count = num . lengthSL
 
@@ -2321,3 +2332,53 @@ rsoToJSON rso =
 -- converted to JSON
 rsoListToJSON :: SortedList a RestrictedSO -> [Value]
 rsoListToJSON = map rsoToJSON . fromSL
+
+
+-- middleware for EKG queries. See https://hackage.haskell.org/package/wai-middleware-metrics
+--
+
+data WaiMetrics = WaiMetrics {
+  requestCounter :: Counter
+  , getCounter :: Counter
+  , headCounter :: Counter
+  , statusCode100Counter :: Counter
+  , statusCode200Counter :: Counter
+  , statusCode300Counter :: Counter
+  , statusCode400Counter :: Counter
+  , statusCode500Counter :: Counter
+  , latencyDistribution :: Distribution
+}
+
+registerWaiMetrics :: Store -> IO WaiMetrics
+registerWaiMetrics store =
+  WaiMetrics
+    <$> createCounter "wai.request_count" store
+    <*> createCounter "wai.get_count" store
+    <*> createCounter "wai.head_count" store
+    <*> createCounter "wai.response_status_1xx" store
+    <*> createCounter "wai.response_status_2xx" store
+    <*> createCounter "wai.response_status_3xx" store
+    <*> createCounter "wai.response_status_4xx" store
+    <*> createCounter "wai.response_status_5xx" store
+    <*> createDistribution "wai.latency_distribution" store
+
+waiMetrics :: WaiMetrics -> Middleware
+waiMetrics wm app req respond = do
+  inc (requestCounter wm)
+  case parseMethod (requestMethod req) of
+    Right GET -> inc (getCounter wm)
+    Right HEAD -> inc (headCounter wm)
+    _ -> pure ()
+  start <- getCurrentTime
+  app req (respond' start)
+    where
+      respond' start res = do
+        inc $ case statusCode $ responseStatus res of
+                s | s >= 500  -> statusCode500Counter wm
+                  | s >= 400  -> statusCode400Counter wm
+                  | s >= 300  -> statusCode300Counter wm
+                  | s >= 200  -> statusCode200Counter wm
+                  | otherwise -> statusCode100Counter wm
+        end <- getCurrentTime
+        add (latencyDistribution wm) (realToFrac $ diffUTCTime end start)
+        respond res
