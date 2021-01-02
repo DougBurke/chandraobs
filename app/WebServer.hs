@@ -675,6 +675,9 @@ webapp cm scache cache ekgStore wm = do
 
     defaultHandler errHandle
 
+    -- note down all the requests
+    middleware (waiMetrics wm)
+
     -- Need to find out how the static directory gets copied
     -- over by cabal; seems to be okay
     --
@@ -684,7 +687,6 @@ webapp cm scache cache ekgStore wm = do
 
     let cacheOpts = defaultOptions { cacheContainer = scache }
     middleware (staticPolicyWithOptions cacheOpts (noDots >-> addBase "static"))
-    middleware (waiMetrics wm)
 
     let {-
         dbQuery :: Parsable p
