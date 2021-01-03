@@ -63,7 +63,7 @@ library
        -- alas it does not
        , Cabal
        , containers >= 0.4 && < 0.7
-       , formatting >= 6.2 && < 6.4
+       , formatting >= 6.2 && < 7.2
        , groundhog >= 0.8 && < 0.12
        , groundhog-postgresql >= 0.8 && < 0.12
        , groundhog-th >= 0.8 && < 0.12
