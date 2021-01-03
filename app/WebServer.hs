@@ -175,6 +175,7 @@ import Database (findRecord
                 , findAllObs
                 -- , NormSep
                 -- , fromNormSep
+                , getLastModified
                 , getLastModifiedFixed
 
                 , maybeProject
@@ -508,6 +509,7 @@ setupLongCache pool = do
   cache <- encoded1 `seq` newMVar empty
 
   _ <- forkIO $ forever $ do
+
     t1 <- getCurrentTime
     cd <- runDbConn getTimeline pool
     t2 <- getCurrentTime
@@ -559,7 +561,7 @@ setupMappingCache :: Pool Postgresql -> IO (MVar ChandraMappingCache)
 setupMappingCache pool = do
 
   now1 <- getCurrentTime
-  let empty = ChandraMappingCache encoded1 now1 0.0
+  let empty = ChandraMappingCache encoded1 Nothing now1 0.0
       emptyList = [] :: [Bool]
       emptyObj = object [ "nodes" .= emptyList
                         , "links" .= emptyList
@@ -573,54 +575,62 @@ setupMappingCache pool = do
   cache <- encoded1 `seq` newMVar empty
 
   _ <- forkIO $ forever $ do
-    t1 <- getCurrentTime
-    (mapping, lastMod) <- runDbConn getProposalObjectMapping pool
-    t2 <- getCurrentTime
 
-    let dt = diffUTCTime t2 t1
-
-        names = M.keys mapping
-        propNames = nub (map fst names)
-        simKeys = nub (map (keyToPair . snd) names)
-        simNames = map fst simKeys
-
-        -- remove the object that would be created by the
-        -- ToJSON instance of SimbadType
-        toPair (k, v) = k .= fromSimbadType v
-        symbols = map toPair simKeys
-
-        -- Need to provide unique numeric identifiers than
-        -- can be used to index into the 'nodes' array.
-        --
-        nprop = length propNames
-        zero = 0 :: Int
-        propMap = M.fromList (zip propNames [zero..])
-        simMap = M.fromList (zip simNames [nprop, nprop+1..])
-
-        makeName n = object [ "name" .= n ]
-        getVal n m = fromJust (M.lookup n m)
-
-        makeLink ((prop,skey), (texp, nsrc, nobs)) =
-          let stype = fst (keyToPair skey)
-          in object [ "source" .= getVal prop propMap
-                    , "target" .= getVal stype simMap
-                    , "totalExp" .= fromTimeKS texp
-                    , "numSource" .= nsrc
-                    , "numObs" .= nobs ]
-
-        out = object [
-          "nodes" .= map makeName (propNames ++ simNames)
-          , "links" .= map makeLink (M.toList mapping)
-          , "proposals" .= propNames
-          , "simbadNames" .= simNames
-          , "simbadMap" .= object symbols
-          ]
-
-        encoded = encode out
-
-    -- I am randomly adding seq for fun here.
+    -- Only query the database if the last-modified date has changed.
     --
-    void $ propNames `seq` simNames `seq` symbols `seq` encoded `seq` dt `seq` swapMVar cache (ChandraMappingCache encoded lastMod dt)
+    oldDate <- cmLastModifiedCache <$> readMVar cache
+    modDate <- runDbConn getLastModified pool
+    when (oldDate /= modDate) $ do
+
+      t1 <- getCurrentTime
+      (mapping, lastMod) <- runDbConn getProposalObjectMapping pool
+      t2 <- getCurrentTime
+
+      let dt = diffUTCTime t2 t1
+
+          names = M.keys mapping
+          propNames = nub (map fst names)
+          simKeys = nub (map (keyToPair . snd) names)
+          simNames = map fst simKeys
+
+          -- remove the object that would be created by the
+          -- ToJSON instance of SimbadType
+          toPair (k, v) = k .= fromSimbadType v
+          symbols = map toPair simKeys
+
+          -- Need to provide unique numeric identifiers than
+          -- can be used to index into the 'nodes' array.
+          --
+          nprop = length propNames
+          zero = 0 :: Int
+          propMap = M.fromList (zip propNames [zero..])
+          simMap = M.fromList (zip simNames [nprop, nprop+1..])
+
+          makeName n = object [ "name" .= n ]
+          getVal n m = fromJust (M.lookup n m)
+
+          makeLink ((prop,skey), (texp, nsrc, nobs)) =
+            let stype = fst (keyToPair skey)
+            in object [ "source" .= getVal prop propMap
+                      , "target" .= getVal stype simMap
+                      , "totalExp" .= fromTimeKS texp
+                      , "numSource" .= nsrc
+                      , "numObs" .= nobs ]
+
+          out = object [
+            "nodes" .= map makeName (propNames ++ simNames)
+            , "links" .= map makeLink (M.toList mapping)
+            , "proposals" .= propNames
+            , "simbadNames" .= simNames
+            , "simbadMap" .= object symbols
+            ]
+
+          encoded = encode out
+
+      -- I am randomly adding seq for fun here.
+      --
+      void $ propNames `seq` simNames `seq` symbols `seq` encoded `seq` dt `seq`
+        swapMVar cache (ChandraMappingCache encoded (Just lastMod) t1 dt)
 
     threadDelay (60000000 * 20)
 
@@ -740,6 +750,9 @@ webapp cm scache cache ekgStore wm = do
                  H5.div ("Mapping: " <>
                          "length=" <> num (LB.length mapping) <>
                          H5.br <>
+                         "lastMod=" <> H5.toHtml (maybe "<not-updated>" timeToRFC1123 (cmLastModifiedCache mapCache)) <>
+                         H5.br <>
+                         "lastUpdate=" <>
                          H5.toHtml (timeToRFC1123 (cmLastUpdatedCache mapCache)) <>
                          H5.br <>
                          "Runtime: " <> num (round (cmRuntime mapCache) :: Int) <> "s")

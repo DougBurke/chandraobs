@@ -124,7 +124,10 @@ data ChandraLongCache = ChandraLongCache {
 
 data ChandraMappingCache = ChandraMappingCache {
   cmMapCache :: LB.ByteString
+  , cmLastModifiedCache :: Maybe UTCTime
+    -- ^ When was the database last updated
   , cmLastUpdatedCache :: UTCTime
+    -- ^ When was the cache last updated?
   , cmRuntime :: NominalDiffTime
   }
 
