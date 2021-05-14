@@ -30,6 +30,8 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as L
 
+import qualified Data.Vector as V
+
 import qualified Text.Blaze.Html5 as H5
 import qualified Text.Blaze.Html5.Attributes as A5
 
@@ -57,7 +59,7 @@ import qualified Views.Schedule as Schedule
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, newMVar, readMVar, swapMVar)
 
-import Control.Monad (forever, void, when)
+import Control.Monad (forever, forM_, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (lift, reader,runReaderT, ask)
 
@@ -96,7 +98,7 @@ import Network.Wai.Middleware.Static (CacheContainer
 import Network.Wai.Handler.Warp (defaultSettings, setPort)
 
 import System.Environment (lookupEnv)
-import System.Exit (exitFailure)
+import System.Exit (exitFailure, exitSuccess)
 import System.IO (hFlush, stderr)
 import System.Metrics (Store, createCounter, createDistribution
                       , newStore, registerGcMetrics, sampleAll)
@@ -190,6 +192,7 @@ import Git (gitCommitId)
 import Layout (getFact, renderObsIdDetails)
 import Sorted (SortedList
               , nullSL, emptySL, fromSL, mergeSL, unsafeToSL, lengthSL
+              , fmapSL
               , StartTimeOrder, ExposureTimeOrder)
 
 import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
@@ -338,6 +341,18 @@ main = do
           withPostgresqlPool connStr 5 $ \pool -> do
             runDbConn handleMigration pool
 
+            -- DEBUG
+            ekgStore <- newStore
+            registerGcMetrics ekgStore
+            putStrLn ">> Start"
+            timeit pool
+            putStrLn "<< End"
+            samples <- sampleAll ekgStore
+            forM_ (sortOn fst (HM.toList samples)) $ \(k, v) ->
+              T.putStrLn $ "Key: " <> k <> "  " <> T.pack (show v)
+            exitSuccess
+            -- DEBUG
+            
             -- Invent a different caching strategy than used below for the
             -- observation-info data.
             --
@@ -526,8 +541,8 @@ setupLongCache pool = do
         propMap = M.fromList (map (\p -> (propNum p, p)) props)
         fromSO = fromScienceObs propMap simbadMap now
 
-        sitems = fmap fromSO stline
-        nsitems = fmap fromNonScienceObs nstline
+        sitems = fmapSL fromSO stline
+        nsitems = fmapSL fromNonScienceObs nstline
 
         -- need to convert SortedList StartTimeorder (Maybe (ChandraTime, Value))
         -- to remove the Maybe.
@@ -539,9 +554,9 @@ setupLongCache pool = do
         -- to merge the records. This saves having to query the
         -- JSON itself.
         --
-        items = fmap snd (mergeSL fst
-                          (noMaybe sitems)
-                          (noMaybe nsitems))
+        items = fmapSL snd (mergeSL fst
+                            (noMaybe sitems)
+                            (noMaybe nsitems))
 
         itemList = fromSL items
         out = object ["items" .= itemList]
@@ -587,6 +602,10 @@ setupMappingCache pool = do
       t2 <- getCurrentTime
 
       let dt = diffUTCTime t2 t1
+
+          --nub' :: Ord a => [a] -> [a]
+          -- nub' = V.fromList . S.toAscList . S.fromList
+          --nub' = S.toAscList . S.fromList
 
           names = M.keys mapping
           propNames = nub (map fst names)
@@ -1330,7 +1349,7 @@ webapp cm scache cache ekgStore wm = do
             Nothing -> do
               matches <- liftSQL (getDB pval)
               when (nullSL matches) next
-              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+              sched <- liftSQL (makeScheduleRestricted (fmapSL Right matches))
               fromBlaze (toHtml pval sched)
 
         fromCache pname toText getDB toHtml = do
@@ -1361,7 +1380,7 @@ webapp cm scache cache ekgStore wm = do
     let searchResultsRestricted getData isNull page = do
           (xs, matches) <- getData
           when (nullSL matches || isNull xs) next
-          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+          sched <- liftSQL (makeScheduleRestricted (fmapSL Right matches))
           fromBlaze (page xs sched)
 
     -- This is still useful for the category/simbad search, since
@@ -1377,7 +1396,7 @@ webapp cm scache cache ekgStore wm = do
             Just val -> do
               matches <- getData val
               when (nullSL matches) next
-              sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+              sched <- liftSQL (makeScheduleRestricted (fmapSL Right matches))
               fromBlaze (page val sched)
             Nothing -> next
 
@@ -1565,7 +1584,7 @@ webapp cm scache cache ekgStore wm = do
       if nullSL matches
         then fromBlaze (Target.noMatchPage target)
         else do
-          sched <- liftSQL (makeScheduleRestricted (fmap Right matches))
+          sched <- liftSQL (makeScheduleRestricted (fmapSL Right matches))
           fromBlaze (Target.targetPage target matchNames sched)
 
     -- Try displaying a "calendar" view
@@ -2058,7 +2077,7 @@ proposal getData getSched = do
   (mprop, mabs, matches) <- getData
   case mprop of
     Just prop -> do
-      sched <- getSched (fmap Right matches)
+      sched <- getSched (fmapSL Right matches)
       fromBlaze (Proposal.matchPage prop mabs sched)
     _         -> next -- status notFound404
 
@@ -2069,7 +2088,7 @@ searchTypeUnId ::
   -> ActionM ()
 searchTypeUnId getData getSched = do
   (typeInfo, ms) <- getData
-  sched <- getSched (fmap Right ms)
+  sched <- getSched (fmapSL Right ms)
   fromBlaze (SearchTypes.matchPage typeInfo sched)
       
 
@@ -2081,7 +2100,7 @@ searchType getData getSched = do
   matches <- getData
   case matches of
     Just (typeInfo, ms) -> do
-      sched <- getSched (fmap Right ms)
+      sched <- getSched (fmapSL Right ms)
       fromBlaze (SearchTypes.matchPage typeInfo sched)
           
     _ -> next -- status notFound404
@@ -2328,7 +2347,7 @@ fetchSchedule ::
 fetchSchedule act = do
   matches <- act
   -- note: there is no check for no matches
-  makeScheduleRestricted (fmap Right matches)
+  makeScheduleRestricted (fmapSL Right matches)
 
 
 -- Convert a restricted science observation to an object; very-limited
@@ -2397,3 +2416,60 @@ waiMetrics wm app req respond = do
         end <- getCurrentTime
         add (latencyDistribution wm) (realToFrac $ diffUTCTime end start)
         respond res
+
+
+timeit :: Pool Postgresql -> IO ()
+timeit pool = do
+  t1 <- getCurrentTime
+  (mapping, lastMod) <- runDbConn getProposalObjectMapping pool
+  t2 <- getCurrentTime
+
+  let dt = diffUTCTime t2 t1
+
+      -- nub' :: Ord a => V.Vector a -> V.Vector a
+      nub' :: Ord a => [a] -> V.Vector a
+      nub' = V.fromList . S.toAscList . S.fromList
+      -- nub' :: Ord a => [a] -> [a]
+      -- nub' = S.toAscList . S.fromList
+
+      names = M.keys mapping
+      propNames = nub' (map fst names)
+      simKeys = nub' (map (keyToPair . snd) names)
+      simNames = V.map fst simKeys
+
+      -- remove the object that would be created by the
+      -- ToJSON instance of SimbadType
+      toPair (k, v) = k .= fromSimbadType v
+      symbols = map toPair simKeys
+
+      -- Need to provide unique numeric identifiers than
+      -- can be used to index into the 'nodes' array.
+      --
+      nprop = V.length propNames
+      zero = 0 :: Int
+      propMap = M.fromList (V.zip propNames (V.enumFromN zero nprop))
+      simMap = M.fromList (V.zip simNames (V.enumFromN nprop (V.length simNames)))
+
+      makeName n = object [ "name" .= n ]
+      getVal n m = fromJust (M.lookup n m)
+
+      makeLink ((prop,skey), (texp, nsrc, nobs)) =
+        let stype = fst (keyToPair skey)
+        in object [ "source" .= getVal prop propMap
+                  , "target" .= getVal stype simMap
+                  , "totalExp" .= fromTimeKS texp
+                  , "numSource" .= nsrc
+                  , "numObs" .= nobs ]
+
+      out = object [
+        "nodes" .= V.map makeName (propNames V.++ simNames)
+        , "links" .= map makeLink (M.toList mapping)
+        , "proposals" .= propNames
+        , "simbadNames" .= simNames
+        , "simbadMap" .= object symbols
+        ]
+
+      encoded = encode out
+
+  propNames `seq` simNames `seq` symbols `seq` encoded `seq` dt `seq`
+    putStrLn ("Length: " ++ show (LB.length encoded))

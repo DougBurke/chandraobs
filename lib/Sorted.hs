@@ -13,6 +13,16 @@ module Sorted ( SortedList
               , mergeSL
               , lengthSL
               , nullSL
+              , fmapSL
+
+              , SortedVec
+              , emptySV
+              , toSV
+              , unsafeToSV
+              , fromSV
+              , mergeSV
+              , lengthSV
+              , nullSV
 
                 -- These are used by various parts of the system; at some
                 -- level having them here is a bit out of place, but at
@@ -23,6 +33,9 @@ module Sorted ( SortedList
               , ExposureTimeOrder
                 
              ) where
+
+import qualified Data.Vector as V
+import qualified Data.Vector.Algorithms.Intro as VA
 
 import Data.Function (on)
 import Data.List (sortBy)
@@ -41,38 +54,34 @@ import Data.List (sortBy)
 --
 newtype SortedList f a = SL { _unSL :: [a] }
 
-{- want something like the following, but ideally without
-   having to carry the projection function around, so that
-   empty instances can be created
-data SortedList2 a b = SL2 { _slProj :: a -> b
-                           , _slList :: [a] }
--}
+newtype SortedVec f a = SV { _unSV :: V.Vector a }
 
-{-
-instance Eq a => Eq (SortedList f a) where
-  (==) = (==) `on` _unSL
--}
-
-instance Functor (SortedList f) where
-  fmap f (SL a) = SL (fmap f a)
-
-{-
-instance Ord a => Monoid (SortedList f a) where
-  mempty = emptySL
-  mappend = mergeSL
--}
+-- | This acts like `fmap` but it requires the user to guarantee that
+--   the function does not change the order information.
+--
+fmapSL :: (a -> b) -> SortedList f a -> SortedList f b
+fmapSL f (SL a) = SL (fmap f a)
 
 -- | The empty sorted list.
 emptySL :: SortedList f a
 emptySL = SL []
 
+emptySV :: SortedVec f a
+emptySV = SV V.empty
+
 lengthSL :: SortedList f a -> Int
 lengthSL (SL xs) = length xs
+
+lengthSV :: SortedVec f a -> Int
+lengthSV (SV xs) = V.length xs
 
 -- | The input list *must* be sorted in ascending order, but
 --   it is not checked.
 unsafeToSL :: [a] -> SortedList f a
 unsafeToSL = SL
+
+unsafeToSV :: V.Vector a -> SortedVec f a
+unsafeToSV = SV
 
 -- | The input list need not be in ascending order.
 toSL ::
@@ -82,13 +91,26 @@ toSL ::
   -> SortedList f a
 toSL p = SL . sortBy (compare `on` p)
 
+toSV ::
+  Ord b
+  => (a -> b)  -- ^ projection function to get the item to sort on
+  -> V.Vector a
+  -> SortedVec f a
+toSV p = SV . V.modify (VA.sortBy (compare `on` p))
+
 -- | The list remains sorted (in ascending order).
 fromSL :: SortedList f a -> [a]
 fromSL = _unSL
 
+fromSV :: SortedVec f a -> V.Vector a
+fromSV = _unSV
+
 -- | Is the list empty?
 nullSL :: SortedList f a -> Bool
 nullSL = null . _unSL
+
+nullSV :: SortedVec f a -> Bool
+nullSV = V.null . _unSV
 
 -- | Merge two sorted lists.
 --
@@ -109,6 +131,21 @@ mergeSL p (SL xs) (SL ys) = SL (go xs ys)
     go [] y0 = y0
     go x0@(x:x1) y0@(y:y1) | p x > p y = y : go x0 y1
                            | otherwise = x : go x1 y0
+
+
+-- unlike mergeSL I think we just combine and sort
+--
+mergeSV ::
+  Ord b
+  => (a -> b)  -- ^ projection function
+  -> SortedVec f a
+  -> SortedVec f a
+  -> SortedVec f a
+mergeSV _ x (SV yy) | V.null yy = x
+mergeSV _ (SV xx) y | V.null xx = y
+mergeSV p (SV xs) (SV ys) = SV zs
+  where
+    zs = V.modify (VA.sortBy (compare `on` p)) (xs V.++ ys)
 
 
 -- | Indicate that a list is sorted by start time (earliest first)

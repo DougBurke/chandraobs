@@ -2197,7 +2197,7 @@ data ConstrainedObs = ConstrainedObs {
 --   be okay (unless there's parsing issues as well).
 --
 newtype SimbadType = SimbadType { fromSimbadType :: T.Text }
-  deriving Eq
+  deriving (Eq, Ord)
 
 -- TODO: need a converter to a URL fragment - e.g. '?' needs protecting!
 --       actually, need to check this, since I have seen it work
