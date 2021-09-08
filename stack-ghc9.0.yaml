@@ -1,0 +1,7 @@
+flags: {}
+packages:
+- '.'
+extra-deps:
+- heroku-0.1.2.3
+- groundhog-th-0.11   # this does not build with ghc 9.0
+resolver: nightly-2021-09-07
