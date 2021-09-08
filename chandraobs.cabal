@@ -63,7 +63,7 @@ library
        -- alas it does not
        , Cabal
        , containers >= 0.4 && < 0.7
-       , formatting >= 6.2 && < 6.4
+       , formatting >= 6.2 && < 7.2
        , groundhog >= 0.8 && < 0.12
        , groundhog-postgresql >= 0.8 && < 0.12
        , groundhog-th >= 0.8 && < 0.12
@@ -76,11 +76,7 @@ library
        , time >= 1.5 && < 1.10
        , transformers >= 0.3 && < 0.6
        , vector >= 0.12 && < 0.13         
-       , vector-algorithms >= 0.8 && < 0.9         
-       -- see if we can avoid a failing build (i.e. don't pull in a recent
-       -- version of zlib); argh - why didn't I note down what the
-       -- the failure actually was (I think it was building on heroku);
-       -- as trying with stack/docker, let's relax this
+       , vector-algorithms >= 0.8 && < 0.9
        , zlib == 0.6.*
 
   else
@@ -136,7 +132,7 @@ executable webserver
        , groundhog-postgresql
        , http-types
        , mtl == 2.2.*
-       , random >= 1.0 && < 1.2
+       , random >= 1.0 && < 1.3
        , resource-pool == 0.2.*
        , scotty
        , split
