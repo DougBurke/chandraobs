@@ -1,8 +1,10 @@
 # See https://github.com/utdemir/hs-nix-template
 #
-{ compiler ? "ghc8104" }:
+{ compiler ? "ghc8107" }:
 
 let
+  isDefaultCompiler = compiler == "ghc8107";
+  
   sources = import nix/sources.nix;
   pkgs = import sources.nixpkgs {};
 
@@ -37,16 +39,17 @@ let
       p."chandraobs"
     ];
     buildInputs = [
-      # pkgs.haskellPackages.haskell-language-server
-      myHaskellPackages.haskell-language-server
       pkgs.haskellPackages.cabal-install
       pkgs.haskellPackages.hlint
       pkgs.niv
       pkgs.heroku
       pkgs.postgresql
       pkgs.git
+    ] ++ pkgs.lib.optionals isDefaultCompiler [
+      # pkgs.haskellPackages.haskell-language-server
+      myHaskellPackages.haskell-language-server
     ];
-    withHoogle = true;
+    withHoogle = isDefaultCompiler;
   };
 
   exe = pkgs.haskell.lib.justStaticExecutables (myHaskellPackages."chandraobs");

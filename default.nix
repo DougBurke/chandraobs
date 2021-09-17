@@ -1,1 +1,4 @@
-(import ./release.nix {}).exe
+{ compiler ? "ghc8107"
+}:
+
+(import ./release.nix { compiler = compiler; }).exe
