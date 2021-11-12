@@ -83,8 +83,10 @@ cabcurrent:
 cabupdate:
 	@echo "### run updateschedule on production db via cabal"
 	@echo "##"
+	@echo "## USE ARGS=<obsid> to set the obsid to check"
+	@echo "##"
 	@echo "## APP=${APP}"
-	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} updateschedule
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} updateschedule $(ARGS)
 
 cabget:
 	@echo "### run getschedule on production db via cabal"
@@ -95,8 +97,10 @@ cabget:
 cabsimbad:
 	@echo "### run querysimbad on production db via cabal"
 	@echo "##"
+	@echo "## USE ARGS='-- --ndays n' set the days"
+	@echo "##"
 	@echo "## APP=${APP}"
-	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} querysimbad
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} querysimbad $(ARGS)
 
 cabobsid:
 	@echo "### run queryobsid on production db via cabal"
