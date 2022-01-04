@@ -174,7 +174,7 @@ fromBlaze = html . renderHtml
 -- A placeholder in case we want to set up any 
 -- response settings.
 standardResponse :: ActionM ()
-standardResponse = return ()
+standardResponse = pure ()
 
 plural :: Int -> T.Text
 plural i = if i > 1 then "s" else ""

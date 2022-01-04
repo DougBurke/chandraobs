@@ -91,7 +91,7 @@ missingProposals nmax = do
                    in project p (CondEmpty `orderBy` [Asc p])
         propNoData <- let p = MpNumField
                       in project p (CondEmpty `orderBy` [Asc p])
-        return (propAll, propHave, propNoData)
+        pure (propAll, propHave, propNoData)
 
   (pAll, pHave, pNoData) <- runDb dbAct
   
@@ -105,7 +105,7 @@ missingProposals nmax = do
   let nmiss = length wanted
       ndrop = nmiss - fromIntegral nmax
   T.putStrLn ("There are " <> showInt nmiss <> " missing abstracts.")
-  return (drop ndrop wanted)
+  pure (drop ndrop wanted)
 
   
 {-

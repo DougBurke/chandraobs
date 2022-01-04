@@ -123,7 +123,7 @@ getUpdateable nmax tmax = do
                       Not (isFieldNothing SoStartTimeField))
                      `orderBy` [Desc SoStartTimeField]
                      `limitTo` nmax)
-  return (updateN, updateS)
+  pure (updateN, updateS)
 
 
 type OCATMap = [(ObsIdVal, Maybe OCAT)]
@@ -166,14 +166,14 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
             ans <- liftIO (fromOCAT obsid ocat)
             case ans of
               Just new -> if old == new
-                          then return 0
+                          then pure 0
                           else deleteObs obsid
                                >> insert_ new
                                >> liftIO (T.putStr (" " <>
                                                     showInt (fromObsId obsid)))
-                               >> return 1
-              Nothing -> return 0
-          _ -> return 0
+                               >> pure 1
+              Nothing -> pure 0
+          _ -> pure 0
 
       go = do
         liftIO (putStr "Processing:")
@@ -181,7 +181,7 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
         liftIO (putStrLn "")
         let n = sum ns
         when (n > 0) (liftIO getCurrentTime >>= updateLastModified)
-        return n
+        pure n
 
       ntot = length osobs
       tailMsg = showInt ntot <> " " <> lbl <> " observations"
@@ -193,7 +193,7 @@ updateObsIds lbl getObsId fromOCAT deleteObs omap osobs =
                            tailMsg
               | otherwise = "Updated all " <> tailMsg
                             
-        in T.putStrLn msg >> return n
+        in T.putStrLn msg >> pure n
           
   in runDb go >>= report
   
@@ -217,8 +217,8 @@ updateScience omap sobs =
             T.hPutStrLn stderr
             ("Science ObsId: " <> showInt (fromObsId obsid))
             >> T.hPutStrLn stderr e
-            >> return Nothing
-          Right (_, x) -> return (Just x)
+            >> pure Nothing
+          Right (_, x) -> pure (Just x)
         
       del obsid = delete (SoObsIdField ==. obsid)
   in showScienceObs sobs
@@ -258,8 +258,8 @@ updateNonScience =
             T.hPutStrLn stderr
             ("Engineering ObsId: " <> showInt (fromObsId obsid)) 
             >> T.hPutStrLn stderr e
-            >> return Nothing
-        Right x -> return (Just x)
+            >> pure Nothing
+        Right x -> pure (Just x)
                       
       del obsid = delete (NsObsIdField ==. obsid)
   in updateObsIds "Engineering" nsObsId fromOCAT del
@@ -394,7 +394,7 @@ processScience oi ocat =
         insert_ sobs
         flag <- insertProposal prop
         updateLastModified now
-        return flag
+        pure flag
 
   in do
      ans <- ocatToScience ocat

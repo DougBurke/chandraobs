@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# Language OverloadedStrings #-}
-{-# Language RecordWildCards #-}
-{-# Language TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 --
 -- Usage:
@@ -187,7 +187,7 @@ downloadScheduleList = do
       pages = extractPages ps
       allPages = pages >< hardcodedScheduleList
       
-  return allPages
+  pure allPages
 
 -- | Download the given schedule. The return value is the text
 --   representation of the content (so no tags have been stripped).
@@ -574,7 +574,7 @@ processRow colOpt tags =
       [seqStr, obsidStr, targetStr, startStr, durStr, _, _,
        raStr, decStr, rollStr] = take 10 cols
 
-      lexeme p = spaces >> p >>= \a -> spaces >> return a
+      lexeme p = spaces >> p >>= \a -> spaces >> pure a
       qparse p = parse (lexeme p) "<manual parsing>" . T.unpack
 
       getsi = do
@@ -689,7 +689,7 @@ addInvalidObsId t obsid errMsg =
   >> insert_ InvalidObsId { ioObsId = obsid
                           , ioChecked = t
                           , ioMessage = errMsg }
-  >> return False
+  >> pure False
 
        
 -- | Add an ObsId. If the data can not be parsed it ends up
@@ -734,7 +734,7 @@ addScienceObs t obsid ocat = do
       nprop <- count (PaNumField ==. pnum)
       if nprop == 0
         then addProposal pnum
-        else return True
+        else pure True
                  
 
 -- | In most cases the obsid should not be known about, but there
@@ -810,7 +810,7 @@ addNonScienceObs t obsid ScheduleItem{..} ocat =
         Nothing -> insert_ (nsObs {nsStartTime = Just siStart})
         _ -> insert_ nsObs
 
-      return True
+      pure True
            
 
   
@@ -837,7 +837,7 @@ addNonScienceObsManual ScheduleItem{..} =
       name = "CAL-ER (" <> showInt (fromObsId siObsId) <> ")"
               
   in insert_ nsObs
-     >> return True
+     >> pure True
 
 -- | This queries the archive for these records, adds them to the
 --   database, and updates the knowledge of what schedules have
@@ -920,10 +920,10 @@ addToSchedule time tag xs = do
                put ("## There were " <> showInt nbad <> " problems")
             
             addShortTermTag time tag Nothing
-            return (nbad, ngood)
+            pure (nbad, ngood)
 
           Left emsg -> addShortTermTag time tag (Just emsg)
-                       >> return (nrest, 0)
+                       >> pure (nrest, 0)
 
       nothingWanted = addShortTermTag time tag Nothing
   
@@ -931,10 +931,10 @@ addToSchedule time tag xs = do
   if nwant > 0
     then addTodo
          >> addRest
-         >>= \(nb, ng) -> return (nb, ntodo + ng)
+         >>= \(nb, ng) -> pure (nb, ntodo + ng)
                           
     else nothingWanted >>
-         return (0, 0)
+         pure (0, 0)
 
     
 -- | Return those items that need querying from OCAT.
@@ -992,7 +992,7 @@ findUnknownObs todo = do
       out = filter (\ScheduleItem{..} -> siObsId `Set.notMember` toRemove)
             todo1
 
-  return out
+  pure out
 
 
 updateScheduleFromPage ::
@@ -1014,7 +1014,7 @@ updateScheduleFromPage tNow schedList = do
       printErr = liftIO . T.hPutStrLn stderr
 
   case todo of
-    [] -> return Nothing
+    [] -> pure Nothing
     
     [tagInfo] -> do
       let tag = fst tagInfo
@@ -1029,7 +1029,7 @@ updateScheduleFromPage tNow schedList = do
           printErr ("# Error parsing " <> fromShortTermTag tag)
           printErr emsg
           -- addShortTermTag tNow tag (Just emsg)
-          -- return (1, 0)
+          -- pure (1, 0)
           -- halt rather than mark-as-bad as I don't want to accidentally
           -- mark pages we just can't parse yet as bad; this actually
           -- may be a better solution that continuing.
@@ -1105,14 +1105,14 @@ run nmax = do
         where
           go i res =
             if i > ntot
-            then return res
+            then pure res
             else do
               mans <- queryNextSched i
               case mans of
                 Just ans -> go (i + 1) (ans : res)
                 Nothing -> do
                   T.putStrLn "  No more pages to download!"
-                  return res
+                  pure res
 
   res <- checkScheds
     

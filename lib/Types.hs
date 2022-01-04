@@ -323,7 +323,7 @@ maybeFromText ::
     -> Maybe b
 maybeFromText conv p s = do
   a <- readMaybe (T.unpack s)
-  if p a then return (conv a) else Nothing
+  if p a then pure (conv a) else Nothing
 
 -- | Inclusive range.
 inRange :: 
@@ -472,7 +472,7 @@ instance Parsable (Instrument, Grating) where
       [l, r] -> do
         inst <- parseParam l
         grat <- parseParam r
-        return (inst, grat)
+        pure (inst, grat)
       _ -> Left ("Expected instrument-grating: " <> tboth)
     
 -- | Represent an observation identifier.
@@ -2584,7 +2584,7 @@ simbadLabels =
         sc <- either (const Nothing) Just (toSC4 i1 i2 i3 i4)
         -- st <- maybe (Left ("Invalid SIMBAD type: " <> l2)) Right (toSimbadType l2)
         st <- toSimbadType l2
-        return (sc, st, l3)
+        pure (sc, st, l3)
 
       check xs = if length xs == length stbl
                  then xs
@@ -2925,7 +2925,7 @@ toSC4 s1 s2 s3 s4 = do
   i3 <- ivalidate s3 0 30 "3"
   i4 <- ivalidate s4 0 11 "4"
   let lvl = 4 - length (takeWhile (==0) [i4, i3, i2])
-  return (SimbadCode i1 i2 i3 i4 lvl)
+  pure (SimbadCode i1 i2 i3 i4 lvl)
   
 ivalidate :: Int -> Int -> Int -> T.Text -> Either T.Text Int
 ivalidate v minv maxv lbl =

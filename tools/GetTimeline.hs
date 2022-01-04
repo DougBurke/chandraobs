@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# Language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 --
 -- Usage:
@@ -139,7 +139,7 @@ dumpTimeline = do
   dbData <- runDb (do
                       posInfo <- getPos
                       (sciences, _, simbadMap, proposals) <- getTimeline
-                      return (posInfo, sciences, simbadMap, proposals)
+                      pure (posInfo, sciences, simbadMap, proposals)
                   )
 
   report ["obsid", "ra", "dec", "start", "obslen_ks", "instrument", "grating", "category", "simbad", "target"]

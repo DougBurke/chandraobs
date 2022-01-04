@@ -73,7 +73,7 @@ import Database (updateSchedule, getLastModified)
 
 log :: T.Text -> IO ()
 -- log = T.hPutStrLn stderr
-log = const (return ())
+log = const (pure ())
 
 -- Do I need the async package, or will this work?
 async :: IO () -> IO ()
@@ -121,9 +121,9 @@ makeCache ::
 makeCache pool acts = do
   mvar <- newMVar M.empty
   let macts = M.fromList acts
-  return Cache { cacheConn = pool
-               , cacheActions = macts
-               , cacheStore = mvar}
+  pure Cache { cacheConn = pool
+             , cacheActions = macts
+             , cacheStore = mvar}
 
 
 {-| Retrieve the value from the key, updating the cache if required.
@@ -198,7 +198,7 @@ getFromCache cache@Cache {..} key = do
               log ("Invalidating cache for key=" <> fromCacheKey key)
               -- note that we return stale data here
               async (updateCache cache key)
-              return (Just ans)
+              pure (Just ans)
             
         Nothing -> 
           case M.lookup key cacheActions of
@@ -216,16 +216,16 @@ getFromCache cache@Cache {..} key = do
               --
               let out = CD cdata
               cdata `seq` async (addToCache cache lastMod key out)
-              return (Just out)
+              pure (Just out)
 
             Nothing -> do
               log ("ERROR: unrecognized cache key=" <> fromCacheKey key)
-              return Nothing
+              pure Nothing
 
     Nothing -> log ("WARNING: cache access for key=" <>
                     fromCacheKey key <> " but no last-modified date in " <>
                     "the database!")
-               >> return Nothing
+               >> pure Nothing
 
 -- | We have a schedule, does it need updating?
 --
@@ -244,7 +244,7 @@ handleSchedule key mvar keyTime ans = do
   now <- getCurrentTime
   let updateTime = rrUpdateTime (fromCacheData ans)
   if isNothing updateTime || updateTime > Just now
-    then return ans
+    then pure ans
     else do
       log ("updating the schedule for key=" <> fromCacheKey key)
       let usched = updateSchedule now (fromCacheData ans)
@@ -257,8 +257,8 @@ handleSchedule key mvar keyTime ans = do
       --
       curr@(_, cans) <- takeMVar mvar
       if now > rrTime (fromCacheData cans)
-        then putMVar mvar (keyTime, nans) >> return nans
-        else putMVar mvar curr >> return cans
+        then putMVar mvar (keyTime, nans) >> pure nans
+        else putMVar mvar curr >> pure cans
          
   
 -- | This is for when a key does not exist in the cache, but this
@@ -299,7 +299,7 @@ updateCache Cache {..} ckey = do
             let dbAct = do
                   a <- getLastModified
                   b <- act
-                  return (a, b)
+                  pure (a, b)
                   
             (mLastMod, cdata) <- runDbConn dbAct cacheConn
 
@@ -309,16 +309,14 @@ updateCache Cache {..} ckey = do
             --       properly
             --
             let out = (fromJust mLastMod, CD cdata)
-            cdata `seq` return out
+            cdata `seq` pure out
 
-        Nothing -> do
+        Nothing ->
           -- COULD add to store, but treat as an error
           log ("ERROR: addToCache called with key: " <> fromCacheKey ckey
                <> " but it has no cached value to replace")
-          return ()
           
-    Nothing -> do
+    Nothing ->
       log ("ERROR: key " <> fromCacheKey ckey <> " is not registered!")
-      return ()
 
 

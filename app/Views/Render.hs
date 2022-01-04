@@ -16,8 +16,8 @@ module Views.Render (standardRestrictedSchedulePage
 -- import qualified Prelude as P
 import Prelude ((.), ($), (==), (+)
                , Int, Integer, Either(..), Maybe(..)
-               , fmap, map, mapM_, maybe, not, return, snd, truncate
-               , mconcat, mempty
+               , fmap, map, mapM_, maybe, not, snd, truncate
+               , mconcat, mempty, pure
                , zip)
 
 import qualified Data.Aeson as Aeson
@@ -142,10 +142,10 @@ makeScheduleRestricted RestrictedSchedule {..} =
   let instVal r = fromMaybe "n/a" $ do
         inst <- rrecordInstrument r
         grat <- rrecordGrating r
-        return (instLinkSearch StaticHtml inst
-                <> if grat == NONE
-                   then mempty
-                   else " with " <> gratLinkSearch StaticHtml grat)
+        pure (instLinkSearch StaticHtml inst
+              <> if grat == NONE
+                 then mempty
+                 else " with " <> gratLinkSearch StaticHtml grat)
 
       -- TODO: add in a sortvalue for this column so that "n/a" and "" can be
       --       moved before or after the other types. As I have now decided

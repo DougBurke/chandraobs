@@ -116,10 +116,10 @@ parseSTS = parse p "<STS parsing>"
       sts <- many stsLine
       skipMany comments
       eof
-      return sts
+      pure sts
 
 lexeme :: Parser p -> Parser p
-lexeme p = p >>= \a -> spaces >> return a
+lexeme p = p >>= \a -> spaces >> pure a
 
 toInt :: [Int] -> Int
 toInt = foldl (\c i -> c * 10 + i) 0
@@ -155,13 +155,13 @@ parseTime = do
   void (char '.')
   ss2 <- count 3 digit
   spaces
-  return (intercalate ":" [year, dnum, hour, mins, ss1 ++ "." ++ ss2])
+  pure (intercalate ":" [year, dnum, hour, mins, ss1 ++ "." ++ ss2])
 
 parseReadable :: Read a => Parser a
 parseReadable = do
   v <- lexeme $ many1 $ satisfy (not . isSpace)
   case reads v of
-    [(t,"")] -> return t
+    [(t,"")] -> pure t
     _ -> fail ("Unable to parse as readable: " ++ v)
 
 parseDouble :: Parser Double
@@ -180,19 +180,19 @@ parseColonSep = do
   spaces
   c <- parseDouble
   let r = fromIntegral a + (fromIntegral b + (c / 60.0)) / 60.0
-  return r
+  pure r
   
 parseRAStr :: Parser RA
 parseRAStr = do
   r <- parseColonSep
-  return (toRA (15 * r))
+  pure (toRA (15 * r))
 
 parseDecStr :: Parser Dec
 parseDecStr = do
-  sign <- option 1 (char '-' >> return (-1))
+  sign <- option 1 (char '-' >> pure (-1))
   spaces -- yes, there can be spaces after the sign!
   r <- parseColonSep
-  return (toDec (sign * r))
+  pure (toDec (sign * r))
 
   
 -- parsing the title really requires parsing the time and then picking
@@ -227,7 +227,7 @@ parsePosition = do
   roll <- parseDouble -- roll
   void parseDouble -- pitch
   void parseDouble -- slew
-  return (ra, dec, roll)
+  pure (ra, dec, roll)
   
 
 obsLine :: Parser ScheduleItem
@@ -257,7 +257,7 @@ obsLine = do
         , siRoll = roll
         }
 
-  return si
+  pure si
 
 sep2, sep4 :: Parser ()
 sep2 = void (lexeme (string "--"))
@@ -282,7 +282,7 @@ calLine = do
   sep2
   (ra, dec, roll) <- parsePosition
   --let title = "CAL-ER (" ++ show obsid ++ ")"
-  --return $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
+  --pure $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
 
   let (tks, t1, _) = handleTime start texp
 
@@ -308,7 +308,7 @@ calLine = do
         , siRoll = roll
         }
 
-  return si
+  pure si
   
 stsLine :: Parser ScheduleItem
 stsLine = do

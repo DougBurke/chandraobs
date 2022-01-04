@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# Language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 --
 -- Usage:
@@ -99,7 +99,7 @@ processScience oi ocat =
         insert_ sobs
         flag <- insertProposal prop
         updateLastModified now
-        return flag
+        pure flag
 
       obsid = showInt (fromObsId oi)
 
@@ -112,13 +112,13 @@ processScience oi ocat =
          T.putStrLn ("Added science observation " <> obsid)
          when flag (T.putStrLn ("Also added proposal " <>
                                 showInt (fromPropNum (propNum prop))))
-         return True
+         pure True
          
        Left emsg -> do
          T.hPutStrLn stderr ("ERROR converting science obsid " <> obsid)
          T.hPutStrLn stderr emsg
          -- exitFailure
-         return False
+         pure False
   
 
 -- This doesn't quite match GteSchedule, since in getschedule we have
@@ -143,13 +143,13 @@ processEngineering oi ocat =
       T.hPutStrLn stderr ("ERROR converting engineering obsid " <> obsid)
       T.hPutStrLn stderr emsg
       -- exitFailure
-      return False
+      pure False
 
     Right ns -> do
       now <- getCurrentTime
       runDb (act now ns)
       T.putStrLn ("Added engineering observation " <> obsid)
-      return True
+      pure True
 
     
 -- | Return those items that need querying from OCAT.
@@ -176,7 +176,7 @@ findUnknownObs obsids = do
       (invalid, valid) = splitWhen checkValid obsids
 
   case invalid of
-    [] -> return ()
+    [] -> pure ()
     _ -> do
       put "# Skipping the following invalid obsids:"
       mapM_ (liftIO . showObsId) invalid
@@ -197,13 +197,13 @@ findUnknownObs obsids = do
       (skip, unknown) = splitWhen checkKnown valid
 
   case skip of
-    [] -> return ()
+    [] -> pure ()
     _ -> do
       put "# Skipping the following known observations:"
       mapM_ (liftIO . showObsId) skip
       put ""
 
-  return unknown
+  pure unknown
 
 
 -- | Do we need to send in the obsidval as well as OCAT?
@@ -243,7 +243,7 @@ processOCAT input omap = do
 
   -- Not sure if this is possible, but keep it in for the moment
   if Set.null missing
-    then return ()
+    then pure ()
     else do
       putStrLn "# No responses for the following:"
       forM_ (Set.toList missing) showObsId
@@ -255,7 +255,7 @@ processOCAT input omap = do
       
   -- Should these be added to the invalid ObsId table?
   case failed of
-    [] -> return ()
+    [] -> pure ()
     _ -> do
       putStrLn "# Error querying OCAT for the following:"
       forM_ failed showObsId
