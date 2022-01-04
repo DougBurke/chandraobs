@@ -52,7 +52,7 @@ instance (Projection a1 a1'
     (d, rest3) <- projectionResult d' rest2
     (e, rest4) <- projectionResult e' rest3
     (f, rest5) <- projectionResult f' rest4
-    return ((a, b, c, d, e, f), rest5)
+    pure ((a, b, c, d, e, f), rest5)
 
 
 instance (Projection a1 a1'
@@ -86,7 +86,7 @@ instance (Projection a1 a1'
     (e, rest4) <- projectionResult e' rest3
     (f, rest5) <- projectionResult f' rest4
     (g, rest6) <- projectionResult g' rest5
-    return ((a, b, c, d, e, f, g), rest6)
+    pure ((a, b, c, d, e, f, g), rest6)
 
 
 instance (Projection a1 a1'
@@ -122,7 +122,7 @@ instance (Projection a1 a1'
     (f, rest5) <- projectionResult f' rest4
     (g, rest6) <- projectionResult g' rest5
     (h, rest7) <- projectionResult h' rest6
-    return ((a, b, c, d, e, f, g, h), rest7)
+    pure ((a, b, c, d, e, f, g, h), rest7)
 
 
 instance (Projection a1 a1'
@@ -160,7 +160,7 @@ instance (Projection a1 a1'
     (g, rest6) <- projectionResult g' rest5
     (h, rest7) <- projectionResult h' rest6
     (i, rest8) <- projectionResult i' rest7
-    return ((a, b, c, d, e, f, g, h, i), rest8)
+    pure ((a, b, c, d, e, f, g, h, i), rest8)
 
 
 instance (Projection a1 a1'
@@ -202,7 +202,7 @@ instance (Projection a1 a1'
     (h, rest7) <- projectionResult h' rest6
     (i, rest8) <- projectionResult i' rest7
     (j, rest9) <- projectionResult j' rest8
-    return ((a, b, c, d, e, f, g, h, i, j), rest9)
+    pure ((a, b, c, d, e, f, g, h, i, j), rest9)
 
 
 instance (Projection a1 a1'
@@ -246,7 +246,7 @@ instance (Projection a1 a1'
     (i, rest8) <- projectionResult i' rest7
     (j, rest9) <- projectionResult j' rest8
     (k, rest10) <- projectionResult k' rest9
-    return ((a, b, c, d, e, f, g, h, i, j, k), rest10)
+    pure ((a, b, c, d, e, f, g, h, i, j, k), rest10)
 
 
 instance (Projection a1 a1'
@@ -294,7 +294,7 @@ instance (Projection a1 a1'
     (j, rest9) <- projectionResult j' rest8
     (k, rest10) <- projectionResult k' rest9
     (l, rest11) <- projectionResult l' rest10
-    return ((a, b, c, d, e, f, g, h, i, j, k, l), rest11)
+    pure ((a, b, c, d, e, f, g, h, i, j, k, l), rest11)
 
 
 instance (Projection a1 a1'
@@ -348,7 +348,7 @@ instance (Projection a1 a1'
     (k, rest10) <- projectionResult k' rest9
     (l, rest11) <- projectionResult l' rest10
     (m, rest12) <- projectionResult m' rest11
-    return ((a, b, c, d, e, f, g, h, i, j, k, l, m), rest12)
+    pure ((a, b, c, d, e, f, g, h, i, j, k, l, m), rest12)
 
 
 instance (Projection a1 a1'
@@ -405,7 +405,7 @@ instance (Projection a1 a1'
     (l, rest11) <- projectionResult l' rest10
     (m, rest12) <- projectionResult m' rest11
     (n, rest13) <- projectionResult n' rest12
-    return ((a, b, c, d, e, f, g, h, i, j, k, l, m, n), rest13)
+    pure ((a, b, c, d, e, f, g, h, i, j, k, l, m, n), rest13)
 
 
 instance (Projection a1 a1'
@@ -465,4 +465,4 @@ instance (Projection a1 a1'
     (m, rest12) <- projectionResult m' rest11
     (n, rest13) <- projectionResult n' rest12
     (o, rest14) <- projectionResult o' rest13
-    return ((a, b, c, d, e, f, g, h, i, j, k, l, m, n, o), rest14)
+    pure ((a, b, c, d, e, f, g, h, i, j, k, l, m, n, o), rest14)

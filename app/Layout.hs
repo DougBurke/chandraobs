@@ -156,7 +156,7 @@ renderFooter =
 getFact :: IO Html
 getFact = do
   n <- getStdRandom (randomR (0, length facts - 1))
-  return (facts !! n)
+  pure (facts !! n)
 
 facts :: [Html]
 facts = [
@@ -471,7 +471,7 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       subArray = do
         start <- soSubArrayStart
         nrow <- soSubArraySize
-        return $ keyVal "Sub Array:" $ toHtml ("Start: " <> showInt start <> " Rows: " <> showInt nrow)
+        pure $ keyVal "Sub Array:" $ toHtml ("Start: " <> showInt start <> " Rows: " <> showInt nrow)
 
       -- bundle several items into a single line
       propInfo Proposal {..} =

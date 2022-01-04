@@ -439,7 +439,7 @@ setupCache pool = do
               c <- getCurrentObs
               d <- getSchedule 3
               e <- getLastModifiedFixed
-              return (a, b, c, d, e)
+              pure (a, b, c, d, e)
 
         (mobs, dbInfo, mRec, sched, timeData) <- runDbConn getData pool
         let obsData = case mobs of
@@ -495,7 +495,7 @@ getDBInfo ::
 getDBInfo r = do
   as <- either (const (pure Nothing)) (getSimbadInfo . soTarget) r
   bs <- getProposalInfo r
-  return (as, bs)
+  pure (as, bs)
 
 
 fromIG :: (Instrument, Grating) -> T.Text
@@ -551,7 +551,7 @@ webapp cm scache cache = do
         dbQuery name act = do
           pval <- param name
           ans <- liftSQL (act pval)
-          return (pval, ans)
+          pure (pval, ans)
 
         -- queryObsidParam :: ActionM (Int, Maybe ObsInfo)
         queryObsidParam = dbQuery "obsid" (getObsId . unsafeToObsIdVal)
@@ -641,7 +641,7 @@ webapp cm scache cache = do
                                  b <- findRecord cTime
                                  c <- case mobs of
                                    Just o -> Just <$> getDBInfo (oiCurrentObs o)
-                                   Nothing -> return Nothing
+                                   Nothing -> pure Nothing
                                  pure (mobs, b, c))
 
             let (mobs, mCurrent, mDbInfo) = dbans
@@ -1342,7 +1342,7 @@ webapp cm scache cache = do
               xs <- fetchInstrumentTypes
               ys <- fetchGratingTypes
               zs <- fetchIGTypes
-              return (xs, ys, zs))
+              pure (xs, ys, zs))
           fromBlaze (Instrument.indexPage imatches gmatches igmatches)
           
     -- TODO: also need a HEAD request version
@@ -1593,7 +1593,7 @@ apiAllFOV getLastMod getData =
                      , "obsid" .= fromObsId obsid
                      ]
 
-        return (map conv ans, lastMod)
+        pure (map conv ans, lastMod)
 
   in cacheApiQuery toETag getLastMod getData'
 
@@ -1786,7 +1786,7 @@ apiMappings getLastMod getData =
               , "simbadMap" .= object symbols
               ]
 
-        return (out, lastMod)
+        pure (out, lastMod)
 
   in cacheApiQuery toETag getLastMod getData'
  
@@ -1880,7 +1880,7 @@ apiExposures getLastMod getData =
 
             out = object (map toPair pairs)
 
-        return (out, lastMod)
+        pure (out, lastMod)
 
   in cacheApiQuery toETag getLastMod getData'
 

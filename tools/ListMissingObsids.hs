@@ -68,7 +68,7 @@ findMissing start end = do
 
       out = map unsafeToObsIdVal (Set.toList missing)
         
-  return (sort out)
+  pure (sort out)
   
 process ::
   ObsIdVal     -- ^ Start obsid
@@ -96,7 +96,7 @@ main = do
         let conv = toObsIdValStr . T.pack
         s <- conv sstr
         e <- conv estr
-        return (s, e)
+        pure (s, e)
 
   case args of
     [startStr, endStr] -> case act startStr endStr of
