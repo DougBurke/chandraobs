@@ -208,6 +208,9 @@ runtools:
 pushdocker:
 	@echo "### Pushing docker image to Heroku"
 	@echo "##"
+	@echo "## - if this fails you may need to"
+	@echo "##     sudo heroku container:login"
+	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
 	@sudo heroku container:push web --app ${APP} --arg SOURCE_VERSION=${SOURCE_VERSION}
