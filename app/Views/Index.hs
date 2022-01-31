@@ -69,8 +69,7 @@ noDataParas fact =
 
 tourElements :: Html
 tourElements =
-  jqueryMeta
-  <> jsScript "/js/bootstrap-tour-standalone-0.9.3.min.js"
+  jsScript "/js/bootstrap-tour-standalone-0.9.3.min.js"
   <> (cssLink "/css/bootstrap-tour-standalone-0.9.3.min.css"
       ! A.title  "Default")
   <> jsScript "/js/tour.js"
@@ -101,6 +100,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>
           defaultMeta <>
+          jqueryMeta <>
           tourElements <>
           jsScript "/js/base.js" <>
           jsScript "/js/image-switch.js" <>
