@@ -49,7 +49,7 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , skyLink
            , jsScript, cssLink)
 import Layout (defaultMeta
-              , jqueryMeta
+              -- , jqueryMeta
               , renderLinks
               , renderFooter)
 import Sorted (StartTimeOrder
@@ -115,7 +115,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
-            jqueryMeta <>  -- used by WWT
+            -- jqueryMeta <>  -- used by WWT; OR IS IT???
             jsScript "/js/base.js" <>
             jsScript "/js/image-switch.js" <>
             jsScript "/js/main.js" <>
