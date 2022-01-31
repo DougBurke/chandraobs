@@ -594,6 +594,19 @@ dl.credits + p {
  * Style the main text elements of an observation
  */
 
+div#currentdate {
+    /* div.radiobuttons label */
+    background-color: rgba(153,153,153,0.2);  /* gray */
+    border-radius: 4px;
+
+    /* use same color as nav > ul > li > a */
+    color: #666;
+    margin-bottom: 0.5em;
+    padding-bottom: 0.1em;
+    padding-top: 0.1em;
+    text-align: center;
+}
+
 div#observation {
     /* Choose color to match .floatable tbody tr */
     background-color: rgba(0, 131, 179, 0.1);
