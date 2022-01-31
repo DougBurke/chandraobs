@@ -22,6 +22,8 @@ import Prelude ((.), (-), ($), (>), (==), (&&), (>>=)
                , maybe, null, otherwise, snd, splitAt)
 
 import qualified Data.Text as T
+import qualified Formatting as F
+import qualified Formatting.Time as FT
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
@@ -126,7 +128,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
     (body ! onload initialize)
      (withTwitterBody CPOther
        ((div ! id "mainBar") 
-         (obsNavBar StaticHtml mObs oi
+         (obsNavBar StaticHtml cTime mObs oi
          <> renderStuff StaticHtml cTime thisObs dbInfo
          <> imgLinks)))
 
@@ -304,10 +306,11 @@ mainNavBar cp =
 --
 obsNavBar ::
   HtmlContext
+  -> UTCTime  -- the current time
   -> Maybe Record   -- the current observation
   -> ObsInfo 
   -> Html
-obsNavBar ctx mObs ObsInfo{..} = 
+obsNavBar ctx cTime mObs ObsInfo{..} =
   let prevObs = oiPrevObs
       nextObs = oiNextObs
 
@@ -354,7 +357,18 @@ obsNavBar ctx mObs ObsInfo{..} =
         
       bar = (nav ! id "obslinks") (ul barContents)
 
-  in if isJust prevObs P.|| isJust nextObs then bar else mempty
+      dateBar = (div ! id "currentdate") date
+      date = "Page created: " <> toHtml thisTime
+      thisTime = F.format tfmt cTime
+      tfmt = FT.dayName <> ", "
+             F.% FT.dayOfMonth <> " "
+             F.% FT.monthNameShort <> " "
+             F.% FT.year <> " "
+             F.% FT.hms <> " "
+             F.% FT.tzName
+
+  in (if isJust prevObs P.|| isJust nextObs then bar else mempty)
+     <> dateBar
 
 -- | Given a list of observations from a proposal, group them by target name.
 --

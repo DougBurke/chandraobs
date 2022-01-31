@@ -112,6 +112,6 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
     (body ! onload initialize)
      (withTwitterBody CPIndex
       ((div ! id "mainBar") 
-        (obsNavBar StaticHtml (Just currentObs) oi
+        (obsNavBar StaticHtml cTime (Just currentObs) oi
        <> renderStuff StaticHtml cTime currentObs dbInfo
        <> imgLinks)))
