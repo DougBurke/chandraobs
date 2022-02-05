@@ -1145,7 +1145,7 @@ const main = (function() {
   //   use it, if it is valid
   // - get user-selected name
   // - is it a position; if so jump to it
-  // - otherwise send it to the lookUP service
+  // - otherwise send it to the name server
   //
   function findTargetName() {
     const tgt = document.querySelector("#targetName");
@@ -1741,9 +1741,7 @@ const main = (function() {
 	    showObsId: showObsId,
 	    changeBackground: changeBackground,
 
-	    // This is currently needed by the lookup module, which is
-	    // not a great design.
-	    //
+	    // Do we still need these?
 	    getWWT: () => wwt,
 	    getHost: getHost,
 
