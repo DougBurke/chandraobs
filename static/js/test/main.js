@@ -228,7 +228,7 @@ const main = (function() {
 	    console.log("Internal error: unable to find #timeline");
 	    return;
 	}
-	setTimelineElement(host, '#timeline-selected', obsdata);
+	setTimelineElement(host, '#timeline-selected-obs', obsdata);
     }
 
     function textNode(txt) {
@@ -590,8 +590,12 @@ const main = (function() {
 	    identifyNearestObsId(ra, dec);
 	});
 
+        // Set up the current date; reset every 30 seconds
+        showCurrentDate();
+        setInterval(showCurrentDate, 30000);
+
 	// Set up the location field
-	showLocation();
+        setInterval(showLocation, 10000);
 
 	// Display the control elements. Should probably be in a
 	// single structure to make this easier (and to ensure things
@@ -1519,7 +1523,6 @@ const main = (function() {
     var lastFOV = "";
 
     function showLocation() {
-
 	// Should really cache these
 	const location = document.querySelector('#location-value');
 	const fovloc = document.querySelector('#location-fov-value');
@@ -1556,9 +1559,28 @@ const main = (function() {
 	    fovloc.innerText = newFOV;
 	    lastFOV = newFOV;
 	}
+    }
 
-	// Set the new timer
-	window.setTimeout(showLocation, 1000);
+    // This is a bit excessive, but at least we know what the timezone is.
+    // Perhaps we should return something in Chandra DOY units?
+    //
+    function showCurrentDate() {
+        const currentDate = document.querySelector('#timeline-selected-date');
+        if (currentDate === null) {
+	    console.log("ERROR: unable to find selector in showCurrentDate");
+	    return;
+        }
+
+        $.ajax({
+	    url: "/api/date",
+	    cache: false,
+	    dataType: "json"
+        }).done(function (rsp) {
+            currentDate.innerHTML = rsp;
+        }).fail(function(xhr, status, e) {
+	    console.log("DATE QUERY FAILED: " + status);
+            currentDate.innerHTML = "";
+        });
     }
 
     // url is the api search term to use. It can be null, but that

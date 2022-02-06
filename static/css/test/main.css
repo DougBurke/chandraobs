@@ -35,10 +35,12 @@ li#control-fullscreen {
 /*
  * center this horizontally; this used to be 3 by 2 hence the use
  * of a grid but is now 1 by 2 so should change to flex
+ *
+ * we use div.timeline in the record display.
  */
 div#timeline {
     display: none;
-    grid-template-columns: repeat(1, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     left: 50%;
     position: absolute;
     top: 1em;
@@ -51,12 +53,33 @@ div#timeline span {
     text-align: center;
 }
 
+div#timeline span.timeline-title-head {
+    grid-column: 1 / 3;
+    grid-row: 1;
+}
+
+div#timeline span.timeline-title-date , div#timeline span.timeline-title-obs {
+    grid-row: 2;
+}
+
+div#timeline span.timeline-selected-date , div#timeline span.timeline-selected-obs {
+    grid-row: 3;
+}
+
+div#timeline span.timeline-title-date, div#timeline span.timeline-selected-date  {
+    grid-column: 1;
+}
+
+div#timeline span.timeline-title-obs, div#timeline span.timeline-selected-obs {
+    grid-column: 2;
+}
+
 div#timeline a {
     cursor: pointer;
     text-decoration: none;
 }
 
-div#timeline span.timeline-title {
+div#timeline span.timeline-title-date, div#timeline span.timeline-title-obs {
     border-bottom: 1px solid rgba(0, 0, 0, 0.4);
 }
 
@@ -209,7 +232,10 @@ span.title {
 /*
  * Style the previous/next elements in the record display,
  * which needs to interact visually with .sections
+ *
+ * note that there's a div#timeline element too
  */
+
 div.timeline {
     margin-bottom: 2px;
     margin-top: 2px;

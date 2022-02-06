@@ -24,6 +24,9 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.IO as L
 
+import qualified Formatting as F
+import qualified Formatting.Time as FT
+
 import qualified Text.Blaze.Html5 as H5
 import qualified Text.Blaze.Html5.Attributes as A5
 
@@ -584,6 +587,20 @@ webapp cm scache cache = do
         <>
         H5.body page
 
+    -- Is this sensible? We could return it in "Chandra" time (e.g. DOY).
+    --
+    get "/api/date" $ do
+      cTime <- liftIO getCurrentTime
+      let thisTime = F.format tfmt cTime
+          tfmt = FT.dayName <> ", "
+                 F.% FT.dayOfMonth <> " "
+                 F.% FT.monthNameShort <> " "
+                 F.% FT.year <> " "
+                 -- F.% FT.hms <> " "   let's drop the seconds
+                 F.% FT.hm <> " "
+                 F.% FT.tzName
+      setHeader "Content-Type" "application/json; charset=utf-8"
+      json thisTime
 
     get "/api/allfov" (apiAllFOV
                         (getCache cdLastModCache)
