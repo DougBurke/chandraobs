@@ -590,9 +590,9 @@ const main = (function() {
 	    identifyNearestObsId(ra, dec);
 	});
 
-        // Set up the current date; reset every 30 seconds
+        // Set up the current date; reset every 10 seconds
         showCurrentDate();
-        setInterval(showCurrentDate, 30000);
+        setInterval(showCurrentDate, 10000);
 
 	// Set up the location field
         setInterval(showLocation, 10000);
