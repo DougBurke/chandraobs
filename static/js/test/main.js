@@ -1606,13 +1606,24 @@ const main = (function() {
 
 	d3.json(url)
 	    .then((data) => {
-		host.removeChild(spin);
+	      host.removeChild(spin);
+	      // I was doing something wrong here so explicitly catch it.
+	      // This has been fixed but leave it in.
+	      try {
 		makeSky(host, data);
+	      } catch(e) {
+		// Could delete the sky pane and create an error message?
+		//
+		console.log("ERROR: unable to call makeSky");
+		console.log(e)
+		console.log("data:");
+                console.log(data);
+	      }
 	    })
 	    .catch((e) => {
-		host.removeChild(spin);
 		console.log("ERROR: query failed: " + url);
 		console.log(e);
+		host.removeChild(spin);
 	    });
     }
 
@@ -1740,7 +1751,30 @@ const main = (function() {
 	content.appendChild(textNode(', shows a subset of Chandra observations, where each circle shows an observation - clicking on one will move the main display to that observation - and the projection can be rotated (hold down the mouse button and move it).'));
 	details.appendChild(content);
 
-	// TODO: text about the Milky Way outline and a toggle to display it
+        // TODO: text about the Milky Way outline
+        //
+        const hideDiv = document.createElement('div');
+        hideDiv.setAttribute('id', 'sky-mw-buttons');
+
+        const hideLabel = document.createElement('label');
+        hideLabel.setAttribute('for', 'sky-show-mw');
+        hideLabel.appendChild(textNode("Show the Milky Way?"));
+
+        const hideButton = document.createElement('input');
+        hideButton.setAttribute('id', 'sky-show-mw');
+        hideButton.setAttribute('type', 'checkbox');
+        hideButton.setAttribute('checked', true);
+        hideButton.addEventListener('input', (event) => {
+	    if(hideButton.checked){
+	        sky.showMW();
+	    } else {
+	        sky.hideMW();
+	    }
+	});
+        hideDiv.appendChild(hideLabel);
+        hideDiv.appendChild(hideButton);
+	details.appendChild(hideDiv);
+
 	const mw = document.createElement('p');
 	mw.appendChild(textNode('The outline of the plane of the Milky Way is also shown, since it helps explain some of the distribution of observations. If you are looking at Extra-galactic objects you tend to look out of the plane, and conversely most, '));
 	mw.appendChild(em('but not all'));

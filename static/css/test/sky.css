@@ -52,6 +52,14 @@ div#sky {
 #sky-legend {
 }
 
+#sky-mw-buttons {
+    text-align: center;
+}
+
+#sky-mw-buttons label {
+    padding-right: 0.5em;
+}
+
 .legend-marker {
     fill: #d8b365;
 }

@@ -542,7 +542,17 @@ const sky = (() => {
 	    .text("Milky Way")
 	    ;
     }
-    
-    return { create: createSky };
+
+    function hideMW() {
+        d3.selectAll('.milkyway')
+          .attr("display", "none");
+    }
+
+    function showMW() {
+        d3.selectAll('.milkyway')
+          .attr("display", "inline");
+    }
+
+  return { create: createSky, hideMW: hideMW, showMW: showMW };
     
 })();
