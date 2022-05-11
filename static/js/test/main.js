@@ -377,7 +377,7 @@ const main = (function() {
 		el.addEventListener('click', e => showObsId(obsid));
 	    });
 
-	    wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, false);
+	    wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, moveFlag);
 
 	    // Set up the display now everything has been added.
 	    //
@@ -428,7 +428,7 @@ const main = (function() {
 
 	    // TODO: should this keep the current field size?
 	    if ((ra !== null) && (dec !== null)) {
-		wwt.gotoRaDecZoom(ra, dec, defaultFieldSize, false);
+		wwt.gotoRaDecZoom(ra, dec, defaultFieldSize, moveFlag);
 	    }
 
 	    // This shouldn't be necessary, but leave in for now.
@@ -1173,7 +1173,7 @@ const main = (function() {
 	const ra = parseFloat(raStr);
 	const dec = parseFloat(decStr);
 	const zoom = wwt.get_fov();
-	wwt.gotoRaDecZoom(ra, dec, zoom);
+	wwt.gotoRaDecZoom(ra, dec, zoom, moveFlag);
 	return;
       }
     }
@@ -1192,7 +1192,7 @@ const main = (function() {
 	if (dec !== null) {
 
 	  const zoom = wwt.get_fov();
-	  wwt.gotoRaDecZoom(ra, dec, zoom);
+	  wwt.gotoRaDecZoom(ra, dec, zoom, moveFlag);
 	  return;
 	}
       }
@@ -1221,7 +1221,7 @@ const main = (function() {
     lookup.lookupName(target,
 		      (ra, dec) => {
 			const zoom = wwt.get_fov();
-			wwt.gotoRaDecZoom(ra, dec, zoom);
+			wwt.gotoRaDecZoom(ra, dec, zoom, moveFlag);
 			host.removeChild(spin);
 
 			targetName.removeAttribute('disabled');
@@ -1342,6 +1342,21 @@ const main = (function() {
 		      .append(item.name)
 		      .appendTo(ul);
 		};
+
+	      // Set up zoom in/out keypresses. Should we have icons too?
+	      //
+	      // https://www.gavsblog.com/blog/detect-single-and-multiple-keypress-events-javascript
+	      //
+	      document.addEventListener('keyup', (event) => {
+		if (event.key === 'z') {
+		  zoomIn();
+		  return;
+		}
+		if (event.key === 'Z') {
+		  zoomOut();
+		  return;
+		}
+	      });
 
 	    })
 	    .fail((xhr, status, e) => {
@@ -1790,6 +1805,51 @@ const main = (function() {
 
     }
 
+  // Do we move straight to a location or do the fancy zoom out/move/zoom in
+  // process?
+  //
+  // If sent false then the zoom out/move/zoom in scheme is used,
+  //         true       move straight there
+  //
+  var moveFlag = false;
+  function setMoveFlag(flag) {
+    moveFlag = flag;
+    // saveState(keyMoveFlag, moveFlag);  -- At the moment we don't allow this to be changed
+  }
+
+  // Support zooming in or out.
+  //
+  // What is the minimum FOV size we want to try and "enforce"?
+  // Units are degrees.
+  //
+  // Based on logic in
+  // https://worldwidetelescope.gitbooks.io/worldwide-telescope-web-control-script-reference/content/webcontrolobjects.html#wwtcontrol-fov-property
+  //
+  const minFOV = 0.01; // 36 arcseconds
+  const maxFOV = 60; // I think this is the WWT limit
+
+  // Change the zoom level if it is not too small or large
+  //
+  function zoomTo(fov) {
+    console.log(` - asked to zoom to FOV=${fov}`);
+    if (fov < minFOV) { return; }
+    if (fov > maxFOV) { return; }
+    let ra = 15.0 * wwt.getRA();
+    let dec = wwt.getDec();
+    wwt.gotoRaDecZoom(ra, dec, fov, moveFlag);
+  }
+
+  const zoomFactor = 1.5;
+  function zoomIn() {
+    var fov = wwt.get_fov() / zoomFactor;
+    zoomTo(fov);
+  }
+
+  function zoomOut() {
+    var fov = zoomFactor * wwt.get_fov();
+    zoomTo(fov);
+  }
+
     return {initialize: initialize,
 	    resize: resize,
 
@@ -1801,7 +1861,10 @@ const main = (function() {
 	    getWWT: () => wwt,
 	    getHost: getHost,
 
-	    addSkyView: addSky
+	    addSkyView: addSky,
+
+	    zoomIn : zoomIn,
+	    zoomOut : zoomOut
 	   };
 
 })();
