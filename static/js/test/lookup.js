@@ -31,7 +31,7 @@ const lookup = (() => {
 	    return;
         }
 
-        var src = 'https://namesky.herokuapp.com/name/' +
+        var src = 'https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-ox/SNV?' +
             cleanQueryValue(objectName);
 
         lup_httpRequest.onreadystatechange = nameResponse(objectName,
@@ -43,50 +43,46 @@ const lookup = (() => {
 
     function nameResponse(objectname, callback, errhandle) {
 
-        return function(d) {
-            if (lup_httpRequest.readyState === XMLHttpRequest.DONE) {
-              if (lup_httpRequest.status === 200) {
+      return function(d) {
+        if (lup_httpRequest.readyState === XMLHttpRequest.DONE) {
+          if (lup_httpRequest.status === 200) {
 		try {
-                  const response = JSON.parse(lup_httpRequest.responseText);
-                  process(objectname, callback, errhandle, response);
+                  process(objectname, callback, errhandle, lup_httpRequest.responseXML);
 		} catch (e) {
 		  console.log(`Unable to parse nameserver response: ${e}`);
 		  errhandle('Unable to decode the response from the name server.');
 		}
               } else {
-		errhandle('There was a problem calling the lookUP service.');
+		errhandle('There was a problem calling the name service.');
               }
             }
         }
     }
 
+  // Could target the Resolver element and then the ra/dec using that, but
+  // for now just grab them both separately.
+  //
+  const raPath = "/Sesame/Target/Resolver/jradeg";
+  const decPath = "/Sesame/Target/Resolver/jdedeg";
+
     function process(objectname, callback, errhandle, d) {
 
-      if (typeof d === 'undefined' || typeof d.status === 'undefined') {
+      if (typeof d === 'undefined') {
 	errhandle('There was a problem querying the name server.');
 	return;
       }
 
-      if (!d.status) {
+      // See https://developer.mozilla.org/en-US/docs/Web/XPath/Introduction_to_using_XPath_in_JavaScript
+      //
+      var ra = d.evaluate(raPath, d, null, XPathResult.NUMBER_TYPE, null).numberValue;
+      var dec = d.evaluate(decPath, d, null, XPathResult.NUMBER_TYPE, null).numberValue;
+
+      if (Number.isNaN(ra) || Number.isNaN(dec)) {
 	errhandle(`Target "${objectname}" not found.`);
 	return;
       }
 
-      if (typeof d.location !== 'object') {
-	// Would it make sense to dump d to the console here?
-	errhandle('The name server is apparently rather confused.');
-	return;
-      }
-
-      const loc = d.location;
-      if (typeof loc.ra === 'undefined' || typeof loc.dec === 'undefined') {
-	// Would it make sense to dump d to the console here?
-	errhandle('The name server is apparently rather confused.');
-	return;
-      }
-
-      callback(loc.ra, loc.dec);
-
+      callback(ra, dec);
     }
     
     return { lookupName: lookupName };
