@@ -49,7 +49,9 @@ import API (abstractLink, instLinkSearch, gratLinkSearch
            , fromMissionLongLink
            , obsURI
            , skyLink
-           , jsScript, cssLink)
+           , jsScript, cssLink
+           , wwtMeta
+           )
 import Layout (defaultMeta
               , jqueryMeta
               , renderLinks
@@ -86,9 +88,6 @@ import Utils (HtmlContext(..)
              , getTimes
              )
 
-wwtLoc :: AttributeValue
-wwtLoc = "https://web.wwtassets.org/engine/7/wwtsdk.js"
-
 -- The specific page for this observation. At present I have not
 -- worked out how this interacts with the top-level page; i.e.
 -- the current observation (i.e. should the current observation
@@ -108,12 +107,6 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
       imgLinks = either (const mempty)
                  (renderLinks cTime mprop msimbad) thisObs
 
-      -- only need WWT JS for science observations
-      wwtJS = either (const mempty)
-              (const (jsScript wwtLoc <>
-                      jsScript "/js/wwt.js"))
-              thisObs
-              
   in docTypeHtml ! lang "en-US" $
     head (H.title ("Chandra observation: " <> toHtml obsId) <>
             defaultMeta <>
@@ -121,7 +114,7 @@ recordPage cTime mObs oi@(ObsInfo thisObs _ _) dbInfo =
             jsScript "/js/base.js" <>
             jsScript "/js/image-switch.js" <>
             jsScript "/js/main.js" <>
-            wwtJS <>
+            wwtMeta thisObs <>
             (cssLink "/css/main.css" ! A.title  "Default")
             )
     <>

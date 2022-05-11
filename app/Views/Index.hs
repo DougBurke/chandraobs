@@ -18,7 +18,7 @@ import Data.Time (UTCTime)
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (title)
 
-import API (jsScript, cssLink)
+import API (jsScript, cssLink, wwtMeta)
 import Layout (defaultMeta, jqueryMeta, renderLinks)
 import Sorted (SortedList, StartTimeOrder)
 import Types (SimbadInfo, ScienceObs, Proposal, ObsInfo(..))
@@ -74,8 +74,6 @@ tourElements =
       ! A.title  "Default")
   <> jsScript "/js/tour.js"
 
-wwtLoc :: AttributeValue
-wwtLoc = "https://web.wwtassets.org/engine/7/wwtsdk.js"
 
 -- | TODO: this should be merged with Views.Record.recordPage
 introPage :: 
@@ -91,12 +89,6 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
       imgLinks = either (const mempty)
                  (renderLinks cTime mprop msimbad) currentObs
 
-      -- only need WWT JS for science observations
-      wwtJS = either (const mempty)
-              (const (jsScript wwtLoc <>
-                      jsScript "/js/wwt.js"))
-              currentObs
-
   in docTypeHtml ! lang "en-US" $
     head (H.title "What is Chandra doing now?" <>
           defaultMeta <>
@@ -105,7 +97,7 @@ introPage cTime oi@(ObsInfo currentObs _ _) dbInfo =
           jsScript "/js/base.js" <>
           jsScript "/js/image-switch.js" <>
           jsScript "/js/main.js" <>
-          wwtJS <>
+          wwtMeta currentObs <>
           (cssLink "/css/main.css" ! A.title  "Default")
           )
     <>

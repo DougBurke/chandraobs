@@ -54,6 +54,8 @@ module API (scheduleOnDate
            -- this shoudn't be exported but is (currently) required by
            -- Layout
            , skyLink
+
+           , wwtMeta
            )
        where
 
@@ -563,3 +565,24 @@ cssLink uri =
        H.! rel    "stylesheet"
        H.! media  "all"
 
+
+wwtLoc :: AttributeValue
+wwtLoc = "https://web.wwtassets.org/engine/7/wwtsdk.js"
+
+-- See https://github.com/WorldWideTelescope/wwt-web-client/issues/350
+-- for panko/uuid
+--
+wwtJS :: Html
+wwtJS =
+  jsScript "https://cdnjs.cloudflare.com/ajax/libs/pako/1.0.3/pako_inflate.min.js" <>
+  jsScript "https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js" <>
+  jsScript wwtLoc <>
+  jsScript "/js/wwt.js"
+
+
+-- We only need to include the WWT JS code when we have something to
+-- display (e.g. Right b). In this case it's meant to separate a
+-- science observation (Right) from a non-science observation (Left).
+--
+wwtMeta :: Either a b -> Html
+wwtMeta m = either (const mempty) (const wwtJS) m
