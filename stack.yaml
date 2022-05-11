@@ -3,7 +3,7 @@ packages:
 - '.'
 extra-deps:
 - heroku-0.1.2.3
-- groundhog-0.11.0
-- groundhog-postgresql-0.11
-- groundhog-th-0.11
-resolver: lts-18.21
+- groundhog-0.12.0
+- groundhog-postgresql-0.12
+- groundhog-th-0.12
+resolver: lts-18.28

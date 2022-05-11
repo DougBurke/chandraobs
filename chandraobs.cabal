@@ -54,7 +54,7 @@ library
        -- 0.10 is now considered "bad", and there appear to be build issues
        -- for aeson 0.11 before .1.4, so exclude them just in case.
        --
-       aeson >= 0.11.1.4 && < 1.6
+       aeson >= 0.11.1.4 && < 2.1
        , base >= 4.9 && < 5.0
        , blaze-html >= 0.7 && < 0.10
        , bytestring == 0.10.*
@@ -64,9 +64,9 @@ library
        , Cabal
        , containers >= 0.4 && < 0.7
        , formatting >= 6.2 && < 7.2
-       , groundhog >= 0.8 && < 0.12
-       , groundhog-postgresql >= 0.8 && < 0.12
-       , groundhog-th >= 0.8 && < 0.12
+       , groundhog >= 0.8 && < 0.13
+       , groundhog-postgresql >= 0.8 && < 0.13
+       , groundhog-th >= 0.8 && < 0.13
        , heroku == 0.1.*
        , http-types >= 0.8 && < 1.0
        , monad-control == 1.0.*
