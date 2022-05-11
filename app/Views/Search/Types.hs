@@ -27,7 +27,6 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Data.Aeson ((.=))
 import Data.Function (on)
 import Data.List (groupBy, intersperse, sortBy)
-
 import Data.Monoid ((<>))
 
 import Text.Blaze.Html5 hiding (title)
@@ -42,6 +41,7 @@ import Layout (defaultMeta, d3Meta
               , dquote, floatableTable)
 import Types (RestrictedSchedule
              , SimbadType
+             , findParentType
              , fromSimbadType
              , SimbadTypeInfo
              , SimbadCode
@@ -99,7 +99,10 @@ dependencyPage objs =
       ((div ! id "explorebox") (renderDependency objs)))
 
 -- TODO: combine with Schedule.schedPage
-
+--
+-- note that we add in a link about the 'parent' Simbad Type,
+-- if one exists.
+--
 matchPage :: 
   SimbadTypeInfo
   -> RestrictedSchedule
@@ -107,12 +110,13 @@ matchPage ::
 matchPage typeInfo sched =
   let hdrTitle = "Chandra observations of " <> H.toHtml lbl
       lbl = niceType typeInfo
+      mparent = findParentType (fst (typeInfo))
 
       pageTitle = if lbl == noSimbadLabel
                   then "Unidentified sources"
                   else toHtml lbl
 
-      mainBlock = renderMatches lbl sched []
+      mainBlock = renderMatches lbl sched mparent []
       
   in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
@@ -124,12 +128,13 @@ matchDependencyPage typeInfos sched =
   let hdrTitle = "Chandra observations of " <> H.toHtml lbl
       typeInfo0 = P.head typeInfos
       lbl = niceType typeInfo0
+      mparent = findParentType (fst (typeInfo0))
 
       pageTitle = if lbl == noSimbadLabel
                   then "Unidentified sources"
                   else toHtml lbl
 
-      mainBlock = renderMatches lbl sched (P.tail typeInfos)
+      mainBlock = renderMatches lbl sched mparent (P.tail typeInfos)
       
   in standardRestrictedSchedulePage sched CPExplore hdrTitle pageTitle mainBlock
 
@@ -142,24 +147,16 @@ niceType (s, l) | fromSimbadType s == "reg" = "Area of the sky"
 renderMatches ::
   SIMCategory          -- ^ SIMBAD type, as a string
   -> RestrictedSchedule
+  -> Maybe (SimbadCode, SimbadType, T.Text)  -- ^ the parent SIMBAD type, if there is one
   -> [SimbadTypeInfo]  -- ^ children of this type included in the page (if any)
   -> Html
-renderMatches lbl sched children = 
+renderMatches lbl sched mparent children =
   let scienceTime = getScienceTimeRestricted sched
       nobs = toHtml (getNumObsRestricted sched)
       schedLink = ", and the format used here is the same as that of the "
                   <> toLink StaticHtml "/schedule" ("schedule view" :: Html)
                   <> "."
 
-      -- TODO: rewrite, re-position, and make links
-      toTypeLink = P.uncurry (typeDLinkSearch StaticHtml)
-      typeLbls = intersperse ", " (P.map toTypeLink children)
-      childTxt = case typeLbls of
-        [] -> ""
-        [c] -> "; this includes the " <> c <> " type"
-        _ -> "; the following types are included: "
-             <> mconcat typeLbls
-      
       -- TODO: improve English here
       introText =
         if lbl == noSimbadLabel
@@ -172,10 +169,9 @@ renderMatches lbl sched children =
              , " objects, since SIMBAD does not track "
              , "these objects, but most of the objects could not be identified "
              , "from the target name supplied by the Observer. The current system "
-             , "used to match to SIMBAD is very simple, and so misses out on "
-             , "a large number of "
+             , "used to match to SIMBAD is very simple, and so misses out on some "
              , dquote "obvious"
-             , " matches, but there are also a lot of target fields which are "
+             , " matches, but there are also a number of target fields which are "
              , "hard to match to SIMBAD."
              , nobs
              , schedLink
@@ -184,14 +180,10 @@ renderMatches lbl sched children =
         else [ "This page shows the observations of "
              , toHtml lbl
              , " objects by Chandra"
-               -- TODO: improve the English here; need to rework childTxt
-               --       now added the total observation time.
              , scienceTime
-             , childTxt
              , ". The object type is based on the target name created by the "
-             , "observer, and is often not sufficient to identify it in "
-             , extLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X"
-               ("SIMBAD" :: Html)
+             , "observer, and is sometimes not sufficient to identify it in "
+             , simbadLink "SIMBAD"
              , ", which is why not all observations have a type (it is also "
              , "true that the Chandra field of view is large enough to contain "
              , "more objects than just the observation target!). "
@@ -199,16 +191,33 @@ renderMatches lbl sched children =
              , nobs
              , schedLink
              ]
-                  
-  in p (mconcat introText)
+
+      -- TODO: rewrite, re-position, and make links
+      toTypeLink = P.uncurry (typeDLinkSearch StaticHtml)
+      typeLbls = intersperse ", " (P.map toTypeLink children)
+      childPara = case typeLbls of
+        [] -> P.mempty
+        [c] -> p ("The " <> c <> " type of object are included in this view.")
+        _ -> p ("The following " <> toHtml (P.length typeLbls)
+                <> " object types are included: "
+                <> mconcat typeLbls <> ".")
+      
+      parentPara = case mparent of
+        Just (_, pLabel, pText) -> p ("The 'parent' type is " <> typeDLinkSearch StaticHtml pLabel pText <> ".")
+        _ -> P.mempty
+          
+  in p (mconcat introText) <> parentPara <> childPara
 
 nameInfo :: H.Html
 nameInfo =
   "The target names set by the proposal writers were used to identify " <>
   "the object types using " <>
-  extLink StaticHtml "http://cds.u-strasbg.fr/cgi-bin/Otype?X"
-  ("the SIMBAD database" :: Html)
+  simbadLink "the SIMBAD database"
   <> ". "
+
+simbadLink :: H.Html -> H.Html
+simbadLink = extLink StaticHtml "https://simbad.u-strasbg.fr/simbad/sim-display?data=otypes"
+
 
 -- | Render the list of object types, and include a link to the "unidentified"
 --   source, but at the moment this is separate, since I do not have a good

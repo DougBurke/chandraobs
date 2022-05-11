@@ -209,6 +209,7 @@ module Types ( ObsIdVal
              , simbadTypeToCode
              , simbadTypeToDesc
              , findChildTypes
+             , findParentType
                
              , SimbadTypeInfo
 
@@ -285,7 +286,7 @@ import Data.Aeson.TH (deriveToJSON, defaultOptions, constructorTagModifier, fiel
 import Data.Bits (Bits(..), FiniteBits(..))
 import Data.Char (isDigit, isSpace, toLower)
 import Data.Function (on)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, TimeLocale
@@ -2305,6 +2306,8 @@ instance Ord SimbadInfo where
 -}
 
 -- | Hard code the hierarchy from http://cds.u-strasbg.fr/cgi-bin/Otype?X
+--   which has become
+--   https://simbad.u-strasbg.fr/simbad/sim-display?data=otypes"
 --
 --   Unfortunately I did not include the numeric identifiers above
 --   and I'm too lazy to re-build the database with a new schema.
@@ -2546,6 +2549,8 @@ instance Ord SimbadInfo where
  15.15.03.1:        BLLac       BLL     BL Lac - type object
  15.15.03.2:        OVV         OVV     Optically Violently Variable object
  15.15.04.0:      QSO           QSO     Quasar
+
+What is _scLevel for?
 
 -}
 
@@ -2897,10 +2902,13 @@ isChildType parent child =
 
   in (_scLevel parent < _scLevel child) && (p == c)
 
+-}
+
+
 -- | Return the parent code.
 getSimbadParent ::
   SimbadCode
-  -> Maybe SimbadCode
+  -> Maybe (SimbadCode, SimbadType, T.Text)
   -- ^ Returns Nothing if the input is at the top level.
 getSimbadParent SimbadCode{..} =
   let plvl = _scLevel - 1
@@ -2910,11 +2918,8 @@ getSimbadParent SimbadCode{..} =
       
   in if plvl < 1
      then Nothing
-     else case filter ((==parent) . _1) simbadLabels of
-       [_] -> Just parent
-       _ -> Nothing
+     else listToMaybe (filter ((==parent) . _1) simbadLabels)
 
--}
 
 -- | validate input arguments
 
@@ -2952,6 +2957,18 @@ findChildTypes parent =
     (x:xs) -> takeWhile ((> getLevel x) . getLevel) xs
     [] -> []
 
+
+-- | Find the parent type. If Nothing is returned then you
+--   are at a top-level type (or have somehow created an invalid
+--   simbad type).
+--
+findParentType ::
+  SimbadType -> Maybe (SimbadCode, SimbadType, T.Text)
+findParentType child = do
+  let find row = _2 row == child
+  (ccode, _, _) <- listToMaybe (filter find simbadLabels)
+  getSimbadParent ccode
+  
 
 _1 :: (a, b, c) -> a
 _1 (f1, _, _) = f1
