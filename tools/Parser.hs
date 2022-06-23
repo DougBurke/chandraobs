@@ -49,9 +49,15 @@ compared to
  ----     50081       CAL-ER (P5403) 2017:134:20:02:30.587   1.0   --    --  240.0000   4.0000 160.21 155.78  16.11   
 703131    20079 0 Cygnus A - Nucleus 2017:141:17:30:58.135  24.0 ACIS-I NONE 299.8909  40.7272 125.98  96.57  84.38 dss pspc rass
 
+In June 2022 we now have the following, can we use the same scheme, just handlig what is now labelled the NB
+column with both "old" and "new" forms?
 
-
-
+Seq #  NB  ObsID Constr.          Target                Start        Time   SI   Grat    RA       Dec    Roll   Pitch   Slew   Overlays
+------ --- ----- ------- -------------------- --------------------- ----- ------ ---- -------- -------- ------ ------ ------ -------------
+704446     25402    1             ASASSN-14ko 2022:171:11:06:14.675  34.0 ACIS-S NONE  81.3615 -45.9964 175.03  69.71 106.45 dss pspc rass
+901512     23948    0                   GDH13 2022:171:21:11:30.290   5.3 ACIS-I NONE 266.6376 -31.2877 343.66 171.79 103.92 dss pspc rass
+ ----      45419               CAL-ER (PER01) 2022:173:05:04:19.472   3.0   --    --  159.0000  48.0000 268.95  58.62  57.82   
+503371 DDT 26441    0              GRB220611A 2022:174:23:57:25.983  15.0 ACIS-S NONE  66.5449 -37.2560 164.02  65.33 123.3
 -}
 
 module Parser (parseSTS
@@ -233,7 +239,14 @@ parsePosition = do
 obsLine :: Parser ScheduleItem
 obsLine = do
   void parseInt -- seqNum
+
+  -- This now appears to be labelled NB and the only
+  -- example is "DTD". We could handle one or the other,
+  -- but for now just handle both togetger.
+  --
   optional $ lexeme $ char 'P' >> digit
+  optional $ lexeme (string "DDT")
+  
   obsid <- parseInt  
   void parseInt1 -- n
   void parseTitle -- title
