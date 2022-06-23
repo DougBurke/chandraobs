@@ -248,6 +248,29 @@ wanted n proj1 known proj2 =
 {-
 Formats for the short-term schedule:
 
+*) https://cxc.harvard.edu/target_lists/stscheds/stschedJUN2022A.html
+
+Something has changed compared to https://cxc.harvard.edu/target_lists/stscheds/stschedJUN1322A.html
+
+     1	<H4 ALIGN=CENTER>JUN1322A</H4>
+     2	
+     3	<pre id="schedule">
+     4	
+     5	Seq #     ObsID Constr.    Target              Start        Time   SI   Grat    RA       Dec    Roll   Pitch   Slew
+     6	----------------------------------------------------------------------------------------------------------------------------
+     7	<a href="http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=25919">704323</a>    <a href=" http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=25919">25919</a> 0         Abell 2744 2022:164:03:21:47.808  25.7 ACIS-I NONE   3.6084 -30.4118 118.01  91.56  48.69 <a href="http://asc.harvard.edu/targets/704323/704323.25919.soe.dss.gif">dss</a> <a href="http://asc.harvard.edu/targets/704323/704323.25919.soe.pspc.gif">pspc</a> <a href="http://asc.harvard.edu/targets/704323/704323.25919.soe.rass.gif">rass</a>
+
+compared to
+
+     1	<H4 ALIGN=CENTER>JUN2022A</H4>
+     2	
+     3	<pre id="schedule">
+     4	
+     5	Seq #  NB  ObsID Constr.          Target                Start        Time   SI   Grat    RA       Dec    Roll   Pitch   Slew   Overlays
+     6	------ --- ----- ------- -------------------- --------------------- ----- ------ ---- -------- -------- ------ ------ ------ -------------
+     7	<a href="http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=sequenceSummary&obsid=25402">704446</a>     <a href=" http://cda.cfa.harvard.edu/chaser/startViewer.do?menuItem=details&obsid=25402">25402</a>    <font color="ff0000">1</font>             ASASSN-14ko 2022:171:11:06:14.675  34.0 ACIS-S NONE  81.3615 -45.9964 175.03  69.71 106.45 <a href="http://asc.harvard.edu/targets/704446/704446.25402.soe.dss.gif">dss</a> <a href="http://asc.harvard.edu/targets/704446/704446.25402.soe.pspc.gif">pspc</a> <a href="http://asc.harvard.edu/targets/704446/704446.25402.soe.rass.gif">rass</a>
+
+
 *)
 
 http://cxc.harvard.edu/target_lists/stscheds/stschedMAY2311A.html
@@ -640,6 +663,10 @@ processRow colOpt tags =
 --   the first non new-line characters. Actually, also need
 --   to skip the other header lines (strip out 
 --
+--   Now, the parsing gets complicated because in June 2022
+--   the columns changed slightly. Hopefully we can support
+--   old and new formats without needing separate parsers.
+--
 removeHeader :: String -> Maybe String
 removeHeader txt =
   let ls = lines txt
@@ -648,7 +675,12 @@ removeHeader txt =
       -- a space), and then we want to drop this header
       -- line
 
-      noHeaders = dropWhile (\l -> not ("--------" `isPrefixOf` l)) ls
+      -- It used to be a long set of - characters, but as of June 2022
+      -- we now have them as column headers, so we need a smaller length
+      -- as a check.
+      --
+      -- noHeaders = dropWhile (\l -> not ("--------" `isPrefixOf` l)) ls
+      noHeaders = dropWhile (\l -> not ("---" `isPrefixOf` l)) ls
 
   in case noHeaders of
     (_:nls) -> Just (unlines nls)
