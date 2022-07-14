@@ -234,19 +234,23 @@ parsePosition = do
   void parseDouble -- pitch
   void parseDouble -- slew
   pure (ra, dec, roll)
-  
+
+
+parsePvalue :: Parser String
+parsePvalue = char 'P' >> digit >>= \c -> pure [c]
+
+parseObsType :: Parser String
+parseObsType = lexeme (parsePvalue <|>
+                       string "DDT" <|>
+                       string "TOO")
+
 
 obsLine :: Parser ScheduleItem
 obsLine = do
   void parseInt -- seqNum
 
-  -- This now appears to be labelled NB and the only
-  -- example is "DTD". We could handle one or the other,
-  -- but for now just handle both togetger.
-  --
-  optional $ lexeme $ char 'P' >> digit
-  optional $ lexeme (string "DDT")
-  
+  optional parseObsType
+
   obsid <- parseInt  
   void parseInt1 -- n
   void parseTitle -- title
