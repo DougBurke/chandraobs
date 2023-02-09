@@ -290,7 +290,7 @@ getConstellation ra dec = do
           cstr = "prop_precess from j/deg to con p0: "
                  <> inName <> ": " <> outName
 
-          full = ". " <> path <> "/bin/ciao.bash > /dev/null; "
+          full = ". " <> path <> "/bin/ciao.sh > /dev/null; "
                  <> cstr <> " > /dev/null"
       
       T.hPutStrLn inHdl coords
