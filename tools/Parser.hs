@@ -242,7 +242,8 @@ parsePvalue = char 'P' >> digit >>= \c -> pure [c]
 parseObsType :: Parser String
 parseObsType = lexeme (parsePvalue <|>
                        string "DDT" <|>
-                       string "TOO")
+                       string "TOO" <|>
+                       string "CCT")
 
 
 obsLine :: Parser ScheduleItem
