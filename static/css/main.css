@@ -309,12 +309,10 @@ div#Details br { clear: both; }
 /* TODO: need better positioning than this */
 
 div#mainBar {
-  float: left;
+  /* center elements horizontally now we do not have Twitter */
+  margin-left: auto;
+  margin-right: auto;
   width: 680px; /* width of images */
-  margin-right: 1em;
-
-  /* border-left: 1em solid rgba(0, 131, 179, 0.2); */
-
 }
 
 /* WWT pages */
