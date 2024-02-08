@@ -338,25 +338,25 @@ furtherSection = do
        (p "NASA and the FERMI-LAT Team.")
     )
     
-  let bitURL = "https://bitbucket.org/doug_burke/chandraobs/commits/"
-               <> bitTxt
-      bitTxt = fromCommitId gitCommitId
+  let gitURL = "https://github.com/DougBurke/chandraobs/commit/"
+               <> gitTxt
+      gitTxt = fromCommitId gitCommitId
       
   p ("The web site "
-     <> alink "https://bitbucket.org/doug_burke/chandraobs"
-     "code is available on bitbucket"
+     <> alink "https://github.com/DougBurke/chandraobs"
+     "code is available on GitHub"
     <> ", is coded in "
     <> alink "https://www.haskell.org/" "Haskell"
     <> ", and runs on the "
     <> alink "https://www.heroku.com/" "Heroku platform"
     <> ". The version of the code used to create this site can "
-    <> "be found on bitbucket at: "
-    <> alink (toValue bitURL) (toHtml bitTxt)
+    <> "be found on GitHub at: "
+    <> alink (toValue gitURL) (toHtml gitTxt)
     <> ".")
 
   p ("For questions on this site try either "
      <> alink "https://mastodon.social/@dburke" "@dburke"
      <> " (Mastodon) or the "
-     <> alink "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open"
+     <> alink "https://github.com/DougBurke/chandraobs/issues"
      "issues page"
      <> " for the project.")

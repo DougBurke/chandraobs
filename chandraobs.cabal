@@ -1,5 +1,5 @@
 name:                chandraobs
-version:             0.5.0
+version:             0.6.0
 stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
 license:             PublicDomain
@@ -16,7 +16,7 @@ description:
   .
   At present it is just a technology tester.
 
--- homepage:            https://github.com/yourName/repoName
+homepage:            https://github.com/DougBurke/chandraobs
 
 build-type:          Configure
 

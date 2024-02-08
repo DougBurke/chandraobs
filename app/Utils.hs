@@ -431,18 +431,6 @@ publicImageURL obsid inst =
 
 
 
-{- At the moment this is only used in static/about/index.html, but
-   the link there is added via the configure script, so this routine
-   is not needed.
-
--- | Create a link to the code version used for this build.
-makeCodeLink :: H.Html -> H.Html
-makeCodeLink =
-  let uri = "https://bitbucket.org/doug_burke/chandraobs/commits/"
-            <> gitCommitId
-  in (H.a H.! A.href (H.toValue uri))
--}
-
 newtype ETag = ET { fromETag :: L.Text }
 
 

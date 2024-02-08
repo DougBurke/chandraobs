@@ -55,7 +55,7 @@ errPage =
         <> "at "
         <> (a ! href "https://mastodon.social/@dburke") "@dburke"
         <> " (Mastodon) or via the "
-        <> (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open") "issue tracker"
+        <> (a ! href "https://github.com/DougBurke/chandraobs/issues") "issue tracker"
         <> ".")
   <> p ("You could while away the time by "
         <> (a ! href "https://joshworth.com/dev/pixelspace/pixelspace_solarsystem.html") "exploring the Solar System"
