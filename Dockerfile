@@ -137,6 +137,10 @@ RUN apt-get remove -y --assume-yes \
 RUN apt-get update \
   && apt-get upgrade -y --assume-yes
 
+# This did not need to be done. It does now. Why? I do not care.
+#
+RUN apt-get install libpq5
+
 # Remove apt caches to reduce the size of our container.
 #
 RUN rm -rf /var/lib/apt/lists/*
