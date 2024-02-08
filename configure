@@ -27,16 +27,20 @@ echo "Using id: $commit"
 #
 echo `pwd`
 search=autogen/lib-Git.hs.in
+
 if [ -f $search ] ; then
     basedir=`pwd`/
-else if [ -f ../../../../../$search ] ; then
-         basedir=../../../../../
-     else if [ -f ../../../../../../$search ] ; then
-	     basedir=../../../../../../
-         else
-             echo "*** WARNING: $search not found";
-             exit 1;
-          fi
+else if [ -f ../../$search ] ; then
+         basedir=../../
+    else if [ -f ../../../../../$search ] ; then
+             basedir=../../../../../
+         else if [ -f ../../../../../../$search ] ; then
+	         basedir=../../../../../../
+             else
+                 echo "*** WARNING: $search not found";
+                 exit 1;
+              fi
+         fi
      fi
 fi
 

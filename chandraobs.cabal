@@ -20,8 +20,7 @@ homepage:            https://github.com/DougBurke/chandraobs
 
 build-type:          Configure
 
--- does this version need bumping?
-cabal-version:       >=1.8
+cabal-version:       >=2.0
 
 flag server
   description: build the webserver
@@ -35,6 +34,9 @@ flag tools
   description: build the command-line tools
   default: False
 
+extra-source-files:
+                  autogen/lib-Git.hs.in
+
 library 
   hs-source-dirs: lib/
 
@@ -44,6 +46,9 @@ library
                   Instances
                   Sorted
                   Types
+
+  autogen-modules:
+                  Git
 
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates

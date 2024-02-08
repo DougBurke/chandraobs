@@ -1,10 +1,22 @@
 # See https://github.com/utdemir/hs-nix-template
 #
-{ compiler ? "ghc8107" }:
+{ compiler ? "ghc8107"
+  , tools ? true
+  , webserver ? true
+}:
 
 let
   isDefaultCompiler = compiler == "ghc8107";
-  
+
+  # too lazy to work out the nix expression language
+  flags = if tools && webserver then
+          "--flag=tools"
+	  else if tools then
+	    "--flag='tools -webserver'"
+	    else if webserver then
+	      ""
+	      else "--flag=-webserver";
+
   sources = import nix/sources.nix;
   pkgs = import sources.nixpkgs {};
 
@@ -16,8 +28,7 @@ let
       # "groundhog-th" = hself.hackage2nix "groundhog-th" "0.11";
       # "groundhog-postgresql" = hself.hackage2nix "groundhog-postgresql" "0.11";
 
-      # "chandraobs" = hself.callCabal2nix "chandraobs" (gitignore ./.) {};
-      "chandraobs" = hself.callCabal2nixWithOptions "chandraobs" (gitignore ./.) "-ftools" {};
+      "chandraobs" = hself.callCabal2nixWithOptions "chandraobs" (gitignore ./.) flags {};
     };
   };
 
@@ -52,7 +63,12 @@ let
     withHoogle = isDefaultCompiler;
   };
 
-  exe = pkgs.haskell.lib.justStaticExecutables (myHaskellPackages."chandraobs");
+  # hack around from
+  # https://jeancharles.quillet.org/posts/2022-04-22-Embed-the-git-hash-into-a-binary-with-nix.html
+  #
+  drv = myHaskellPackages."chandraobs";
+  drv2 = pkgs.haskell.lib.addBuildTool drv pkgs.git;
+  exe = pkgs.haskell.lib.justStaticExecutables drv2;
 
   # docker = pkgs.dockerTools.buildImage {
   #   name = "{{cookiecutter.project_name}}";
