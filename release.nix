@@ -17,7 +17,7 @@ let
 	      ""
 	      else "--flag=-webserver";
 
-  sources = import nix/sources.nix;
+  sources = import ./nix/sources.nix;
   pkgs = import sources.nixpkgs {};
 
   gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
@@ -70,16 +70,28 @@ let
   drv2 = pkgs.haskell.lib.addBuildTool drv pkgs.git;
   exe = pkgs.haskell.lib.justStaticExecutables drv2;
 
-  # docker = pkgs.dockerTools.buildImage {
-  #   name = "{{cookiecutter.project_name}}";
-  #   config.Cmd = [ "${exe}/bin/{{cookiecutter.project_name}}" ];
-  # };
+  # this only makes sense if webserver is set but do not check this.
+  #
+  docker = pkgs.dockerTools.buildImage {
+    name = "chandraobservatory";
+
+    # How do we provide access to the static/ directory?
+    # For some reason using copyToRoot causes buildImage to
+    # fail; I wonder if we are using too-old a version of nixpkgs?
+    #
+    copyToRoot = pkgs.buildEnv {
+      name = "image-root";
+      pathsToLink = [ "${drv}/static" ];
+    };
+
+    config.Cmd = [ "${exe}/bin/webserver" ];
+  };
 
 in
 {
   inherit shell;
   inherit exe;
-  # inherit docker;
+  inherit docker;
   inherit myHaskellPackages;
   "chandraobs" = myHaskellPackages."chandraobs";
 }
