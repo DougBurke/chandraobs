@@ -149,7 +149,7 @@ renderFooter =
       , "educational purposes and should not be relied on for "
       , "scientific use."
         -- I want to add a link to mastodon but not to display it
-      , H.a H.! A.style "display: none" H.! A.href "https://mastodon.social/@dburke" H.! A.rel "me" $ H.toHtml (" Mastodon" :: T.Text)
+      , H.a H.! A.style "display: none" H.! A.href "https://mastodon.social/@dburke" H.! rel "me" $ H.toHtml (" Mastodon" :: T.Text)
     ]
 
 -- | Return a "random" Chandra fact, which is a string of

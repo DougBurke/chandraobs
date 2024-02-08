@@ -62,7 +62,7 @@ noDataParas fact =
    "a problem, try reporting the problem to either " <>
    (a ! href "https://mastodon.social/@dburke" $ "@dburke") <>
    " (Mastodon) or the " <>
-   (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
+   (a ! href "https://github.com/DougBurke/chandraobs/issues" $ "issue tracker") <>
    ". Whilst you are waiting, how about this fun Chandra fact:")
   <> (p ! class_ "fact") fact
 
