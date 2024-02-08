@@ -20,7 +20,7 @@ homepage:            https://github.com/DougBurke/chandraobs
 
 build-type:          Configure
 
-cabal-version:       >=2.0
+cabal-version:       2.0
 
 flag server
   description: build the webserver
@@ -37,7 +37,8 @@ flag tools
 extra-source-files:
                   autogen/lib-Git.hs.in
 
-library 
+library
+  default-language: Haskell2010
   hs-source-dirs: lib/
 
   exposed-modules:
@@ -89,6 +90,7 @@ library
 
            
 executable webserver
+  default-language: Haskell2010
   main-is:             WebServer.hs
   other-modules:       About
                        API
@@ -153,6 +155,7 @@ executable webserver
            
 -- redirect is a lot simpler     
 executable redirect
+  default-language: Haskell2010
   main-is:             Redirect.hs
   hs-source-dirs:      tools/
 
@@ -171,6 +174,7 @@ executable redirect
 
            
 executable getschedule
+  default-language: Haskell2010
   main-is:             GetSchedule.hs
   hs-source-dirs:      tools/
   other-modules:       Parser
@@ -203,6 +207,7 @@ executable getschedule
     buildable:  False
 
 executable updateschedule
+  default-language: Haskell2010
   main-is:             UpdateSchedule.hs
   hs-source-dirs:      tools/
   other-modules:       OCAT
@@ -231,6 +236,7 @@ executable updateschedule
     buildable:  False
 
 executable addobsidlist
+  default-language: Haskell2010
   main-is:             AddObsidList.hs
   hs-source-dirs:      tools/
   other-modules:       OCAT
@@ -261,6 +267,7 @@ executable addobsidlist
     buildable:  False
 
 executable updateobsidlist
+  default-language: Haskell2010
   main-is:             UpdateObsidList.hs
   hs-source-dirs:      tools/
   other-modules:       OCAT
@@ -291,6 +298,7 @@ executable updateobsidlist
     buildable:  False
 
 executable listmissingobsids
+  default-language: Haskell2010
   main-is:             ListMissingObsids.hs
   hs-source-dirs:      tools/
                                               
@@ -311,6 +319,7 @@ executable listmissingobsids
     buildable:  False
 
 executable querysimbad
+  default-language: Haskell2010
   main-is:             QuerySimbad.hs
   hs-source-dirs:      tools/
 
@@ -336,6 +345,7 @@ executable querysimbad
     buildable:  False
 
 executable queryobsid
+  default-language: Haskell2010
   main-is:             QueryObsid.hs
   hs-source-dirs:      tools/
   other-modules:       OCAT
@@ -364,6 +374,7 @@ executable queryobsid
     buildable:  False
 
 executable getcurrent
+  default-language: Haskell2010
   main-is:             GetCurrent.hs
   hs-source-dirs:      tools/
 
@@ -382,6 +393,7 @@ executable getcurrent
     buildable:  False
 
 executable getproposals
+  default-language: Haskell2010
   main-is:             GetProposals.hs
   hs-source-dirs:      tools/
   other-modules:       OCAT
@@ -411,6 +423,7 @@ executable getproposals
 
 
 executable gettimeline
+  default-language: Haskell2010
   main-is:             GetTimeline.hs
   hs-source-dirs:      tools/
 

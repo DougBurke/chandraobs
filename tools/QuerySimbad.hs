@@ -608,56 +608,56 @@ updateDB sloc mndays f = do
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
-      case minfo of
-        Just si -> do
-          blag f (">> inserting SimbadInfo for " <> fromTargetName (smiName si))
-          (key, cleanFlag) <- insertSimbadInfo si
+        case minfo of
+          Just si -> do
+            blag f (">> inserting SimbadInfo for " <> fromTargetName (smiName si))
+            (key, cleanFlag) <- insertSimbadInfo si
 
-          blag f (">> and SimbadMatch with target=" <> tnameT)
-          void (insertSimbadMatch (toM searchRes key))
+            blag f (">> and SimbadMatch with target=" <> tnameT)
+            void (insertSimbadMatch (toM searchRes key))
 
-          -- If a SimbadInfo structure already exists (and
-          -- matches si) then cleanFlag will be True (if
-          -- it doesn't match si then there's a run-time
-          -- error, which is not very nice).
-          --
-          -- I have no idea what I meant by the following
-          -- deletion: is this to indicate that a previously
-          -- unknown source is now known, so we need to
-          -- delete the SimbadNoMatch field? I am not 100%
-          -- convinced that smiName si is the correct search
-          -- term for SmnTargetField. In insertSimbadNoMatch,
-          -- the smiName field is set to the first element
-          -- of searchRes, which is the same as tgt. The
-          -- SimbadInfo structure returned by querySIMBAD
-          -- has the smiName field set to cleanupName ran
-          -- on the name returned by SIMBAD. So it's not
-          -- clear that if the description above is correct
-          -- that it's doing what I want.
-          --
-          when cleanFlag $ do
-            -- display what we are deleting, as a check
-            mans <- maybeSelect (SmnTargetField ==. smiName si)
-            case mans of
-              (Just SimbadNoMatch {..}) -> do
-                let stxt = "Target: <"
-                           <> fromTargetName smnTarget
-                           <> "> search term: <"
-                           <> smnSearchTerm
-                           <> "> at "
-                           <> T.pack (show smnLastChecked)
-                liftIO (T.putStrLn ("&&&&& deleting " <> stxt))
-                delete (SmnTargetField ==. smiName si)
+            -- If a SimbadInfo structure already exists (and
+            -- matches si) then cleanFlag will be True (if
+            -- it doesn't match si then there's a run-time
+            -- error, which is not very nice).
+            --
+            -- I have no idea what I meant by the following
+            -- deletion: is this to indicate that a previously
+            -- unknown source is now known, so we need to
+            -- delete the SimbadNoMatch field? I am not 100%
+            -- convinced that smiName si is the correct search
+            -- term for SmnTargetField. In insertSimbadNoMatch,
+            -- the smiName field is set to the first element
+            -- of searchRes, which is the same as tgt. The
+            -- SimbadInfo structure returned by querySIMBAD
+            -- has the smiName field set to cleanupName ran
+            -- on the name returned by SIMBAD. So it's not
+            -- clear that if the description above is correct
+            -- that it's doing what I want.
+            --
+            when cleanFlag $ do
+              -- display what we are deleting, as a check
+              mans <- maybeSelect (SmnTargetField ==. smiName si)
+              case mans of
+                (Just SimbadNoMatch {..}) -> do
+                  let stxt = "Target: <"
+                             <> fromTargetName smnTarget
+                             <> "> search term: <"
+                             <> smnSearchTerm
+                             <> "> at "
+                             <> T.pack (show smnLastChecked)
+                  liftIO (T.putStrLn ("&&&&& deleting " <> stxt))
+                  delete (SmnTargetField ==. smiName si)
 
-              Nothing -> pure ()
+                Nothing -> pure ()
       
-        _ -> do
-          blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
-          void (insertSimbadNoMatch (toNM searchRes))
+          _ -> do
+            blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
+            void (insertSimbadNoMatch (toNM searchRes))
 
-      -- Update the last-modified date after each transaction
-      --
-      liftIO getCurrentTime >>= updateLastModified
+        -- Update the last-modified date after each transaction
+        --
+        liftIO getCurrentTime >>= updateLastModified
 
   {-
   forM_ tgs $ 
@@ -727,29 +727,28 @@ updateOldRecords mgr sloc (Just ndays) f = do
       let tname = _2 searchRes
           tnameT = fromTargetName tname
       runDb $ do
-      -- delete the old result; it could be updated but easiest
-      -- at the moment just to create a new one.
-      delete (SmnTargetField ==. smnTarget)
-      case minfo of
-        Just si -> do
-          blag f (">> Adding SimbadInfo for " <> fromTargetName (smiName si))
-          (key, cleanFlag) <- insertSimbadInfo si
-          when cleanFlag
-            (liftIO (T.putStrLn "&&&&&&& errr, need to delete something"))
-          blag f (">> and SimbadMatch with target=" <> tnameT)
-          void (insertSimbadMatch (toM searchRes key))
+        -- delete the old result; it could be updated but easiest
+        -- at the moment just to create a new one.
+        delete (SmnTargetField ==. smnTarget)
+        case minfo of
+          Just si -> do
+            blag f (">> Adding SimbadInfo for " <> fromTargetName (smiName si))
+            (key, cleanFlag) <- insertSimbadInfo si
+            when cleanFlag
+              (liftIO (T.putStrLn "&&&&&&& errr, need to delete something"))
+            blag f (">> and SimbadMatch with target=" <> tnameT)
+            void (insertSimbadMatch (toM searchRes key))
 
-        _ -> do
-          blag f (">> Updating SimbadNoMatch for target=" <> tnameT)
-          void (insertSimbadNoMatch (toNM searchRes))
+          _ -> do
+            blag f (">> Updating SimbadNoMatch for target=" <> tnameT)
+            void (insertSimbadNoMatch (toNM searchRes))
 
-      -- Update the last-modified date after each transaction;
-      -- in production this should not matter, as this tool should not
-      -- be running against the production server, but for now
-      -- do it "properly"
-      --
-      liftIO getCurrentTime >>= updateLastModified
-     
+        -- Update the last-modified date after each transaction;
+        -- in production this should not matter, as this tool should not
+        -- be running against the production server, but for now
+        -- do it "properly"
+        --
+        liftIO getCurrentTime >>= updateLastModified
 
 toNM :: SearchResults -> SimbadNoMatch
 toNM (a,b,c) = SimbadNoMatch {
