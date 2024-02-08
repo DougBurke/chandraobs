@@ -53,8 +53,8 @@ errPage =
         <> "even more data to explore! - but if it doesn't "
         <> "get fixed within 10 minutes, send a note to me "
         <> "at "
-        <> (a ! href "https://twitter.com/doug_burke") "@doug_burke"
-        <> " or via the "
+        <> (a ! href "https://mastodon.social/@dburke") "@dburke"
+        <> " (Mastodon) or via the "
         <> (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open") "issue tracker"
         <> ".")
   <> p ("You could while away the time by "

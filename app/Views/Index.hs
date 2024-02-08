@@ -60,8 +60,8 @@ noDataParas fact =
    "which hopefully means that the database is being updated, so " <>
    "please wait a few minutes and try again. If there is still " <>
    "a problem, try reporting the problem to either " <>
-   (a ! href "https://twitter.com/doug_burke" $ "@doug_burke") <>
-   " or the " <>
+   (a ! href "https://mastodon.social/@dburke" $ "@dburke") <>
+   " (Mastodon) or the " <>
    (a ! href "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open" $ "issue tracker") <>
    ". Whilst you are waiting, how about this fun Chandra fact:")
   <> (p ! class_ "fact") fact

@@ -355,8 +355,8 @@ furtherSection = do
     <> ".")
 
   p ("For questions on this site try either "
-     <> alink "https://twitter.com/doug_burke" "@doug_burke"
-     <> " (Twitter) or the "
+     <> alink "https://mastodon.social/@dburke" "@dburke"
+     <> " (Mastodon) or the "
      <> alink "https://bitbucket.org/doug_burke/chandraobs/issues?status=new&status=open"
      "issues page"
      <> " for the project.")
