@@ -226,7 +226,9 @@ singleColBody cp bdy =
   <> main bdy
   <> renderFooter
 
--- | Show Twitter to the right of the "main" body.
+-- | This used to show Twitter to the right of the "main" body,
+--   but this has been removed so it doesn't add anything,
+--   but I leave in in case we want to revisit.
 --
 withTwitterBody ::
   CurrentPage
@@ -234,7 +236,8 @@ withTwitterBody ::
   -> Html
 withTwitterBody cp bdy =
   mainNavBar cp
-  <> (main bdy <> twitterDiv)
+  -- <> (main bdy <> twitterDiv)
+  <> main bdy
   <> renderFooter
 
 
@@ -802,6 +805,8 @@ nonSciencePara (mTimes, cTime) NonScienceObs{..} obsStatus =
 
   in p (cts obsStatus)
 
+{-
+
 twitterDiv :: Html
 twitterDiv = aside ((div ! id "otherBar") renderTwitter)
 
@@ -817,6 +822,8 @@ renderTwitter =
   (script ! async "true"
           ! src "https://platform.twitter.com/widgets.js"
           ! charset "utf-8" $ "")
+
+-}
 
 {-
 Different widget given by

@@ -585,4 +585,4 @@ wwtJS =
 -- science observation (Right) from a non-science observation (Left).
 --
 wwtMeta :: Either a b -> Html
-wwtMeta m = either (const mempty) (const wwtJS) m
+wwtMeta = either (const mempty) (const wwtJS)
