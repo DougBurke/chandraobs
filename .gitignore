@@ -16,3 +16,6 @@ ciao/
 
 # haskell-language-server related
 *_flymake.hs
+
+# nix build
+result
