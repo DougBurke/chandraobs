@@ -255,7 +255,7 @@ restrictedScience =
   , SoTimeCriticalField
   , SoMonitorField
   , SoConstrainedField
-    -- ^ need to check the constraints are in the right order
+    -- need to check the constraints are in the right order
   , SoRAField
   , SoDecField
   , SoConstellationField)
@@ -270,7 +270,7 @@ restrictedNonScience =
   (NsObsIdField
   , NsStartTimeField
   , NsTimeField
-    -- ^ could also send the actual time?
+    -- could also send the actual time?
   , NsRaField
   , NsDecField)
 
@@ -313,7 +313,7 @@ engineeringTimeline =
   , NsTargetField
   , NsStartTimeField
   , NsTimeField
-    -- ^ could also send the actual time?
+    -- could also send the actual time?
   )
 
 
@@ -411,8 +411,8 @@ identifyHelper ::
   => (a -> c)
   -> (b -> c)
   -> (Maybe c -> Maybe c -> Bool)
-  -- ^ ordering option; if True pick the first (a), otherwise
-  --   b
+  -- ordering option; if True pick the first (a), otherwise
+  -- b
   -> Maybe a
   -> Maybe b
   -> Maybe (Either b a)
@@ -676,7 +676,7 @@ getObsInRange ::
   => ChandraTime
   -> ChandraTime
   -> m [RestrictedRecord]
-  -- ^ All records reurned are guaranteed to have a start time
+  -- All records reurned are guaranteed to have a start time
 getObsInRange tStart tEnd = do
 
   let t0 = fromChandraTime tStart
@@ -702,12 +702,12 @@ getObsInRange tStart tEnd = do
   --
   let filtEnd ::
         (a -> Maybe ChandraTime)
-        -- ^ start time
+        -- start time
         -> (a -> TimeKS)
-        -- ^ observation length
+        -- observation length
         -> a
         -> Bool
-        -- ^ True if the observation ends before tStart
+        -- True if the observation ends before tStart
       filtEnd proj_start proj_runtime o =
         case proj_start o of
           Just stime -> let rtime = proj_runtime o
@@ -776,7 +776,7 @@ utcUnsafe = fromChandraTime . timeUnsafe
 --
 getSchedule ::
   DbFull m
-  => Int    -- ^ Number of days to go back/forward
+  => Int    -- Number of days to go back/forward
   -> m RestrictedSchedule
 getSchedule ndays = do
   now <- liftIO getCurrentTime
@@ -828,8 +828,8 @@ getSchedule ndays = do
 --
 getScheduleDate ::
   DbFull m
-  => Day    -- ^ center the schedule on this day
-  -> Int    -- ^ Number of days to go back/forward
+  => Day    -- center the schedule on this day
+  -> Int    -- Number of days to go back/forward
   -> m RestrictedSchedule
 getScheduleDate day ndays = do
   -- return all observations which have any part of their
@@ -929,7 +929,7 @@ makeSchedule rs = do
 --
 makeScheduleRestricted ::
   DbFull m
-  => SortedList StartTimeOrder RestrictedRecord -- ^ no duplicates
+  => SortedList StartTimeOrder RestrictedRecord -- no duplicates
   -> m RestrictedSchedule
 makeScheduleRestricted rs = do
   now <- liftIO getCurrentTime
@@ -984,7 +984,7 @@ makeScheduleRestricted rs = do
 --
 updateSchedule ::
   UTCTime
-  -- ^ The current time
+  -- The current time
   -> RestrictedSchedule
   -> RestrictedSchedule
 updateSchedule now RestrictedSchedule {..} =
@@ -1050,7 +1050,7 @@ getSimbadList rs = do
 
 getSimbadListRestricted ::
   DbSql m
-  => [RestrictedRecord]  -- ^ records; assumed to be filtered
+  => [RestrictedRecord]  -- records; assumed to be filtered
   -> m (M.Map TargetName SimbadInfo)
 getSimbadListRestricted rs = do
   let getName = either (const Nothing) (Just . rsoTarget)
@@ -1070,7 +1070,7 @@ getSimbadListRestricted rs = do
 --
 getSimbadInfo :: 
   PersistBackend m
-  => TargetName   -- ^ target name (not the actual SIMBAD search term)
+  => TargetName   -- target name (not the actual SIMBAD search term)
   -> m (Maybe SimbadInfo)
 getSimbadInfo target = do
   mkey <- maybeProject SmmInfoField (SmmTargetField ==. target)
@@ -1263,9 +1263,9 @@ fetchSIMBADDescendentTypes ::
   DbSql m
   => SimbadType 
   -> m ([SimbadTypeInfo], SortedList StartTimeOrder RestrictedSO)
-  -- ^ SymbadTypeInfo list is ordered by SimbadCode setting, and
-  --   the first element is for the parent, even if no observations
-  --   match it.
+  -- SymbadTypeInfo list is ordered by SimbadCode setting, and
+  -- the first element is for the parent, even if no observations
+  -- match it.
 fetchSIMBADDescendentTypes parent = do
 
   -- can we let the database do the time sorting?
@@ -1391,7 +1391,7 @@ fetchJointMission jm = do
 fetchMissionInfo ::
   DbSql m
   => m [(JointMission, Int)]
-  -- ^ Number of observations for each mission
+  -- Number of observations for each mission
 fetchMissionInfo = do
   jws <- map fromJust <$>
          project SoJointWithField
@@ -1412,7 +1412,7 @@ fetchMissionInfo = do
 fetchObjectTypes :: 
   PersistBackend m
   => m [(SimbadTypeInfo, Int)]
-  -- ^ Simbad information and the number of objects that match
+  -- Simbad information and the number of objects that match
 fetchObjectTypes = do
   res <- select (CondEmpty `orderBy` [Asc SmiType3Field])
   let srt = groupBy ((==) `on` smiType3) res
@@ -1473,8 +1473,8 @@ countUp xs =
 fetchConstellationTypes ::
   DbSql m
   => m [(ConShort, TimeKS)]
-  -- ^ returns the total exposure time spent on targets
-  --   in the constellation.
+  -- returns the total exposure time spent on targets
+  -- in the constellation.
 fetchConstellationTypes = do
   res <- project (SoConstellationField
                  , (SoApprovedTimeField, SoObservedTimeField))
@@ -1501,7 +1501,7 @@ fetchCycle cyc | cyc == allCycles = pure emptySL
 fetchCycles ::
   PersistBackend m
   => m [(Cycle, Int)]
-  -- ^ The cycle and number of *proposals*
+  -- The cycle and number of *proposals*
 fetchCycles = do
   cys <- project PropCycleField (CondEmpty `orderBy` [Asc PropCycleField])
 
@@ -1512,9 +1512,9 @@ fetchCycles = do
 
 sortExposures ::
   [(TimeKS, Maybe TimeKS)]
-  -- ^ Approved and actual observation time
+  -- Approved and actual observation time
   -> V.Vector Double
-  -- ^ sorted (low to high) list of exposures in ks.
+  -- sorted (low to high) list of exposures in ks.
 sortExposures exps =
   V.create (do
       let exps0 = V.fromList (map (fromTimeKS . uncurry fromMaybe) exps)
@@ -1530,7 +1530,7 @@ sortExposures exps =
 fetchExposureRanges ::
   DbSql m
   => m [(PRange, (Int, (TimeKS, TimeKS)))]
-  -- ^ This is ordered from minBound to maxBound in PRange
+  -- This is ordered from minBound to maxBound in PRange
 fetchExposureRanges = do
   -- could order by approved time and then assume that that is "close
   -- enough" to avoid another sort.
@@ -1587,12 +1587,12 @@ fetchExposureRange pr = do
 getExposureRange ::
   DbSql m
   => Bool
-  -- ^ True if this represents the PR100 range (that is the
-  --   upper limit is inclusive)
+  -- True if this represents the PR100 range (that is the
+  -- upper limit is inclusive)
   -> TimeKS
-  -- ^ Start time range (inclusive)
+  -- Start time range (inclusive)
   -> TimeKS
-  -- ^ end time range (exclusive unless first argument is True)
+  -- end time range (exclusive unless first argument is True)
   -> m (SortedList StartTimeOrder RestrictedSO)
 getExposureRange flag tlo thi =
   -- Filter by the observed time field if set, otherwise the
@@ -1646,9 +1646,9 @@ fetchCategory cat = do
 --
 fetchCategorySubType ::
   DbSql m
-  => PropCategory  -- ^ proposal category
+  => PropCategory  -- proposal category
   -> Maybe SimbadType
-  -- ^ If Nothing, use the Unidentified type
+  -- If Nothing, use the Unidentified type
   -> m (SortedList StartTimeOrder RestrictedSO)
 fetchCategorySubType cat mtype = do
 
@@ -1679,7 +1679,7 @@ fetchCategorySubType cat mtype = do
 fetchCategoryTypes ::
   PersistBackend m
   => m [(PropCategory, Int)]
-  -- ^ proposal category and the number of proposals that match
+  -- proposal category and the number of proposals that match
 fetchCategoryTypes =
   countUp <$>
   project PropCategoryField (CondEmpty `orderBy` [Asc PropCategoryField])
@@ -1774,7 +1774,7 @@ fetchIG (inst, grat) =
 fetchInstrumentTypes ::
   DbSql m
   => m [(Instrument, Int)]
-  -- ^ instrument and the number of observations that match
+  -- instrument and the number of observations that match
 fetchInstrumentTypes =
   countUp <$>
   project SoInstrumentField (isValidScienceObs
@@ -1788,7 +1788,7 @@ fetchInstrumentTypes =
 fetchGratingTypes ::
   DbSql m
   => m [(Grating, Int)]
-  -- ^ grating and the number of observations that match
+  -- grating and the number of observations that match
 fetchGratingTypes =
   countUp <$>
   project SoGratingField (isValidScienceObs `orderBy`
@@ -1801,7 +1801,7 @@ fetchGratingTypes =
 fetchIGTypes ::
   DbSql m
   => m [((Instrument, Grating), Int)]
-  -- ^ instrument + grating combo and the number of observations that match
+  -- instrument + grating combo and the number of observations that match
 fetchIGTypes =
   let ordering = [Asc SoInstrumentField, Asc SoGratingField]
       cond = isValidScienceObs `orderBy` ordering
@@ -1818,9 +1818,9 @@ fetchIGTypes =
 fetchTOOs ::
   DbSql m
   => m ([(TOORequestTime, TimeKS)], TimeKS)
-  -- ^ The TOO period and the associated time; the
-  --   second component is the time for those observations
-  --   with no constraint.
+  -- The TOO period and the associated time; the
+  -- second component is the time for those observations
+  -- with no constraint.
 fetchTOOs = do
   res <- project (SoTOOField,
                   (SoApprovedTimeField, SoObservedTimeField))
@@ -1871,11 +1871,11 @@ fetchTOO too = do
 fetchConstraints ::
   DbSql m
   => m ([(ConstraintKind, TimeKS)], TimeKS)
-  -- ^ The constraint type period and the associated time; the
-  --   second component is the time for those observations
-  --   with no constraint. Note that because an observation
-  --   can have multiple constraints, the sum of all these
-  --   times can exceed the actual observing time.
+  -- The constraint type period and the associated time; the
+  -- second component is the time for those observations
+  -- with no constraint. Note that because an observation
+  -- can have multiple constraints, the sum of all these
+  -- times can exceed the actual observing time.
 fetchConstraints = do
   res <- project ((SoTimeCriticalField, SoMonitorField, SoConstrainedField),
                   (SoApprovedTimeField, SoObservedTimeField))
@@ -1940,8 +1940,8 @@ fetchConstraint mcs = fetchScienceObsBy (getCon mcs)
 fetchSubArrays ::
   DbSql m
   => m ([((Int, Int), TimeKS)], TimeKS)
-  -- ^ The subarray start and width and the associated time,
-  --   and the time for the full-field observations (ACIS only)
+  -- The subarray start and width and the associated time,
+  -- and the time for the full-field observations (ACIS only)
 fetchSubArrays = do
   rsp <- project ((SoSubArrayStartField , SoSubArraySizeField),
                   (SoApprovedTimeField, SoObservedTimeField))

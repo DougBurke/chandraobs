@@ -34,8 +34,27 @@ flag tools
   description: build the command-line tools
   default: False
 
-extra-source-files:
-                  autogen/lib-Git.hs.in
+extra-source-files: autogen/lib-Git.hs.in
+
+if flag(webserver)
+  data-files:
+      static/chandra.wtml
+      static/robots.txt
+      static/about/*.html
+      static/about/*.png
+      static/css/*.css
+      static/css/*.gif
+      static/css/test/*.css
+      static/data/*.json
+      static/data/*.js
+      static/img/*.gif
+      static/img/*.svg
+      static/js/*.js
+      static/js/test/*.js
+      static/search/*.html
+      static/search/exposures/*.html
+      static/test/*.html
+
 
 library
   default-language: Haskell2010

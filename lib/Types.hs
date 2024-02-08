@@ -240,14 +240,14 @@ module Types ( ObsIdVal
                
              , handleMigration
                
-               -- ^ not using lenses...
+               -- not using lenses
              , _2
              , _3
 
-               -- ^ Groundhog related symbols. PersistEntity and Field
-               --   are needed to export the Type Family symbols
-               --   used to represent fields/columns, such as
-               --   SoObsIdField.
+               -- Groundhog related symbols. PersistEntity and Field
+               -- are needed to export the Type Family symbols
+               -- used to represent fields/columns, such as
+               -- SoObsIdField.
                --
              , ScienceObsConstructor(..)
              , NonScienceObsConstructor(..)
