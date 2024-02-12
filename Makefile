@@ -6,6 +6,11 @@
 # entirely convinced that the following has been fully updated to
 # handle this.
 #
+# Argh - now trying to get this to work causes no-end of problems,
+# so currentally installing heroku via
+#    sudo snap install heroku --classic
+# rather than use the one from nix (presumably it's out of date)
+#
 
 APP=chandraobservatory
 REDIRECT_APP=chandraobs-devel
@@ -210,10 +215,14 @@ pushdocker:
 	@echo "##"
 	@echo "## - if this fails you may need to"
 	@echo "##     sudo heroku container:login"
+	@echo "##   OR"
+	@echo "##     sudo docker login --username=_ --password=$(heroku auth:token) registry.heroku.com"
 	@echo "##"
 	@echo "## ${APP}"
+	@echo "## ${SOURCE_VERSION}"
 	@echo "##"
 	@sudo heroku container:push web --app ${APP} --arg SOURCE_VERSION=${SOURCE_VERSION}
+	@# sudo docker push registry.heroku.com/chandraobservatory/web
 	@sudo heroku container:release web --app ${APP}
 
 buildredirect:
