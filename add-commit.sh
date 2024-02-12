@@ -48,7 +48,7 @@ echo "Using id: $commit"
 
 # Replace the gitCommitId line with an actual setting..
 #
-if [ "$commit" == "" ]; then
+if [ -z "$commit" ]; then
     # Ideally this should not happen
     cp $infile $outfile
 else
