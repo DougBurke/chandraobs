@@ -444,12 +444,19 @@ newtype ETag = ET { fromETag :: L.Text }
 --   in the same manner).
 --
 makeETag ::
-  CommitId      -- ^ commit identifier
-  -> T.Text     -- ^ the resource path (local, not absolute)
-  -> UTCTime    -- ^ the last-modified date of the database
+  Maybe CommitId
+  -- ^ commit identifier, if available (if not then this is assumed
+  --   to be a development build)
+  -> T.Text
+  -- ^ the resource path (local, not absolute)
+  -> UTCTime
+  -- ^ the last-modified date of the database
   -> ETag
-makeETag cid path lastMod =
-  let cval = fromCommitId cid
+makeETag mcid path lastMod =
+  let cval = case mcid of
+        Just cid -> T.take 8 (fromCommitId cid)
+        Nothing -> "1NotSet1"
+
       -- Only use a small subset of the commit id as it should
       -- be unique enough for our needs.
       --
@@ -466,7 +473,8 @@ makeETag cid path lastMod =
       time = F.sformat (FT.epoch <> FT.pico) lastMod
       pathTxt = showInt (T.length path)
       dquot = "\""
-      txt = dquot <> T.take 8 cval <> pathTxt <> time <> dquot
+      txt = dquot <> cval <> pathTxt <> time <> dquot
+
   in ET (L.fromStrict txt)
 
 -- | Perhaps should use HTTPDate here, but unsure about the

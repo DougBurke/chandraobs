@@ -12,7 +12,7 @@
 # https://devcenter.heroku.com/changelog-items/630
 #
 # When building under docker we ensure the git revision is sent in
-# using the same environment variable.
+# using the same environment variable. This is getting tricky with nix.
 #
 if [ -z "$SOURCE_VERSION" ]; then
     commit=$(git rev-parse HEAD)
@@ -45,6 +45,14 @@ else if [ -f ../../$search ] ; then
 fi
 
 echo "basedir=${basedir}"
-sed -e s/@@GITHASH@@/$commit/ ${basedir}autogen/lib-Git.hs.in > ${basedir}lib/Git.hs
+infile=${basedir}autogen/lib-Git.hs.in
+outfile=${basedir}lib/Git.hs
+
+if [ "$commit" == "" ]; then
+    # Ideally this should not happen
+    cp $infile $outfile
+else
+    sed -e 's/gitCommitId = Nothing/gitCommitId = Just (CId (pack "'$commit'"))/' $infile > $outfile
+fi
 
 # end

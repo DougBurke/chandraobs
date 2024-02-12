@@ -21,6 +21,12 @@ fromCommitId (CId cid) = cid
 --   between builds, but for now I leave it as below, since it is constant
 --   within a build.
 --
-gitCommitId :: CommitId
-gitCommitId = CId (pack "@@GITHASH@@")
-       
+--   It is expected that this code wil lbe replaced by
+--
+--   > gitCommitId = Just (CId (pack "@@GITHASH@@"))
+--
+--   (after expansion of @@GITHASH@@) by add-commit.sh
+--
+gitCommitId :: Maybe CommitId
+gitCommitId = Nothing
+
