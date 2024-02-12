@@ -41,12 +41,6 @@ var tour = new Tour({
     content: "You can look at past and future observations."
   },
   {
-    element: "#twitter-widget-0", // need to update if Twitter changes its naming scheme
-    placement: "top", // TODO: change
-    title: "Twitter",
-    content: "Tweets from the Chandra twitter account, @chandraxray."
-  },
-  {
     element: "#home",
     placement: "bottom",
     title: "Current observation",

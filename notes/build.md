@@ -7,6 +7,19 @@ information into a single document).
 
 ## Using Docker
 
+### Feb 2024
+
+I am trying to build with nix. Ideally this would be within a nix
+expression but for now we can build within a docker file using nix.
+
+I am having "fun" getting the SOURCE_VERSION through to the build:
+
+% DATABASE_URL=`heroku config:get --app chandraobservatory DATABASE_URL`
+
+% sudo docker build -t temp --file=Dockerfile.nix .
+% sudo docker run -it --network host --env PORT=3000 --env DATABASE_URL=$DATABASE_URL temp:latest
+
+
 ### Using Stack locally
 
 I plan to build a Docker image and push that to Heroku, as it avoids the

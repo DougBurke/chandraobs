@@ -8,7 +8,11 @@ dist-newstyle/
 
 .ghc.environment.*
 
-lib/Git.hs
+# We used to hide lib/Git.hs but now we want it included as I am
+# trying to "simplify" the build (by moving the complexity out
+# of the cabal-related code).
+#
+# lib/Git.hs
 static/about/index.html
 
 # used to set up CIAO installation for tools Docker image 

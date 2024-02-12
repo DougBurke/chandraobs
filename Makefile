@@ -6,6 +6,11 @@
 # entirely convinced that the following has been fully updated to
 # handle this.
 #
+# Argh - now trying to get this to work causes no-end of problems,
+# so currentally installing heroku via
+#    sudo snap install heroku --classic
+# rather than use the one from nix (presumably it's out of date)
+#
 
 APP=chandraobservatory
 REDIRECT_APP=chandraobs-devel
@@ -165,28 +170,28 @@ showdocker:
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@echo sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
+	@echo sudo docker build -t registry.heroku.com/${APP}/web .
 
 builddocker:
 	@echo "### Making docker image: webserver"
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo docker build -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
+	@sudo docker build -t registry.heroku.com/${APP}/web .
 
 cleandocker:
 	@echo "### Making docker image: webserver (no cache)"
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo docker build --no-cache -t registry.heroku.com/${APP}/web --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
+	@sudo docker build --no-cache -t registry.heroku.com/${APP}/web .
 
 buildtools:
 	@echo "### Making docker image: tools (needs CIAO tools)"
 	@echo "##"
 	@echo "## ${APP}"
 	@echo "##"
-	@sudo docker build -t ${APP}.tools --file Dockerfile.tools --build-arg SOURCE_VERSION=${SOURCE_VERSION} .
+	@sudo docker build -t ${APP}.tools --file Dockerfile.tools .
 
 rundocker:
 	@echo "### Running ${APP} docker image locally"
@@ -210,10 +215,14 @@ pushdocker:
 	@echo "##"
 	@echo "## - if this fails you may need to"
 	@echo "##     sudo heroku container:login"
+	@echo "##   OR"
+	@echo "##     sudo docker login --username=_ --password=$(heroku auth:token) registry.heroku.com"
 	@echo "##"
 	@echo "## ${APP}"
+	@echo "## ${SOURCE_VERSION}"
 	@echo "##"
-	@sudo heroku container:push web --app ${APP} --arg SOURCE_VERSION=${SOURCE_VERSION}
+	@sudo heroku container:push web --app ${APP}
+	@# sudo docker push registry.heroku.com/chandraobservatory/web
 	@sudo heroku container:release web --app ${APP}
 
 buildredirect:

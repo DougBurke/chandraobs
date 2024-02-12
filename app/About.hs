@@ -6,12 +6,12 @@ module About (aboutPage)
        where
 
 -- import qualified Prelude as P
-import Prelude (($), (==), maybe)
+import Prelude (Maybe(..), ($), (==), maybe)
 
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
-import Data.Monoid ((<>))
+import Data.Monoid ((<>), mempty)
 
 import Text.Blaze.Html5 hiding (title)
 import Text.Blaze.Html5.Attributes hiding (item, title)
@@ -337,22 +337,32 @@ furtherSection = do
     item "https://www.worldwidetelescope.org/wwtweb/thumbnail.aspx?name=FermiYearThree"
        (p "NASA and the FERMI-LAT Team.")
     )
-    
-  let gitURL = "https://github.com/DougBurke/chandraobs/commit/"
-               <> gitTxt
-      gitTxt = fromCommitId gitCommitId
-      
+
+  -- For various reasons we should this an I/O action that returns
+  -- a Maybe, bit for now we have this monstrosity.
+  --
+  let gitLink = case gitCommitId of
+        Just cid ->
+          let gitTxt = fromCommitId cid
+              gitURL = "https://github.com/DougBurke/chandraobs/commit/"
+                       <> gitTxt
+
+          in " The version of the code used to create this site can "
+             <> "be found on GitHub at: "
+             <> alink (toValue gitURL) (toHtml gitTxt)
+             <> "."
+
+        _ -> mempty
+
   p ("The web site "
      <> alink "https://github.com/DougBurke/chandraobs"
      "code is available on GitHub"
-    <> ", is coded in "
-    <> alink "https://www.haskell.org/" "Haskell"
-    <> ", and runs on the "
-    <> alink "https://www.heroku.com/" "Heroku platform"
-    <> ". The version of the code used to create this site can "
-    <> "be found on GitHub at: "
-    <> alink (toValue gitURL) (toHtml gitTxt)
-    <> ".")
+     <> ", is coded in "
+     <> alink "https://www.haskell.org/" "Haskell"
+     <> ", and runs on the "
+     <> alink "https://www.heroku.com/" "Heroku platform"
+     <> "."
+     <> gitLink)
 
   p ("For questions on this site try either "
      <> alink "https://mastodon.social/@dburke" "@dburke"

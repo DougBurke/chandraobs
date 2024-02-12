@@ -32,19 +32,6 @@ let
     };
   };
 
-  # How do I implement the following?
-  #  
-  # # The default LANG I use of en_US.UTF-8 doesn't seem to
-  # # work for some of the characters I see, so try the C
-  # # version.
-  # #
-  # shellHook = ''
-  #   export LANG=C.UTF-8
-  #   echo "***"
-  #   echo "*** Welcome to chandraobservatory"
-  #   echo "***"
-  # '';
-
   shell = myHaskellPackages.shellFor {
     packages = p: [
       p."chandraobs"
@@ -53,7 +40,7 @@ let
       pkgs.haskellPackages.cabal-install
       pkgs.haskellPackages.hlint
       pkgs.niv
-      pkgs.heroku
+      # pkgs.heroku  - rely in external heroku for now
       pkgs.postgresql
       pkgs.git
     ] ++ pkgs.lib.optionals isDefaultCompiler [
@@ -61,6 +48,13 @@ let
       myHaskellPackages.haskell-language-server
     ];
     withHoogle = isDefaultCompiler;
+    shellHook = ''
+      # export LANG=C.UTF-8
+      echo "***"
+      echo "*** Welcome to chandraobservatory"
+      echo "***"
+    '';
+
   };
 
   # hack around from
