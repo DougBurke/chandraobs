@@ -35,4 +35,4 @@ COPY static/ /app/static
 # RUN chown -R webserver:webserver /app
 # USER webserver
 
-CMD ["/app/bin/webserver"]
+ENTRYPOINT ["/app/bin/webserver"]
