@@ -223,7 +223,7 @@ singleColBody ::
   -> Html
 singleColBody cp bdy =
   mainNavBar cp
-  <> main bdy
+  <> main (saveChandra bdy)
   <> renderFooter
 
 -- | This used to show Twitter to the right of the "main" body,
@@ -237,9 +237,21 @@ withTwitterBody ::
 withTwitterBody cp bdy =
   mainNavBar cp
   -- <> (main bdy <> twitterDiv)
-  <> main bdy
+  <> main (saveChandra bdy)
   <> renderFooter
 
+
+-- | Add a "save chandra" banner before the content.
+--
+saveChandra :: Html -> Html
+saveChandra =
+  let style = "background-color: orchid; color: white; margin: 0 1em; padding: 0.5em 0; position: sticky; text-align: center; top: 0.5em;"
+      banner = (p ! A.style style)
+        ("Please read CXC Director Dr. Pat Slane's " <>
+         (a ! href "https://cxc.harvard.edu/cdo/announcement.html")
+         "A Letter to the Community" <>
+         " regarding NASA's plans to decommission Chandra. #SaveChandra")
+  in (banner <>)
 
 -- | Display the main navigation bar.
 mainNavBar :: CurrentPage -> Html
