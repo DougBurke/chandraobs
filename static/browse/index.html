@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<!-- we now have browse/index.html but leave this in for testing -->
 <html lang="en-US">
  <head>
   <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
   <link rel="icon" type="image/gif" href="/img/cxc.gif">
-  <title>What is Chandra doing now? [experiment]</title>
+  <title>Browse the Chandra doing now? database</title>
 
   <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
 
@@ -24,16 +23,16 @@
   
   <script src="/js/raprojection.js"></script>
 
-  <script src="/js/test/main.js"></script>
-  <script src="/js/test/draggable.js"></script>
-  <script src="/js/test/lookup.js"></script>
-  <script src="/js/test/spinner.js"></script>
-  <script src="/js/test/sky.js"></script>
-  <link href="/css/test/main.css" type="text/css"
+  <script src="/js/browse/main.js"></script>
+  <script src="/js/browse/draggable.js"></script>
+  <script src="/js/browse/lookup.js"></script>
+  <script src="/js/browse/spinner.js"></script>
+  <script src="/js/browse/sky.js"></script>
+  <link href="/css/browse/main.css" type="text/css"
 	rel="stylesheet" title="Default" media="all">
-  <link href="/css/test/spinner.css" type="text/css"
+  <link href="/css/browse/spinner.css" type="text/css"
 	rel="stylesheet" media="all">
-  <link href="/css/test/sky.css" type="text/css"
+  <link href="/css/browse/sky.css" type="text/css"
 	rel="stylesheet" media="all">
  </head>
  <body onload="main.initialize();" onresize="main.resize();">
@@ -44,11 +43,6 @@
        </div>
 
        <div style="position: fixed; bottom: 1em; right: 0.5em; background: rgba(217,83,79,0.8); border-radius: 0.5em; color: white; padding: 0.5em; text-align: center;">
-	 <!--
-	   EXPERIMENTAL INTERFACE
-	   <br/>
-	   all things may change!
-         -->
 	   Please read
 	   <nr/>
 	   <a href="https://cxc.harvard.edu/cdo/announcement.html">A Letter to the Community</a>
@@ -58,6 +52,9 @@
 
        <!-- maybe nav? -->
        <div id="control">
+	 <span id="home">
+	   <a href="/index.html">Home</a>
+	 </span>
 	 <ul>
 	   <li id="control-image">
 	     <!-- try without restyling for a while
