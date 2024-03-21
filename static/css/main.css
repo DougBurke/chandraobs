@@ -73,7 +73,7 @@ nav ul li {
 }
 
 /* nav ul li:first-child { */
-nav ul li:nth-child(-n+3) {
+nav ul li:nth-child(-n+4) {
   float: left;
 }
 
@@ -100,6 +100,23 @@ nav > ul > li > a {
 nav > ul > li:hover > a {
   border-bottom-color: rgb(0,131,179); /* twitter color */
   color: rgb(0,131,179); /* or a dark gray/black: rgb(40,40,47); */
+}
+
+/* specialize the browse link as it's new */
+
+a#brows {
+}
+
+a#brows:after {
+    background-color: orchid;
+    border-radius: 0.5em;
+    color: white;
+    content: 'NEW';
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    padding-top: 0.2em;
+    margin-left: 0.5em;
+    font-size: small;
 }
 
 /*

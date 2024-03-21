@@ -781,14 +781,14 @@ webapp cm scache cache = do
     get "/api/skyview/category/:category"
       (do
           (propCat, xs) <- dbQuery "category" fetchCategory
-          let title = "Category search: " <> propCat
+          let title = "Category: " <> propCat
           json (skyview title Nothing xs)
       )
 
     get "/api/skyview/constellation/:constellation"
       (do
           (con, xs) <- dbQuery "constellation" fetchConstellation
-          let title = "Constellation search: " <> fromConShort con
+          let title = "Constellation: " <> fromConShort con
               longName = fromConLong <$> getConstellationName con
           json (skyview title longName xs)
       )

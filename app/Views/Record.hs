@@ -212,7 +212,7 @@ noObsIdParas fact =
 --   pages, since separating out these is currently un-needed.
 --
 data CurrentPage = 
-  CPIndex | CPSchedule | CPExplore | CPAbout | CPInstruments | CPView | CPOther
+  CPIndex | CPBrowse | CPSchedule | CPExplore | CPAbout | CPInstruments | CPView | CPOther
   deriving Eq
 
 -- | Create a "single-column" page body layout.
@@ -245,8 +245,8 @@ withTwitterBody cp bdy =
 --
 saveChandra :: Html -> Html
 saveChandra =
-  let style = "background-color: orchid; color: white; margin: 0 1em; padding: 0.5em 0; position: sticky; text-align: center; top: 0.5em;"
-      banner = (p ! A.style style)
+  let styles = "background-color: orchid; color: white; margin: 0 1em; padding: 0.5em 0; position: sticky; text-align: center; top: 0.5em;"
+      banner = (p ! A.style styles)
         ("Please read CXC Director Dr. Pat Slane's " <>
          (a ! href "https://cxc.harvard.edu/cdo/announcement.html")
          "A Letter to the Community" <>
@@ -262,8 +262,10 @@ mainNavBar cp =
 
       indexA = mkA "home"  "/index.html"             "What is Chandra doing now?"
       schedA = mkA "sched" "/schedule/index.html"    "Schedule"
+      browsA = mkA "brows" "/browse/index.html"      "Browse"
       explA  = mkA "expl"  "/search/index.html"      "Explore"
       aboutA = mkA "about" "/about/index.html"       "About"
+
       instA  = mkA "insts" "/about/instruments.html" "Instruments"
       viewA  = mkA "views" "/about/views.html"       "Views"
 
@@ -272,6 +274,7 @@ mainNavBar cp =
       -- 'nav ul li:nth-child(-n+a)' to find out what a is.
 
       lis = li (indexA CPIndex)
+            <> li (browsA CPBrowse)
             <> li (schedA CPSchedule)
             <> li (explA CPExplore)
             -- remaining elements are in reverse display order,

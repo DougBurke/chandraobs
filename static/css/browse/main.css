@@ -1,0 +1,384 @@
+
+body {
+    font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+    margin: 0;
+    overflow: hidden;
+}
+
+/*
+ * The "top" bar
+ */
+div#control {
+    display: none;
+    position: fixed;
+    top: 0;
+}
+
+#home {
+    background: white;
+    padding: 0.2em 0.5em;
+    text-align: center;
+}
+
+div#control ul {
+    list-style-type: none;
+    padding-left: 0.5em;
+}
+
+div#control ul li {
+    /* float: left; */
+}
+
+li#control-goto {
+    padding: 0.3em 0;
+}
+
+/* only made visible if the browser supports the capability */
+li#control-fullscreen {
+    display: none;
+}
+
+/*
+ * center this horizontally; this used to be 3 by 2 hence the use
+ * of a grid but is now 1 by 2 so should change to flex
+ *
+ * we use div.timeline in the record display.
+ */
+div#timeline {
+    display: none;
+    grid-template-columns: repeat(2, 1fr);
+    left: 50%;
+    position: absolute;
+    top: 1em;
+    transform: translate(-50%, 0);
+}
+
+div#timeline span {
+    background: white;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    padding-top: 0.2em;
+    text-align: center;
+}
+
+div#timeline span.timeline-title-head {
+    grid-column: 1 / 3;
+    grid-row: 1;
+}
+
+div#timeline span.timeline-title-date , div#timeline span.timeline-title-obs {
+    grid-row: 2;
+}
+
+div#timeline span.timeline-selected-date , div#timeline span.timeline-selected-obs {
+    grid-row: 3;
+}
+
+div#timeline span.timeline-title-date, div#timeline span.timeline-selected-date  {
+    grid-column: 1;
+}
+
+div#timeline span.timeline-title-obs, div#timeline span.timeline-selected-obs {
+    grid-column: 2;
+}
+
+div#timeline a {
+    cursor: pointer;
+    text-decoration: underline;  /* this is a "fake" link */
+}
+
+div#timeline span.timeline-title-date, div#timeline span.timeline-title-obs {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+/* Location of the cross hair (to some approximation during slews) */
+
+div#location {
+    background: white;
+    display: none;
+    padding: 0.2em;
+    position: absolute;
+    right: 1em;
+    top: 1em;
+}
+
+/***
+div#location-value , div#location-options {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    padding-bottom: 0.2em;
+}
+***/
+
+div#location-value , div#location-options {
+    padding-bottom: 0.2em;
+}
+
+div#location-options {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+div#location-value {
+    text-align: center;
+}
+
+div#location-options {
+    padding-top: 0.2em;
+}
+
+div#location-fov {
+    padding-top: 0.2em;
+    text-align: center;
+}
+
+/*
+ * Text explaining the current (or selected) observation.
+ * Should the border color change to reflect the observation state?
+ */
+
+div.statusPane {
+    background: white;
+    cursor: grab;
+
+    /* if padding changes, need to change the margin-right/left
+     * settings in controlElements */
+    padding-bottom: 0.5em;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+
+    position: absolute;
+}
+
+/* should get re-integrated into the list above, but leave out for now
+ * (was broken out as was re-using the above settings for other panes
+ *  but currently not).
+ */
+div.statusPane {
+    bottom: 2em;
+    left: 2em;
+    width: 25em;
+}
+
+/*
+ * Apply a fixed height for science observations since we know the
+ * details tab is going to be large in this case.
+ */
+div.scienceobs {
+    overflow: auto;
+    height: 15em;
+}
+
+/* These two are only really needed if the content overflows vertically */
+
+div.content div p , div#Details {
+    padding-right: 0.5em;
+}
+
+/* location of window-UI-like elements */
+
+div.controlElements {
+
+    height: 1em;
+
+    /* extend across the full "window"; should be -1 * #statusBar.padding */
+    margin-left: -0.5em;
+    margin-right: -0.5em;
+
+    padding-bottom: 0.3em;
+    padding-right: 0.3em;
+    padding-top: 0.3em;
+}
+
+/* only add the border when the whole pane is displayed */
+div.controlElementsShown {
+    border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+}
+
+span.title {
+    color: rgba(3, 3, 3, 1.0);
+    float: left;
+    font-weight: bold;
+    padding-left: 0.5em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+/* CSS window "widgets" */
+
+.closable {
+    background: #F55;  /* orangey-red ish */
+    border-radius: 50%;
+    cursor: pointer;
+    float: right;
+    height: 1em;
+    width: 1em;
+}
+
+/* hideable and showable are assumed to be attached to this */
+.switchable {
+    cursor: pointer;
+    float: right;
+    height: 0;
+    margin-left: 0.5em;
+    margin-right: 0.2em;
+    width: 0;
+}
+
+/* down-pointing triangle */
+.hideable {
+    border-left: 0.5em solid transparent;
+    border-right: 0.5em solid transparent;
+    border-top: 1em solid #F55;
+}
+
+/* up-pointing triangle */
+.showable {
+    border-bottom: 1em solid #F55;
+    border-left: 0.5em solid transparent;
+    border-right: 0.5em solid transparent;
+}
+
+/*
+ * Style the previous/next elements in the record display,
+ * which needs to interact visually with .sections
+ *
+ * note that there's a div#timeline element too
+ */
+
+div.timeline {
+    margin-bottom: 2px;
+    margin-top: 2px;
+    padding-bottom: 0;
+    padding-top: 0;
+    display: flex;
+}
+
+div.timeline span {
+    /* background: rgba(255, 255, 255, 0.7); */
+    flex: 1 1 auto;
+    padding-bottom: 0.2em;
+    padding-top: 0.2em;
+    width: 50%;
+}
+
+span.previousobs {
+    border-right: 1px solid rgba(0, 0, 0, 0.4);
+    padding-right: 0.2em;
+    text-align: right;
+}
+
+span.nextobs {
+    border-left: 1px solid rgba(0, 0, 0, 0.4);
+    padding-left: 0.2em;
+}
+
+.timeline a {
+    color: rgba(3, 3, 3, 0.5);
+    text-decoration: none;
+    transition: all 0.5s ease;
+}
+
+.timeline a:hover {
+    /* color or background */
+    color: rgba(3, 3, 3, 1);
+}
+
+/* Style the list */
+
+ul.sections {
+    list-style-type: none;
+    margin-bottom: 0;
+    margin-top: 0;
+    overflow: auto;
+    padding-left: 0;
+    text-align: center;
+}
+
+ul.sections li {
+    border-right: 2px solid rgba(0, 0, 0, 0.4);
+    display: inline-block;
+    margin-right: 0;
+    padding: 0.2em 0.5em;
+}
+
+ul.sections li a {
+    color: rgba(3, 3, 3, 0.5);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: all 0.5s ease;
+}
+
+ul.sections li:last-child {
+    border-right: none;
+}
+
+ul.sections li:hover a {
+    /* color or background */
+    color: rgba(3, 3, 3, 1);
+}
+
+ul.sections li.active a {
+    font-weight: bold;
+    color: rgba(3, 3, 3, 1);
+}
+
+div.content div p:first-child {
+    margin-top: 0.5em;
+}
+
+/* fake a button; why, when we have HTML buttons? */
+
+.button {
+    background-color: rgba(217, 83, 79, 0.8);  /* red-ish */
+    border: 1px solid rgb(212, 63, 58);
+    border-radius: 0.5em;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 0.4em;
+    padding: 0.5em;
+    text-align: center;
+    vertical-align: middle;
+    /* width: 100%; */
+}
+
+.button:hover {
+    background-color: rgba(210, 35, 45, 0.8);
+    border-color: rgb(172, 41, 37);
+}
+
+/*
+ * Warning and error styles
+ */
+div.server-problem , div.no-current-response , div.lookup-failure {
+    background: rgba(255, 255, 255, 1.0);
+    border: 2px solid orange;
+    font-size: larger;
+    left: 50%;
+    max-width: 50em;
+    padding: 1em;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    -webkit-transform: translate(-50%, -50%);
+}
+
+div.lookup-success {
+    background: rgba(255, 255, 255, 1.0);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    left: 50%;
+    max-width: 50em;
+    padding: 1em;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    -webkit-transform: translate(-50%, -50%);
+}
+
+/* general stuff */
+
+img.external-link {
+    height: 0.8em;
+    padding-left: 0.5em;
+}

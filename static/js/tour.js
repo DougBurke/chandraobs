@@ -31,7 +31,9 @@ var tour = new Tour({
   {
     element: ".radiobuttons",
     title: "Science Observations",
-    content: "For science observations, the object is shown in the optical (from the Digital Sky Survey) and using the World Wide Telescope (the 'Interactive' tab), and also in the X-ray (these are labelled RASS and PSPC and are from an earlier telescope called ROSAT)."
+    content: `For science observations, the object is shown in the optical (from the Digital Sky Survey) and using the World Wide Telescope (the 'Interactive' tab), and also in the X-ray (these are labelled RASS and PSPC and are from an earlier telescope called ROSAT).
+<br/><br/>
+The <strong>Browse interface</strong> (which you are about to hear about) is an enhanced version of the World Wide Telescope view!`
       /* " If the observation is publically available then the Chandra data will be shown by default (unfortunately it isn't always as visually impressive as data from other telescopes, such as the Hubble Space Telescope :-)." */
   },
   {
@@ -45,6 +47,12 @@ var tour = new Tour({
     placement: "bottom",
     title: "Current observation",
     content: "This link will take you to the current observation."
+  },
+  {
+    element: "#brows",
+    placement: "bottom",
+    title: "Browse",
+    content: "View the information on the sky, using the World Wide Telescope. It provides similar information to this page but in a <em>much</em> snazzier way."
   },
   {
     element: "#sched",
