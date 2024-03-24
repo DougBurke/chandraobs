@@ -11,7 +11,7 @@ div#sky {
     margin-bottom: 0.5em;
     margin-left: auto;
     margin-right: auto;
-    margin-top: 0.5em;
+    /* margin-top: 0.5em; */
 
     /* width: 400px; */
 }
@@ -82,7 +82,7 @@ div#sky {
 }
 
 div.skyPane {
-    background: white;
+    background: rgba(255, 255, 255, 0.8);
 
     bottom: 2em;
     
@@ -90,7 +90,7 @@ div.skyPane {
 
     /* if padding changes, need to change the margin-right/left
      * settings in controlElements */
-    padding-bottom: 0.5em;
+    padding-bottom: 0;
     padding-left: 0.5em;
     padding-right: 0.5em;
 
@@ -104,14 +104,11 @@ div.skyPane {
 
 div.searchtype {
     font-weight: bold;
-    margin-top: 0.5em;
     text-align: center;
-    /* width: 400px; */ /* match div#sky */
 }
 
 p.searchinfo {
     margin-top: 0.5em;
-    /* width: 400px; */ /* match div#sky */
 }
 
 div.skyPane details {
