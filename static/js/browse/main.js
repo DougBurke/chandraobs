@@ -195,10 +195,12 @@ const main = (function() {
 
     }
 
-    function setTimelineElement(host, selector, obsdata) {
-	const node = host.querySelector(selector);
+    // Let the user know what the current obsid is
+    //
+    function showCurrentTimeLine(obsdata) {
+	const node = document.querySelector('#timeline-selected-obs');
 	if (node === null) {
-	    console.log("Internal error: unable to find '" + selector + "'");
+	    console.log("Internal error: unable to find #timeline-selected-obs");
 	    return;
 	}
 
@@ -215,20 +217,9 @@ const main = (function() {
 	    node.appendChild(link);
 
 	} else {
-	    node.innerHTML = document.createTextNode('unknown');
+	    node.appendChild(document.createTextNode('unknown'));
 	    node.removeAttribute('data-obsid');
 	}
-    }
-
-    // Let the user know what the current obsid is
-    //
-    function showCurrentTimeLine(obsdata) {
-	const host = document.querySelector('#timeline');
-	if (host === null) {
-	    console.log("Internal error: unable to find #timeline");
-	    return;
-	}
-	setTimelineElement(host, '#timeline-selected-obs', obsdata);
     }
 
     function textNode(txt) {
@@ -604,7 +595,6 @@ const main = (function() {
 	['control', 'location'].forEach((n) => {
 	    document.querySelector('#' + n).style.display = 'block';
 	});
-	document.querySelector('#timeline').style.display = 'grid';
     }
 
 
