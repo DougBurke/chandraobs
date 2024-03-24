@@ -33,8 +33,11 @@ li#control-fullscreen {
 }
 
 #titlebar {
-    background: white;
-    display: flex;
+    /* background: rgba(255, 255, 255, 0.8); */
+    background: rgba(218, 112, 214, 0.8);  /* orchid */
+    /* display: flex;  will be changed to this on load */
+    color: white;
+    display: none;
     justify-content: space-between;
     padding-top: 0.4em;
     position: fixed;
@@ -49,6 +52,10 @@ li#control-fullscreen {
     padding-left: 0.5em;
 }
 
+#home a abbr {
+    color: white;
+}
+
 #timeline-selected-obs a {
     cursor: pointer;
     text-decoration: underline;  /* this is a "fake" link */
@@ -61,7 +68,9 @@ li#control-fullscreen {
 /* Location of the cross hair (to some approximation during slews) */
 
 div#location {
-    background: white;
+    /* background: rgba(255, 255, 255, 0.8); */
+    background: rgba(218, 112, 214, 0.8);  /* orchid */
+    color: white;
     display: none;
     padding: 0.2em;
     position: absolute;
@@ -75,23 +84,17 @@ div#location {
  */
 
 div.statusPane {
-    background: white;
+    background: rgba(255, 255, 255, 0.8);
     cursor: grab;
 
     /* if padding changes, need to change the margin-right/left
      * settings in controlElements */
-    padding-bottom: 0.5em;
+    padding-bottom: 0;
     padding-left: 0.5em;
     padding-right: 0.5em;
 
     position: absolute;
-}
 
-/* should get re-integrated into the list above, but leave out for now
- * (was broken out as was re-using the above settings for other panes
- *  but currently not).
- */
-div.statusPane {
     bottom: 2em;
     left: 2em;
     width: 25em;
@@ -105,6 +108,17 @@ div.scienceobs {
     overflow: auto;
     height: 15em;
 }
+
+/*
+ * Since the scienceobs class adds a large vertical height there is
+ * a difference in behaviour when the cal observation is shown compared
+ * to a science observation. This is an attempt to address this (relevant
+ * with the opaque title but solid main area code).
+ */
+div#observation p:last-child {
+    margin-bottom: -1em;
+}
+
 
 /* These two are only really needed if the content overflows vertically */
 
@@ -154,6 +168,7 @@ span.title {
 
 div.controlElements span.closable {
     display: flex;
+    order: 10;  /* display last */
 }
 
 .closable {
@@ -189,6 +204,25 @@ div.controlElements span.switchable {
     border-bottom: 1em solid #F55;
     border-left: 0.5em solid transparent;
     border-right: 0.5em solid transparent;
+}
+
+div.main {
+    background: white;
+
+    /*
+     * Expand to match div.controlElements so the background covers the
+     * whole area.
+     */
+    margin-left: -0.5em;
+    margin-right: -0.5em;
+
+    margin-bottom: -1em;  /* skyPane when expand details seems to need this */
+
+    /* reset this extra space */
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+
+    padding-top: 0.2em;  /* add a little bit of vertical space */
 }
 
 /*

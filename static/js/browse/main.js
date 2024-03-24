@@ -585,8 +585,8 @@ const main = (function() {
         showCurrentDate();
         setInterval(showCurrentDate, 10000);
 
-	// Set up the location field
-        setInterval(showLocation, 10000);
+	// Set up the location field; reset every 5 seconds
+        setInterval(showLocation, 5000);
 
 	// Display the control elements. Should probably be in a
 	// single structure to make this easier (and to ensure things
@@ -595,6 +595,17 @@ const main = (function() {
 	['control', 'location'].forEach((n) => {
 	    document.querySelector('#' + n).style.display = 'block';
 	});
+
+	// Make the titlebar visible (hopefully this is after the
+	// time/observation details are shown; we could make this
+	// a certainty, ish).
+	//
+	const titlebar = document.querySelector("#titlebar");
+	if (titlebar === null) {
+	    console.log('INTERNAL ERROR: #titlebar not found');
+	    return;
+	}
+	titlebar.style.display = "flex";
     }
 
 
