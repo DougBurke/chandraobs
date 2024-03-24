@@ -186,6 +186,8 @@ div.controlElements {
     padding-bottom: 0.3em;
     padding-right: 0.3em;
     padding-top: 0.3em;
+
+    display: flex;
 }
 
 /* only add the border when the whole pane is displayed */
@@ -193,32 +195,45 @@ div.controlElementsShown {
     border-bottom: 2px solid rgba(0, 0, 0, 0.4);
 }
 
+div.controlElements span.title {
+    display: flex;
+    flex: 1;
+}
+
 span.title {
     color: rgba(3, 3, 3, 1.0);
     float: left;
     font-weight: bold;
+    overflow: hidden;
     padding-left: 0.5em;
     text-decoration: none;
+    text-overflow: ellipsis;  /* this does not seem to work */
     text-transform: uppercase;
 }
 
 /* CSS window "widgets" */
 
+div.controlElements span.closable {
+    display: flex;
+}
+
 .closable {
     background: #F55;  /* orangey-red ish */
     border-radius: 50%;
     cursor: pointer;
-    float: right;
     height: 1em;
     width: 1em;
+}
+
+div.controlElements span.switchable {
+    display: flex;
 }
 
 /* hideable and showable are assumed to be attached to this */
 .switchable {
     cursor: pointer;
-    float: right;
     height: 0;
-    margin-left: 0.5em;
+    margin-left: 0.2em;
     margin-right: 0.2em;
     width: 0;
 }
