@@ -239,6 +239,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , fromInstrument
              , fromGrating
              , fromPropType
+             , toPropTypeLabel
              , recordObsId
              , recordTarget
              , recordStartTime
@@ -739,7 +740,8 @@ webapp cm scache cache = do
           T.Text
           -- ^ Title
           -> Maybe T.Text
-          -- ^ Optional description
+          -- ^ Optional description, which I want to make a required
+          --   part but have not done all cases
           -> SortedList a RestrictedSO
           -> Value
         skyview title mdesc xs = 
@@ -782,7 +784,7 @@ webapp cm scache cache = do
       (do
           (propCat, xs) <- dbQuery "category" fetchCategory
           let title = "Category: " <> propCat
-          json (skyview title Nothing xs)
+          json (skyview title (Just propCat) xs)
       )
 
     get "/api/skyview/constellation/:constellation"
@@ -799,7 +801,7 @@ webapp cm scache cache = do
       (do
           xs <- liftSQL (fetchConstraint Nothing)
           let title = "No constraint"
-          json (skyview title Nothing xs)
+          json (skyview title (Just title) xs)
       )
     
     get "/api/skyview/constraints/:cs"
@@ -873,7 +875,7 @@ webapp cm scache cache = do
             Nothing -> do
               pval <- param "mission" -- can I re-request it?
               let title = "Joint mission: " <> pval
-              json (skyview title Nothing xs)
+              json (skyview title (Just pval) xs)
       )
 
     -- TODO: do we need the query parameter? Just make it the path
@@ -909,9 +911,10 @@ webapp cm scache cache = do
     get "/api/skyview/proptype/:proptype"
       (do
           (propType, xs) <- dbQuery "proptype" getProposalType
-          let title = "Proposal Type: " <> v
-              v = fromPropType propType
-          json (skyview title Nothing xs)
+          let title = "Proposal Type: " <> short
+              short = fromPropType propType
+              long = toPropTypeLabel propType
+          json (skyview title (Just long) xs)
       )
 
     -- TODO: what case do we want the 'none' parameter to be?
