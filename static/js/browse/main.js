@@ -585,14 +585,14 @@ const main = (function() {
         showCurrentDate();
         setInterval(showCurrentDate, 10000);
 
-	// Set up the location field; reset every 5 seconds
-        setInterval(showLocation, 5000);
+	// Set up the location field; reset every 2 seconds
+        setInterval(showLocation, 2000);
 
 	// Display the control elements. Should probably be in a
 	// single structure to make this easier (and to ensure things
 	// don't overlap).
 	//
-	['control', 'location'].forEach((n) => {
+	['control'].forEach((n) => {
 	    document.querySelector('#' + n).style.display = 'block';
 	});
 

@@ -51,20 +51,35 @@
        </div>
 
        <div id="titlebar">
+	 <span id="timeline-values">
+	   <span id="timeline-selected-date">&nbsp;</span>
+	   <span>
+	     Current observation:
+	     <span id="timeline-selected-obs">&nbsp;</span>
+	   </span>
+	 </span>
+
 	 <span id="home"><a href="/index.html"><abbr title="What is Chandra doing now? (text version)">WICDN?</abbr></a></span>
 
-	 <span id="timeline-selected-date">&nbsp;</span>
-	 <span>
-	   Current observation:
-	   <span id="timeline-selected-obs">&nbsp;</span>
-	 </span>
+	 <span id="locations">
+	   <span id="location-value">
+	     00<sup>h</sup> 00<sup>m</sup> 00.00<sup>s</sup>
+	     +00° 00' 00.0"
+	   </span>
 
-	 <span id="location-fov">
-	   Field of view: <span id="location-fov-value">60°</span>
-	 </span>
-	 <span id="location-value">
-	   00<sup>h</sup> 00<sup>m</sup> 00.00<sup>s</sup>
-	   +00° 00' 00.0"
+	   <span id="location-fov">
+	     Field of view: <span id="location-fov-value">60°</span>
+	   </span>
+
+	   <span>
+	     Search nearby in
+	     <button type="submit" id="search-ned">
+	       NED
+	     </button>
+	     <button type="submit" id="search-simbad">
+	       SIMBAD
+	     </button>
+	   </span>
 	 </span>
 
        </div>
@@ -100,19 +115,6 @@
 	   </li>
 
 	 </ul>
-       </div>
-
-       <div id="location">
-	 <div id="location-options">
-	   <!-- FOR NOW do not re-style these buttons -->
-	   <span>Search nearby in </span>
-	   <button type="submit" id="search-ned">
-	     NED
-	   </button>
-	   <button type="submit" id="search-simbad">
-	     SIMBAD
-	   </button>
-	 </div>
        </div>
 
      </div>
