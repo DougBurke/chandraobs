@@ -249,10 +249,11 @@ const main = (function() {
     //
     // This also tells the WWT to jump to the location (on success)
     //
-    function makeStatusPane(obsid, rsp) {
+    function makeStatusPane(obsid, idVal, rsp) {
 
 	const pane = document.createElement('div');
 	pane.setAttribute('class', 'statusPane');
+	pane.setAttribute('id', idVal);
 
 	pane.draggable = true;
 	pane.addEventListener('dragstart', draggable.startDrag);
@@ -437,8 +438,7 @@ const main = (function() {
         }).done(function (rsp) {
 	    host.removeChild(spin);
 
-	    const pane = makeStatusPane(obsid, rsp);
-	    pane.setAttribute('id', idVal);
+	    const pane = makeStatusPane(obsid, idVal, rsp);
 	    host.appendChild(pane);
 
         }).fail(function(xhr, status, e) {
@@ -1669,6 +1669,10 @@ const main = (function() {
     //     dec    - decimal degrees
     //     expks  - exposure time in ks
     //
+    // We assume there will only ever be one skyPane created at a time,
+    // hence we can hard-code an id. An alternative is to send one in
+    // to this ruotine, but that is a *tad* more annoying to set up.
+    //
     function makeSky(host, data) {
 
 	/* delete any existing pane (rather than reusing it) */
@@ -1676,14 +1680,10 @@ const main = (function() {
 
 	const pane = document.createElement('div');
 	pane.setAttribute('class', 'skyPane');
+	pane.setAttribute('id', 'skypane-identifier');
 
-	// There appear to be issues making this draggable
-	// so disable for now
-	/***
 	pane.draggable = true;
-	pane.addEventListener('dragstart',
-			      event => draggable.startDrag(event));
-	***/
+	pane.addEventListener('dragstart', draggable.startDrag);
 
 	const controlElements = document.createElement('div');
 	controlElements.classList.add('controlElements');
@@ -1862,6 +1862,7 @@ const main = (function() {
 	    getWWT: () => wwt,
 	    getHost: getHost,
 
+	    // See app/API.hs for calls to this
 	    addSkyView: addSky,
 
 	    zoomIn : zoomIn,
