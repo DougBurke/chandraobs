@@ -3,7 +3,7 @@
  <head>
   <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
   <link rel="icon" type="image/gif" href="/img/cxc.gif">
-  <title>Browse the Chandra doing now? database</title>
+  <title>Browse the 'What is Chandra doing now?' database</title>
 
   <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
 
@@ -50,11 +50,26 @@
       #SaveChandra
        </div>
 
-       <!-- maybe nav? -->
-       <div id="control">
-	 <span id="home">
-	   <a href="/index.html">Home</a>
+       <div id="titlebar">
+	 <span id="home"><a href="/index.html">Home</a></span>
+
+	 <span id="timeline-selected-date">&nbsp;</span>
+	 <span>
+	   Current observation:
+	   <span id="timeline-selected-obs">&nbsp;</span>
 	 </span>
+
+	 <span id="location-fov">
+	   Field of view: <span id="location-fov-value">60°</span>
+	 </span>
+	 <span id="location-value">
+	   00<sup>h</sup> 00<sup>m</sup> 00.00<sup>s</sup>
+	   +00° 00' 00.0"
+	 </span>
+
+       </div>
+
+       <div id="control">
 	 <ul>
 	   <li id="control-image">
 	     <!-- try without restyling for a while
@@ -87,23 +102,7 @@
 	 </ul>
        </div>
 
-       <div id="timeline">
-	 <span class="timeline-title-head">Current</span>
-	 <span class="timeline-title-date">Date</span>
-	 <span class="timeline-title-obs">Observation</span>
-	 <!--
-	 <span class="timeline-title"
-	       id="timeline-selected-label">Current observation</span>
-	 -->
-	 <span id="timeline-selected-date">&nbsp;</span>
-	 <span id="timeline-selected-obs">&nbsp;</span>
-       </div>
-
        <div id="location">
-	 <div id="location-value">
-	   00<sup>h</sup> 00<sup>m</sup> 00.00<sup>s</sup>
-	   +00° 00' 00.0"
-	 </div>
 	 <div id="location-options">
 	   <!-- FOR NOW do not re-style these buttons -->
 	   <span>Search nearby in </span>
@@ -113,9 +112,6 @@
 	   <button type="submit" id="search-simbad">
 	     SIMBAD
 	   </button>
-	 </div>
-	 <div id="location-fov">
-	   Field of view: <span id="location-fov-value">60°</span>
 	 </div>
        </div>
 

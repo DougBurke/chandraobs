@@ -11,13 +11,7 @@ body {
 div#control {
     display: none;
     position: fixed;
-    top: 0;
-}
-
-#home {
-    background: white;
-    padding: 0.2em 0.5em;
-    text-align: center;
+    top: 1.5em;  /* how best to position this now? */
 }
 
 div#control ul {
@@ -38,57 +32,30 @@ li#control-fullscreen {
     display: none;
 }
 
-/*
- * center this horizontally; this used to be 3 by 2 hence the use
- * of a grid but is now 1 by 2 so should change to flex
- *
- * we use div.timeline in the record display.
- */
-div#timeline {
-    display: none;
-    grid-template-columns: repeat(2, 1fr);
-    left: 50%;
-    position: absolute;
-    top: 1em;
-    transform: translate(-50%, 0);
-}
-
-div#timeline span {
+#titlebar {
     background: white;
+    display: flex;
+    justify-content: space-between;
+    padding-top: 0.4em;
+    position: fixed;
+    top: 0;
+    width: 100%;
+}
+
+#titlebar span {
+}
+
+#home {
     padding-left: 0.5em;
-    padding-right: 0.5em;
-    padding-top: 0.2em;
-    text-align: center;
 }
 
-div#timeline span.timeline-title-head {
-    grid-column: 1 / 3;
-    grid-row: 1;
-}
-
-div#timeline span.timeline-title-date , div#timeline span.timeline-title-obs {
-    grid-row: 2;
-}
-
-div#timeline span.timeline-selected-date , div#timeline span.timeline-selected-obs {
-    grid-row: 3;
-}
-
-div#timeline span.timeline-title-date, div#timeline span.timeline-selected-date  {
-    grid-column: 1;
-}
-
-div#timeline span.timeline-title-obs, div#timeline span.timeline-selected-obs {
-    grid-column: 2;
-}
-
-div#timeline a {
+#timeline-selected-obs a {
     cursor: pointer;
     text-decoration: underline;  /* this is a "fake" link */
 }
 
-div#timeline span.timeline-title-date, div#timeline span.timeline-title-obs {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+#location-value {
+    padding-right: 0.5em;
 }
 
 /* Location of the cross hair (to some approximation during slews) */
@@ -98,36 +65,8 @@ div#location {
     display: none;
     padding: 0.2em;
     position: absolute;
-    right: 1em;
-    top: 1em;
-}
-
-/***
-div#location-value , div#location-options {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
-    padding-bottom: 0.2em;
-}
-***/
-
-div#location-value , div#location-options {
-    padding-bottom: 0.2em;
-}
-
-div#location-options {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
-}
-
-div#location-value {
-    text-align: center;
-}
-
-div#location-options {
-    padding-top: 0.2em;
-}
-
-div#location-fov {
-    padding-top: 0.2em;
-    text-align: center;
+    right: 0;
+    top: 1.8em;
 }
 
 /*
@@ -256,7 +195,6 @@ div.controlElements span.switchable {
  * Style the previous/next elements in the record display,
  * which needs to interact visually with .sections
  *
- * note that there's a div#timeline element too
  */
 
 div.timeline {
