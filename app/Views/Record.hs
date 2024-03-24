@@ -439,7 +439,7 @@ vowels = "aeiou"
 -- TODO: send HtmlContext to details display
 --
 -- Note: the information content now depends on the HtmlContext; in particular
---       the "related observatios" are not included with a Dynamic context.
+--       the "related observations" are not included with a Dynamic context.
 --
 targetInfo ::
   HtmlContext

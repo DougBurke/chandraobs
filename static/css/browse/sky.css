@@ -83,10 +83,9 @@ div#sky {
 
 div.skyPane {
     background: rgba(255, 255, 255, 0.8);
-
     bottom: 2em;
     
-    /* cursor: grab; */
+    cursor: grab;
 
     /* if padding changes, need to change the margin-right/left
      * settings in controlElements */
