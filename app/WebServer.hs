@@ -54,16 +54,17 @@ import qualified Views.Schedule as Schedule
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (newMVar, readMVar, swapMVar)
 
-import Control.Monad (forever, void, when)
+import Control.Monad (forever, join, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (lift, reader,runReaderT, ask)
 
 import Data.Aeson (ToJSON, Value, (.=), encode, object)
+import Data.Aeson.Types (Pair)
 import Data.Default (def)
 import Data.List (foldl', nub)
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
 import Data.Pool (Pool)
-import Data.Time (UTCTime(utctDay), addDays, addUTCTime, getCurrentTime)
+import Data.Time (UTCTime(utctDay), Day, addDays, addUTCTime, getCurrentTime)
 
 import Database.Groundhog.Postgresql (Postgresql(..)
                                      , Conn
@@ -210,6 +211,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , ChandraTime
              , toChandraTime
              , fromChandraTime
+             , endCTime
 
              , Instrument(..)
              , Grating(..)
@@ -217,10 +219,12 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , PropCategory
              , TOORequestTime
              , ConstraintKind(TimeCritical)
+             , Constraint(NoConstraint)
                
              , RestrictedRecord
              , RestrictedSO
-             , RestrictedSchedule
+             , RestrictedNS
+             , RestrictedSchedule(..)
              , ScienceTimeline
              , EngineeringTimeline
 
@@ -254,10 +258,23 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , getMissionInfo
 
              , rsoObsId
+             , rnsObsId
              , rsoTarget
+             , rnsTarget
              , rsoRA
+             , rnsRA
              , rsoDec
+             , rnsDec
              , rsoExposureTime
+             , rnsExposureTime
+             , rsoStartTime
+             , rnsStartTime
+             , rsoInstrument
+             , rsoGrating
+             , rsoConstellation
+             , rsoJointWith
+             , rsoTOO
+             , rsoConstraints
              
              )
 import Utils (ActionM, ScottyM
@@ -730,6 +747,41 @@ webapp cm scache cache = do
       let toETag = makeETag gitCommitId ("/api/page/" <> showInt (fromObsId obsid))
       setCacheHeaders toETag lastMod
 
+    -- What is useful for the "schedule" case? At the moment just
+    -- provide access to the current data.
+    --
+
+    let jsonSchedule :: Day -> RestrictedSchedule -> Value
+        jsonSchedule date RestrictedSchedule {..} =
+
+          let timeline = rrDone <> maybe [] (:[]) rrDoing <> rrToDo
+
+              pairs = [ "center" .= date
+                      , "ndays" .= rrDays
+                      , "ndone" .= length rrDone
+                      , "ntodo" .= length rrToDo
+                      , "timeline" .= map (rrToJSON rrSimbad) timeline
+                      ]
+
+          in object pairs
+
+    -- :date is of the form yyyy-mm-dd
+    get "/api/schedule/:date/:ndays" $ do
+      dateText <- param "date"
+      ndays <- param "ndays"
+      case readEither dateText of
+        Left _ -> next -- TODO: no note of a parsing error
+        Right date -> do
+          sched <- liftSQL (getScheduleDate date ndays)
+          json (jsonSchedule date sched)
+
+    get "/api/schedule/:ndays" $ do
+      ndays <- param "ndays"
+      cTime <- liftIO getCurrentTime
+      sched <- liftSQL (getSchedule ndays)
+      json (jsonSchedule (utctDay cTime) sched)
+
+
     -- support "category" searches (e.g. ACIS-I observations or
     -- related proposals)
     --
@@ -1114,6 +1166,7 @@ webapp cm scache cache = do
     get "/schedule/week/:nweeks" (queryScheduleTime "nweeks" 7)
 
     -- allow the schedule to be centered on a date
+    -- :date is of the form yyyy-mm-dd
     --
     -- TODO: when should the validity of the input date be checked?
     get "/schedule/date/:date/:ndays" $ do
@@ -2205,18 +2258,75 @@ fetchSchedule act = do
 
 
 -- Convert a restricted science observation to an object; very-limited
--- at the moment.
+-- at the moment. See also fromScienceObs / fromNonScienceObs.
 --
-rsoToJSON :: RestrictedSO -> Value
-rsoToJSON rso =
-  object [ "obsid" .= fromObsId (rsoObsId rso)
-         , "target" .= rsoTarget rso
-         , "ra" .= fromRA (rsoRA rso)
-         , "dec" .= fromDec (rsoDec rso)
-         , "expks" .= fromTimeKS (rsoExposureTime rso)
-         ]
+
+addTimes :: Maybe ChandraTime -> TimeKS -> [Pair]
+addTimes mstart tks =
+  let end = ["expks" .= fromTimeKS tks]
+      start = case mstart of
+                Just t0 -> let t1 = endCTime t0 tks
+                           in [ "start" .= fromChandraTime t0
+                              , "end" .= fromChandraTime t1
+                              ]
+                _ -> []
+
+  in start <> end
+
+
+-- If sent in rrSimbad then could add simbad mapping.
+--
+rsoToJSON :: Maybe (M.Map TargetName SimbadInfo) -> RestrictedSO -> Value
+rsoToJSON mSimMap rso =
+  let target = rsoTarget rso
   
+      base = [ "obsid" .= fromObsId (rsoObsId rso)
+             , "type" .= ("Science" :: T.Text)
+             , "target" .= target
+             , "instrument" .= rsoInstrument rso
+             , "grating" .= rsoGrating rso
+             , "constellation" .= getConstellationNameStr (rsoConstellation rso)
+             , "ra" .= fromRA (rsoRA rso)
+             , "dec" .= fromDec (rsoDec rso)
+             ]
+
+      -- API here is not great; we also squash down the requests so
+      -- that a "preferred" is treated the same as a "required".
+      --
+      [tcrit, mon, con] = rsoConstraints rso
+
+      -- map the constraint into a Maybe
+      checkCon NoConstraint = Nothing
+      checkCon _ = Just True
+
+      simInfo = join (M.lookup target <$> mSimMap)
+
+      mfields :: [Maybe Pair]
+      mfields = [ ((.=) "joint") <$> rsoJointWith rso
+                , ((.=) "too") <$> rsoTOO rso
+                , ((.=) "time-critical") <$> checkCon tcrit
+                , ((.=) "monitor") <$> checkCon mon
+                , ((.=) "constrained") <$> checkCon con
+                , (\p -> "object-type" .= smiType p) <$> simInfo
+                ]
+
+  in object (base
+             <> catMaybes mfields
+             <> addTimes (rsoStartTime rso) (rsoExposureTime rso))
+
+rnsToJSON :: RestrictedNS -> Value
+rnsToJSON rns =
+  object ([ "obsid" .= fromObsId (rnsObsId rns)
+          , "type" .= ("Engineering" :: T.Text)
+          , "target" .= rnsTarget rns
+          , "ra" .= fromRA (rnsRA rns)
+          , "dec" .= fromDec (rnsDec rns)
+          ] <> addTimes (rnsStartTime rns) (rnsExposureTime rns))
+
+rrToJSON :: M.Map TargetName SimbadInfo -> RestrictedRecord -> Value
+rrToJSON simMap = either rnsToJSON (rsoToJSON (Just simMap))
+
 -- Technically not converted to JSON, but to something that can be
 -- converted to JSON
 rsoListToJSON :: SortedList a RestrictedSO -> [Value]
-rsoListToJSON = map rsoToJSON . fromSL
+rsoListToJSON = map (rsoToJSON Nothing) . fromSL

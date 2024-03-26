@@ -152,8 +152,13 @@ module Types ( ObsIdVal
              , rsoConstellation
              , rsoRA
              , rsoDec
+             , rsoInstrument
+             , rsoGrating
                
              , RestrictedNS
+             , rnsObsId
+             , rnsRA
+             , rnsDec
              , rnsStartTime
              , rnsExposureTime
              , rnsTarget
