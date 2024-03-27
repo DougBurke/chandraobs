@@ -243,6 +243,33 @@ const main = (function() {
 	a.addEventListener('click', () => showObsId(obsid));
 	return a;
     }
+
+    // Make a div a "pane".
+    //
+    function setupPane(pane, title) {
+
+	const controlElements = document.createElement('div');
+	controlElements.classList.add('controlElements');
+	controlElements.classList.add('controlElementsShown');
+
+	const titleEl = document.createElement('span');
+	titleEl.setAttribute('class', 'title');
+	titleEl.innerText = title;
+	controlElements.appendChild(titleEl);
+
+	pane.appendChild(controlElements);
+
+	const main = document.createElement('div');
+	main.setAttribute('class', 'main');
+
+	// Close elements require main so need to do it slightly
+	// out of order
+	controlElements.appendChild(addCloseButton(pane));
+	controlElements.appendChild(addHideShowButton(main, controlElements));
+
+	pane.appendChild(main);
+	return main;
+    }
     
     // Create a "status pane" showing the given observation details
     // from the /api/page/<obsid> query.
@@ -258,26 +285,7 @@ const main = (function() {
 	pane.draggable = true;
 	pane.addEventListener('dragstart', draggable.startDrag);
 
-	const controlElements = document.createElement('div');
-	controlElements.classList.add('controlElements');
-	controlElements.classList.add('controlElementsShown');
-
-	const title = document.createElement('span');
-	title.setAttribute('class', 'title');
-	title.innerText = "Observation " + obsid;
-	controlElements.appendChild(title);
-
-	pane.appendChild(controlElements);
-
-	const main = document.createElement('div');
-	main.setAttribute('class', 'main');
-
-	// Close elements require main so need to do it slightly
-	// out of order
-	controlElements.appendChild(addCloseButton(pane));
-	controlElements.appendChild(addHideShowButton(main, controlElements));
-
-	pane.appendChild(main);
+	const main = setupPane(pane, "Observation " + obsid);
 
         if (rsp.status === 'success') {
 
@@ -521,7 +529,12 @@ const main = (function() {
 	    }
 	}
 
-	// NED/SIMBAD seatch buttons
+	const tl = document.querySelector('#view-timeline-selector');
+	if (tl !== null) {
+	    tl.addEventListener('click', () => showTimeline());
+	}
+
+	// NED/SIMBAD search buttons
 	//
 	const search_ned = document.querySelector('#search-ned');
 	if (search_ned !== null) {
@@ -1851,6 +1864,67 @@ const main = (function() {
     zoomTo(fov);
   }
 
+  /*
+   * Display a Vega-Lite embedded display of the current timeline.
+   * For some reason the time axis has better labels when ndays = 4
+   * rather than 3.
+   */
+  function showTimeline() {
+
+      const host = getHost();
+      if (host === null) { return; }
+      
+      const idVal = "vl-timeline";
+      var pane = document.getElementById(idVal);
+      var main;
+      if (pane === null) {
+	  pane = document.createElement("div");
+	  pane.setAttribute("id", idVal);
+	  pane.setAttribute("class", "vlPane");
+
+	  // Drag support is sub-optimal (we suddenly gain a lot more
+	  // vertical space) so let's drop it for now.
+	  //
+	  // pane.draggable = true;
+	  // pane.addEventListener('dragstart', draggable.startDrag);
+	  
+	  main = setupPane(pane, "Timeline");
+	  host.appendChild(pane);
+      } else {
+	  // Assume this succeeds
+	  main = pane.querySelector(".main");
+	  
+	  // Clear out old elements
+	  main.querySelectorAll(".timeline").forEach((el) => main.removeChild(el));
+      }
+      pane.style.display = "none";
+
+      const ndays = 4;
+      const url = "/api/vega-lite/timeline/" + ndays;
+      $.ajax({
+	  url: url,
+	  cache: false,
+	  dataType: "json"
+      }).done((rsp) => {
+
+	  const div = document.createElement("div");
+	  div.setAttribute("class", "timeline");
+	  main.appendChild(div);
+	  
+	  vegaEmbed(div, rsp).then((result) => {
+	      pane.style.display = "block";
+	      // At the moment we don't do anything else here
+	  }).catch((err) => {
+	      div.appendChild(document.createTextNode(err));
+	      div.setAttribute("class", "embed-error");
+	      pane.style.display = "block";
+	  });
+      }).fail((xhr, status, e) => {
+	  console.log(`Unable to query: ${url}`);
+	  console.log(status);
+      });
+  }
+
     return {initialize: initialize,
 	    resize: resize,
 
@@ -1866,7 +1940,10 @@ const main = (function() {
 	    addSkyView: addSky,
 
 	    zoomIn : zoomIn,
-	    zoomOut : zoomOut
+	    zoomOut : zoomOut,
+
+	    showTimeline: showTimeline
+	    
 	   };
 
 })();

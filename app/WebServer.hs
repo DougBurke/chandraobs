@@ -50,6 +50,7 @@ import qualified Views.Search.Target as Target
 import qualified Views.Search.TOO as TOO
 import qualified Views.Search.Types as SearchTypes
 import qualified Views.Schedule as Schedule
+import qualified Views.Timeline as Timeline
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (newMVar, readMVar, swapMVar)
@@ -1490,6 +1491,12 @@ webapp cm scache cache = do
     get "/search/subarrays/" $ do
       (matches, noSubTime) <- liftSQL fetchSubArrays
       fromBlaze (SubArrays.indexPage matches noSubTime)
+
+    -- **beyond experimental**
+    get "/api/vega-lite/timeline/:ndays" $ do
+      ndays <- param "ndays"
+      sched <- liftSQL (getSchedule ndays)
+      json (Timeline.scheduleView sched)
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
