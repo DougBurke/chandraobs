@@ -1873,7 +1873,10 @@ const main = (function() {
 
       const host = getHost();
       if (host === null) { return; }
-      
+
+      const tl = document.querySelector('#view-timeline-selector');
+      if (tl === null) { return; }
+
       const idVal = "vl-timeline";
       var pane = document.getElementById(idVal);
       var main;
@@ -1890,6 +1893,15 @@ const main = (function() {
 	  
 	  main = setupPane(pane, "Timeline");
 	  host.appendChild(pane);
+
+	  // Need to tweak the close-button
+	  const close = pane.querySelector(".closable");
+	  if (close !== null) {
+	      close.addEventListener('click', () => {
+		  tl.innerText = "View Timeline";
+	      });
+	  }
+
       } else {
 	  // Assume this succeeds
 	  main = pane.querySelector(".main");
@@ -1898,6 +1910,14 @@ const main = (function() {
 	  main.querySelectorAll(".timeline").forEach((el) => main.removeChild(el));
       }
       pane.style.display = "none";
+
+      // Short circuit the behaviour if we now we just want to hide
+      // the banner (this should logically be separate).
+      //
+      if (tl.innerText === "Hide Timeline") {
+	  tl.innerText = "View Timeline";
+	  return;
+      }
 
       const ndays = 4;
       const url = "/api/vega-lite/timeline/" + ndays;
@@ -1913,6 +1933,9 @@ const main = (function() {
 	  
 	  vegaEmbed(div, rsp).then((result) => {
 	      pane.style.display = "block";
+
+	      tl.innerText = "Hide Timeline";
+
 	      // At the moment we don't do anything else here
 	  }).catch((err) => {
 	      div.appendChild(document.createTextNode(err));
