@@ -91,6 +91,7 @@ scheduleView RestrictedSchedule {..} =
                     <>" (" <> showInt obsid <> ")"
             
             base = [ "label" .= label
+                   , "obsid" .= obsid
                    , "instrument" .= instrument
                    , "object-type" .= getObjectType target
                    ]
@@ -198,8 +199,12 @@ scheduleView RestrictedSchedule {..} =
       nowEnc = VL.encoding
                . VL.position VL.X [ VL.PDatum (VL.DateTime curTime) ]
                . VL.size [ VL.MNumber 4 ]
-               -- The opacity is behaving strangely (if >~ 0.05 it seems
-               -- to not really be opaque)
+               -- The opacity is behaving strangely (if >~ 0.05 it
+               -- seems to not really be opaque). Aha, it's because
+               -- the line gets repeated for each element in the
+               -- primary layer, which is confusing to me (or, at
+               -- least, that's what appears to be happening).
+               --
                . VL.opacity [ VL.MNumber 0.04 ]
 
       -- It looks like MOpacity and MSize do not change the mark, hence

@@ -401,3 +401,11 @@ div.vlPane {
 
 div.timeline {
 }
+
+/*
+ * Now we re-purpose the elements to be links, make them appear as
+ * links
+ */
+path[aria-roledescription='bar'] {
+    cursor: pointer;
+}

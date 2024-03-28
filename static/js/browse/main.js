@@ -1919,6 +1919,9 @@ const main = (function() {
 	  return;
       }
 
+      const spin = spinner.createSpinner();
+      host.appendChild(spin);
+
       const ndays = 4;
       const url = "/api/vega-lite/timeline/" + ndays;
       $.ajax({
@@ -1926,25 +1929,44 @@ const main = (function() {
 	  cache: false,
 	  dataType: "json"
       }).done((rsp) => {
+	  host.removeChild(spin);
 
 	  const div = document.createElement("div");
 	  div.setAttribute("class", "timeline");
 	  main.appendChild(div);
-	  
-	  vegaEmbed(div, rsp).then((result) => {
+
+	  // We select the SVG renderer so we can post-process the
+	  // utput and make it reactive.
+	  //
+	  const opt = {renderer: 'svg'};
+	  vegaEmbed(div, rsp, opt).then((result) => {
 	      pane.style.display = "block";
 
 	      tl.innerText = "Hide Timeline";
 
-	      // At the moment we don't do anything else here
+	      // Find all the elements representing the observations and
+	      // add a "link" so that they select the ObsId. This is done
+	      // by assuming we store the object data within the SVG.
+	      //
+	      div.
+		  querySelectorAll("path[aria-roledescription='bar']").
+	          forEach((el) => {
+		      const obsid = el.__data__.datum.obsid;
+		      el.addEventListener("click", () => showObsId(obsid));
+		  });
+
 	  }).catch((err) => {
 	      div.appendChild(document.createTextNode(err));
 	      div.setAttribute("class", "embed-error");
 	      pane.style.display = "block";
 	  });
+
       }).fail((xhr, status, e) => {
+	  host.removeChild(spin);
+
 	  console.log(`Unable to query: ${url}`);
 	  console.log(status);
+	  serverGoneByBy();
       });
   }
 
