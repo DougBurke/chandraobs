@@ -135,7 +135,7 @@ executable webserver
        , groundhog
        , groundhog-postgresql
        , http-types
-       , hvega == 0.12.*
+       , hvega >= 0.11 && < 0.13
        , mtl == 2.2.*
        , random >= 1.0 && < 1.3
        , resource-pool == 0.2.*
