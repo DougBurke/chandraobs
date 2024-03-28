@@ -373,3 +373,31 @@ img.external-link {
     height: 0.8em;
     padding-left: 0.5em;
 }
+
+
+/* Vega-Lite vsualizations */
+
+/* remove the extra spacing we have to add in for the other panes */
+#vl-timeline > div.main {
+    margin-bottom: 0;
+}
+
+div.vlPane {
+    background: rgba(255, 255, 255, 0.8);
+    /* cursor: grab;   currently we do not support drag mode */
+
+    /* if padding changes, need to change the margin-right/left
+     * settings in controlElements */
+    padding-bottom: 0;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    
+    position: fixed;
+    
+    top: 5em;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+div.timeline {
+}
