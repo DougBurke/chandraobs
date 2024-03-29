@@ -14,14 +14,12 @@ import qualified Graphics.Vega.VegaLite as VL
 import Data.Aeson (Value, (.=), object, toJSONList)
 import Data.Either (rights)
 import Data.Maybe (maybeToList)
-import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (UTCTime(..))
 
 import Formatting ((%), sformat)
 import Formatting.Time (dateDash, hms)
 
 import Types ( RestrictedSchedule(..)
-             , ChandraTime
              , Grating(NONE)
              , smiType
              , fromObsId
@@ -99,31 +97,36 @@ scheduleView RestrictedSchedule {..} =
         in base
            <> addTimes (rsoStartTime rso) (rsoExposureTime rso)
 
-      addTimes mstart tks =
-        let -- We want to make sure we always use the same format
-            -- since I have seen differences in engineering (with
-            -- milliseconds) and science (nearest second). This is
-            -- now less relevant, as we don't show engineering data,
-            -- but keep in place.
-            --
-            showTime :: ChandraTime -> T.Text
-            showTime t =
-              let utc = fromChandraTime t
-                  tfmt = dateDash % "T" <> hms % "Z"
-              in sformat tfmt utc
+      -- We want to make sure we always use the same format
+      -- since I have seen differences in engineering (with
+      -- milliseconds) and science (nearest second). This is
+      -- now less relevant, as we don't show engineering data,
+      -- but keep in place.
+      --
+      showTime = showUTCTime . fromChandraTime
 
-        in case mstart of
-             Just t0 -> let t1 = endCTime t0 tks
-                        in [ "start" .= showTime t0
-                           , "end" .= showTime t1
-                           ]
-             _ -> []
+      showUTCTime :: UTCTime -> T.Text
+      showUTCTime =
+         let tfmt = dateDash % "T" <> hms % "Z"
+         in sformat tfmt
+
+      addTimes mstart tks = case mstart of
+           Just t0 -> let t1 = endCTime t0 tks
+                      in [ "start" .= showTime t0
+                         , "end" .= showTime t1
+                         ]
+           _ -> []
 
       pick = VL.SelectionName "pick"
       enc = VL.encoding
             . VL.position VL.X [ VL.PName "start"
                                , VL.PmType VL.Temporal
-                               , VL.PAxis [ VL.AxTitle "UTC" ]
+                               , VL.PAxis [ VL.AxFormatAsTemporal
+                                          -- I think this is actually drawn
+                                          -- in local units...
+                                          -- , VL.AxTitle "UTC"
+                                          , VL.AxNoTitle
+                                          ]
                                ]
             . VL.position VL.X2 [ VL.PName "end" ]
             . VL.position VL.Y [ VL.PName "instrument"
@@ -181,37 +184,18 @@ scheduleView RestrictedSchedule {..} =
               , sel []
               ]
 
-      -- use the search time as "now"
-      (year, monthOfYear, dayOfMonth) = toGregorian (utctDay rrTime)
-      dayTime = fst (properFraction (utctDayTime rrTime))
-      (hours, hrem) = dayTime `divMod` 3600
-      (mins, secs) = hrem `divMod` 60
-
-      -- ugh, this should be wrapped up somehow
-      curTime = [ VL.DTYear (fromIntegral year)
-                , VL.DTMonthNum monthOfYear
-                , VL.DTDate dayOfMonth
-                , VL.DTHours hours
-                , VL.DTMinutes mins
-                , VL.DTSeconds secs
-                ]
-
       nowEnc = VL.encoding
-               . VL.position VL.X [ VL.PDatum (VL.DateTime curTime) ]
-               . VL.size [ VL.MNumber 4 ]
-               -- The opacity is behaving strangely (if >~ 0.05 it
-               -- seems to not really be opaque). Aha, it's because
-               -- the line gets repeated for each element in the
-               -- primary layer, which is confusing to me (or, at
-               -- least, that's what appears to be happening).
-               --
-               . VL.opacity [ VL.MNumber 0.04 ]
+               . VL.position VL.X [ VL.PName "time"
+                                  , VL.PmType VL.Temporal
+                                  ]
 
-      -- It looks like MOpacity and MSize do not change the mark, hence
-      -- the use of encoding statements.
-      --
-      now = [ VL.mark VL.Rule [ VL.MColor "black" ]
+      curTime = toJSONList [ object [ "time" .= showUTCTime rrTime ] ]
+      now = [ VL.dataFromJson curTime [ VL.Parse [ ("time", dateFmt) ] ]
             , nowEnc []
+            , VL.mark VL.Rule [ VL.MColor "black"
+                              , VL.MOpacity 0.5
+                              , VL.MSize 4
+                              ]
             ]
 
       specs = [tline, now]
