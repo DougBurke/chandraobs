@@ -40,7 +40,7 @@ let
       pkgs.haskellPackages.cabal-install
       pkgs.haskellPackages.hlint
       pkgs.niv
-      # pkgs.heroku  - rely in external heroku for now
+      pkgs.heroku  # I am very confused
       pkgs.postgresql
       pkgs.git
     ] ++ pkgs.lib.optionals isDefaultCompiler [
