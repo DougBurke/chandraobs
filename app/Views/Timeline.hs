@@ -28,6 +28,7 @@ import Types ( RestrictedSchedule(..)
              , fromGrating
              , fromChandraTime
              , endCTime
+             , showExpTime
              , rsoTarget
              , rsoObsId
              , rsoStartTime
@@ -83,10 +84,15 @@ scheduleView RestrictedSchedule {..} =
               NONE -> ""
               g -> "/" <> fromGrating g
 
+            exptime = rsoExposureTime rso
+
             instrument = iname <> gname
             obsid = fromObsId (rsoObsId rso)
             label = fromTargetName target
-                    <>" (" <> showInt obsid <> ")"
+                    <> " for "
+                    <> showExpTime exptime
+                    <> ", ObsId "
+                    <> showInt obsid
             
             base = [ "label" .= label
                    , "obsid" .= obsid
@@ -95,7 +101,7 @@ scheduleView RestrictedSchedule {..} =
                    ]
 
         in base
-           <> addTimes (rsoStartTime rso) (rsoExposureTime rso)
+           <> addTimes (rsoStartTime rso) exptime
 
       -- We want to make sure we always use the same format
       -- since I have seen differences in engineering (with
