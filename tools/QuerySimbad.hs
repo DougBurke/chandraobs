@@ -13,7 +13,7 @@
 --   some thought.
 --
 --   Usage:
---       querysimbad --cfa --cds --debug --ndays <ndays>
+--       querysimbad --cfa --cds --debug --ndays <ndays> --old/new
 --
 --
 --   TODO:
@@ -33,6 +33,13 @@
 --      database. I think that this is an issue with the CfA
 --      mirror/proxy, so I have switched to using the CDS
 --      version by default.
+--
+--
+-- The handling of the --new flag, which is meant to allow checking the
+-- most records, is not ideal. The current implementation checks on the
+-- last-modified date when it should probably check the actual observation
+-- date (although, in both cases, it means that re-runs of the checks will
+-- pick up the same data to re-process, which is wasteful).
 --
 
 module Main (main) where
@@ -58,7 +65,7 @@ import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 -- in the cabal file, and I don't want to do that just now.
 --
 import Database.Groundhog.Postgresql (PersistBackend, AutoKey, DefaultKey
-                                     , Order(Asc), Cond(CondEmpty)
+                                     , Order(..), Cond(CondEmpty)
                                      , (==.)
                                      , select
                                      , project
@@ -516,8 +523,8 @@ blag f = when f . putIO
 -- There is no attempt to support running on Windows (although
 -- this is only relevant if using network pre 2.6.1.0).
 --
-updateDB :: SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateDB sloc mndays f = do
+updateDB :: SimbadLoc -> Maybe Int -> OrderChoice -> Bool -> IO ()
+updateDB sloc mndays order f = do
   case sloc of
     SimbadCfA -> T.putStrLn "# Using CfA SIMBAD mirror"
     SimbadCDS -> T.putStrLn "# Using CDS SIMBAD"
@@ -675,29 +682,49 @@ updateDB sloc mndays f = do
   -- for ease of initial implimentation, but should try and
   -- amalgamate where possible.
   --
-  updateOldRecords mgr sloc mndays f
+  updateOldRecords mgr sloc mndays order f
 
+
+data OrderChoice = Oldest | Newest deriving Eq
 
 -- Technically should look for "updated search term" matches
 -- even when ndays == Nothing, but easier to use the same logic.
 --
-updateOldRecords :: NHC.Manager -> SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateOldRecords _ _ Nothing _ = pure ()
-updateOldRecords mgr sloc (Just ndays) f = do
+updateOldRecords ::
+  NHC.Manager
+  -> SimbadLoc
+  -> Maybe Int
+  -> OrderChoice
+  -> Bool
+  -> IO ()
+updateOldRecords _ _ Nothing _ _ = pure ()
+updateOldRecords mgr sloc (Just ndays) orderFlag f = do
 
+  let lbl = if orderFlag == Oldest then "old" else "new"
   T.putStrLn "\n"
-  T.putStrLn ">>> Searching for old and updated records"
+  T.putStrLn (">>> Searching for " <> lbl <> " and updated records")
   T.putStrLn (">>>   ndays = " <> showInt ndays)
 
+  -- The routine was originally meant to get the "oldest"
+  -- records but we now want to allow it also to select
+  -- the "newest". I'd like to send around Asc/Desc instead
+  -- of orderFlag but that way type madness lies.
+  --
+  let ordering = if orderFlag == Oldest then Asc else Desc
   noMatchFields <- runDb (select (CondEmpty
                                   `orderBy`
-                                  [Asc SmnLastCheckedField]))
+                                  [ordering SmnLastCheckedField]))
 
   tNow <- getCurrentTime
   let dTime = -1 * 3600 * 24 * ndays
-      tOld = addUTCTime (fromIntegral dTime) tNow 
-      isOld SimbadNoMatch{..} = smnLastChecked <= tOld
-      old = takeWhile isOld noMatchFields
+      t0 = addUTCTime (fromIntegral dTime) tNow
+
+      isWanted SimbadNoMatch{..} =
+        case orderFlag of
+          Oldest -> smnLastChecked <= t0
+          Newest -> smnLastChecked >= t0
+
+      wanted = takeWhile isWanted noMatchFields
 
       -- those queries which are old enough that the logic
       -- used to "clean up" the query has changed; note that
@@ -709,15 +736,17 @@ updateOldRecords mgr sloc (Just ndays) f = do
       -- searched could be combined, but I leave that for the
       -- compiler at the moment.
       --
+      -- This logic can probably be removed now, but leave in.
+      --
       isChanged SimbadNoMatch{..} =
         fromTargetName (cleanTargetName smnTarget) /= smnSearchTerm
-      changed = filter isChanged (dropWhile isOld noMatchFields)
+      changed = filter isChanged (dropWhile isWanted noMatchFields)
 
-  T.putStrLn ("# Old queries to be redone: " <> slen old)
+  T.putStrLn ("# " <> lbl <> " queries to be redone: " <> slen wanted)
   T.putStrLn ("# Changed queries: "          <> slen changed)
 
   -- TODO: is todo guaranteed to not contain repeated elements?
-  let todo = old ++ changed
+  let todo = wanted ++ changed
       ntodo = length todo
   
   -- This is *very* similar to the previous version
@@ -779,18 +808,19 @@ usage = do
 -- I've seen recent problems with the CfA mirror, so switch back to
 -- CDS for now.
 --
-parseArgs :: [String] -> Maybe (SimbadLoc, Maybe Int, Bool)
--- parseArgs = go (SimbadCfA, False)
-parseArgs = go (SimbadCDS, Nothing, False)
+parseArgs :: [String] -> Maybe (SimbadLoc, Maybe Int, OrderChoice, Bool)
+parseArgs = go (SimbadCDS, Nothing, Oldest, False)
   where
     go ans [] = Just ans
-    go (sloc, mndays, dbg) (x:xs)
-      | x == "--cds" = go (SimbadCDS, mndays, dbg) xs
-      | x == "--cfa" = go (SimbadCfA, mndays, dbg) xs
-      | x == "--debug" = go (sloc, mndays, True) xs
+    go (sloc, mndays, order, dbg) (x:xs)
+      | x == "--cds" = go (SimbadCDS, mndays, order, dbg) xs
+      | x == "--cfa" = go (SimbadCfA, mndays, order, dbg) xs
+      | x == "--old" = go (sloc, mndays, Oldest, dbg) xs
+      | x == "--new" = go (sloc, mndays, Newest, dbg) xs
+      | x == "--debug" = go (sloc, mndays, order, True) xs
       | x == "--ndays" = case xs of
         (y1:ys) -> case readMaybe y1 of
-          nd@(Just _) -> go (sloc, nd, dbg) ys
+          nd@(Just _) -> go (sloc, nd, order, dbg) ys
           Nothing -> Nothing
         _ -> Nothing
       | otherwise = Nothing
@@ -799,6 +829,6 @@ main :: IO ()
 main = do
   args <- getArgs
   case parseArgs args of
-    Just (sloc, mndays, debug) -> updateDB sloc mndays debug
+    Just (sloc, mndays, order, debug) -> updateDB sloc mndays order debug
     _ -> usage
 
