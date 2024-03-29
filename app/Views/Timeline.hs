@@ -138,7 +138,7 @@ scheduleView RestrictedSchedule {..} =
                          , VL.MmType VL.Nominal
                          , VL.MLegend [ VL.LTitle "SIMBAD classification"
                                       , VL.LTitleAnchor VL.AMiddle
-                                      , VL.LOrient VL.LOBottom
+                                      -- , VL.LOrient VL.LOBottom
                                       , VL.LPadding 10
                                       , VL.LStrokeColor "gray"
                                       ]
