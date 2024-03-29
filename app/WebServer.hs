@@ -1098,6 +1098,7 @@ webapp cm scache cache = do
                            (liftSQL getExposureValues))
     
     get "/" (redirect "/index.html")
+    get "/browse" (redirect "/browse/index.html")
 
     get "/about.html" (redirect "/about/index.html")
     get "/about" (redirect "/about/index.html")
