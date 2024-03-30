@@ -1869,6 +1869,14 @@ const main = (function() {
    * For some reason the time axis has better labels when ndays = 4
    * rather than 3.
    */
+
+  /*
+   * Store the result field so we can release it. This is done as a
+   * list rather than a singleton object just in case something gets
+   * messed up.
+   */
+  var timelineResults = [];
+
   function showTimeline() {
 
       const host = getHost();
@@ -1894,20 +1902,40 @@ const main = (function() {
 	  main = setupPane(pane, "Timeline");
 	  host.appendChild(pane);
 
-	  // Need to tweak the close-button
+	  // Need to tweak the close-button.
+	  //
 	  const close = pane.querySelector(".closable");
 	  if (close !== null) {
 	      close.addEventListener('click', () => {
 		  tl.innerText = "View Timeline";
+
+		  // Remove the timeline elememnt so that we can reclaim
+		  // the resources. Is this processed before or after
+		  // we hide the pane (i.e. could their be flickering
+		  // or other visual confusion for the user)?
+		  //
+		  main.querySelectorAll(".timeline").forEach((el) => {
+		      main.removeChild(el);
+
+		      // Try to restore memory/resources
+		      timelineResults.forEach((result) => result.finalize());
+		      timelineResults = [];
+		  });
+
 	      });
 	  }
 
       } else {
 	  // Assume this succeeds
 	  main = pane.querySelector(".main");
-	  
+
 	  // Clear out old elements
 	  main.querySelectorAll(".timeline").forEach((el) => main.removeChild(el));
+
+	  // Try to restore memory/resources
+	  timelineResults.forEach((result) => result.finalize());
+	  timelineResults = [];
+
       }
       pane.style.display = "none";
 
@@ -1940,6 +1968,9 @@ const main = (function() {
 	  //
 	  const opt = {renderer: 'svg'};
 	  vegaEmbed(div, rsp, opt).then((result) => {
+
+	      timelineResults.push(result);
+
 	      pane.style.display = "block";
 
 	      tl.innerText = "Hide Timeline";
