@@ -299,6 +299,7 @@ relatedView currentTime propTitle sl =
                                           -- , VL.AxTitle "UTC"
                                           , VL.AxNoTitle
                                           ]
+                               ]
             . VL.position VL.Y [ VL.PName "instrument"
                                , VL.PmType VL.Nominal
                                , VL.PAxis [ VL.AxTitle "Instrument" ]
