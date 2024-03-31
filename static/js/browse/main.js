@@ -36,7 +36,7 @@ const main = (function() {
     // Return the WWT div, or null (which indicates a serious problem).
     //
     function getHost() {
-	const host = document.querySelector('#WorldWideTelescopeControlHost');
+	const host = document.getElementById('WorldWideTelescopeControlHost');
 	if (host === null) {
 	    console.log('INTERNAL ERROR: #WorldWideTelescopeControlHost not found!');
 	}
@@ -198,7 +198,7 @@ const main = (function() {
     // Let the user know what the current obsid is
     //
     function showCurrentTimeLine(obsdata) {
-	const node = document.querySelector('#timeline-selected-obs');
+	const node = document.getElementById('timeline-selected-obs');
 	if (node === null) {
 	    console.log("Internal error: unable to find #timeline-selected-obs");
 	    return;
@@ -367,14 +367,20 @@ const main = (function() {
             // add click handlers to the obsid links
             //
 	    content.querySelectorAll('a.obsidlink').forEach((el) => {
-		const obsid = parseInt(el.getAttribute('data-obsid'));
+		const obsidLink = parseInt(el.getAttribute('data-obsid'));
 		if (isNaN(obsid)) {
 		    console.log("Internal error: data-obsid=[" +
 				el.getAttribute('data-obsid') +
 				"] not an int!");
 		    return;
 		}
-		el.addEventListener('click', e => showObsId(obsid));
+		el.addEventListener('click', e => showObsId(obsidLink));
+	    });
+
+	    // Now for the related timeline link (should only be one)
+	    //
+	    content.querySelectorAll('.relatedlink').forEach((el) => {
+		el.addEventListener('click', e => showRelated(obsid));
 	    });
 
 	    wwt.gotoRaDecZoom(rsp.ra, rsp.dec, defaultFieldSize, moveFlag);
@@ -418,9 +424,36 @@ const main = (function() {
 	unselectObsIds();
 	selectFOV(obsid);  // ignore return value for now
 
+	// We want to delete any related timeline that is displayed.
+	// This is not ideal. Shouldn't we make sure any element
+	// that is displaying the timeline has been closed down?
+	//
+	{
+	    const pane = document.getElementById("vl-related");
+	    if (pane !== null) {
+		pane.style.display = "none";
+
+		const main = pane.querySelector(".main");
+		if (main !== null) {
+		    main.querySelectorAll(".timeline").forEach((el) => {
+			main.removeChild(el);
+		    });
+		}
+	    }
+
+	    const tl = document.getElementById('view-related-selector');
+	    if (tl !== null && tl.innerText === hideRelatedText) {
+		tl.innerText = viewRelatedText;
+	    }
+
+	    // Try to restore memory/resources
+	    relatedResults.forEach((result) => result.finalize());
+	    relatedResults = [];
+	}
+
 	const idVal = 'obsid-' + obsid;
 
-	const foundPane = document.querySelector('#' + idVal);
+	const foundPane = document.getElementById(idVal);
 	if (foundPane !== null) {
 
 	    const ra = foundPane.getAttribute('data-ra');
@@ -510,7 +543,7 @@ const main = (function() {
 
 	// Change background
 	//
-	const ichoice = document.querySelector('#imagechoice');
+	const ichoice = document.getElementById('imagechoice');
 	if (ichoice !== null) {
 	    ichoice.addEventListener('change',
 				     e => changeBackground(e.target.value));
@@ -518,9 +551,9 @@ const main = (function() {
 
 	// Do we have to support going fullscreen?
 	if (hasFullScreen()) {
-	    const fscreen = document.querySelector('#control-fullscreen');
+	    const fscreen = document.getElementById('control-fullscreen');
 	    if (fscreen !== null) {
-		const toggle = fscreen.querySelector('#togglefullscreen');
+		const toggle = document.getElementById('togglefullscreen');
 		if (toggle !== null) {
 		    fscreen.style.display = 'list-item';
 		    toggle.addEventListener('click',
@@ -529,26 +562,26 @@ const main = (function() {
 	    }
 	}
 
-	const tl = document.querySelector('#view-timeline-selector');
+	const tl = document.getElementById('view-timeline-selector');
 	if (tl !== null) {
 	    tl.addEventListener('click', () => showTimeline());
 	}
 
 	// NED/SIMBAD search buttons
 	//
-	const search_ned = document.querySelector('#search-ned');
+	const search_ned = document.getElementById('search-ned');
 	if (search_ned !== null) {
 	    search_ned.addEventListener('click', () => searchNear('ned'));
 	}
 
-	const search_sim = document.querySelector('#search-simbad');
+	const search_sim = document.getElementById('search-simbad');
 	if (search_sim !== null) {
 	    search_sim.addEventListener('click', () => searchNear('simbad'));
 	}
 
         // TODO: should this check that the name is not blank/empty?
 	//
-	const tfind = document.querySelector("#targetFind");
+	const tfind = document.getElementById("targetFind");
 	if (tfind !== null) {
 	    tfind
 	    .addEventListener("click", () => { findTargetName(); });
@@ -558,13 +591,13 @@ const main = (function() {
          * search text box. The search button is only active when
          * there is text.
          */
-	const tname = document.querySelector("#targetName");
+	const tname = document.getElementById("targetName");
 	if (tname !== null) {
 	    tname
 		.addEventListener("keyup",
 				  (e) => {
                                       const val = tname.value.trim();
-                                      const button = document.querySelector("#targetFind");
+                                      const button = document.getElementById("targetFind");
 
                                       // Ensure the submit button is only enabled when there is
                                       // any text.
@@ -606,14 +639,14 @@ const main = (function() {
 	// don't overlap).
 	//
 	['control'].forEach((n) => {
-	    document.querySelector('#' + n).style.display = 'block';
+	    document.getElementById(n).style.display = 'block';
 	});
 
 	// Make the titlebar visible (hopefully this is after the
 	// time/observation details are shown; we could make this
 	// a certainty, ish).
 	//
-	const titlebar = document.querySelector("#titlebar");
+	const titlebar = document.getElementById("titlebar");
 	if (titlebar === null) {
 	    console.log('INTERNAL ERROR: #titlebar not found');
 	    return;
@@ -917,7 +950,7 @@ const main = (function() {
             div.style.height = hstr;
         }
 
-	const toggle = document.querySelector('#togglefullscreen');
+	const toggle = document.getElementById('togglefullscreen');
 	if (toggle === null) {
 	    console.log("Internal error: in resize but no #togglefullscreen");
 	    return;
@@ -1166,7 +1199,7 @@ const main = (function() {
   // - otherwise send it to the name server
   //
   function findTargetName() {
-    const tgt = document.querySelector("#targetName");
+    const tgt = document.getElementById("targetName");
     var target = tgt.value;
     if (target.trim() === "") {
       // this should not happen, but just in case
@@ -1226,8 +1259,8 @@ const main = (function() {
     // which is okay because the user-entered target is still
     // in the box (ie has content), so targetFind can be enabled.
     //
-    const targetName = document.querySelector('#targetName');
-    const targetFind = document.querySelector('#targetFind');
+    const targetName = document.getElementById('targetName');
+    const targetFind = document.getElementById('targetFind');
 
     targetName.setAttribute('disabled', 'disabled');
     targetFind.setAttribute('disabled', 'disabled');
@@ -1288,7 +1321,7 @@ const main = (function() {
 		 * since it is a less-than-ideal UI. Is this the best place
 		 * for it; perhaps within wwtReadyFunc?
 		 */
-		const canvas = document.querySelector("#WWTCanvas");
+		const canvas = document.getElementById("WWTCanvas");
 		canvas.addEventListener("mousewheel",
 					e => e.preventDefault());
 		canvas.addEventListener("DOMMouseScroll",
@@ -1553,8 +1586,8 @@ const main = (function() {
 
     function showLocation() {
 	// Should really cache these
-	const location = document.querySelector('#location-value');
-	const fovloc = document.querySelector('#location-fov-value');
+	const location = document.getElementById('location-value');
+	const fovloc = document.getElementById('location-fov-value');
 	
 	const ra = 15.0 * wwt.getRA();
 	const dec = wwt.getDec();
@@ -1594,7 +1627,7 @@ const main = (function() {
     // Perhaps we should return something in Chandra DOY units?
     //
     function showCurrentDate() {
-        const currentDate = document.querySelector('#timeline-selected-date');
+        const currentDate = document.getElementById('timeline-selected-date');
         if (currentDate === null) {
 	    console.log("ERROR: unable to find selector in showCurrentDate");
 	    return;
@@ -1876,13 +1909,14 @@ const main = (function() {
    * messed up.
    */
   var timelineResults = [];
+  var relatedResults = [];
 
   function showTimeline() {
 
       const host = getHost();
       if (host === null) { return; }
 
-      const tl = document.querySelector('#view-timeline-selector');
+      const tl = document.getElementById('view-timeline-selector');
       if (tl === null) { return; }
 
       const idVal = "vl-timeline";
@@ -1916,11 +1950,11 @@ const main = (function() {
 		  //
 		  main.querySelectorAll(".timeline").forEach((el) => {
 		      main.removeChild(el);
-
-		      // Try to restore memory/resources
-		      timelineResults.forEach((result) => result.finalize());
-		      timelineResults = [];
 		  });
+
+		  // Try to restore memory/resources
+		  timelineResults.forEach((result) => result.finalize());
+		  timelineResults = [];
 
 	      });
 	  }
@@ -1981,6 +2015,178 @@ const main = (function() {
 	      //
 	      div.
 		  querySelectorAll("path[aria-roledescription='bar']").
+	          forEach((el) => {
+		      const obsid = el.__data__.datum.obsid;
+		      el.addEventListener("click", () => showObsId(obsid));
+		  });
+
+	  }).catch((err) => {
+	      div.appendChild(document.createTextNode(err));
+	      div.setAttribute("class", "embed-error");
+	      pane.style.display = "block";
+	  });
+
+      }).fail((xhr, status, e) => {
+	  host.removeChild(spin);
+
+	  console.log(`Unable to query: ${url}`);
+	  console.log(status);
+	  serverGoneByBy();
+      });
+  }
+
+    // This should be combined with showTimeline
+    //
+    const viewRelatedText = "View related observations";
+    const hideRelatedText = "Hide related observations";
+
+    const relatedSel = ".relatedlink";
+
+    // We should only have one of these, but apparently I have not
+    // been good enough in cleaning things up so there may be several
+    // present, so change all of them. This is why we query the
+    // document and not main. However, to try and hack around this
+    // we also delete all-but-the-last element, assuming that the last
+    // one is the valid one. Is there a better way to check whether
+    // we still "care about" a node (by tracing up the tree and
+    // checking *what*...)?
+    //
+    // Now, just because we return true does not mean we have changed
+    // the node we are interested in, but really there should only be
+    // one present anyway....
+    //
+    function setRelatedViewText(newText, oldText) {
+	const buttons = document.querySelectorAll(relatedSel);
+	const nbuttons = buttons.length;
+	if (nbuttons === 0) {
+	    /* not convinced this is likely so do not report to the user */
+	    console.log("ERROR: no related-view button present!");
+	    return;
+	}
+
+	const el = buttons[nbuttons - 1];
+	var retval = false;
+	if (oldText === null || el.innerText == oldText) {
+	    el.innerText = newText;
+	    retval = true;
+	}
+
+	if (nbuttons > 1) { console.log(`DELETING ${nbuttons - 1} buttons`); }
+	// Who's forgotten all their JavaScript?
+	for (var idx = 0; idx < (nbuttons - 1); idx++) {
+	    const button = buttons[idx];
+	    button.parentNode.removeChild(button);
+	}
+
+	return retval;
+    }
+
+  function showRelated(obsid) {
+
+      const host = getHost();
+      if (host === null) { return; }
+
+      // Unlike the timeline case we can not guarantee this item remains valid
+      // const tl = document.getElementById('view-related-selector');
+
+      const idVal = "vl-related";
+
+      var pane = document.getElementById(idVal);
+      var main;
+      if (pane === null) {
+	  pane = document.createElement("div");
+	  pane.setAttribute("id", idVal);
+	  pane.setAttribute("class", "vlPane");
+
+	  // Drag support is sub-optimal (we suddenly gain a lot more
+	  // vertical space) so let's drop it for now.
+	  //
+	  // pane.draggable = true;
+	  // pane.addEventListener('dragstart', draggable.startDrag);
+
+	  main = setupPane(pane, "Related observations");
+	  host.appendChild(pane);
+
+	  // Need to tweak the close-button.
+	  //
+	  const close = pane.querySelector(".closable");
+	  if (close !== null) {
+	      close.addEventListener('click', () => {
+
+		  setRelatedViewText(viewRelatedText, null);
+
+		  // Remove the timeline element so that we can reclaim
+		  // the resources. Is this processed before or after
+		  // we hide the pane (i.e. could their be flickering
+		  // or other visual confusion for the user)?
+		  //
+		  main.querySelectorAll(".timeline").forEach((el) => {
+		      main.removeChild(el);
+		  });
+
+		  // Try to restore memory/resources
+		  relatedResults.forEach((result) => result.finalize());
+		  relatedResults = [];
+
+	      });
+	  }
+
+      } else {
+	  // Assume this succeeds
+	  main = pane.querySelector(".main");
+
+	  // Clear out old elements
+	  main.querySelectorAll(".timeline").forEach((el) => main.removeChild(el));
+
+	  // Try to restore memory/resources
+	  relatedResults.forEach((result) => result.finalize());
+	  relatedResults = [];
+
+      }
+      pane.style.display = "none";
+
+      // Short circuit the behaviour if we now we just want to hide
+      // the banner (this should logically be separate) and is a
+      // bit tricker than the timeline case.
+      //
+      if (setRelatedViewText(viewRelatedText, hideRelatedText)) {
+	  return;
+      }
+
+      const spin = spinner.createSpinner();
+      host.appendChild(spin);
+
+      const ndays = 4;
+      const url = "/api/vega-lite/timeline/related/" + obsid;
+      $.ajax({
+	  url: url,
+	  cache: false,
+	  dataType: "json"
+      }).done((rsp) => {
+	  host.removeChild(spin);
+
+	  const div = document.createElement("div");
+	  div.setAttribute("class", "timeline");
+	  main.appendChild(div);
+
+	  // We select the SVG renderer so we can post-process the
+	  // utput and make it reactive.
+	  //
+	  const opt = {renderer: 'svg'};
+	  vegaEmbed(div, rsp, opt).then((result) => {
+
+	      relatedResults.push(result);
+
+	      pane.style.display = "block";
+
+	      setRelatedViewText(hideRelatedText, null);
+
+	      // Find all the elements representing the observations and
+	      // add a "link" so that they select the ObsId. This is done
+	      // by assuming we store the object data within the SVG.
+	      //
+	      div.
+		  querySelectorAll("path[aria-roledescription='circle']").
 	          forEach((el) => {
 		      const obsid = el.__data__.datum.obsid;
 		      el.addEventListener("click", () => showObsId(obsid));

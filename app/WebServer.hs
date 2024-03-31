@@ -55,7 +55,7 @@ import qualified Views.Timeline as Timeline
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (newMVar, readMVar, swapMVar)
 
-import Control.Monad (forever, join, void, when)
+import Control.Monad (forever, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (lift, reader,runReaderT, ask)
 
@@ -63,7 +63,7 @@ import Data.Aeson (ToJSON, Value, (.=), encode, object)
 import Data.Aeson.Types (Pair)
 import Data.Default (def)
 import Data.List (foldl', nub)
-import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
+import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust, maybeToList)
 import Data.Pool (Pool)
 import Data.Time (UTCTime(utctDay), Day, addDays, addUTCTime, getCurrentTime)
 
@@ -107,7 +107,8 @@ import Database (NumObs, NumSrc, SIMKey
                 , getObsId
                 , getSchedule
                 , getScheduleDate
-                  
+                , getRelated
+
                 , makeScheduleRestricted
                   
                 , getProposalInfo
@@ -229,7 +230,7 @@ import Types (Record, SimbadInfo(..), Proposal(..), ProposalAbstract
              , ScienceTimeline
              , EngineeringTimeline
 
-             , Field(PaAbstractField, PaNumField)
+             , Field(PaTitleField, PaAbstractField, PaNumField)
 
              , fromSimbadType
              , toSimbadType
@@ -689,9 +690,12 @@ webapp cm scache cache = do
                 let thisObs = oiCurrentObs obs
                     (msimbad, (mprop, matches)) = dbInfo
 
+                -- also want PaTitleField
                 mpropText <- case thisObs of
                   Left _ -> pure Nothing
-                  Right so -> liftSQL (maybeProject PaAbstractField (PaNumField ==. soProposal so))
+                  Right so -> liftSQL (maybeProject
+                                       (PaTitleField, PaAbstractField)
+                                       (PaNumField ==. soProposal so))
 
                 let obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
 
@@ -699,10 +703,15 @@ webapp cm scache cache = do
                                (renderObsIdDetails DynamicHtml mprop msimbad <$> thisObs)
 
                     -- could add number of observations we know about this proposal
-                    mProposal = case mpropText of
-                      Just prop -> Just ((H5.div H5.! A5.class_ "abstract")
-                                         (H5.p (H5.toHtml prop)))
-                      _ -> Nothing
+                    showProp (propTitle, propAbs) =
+                      (H5.div H5.! A5.class_ "abstract")
+                      (do
+                          (H5.div H5.! A5.style "font-weight: bold;")
+                            (H5.toHtml propTitle)
+                          H5.p (H5.toHtml propAbs)
+                      )
+
+                    mProposal = showProp <$> mpropText
 
                     mRelated = case thisObs of
                       Left _ -> Nothing
@@ -731,7 +740,6 @@ webapp cm scache cache = do
                 pure (object ["status" .= ("error" :: T.Text)
                              , "error" .= renderHtml nohtml])
 
-
           getData' = getCache cdLastUpdatedCache
                      >>= \a -> getData
                      >>= \b -> pure (b, a)
@@ -755,7 +763,7 @@ webapp cm scache cache = do
     let jsonSchedule :: Day -> RestrictedSchedule -> Value
         jsonSchedule date RestrictedSchedule {..} =
 
-          let timeline = rrDone <> maybe [] (:[]) rrDoing <> rrToDo
+          let timeline = rrDone <> maybeToList rrDoing <> rrToDo
 
               pairs = [ "center" .= date
                       , "ndays" .= rrDays
@@ -1498,6 +1506,16 @@ webapp cm scache cache = do
       ndays <- param "ndays"
       sched <- liftSQL (getSchedule ndays)
       json (Timeline.scheduleView sched)
+
+    get "/api/vega-lite/timeline/related/:obsid" $ do
+      obsid <- param "obsid"
+      mrel <- liftSQL (getRelated obsid)
+      case mrel of
+        Just (propTitle, rel) -> do
+          cTime <- liftIO getCurrentTime
+          json (Timeline.relatedView cTime propTitle rel)
+
+        Nothing -> next -- no indication of error
 
     -- HEAD requests
     -- TODO: is this correct for HEAD; or should it just 
@@ -2307,14 +2325,14 @@ rsoToJSON mSimMap rso =
       checkCon NoConstraint = Nothing
       checkCon _ = Just True
 
-      simInfo = join (M.lookup target <$> mSimMap)
+      simInfo = M.lookup target =<< mSimMap
 
       mfields :: [Maybe Pair]
-      mfields = [ ((.=) "joint") <$> rsoJointWith rso
-                , ((.=) "too") <$> rsoTOO rso
-                , ((.=) "time-critical") <$> checkCon tcrit
-                , ((.=) "monitor") <$> checkCon mon
-                , ((.=) "constrained") <$> checkCon con
+      mfields = [ (.=) "joint" <$> rsoJointWith rso
+                , (.=) "too" <$> rsoTOO rso
+                , (.=) "time-critical" <$> checkCon tcrit
+                , (.=) "monitor" <$> checkCon mon
+                , (.=) "constrained" <$> checkCon con
                 , (\p -> "object-type" .= smiType p) <$> simInfo
                 ]
 

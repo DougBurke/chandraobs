@@ -25,7 +25,8 @@ module Database ( getCurrentObs
                 , getRecord
                 , getSchedule
                 , getScheduleDate
-                  
+                , getRelated
+
                 -- , makeSchedule
                 , makeScheduleRestricted
 
@@ -2671,6 +2672,35 @@ findAllObs = do
                , SoTargetField, SoObsIdField, SoStatusField)
 
   project fields isValidScienceObs >>= addLastMod
+
+
+-- | Return all the related observations (along with the given obsid,
+--   which is why this is almost-the-same-but-not getRelatedObs).
+--
+--   Unlike getRelatedObs this will always return a list with at
+--   least one element if the obsid is valid.
+--
+getRelated ::
+  DbSql m
+  => ObsIdVal
+  -> m (Maybe (T.Text, SortedList StartTimeOrder ScienceObs))
+getRelated oi = do
+  mpropNum <- maybeProject SoProposalField (SoObsIdField ==. oi)
+  case mpropNum of
+    Just propNum -> do
+      mprop <- getProposalFromNumber propNum
+      let pTitle = case mprop of
+            Just prop -> propName prop
+            _ -> "Unknown"  -- should not happen unless data access has failed
+
+      obs <- select (((SoProposalField ==. propNum)
+                       &&. isValidScienceObs)
+                      `orderBy` [Asc SoStartTimeField])
+
+      pure (Just (pTitle, unsafeToSL obs))
+
+    Nothing -> pure Nothing
+
 
 {-
 -- | Return the separation, in degrees, between the two locations.

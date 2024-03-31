@@ -341,7 +341,9 @@ div.content div p:first-child {
  * Warning and error styles
  */
 div.server-problem , div.no-current-response , div.lookup-failure {
-    background: rgba(255, 255, 255, 1.0);
+    /* background: rgba(255, 255, 255, 1.0); */
+    background: rgba(218, 112, 214, 0.8);   /* orchid */
+    color: white;
     border: 2px solid orange;
     font-size: larger;
     left: 50%;

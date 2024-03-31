@@ -78,7 +78,8 @@ import Types (Record, ScienceObs(..), NonScienceObs(..)
              , getConstellationName
              , similarName
              , toMission
-             , recordObsId, showExpTime
+             , recordObsId
+             , showExpTime
              )
 import Utils (HtmlContext(..)
              , toLink
@@ -705,13 +706,21 @@ relatedObservationsText ctx targetName matches =
   let nmatches = lengthSL matches
       suffix = if nmatches == 1 then "" else "s"
 
+      isP = case ctx of
+              DynamicHtml -> H.p
+              _ -> P.id
+
+      tlink = button ! class_ "relatedlink"
+                     $ "View related observations"
+
+      intro = case ctx of
+        StaticHtml -> " See related observation" <> suffix <> ": "
+        DynamicHtml -> H.p tlink
+
   in if nmatches == 0
      then mempty
-     else " See related observation"  -- note leading space
-          <> suffix
-          <> ": "
-          <> groupProposal ctx targetName matches
-          <> "."
+     else intro
+          <> isP (groupProposal ctx targetName matches <> ".")
 
 -- | Return a paragraph representing the related observations.
 --
