@@ -43,8 +43,9 @@ import Types ( RestrictedSchedule(..)
              , rsoExposureTime
              , rsoInstrument
              , rsoGrating
+             -- , rsoConstellation
+             -- , getConstellationNameStr
              )
-import Utils (showInt)
 
 
 -- We want to make sure we always use the same format
@@ -110,6 +111,8 @@ scheduleView RestrictedSchedule {..} =
         let simInfo = M.lookup target rrSimbad
         in maybe "Unknown" smiType simInfo
 
+      -- getCon = getConstellationNameStr . rsoConstellation
+
       rsoToJSON rso =
         let target = rsoTarget rso
 
@@ -122,16 +125,12 @@ scheduleView RestrictedSchedule {..} =
 
             instrument = iname <> gname
             obsid = fromObsId (rsoObsId rso)
-            label = fromTargetName target
-                    <> " for "
-                    <> showExpTime exptime
-                    <> ", ObsId "
-                    <> showInt obsid
-
-            base = [ "label" .= label
+            base = [ "target" .= fromTargetName target
+                   , "exposure" .= showExpTime exptime
                    , "obsid" .= obsid
                    , "instrument" .= instrument
                    , "object-type" .= getObjectType target
+                   -- , "constellation" .= getCon rso
                    ]
 
         in base
@@ -165,9 +164,16 @@ scheduleView RestrictedSchedule {..} =
                          ]
                          [ VL.MString "gray" ]
                        ]
-            . VL.tooltip [ VL.TName "label"
-                         , VL.TmType VL.Ordinal
-                         ]
+            . VL.tooltips [ [ VL.TName "target"
+                            , VL.TmType VL.Ordinal
+                            , VL.TTitle "Target" ]
+                          , [ VL.TName "exposure"
+                            , VL.TmType VL.Nominal
+                            , VL.TTitle "Exposure time" ]
+                          , [ VL.TName "obsid"
+                            , VL.TmType VL.Ordinal
+                            , VL.TTitle "Observation Id" ]
+                          ]
             . VL.opacity [ VL.MSelectionCondition pick
                            [ VL.MNumber 0.7 ]
                            [ VL.MNumber 0.3 ]
@@ -195,10 +201,30 @@ scheduleView RestrictedSchedule {..} =
                 , VL.Clear "click"
                 ]
       -}
+
+      {-
+         We could include constellation names, but the issue is what
+         to attatch the selection to?
+
+      allConNames = map getCon rows2
+      conNames = (Set.toList . Set.fromList) allConNames
+
+            . VL.select "foo" VL.Single
+              [ VL.Fields [ "constellation" ]
+              , VL.Bind [ VL.ISelect "constellation"
+                          [ VL.InOptions conNames ]
+                        ]
+              ]
+
+      -}
       
       sel = VL.selection
             . VL.select "pick" VL.Single selOpts
-      
+            -- TO BE DECIDED
+            . VL.select "brush" VL.Interval [ VL.Encodings [ VL.ChX ]
+                                            , VL.BindScales
+                                            ]
+
       tline = [ VL.mark VL.Bar [ VL.MTooltip VL.TTEncoding ]
               , enc []
               , sel []
@@ -266,13 +292,9 @@ relatedView currentTime propTitle sl =
 
             instrument = iname <> gname
             obsid = fromObsId soObsId
-            label = fromTargetName target
-                    <> " for "
-                    <> showExpTime exptime
-                    <> ", ObsId "
-                    <> showInt obsid
 
-            base = [ "label" .= label
+            base = [ "target" .= fromTargetName target
+                   , "exposure" .= showExpTime exptime
                    , "obsid" .= obsid
                    , "instrument" .= instrument
                    , "observed" .= isJust soObservedTime
@@ -286,6 +308,17 @@ relatedView currentTime propTitle sl =
       selOpts = [ VL.On "mouseover" ]
       sel = VL.selection
             . VL.select "pick" VL.Single selOpts
+            {-
+
+              This is nice, but what we'd like to change the X axis
+              doing this, and how do we "get out" of it?
+
+            -}
+            . VL.select "brush" VL.Interval [ VL.Encodings [ VL.ChX ]
+                                            , VL.BindScales
+                                            -- clear event does not seem to work
+                                            -- , VL.Clear "click[event.shiftkey]"
+                                            ]
 
       -- We assume the time range is large enough that we do not
       -- care about using start vs (start + end) / 2.
@@ -304,9 +337,16 @@ relatedView currentTime propTitle sl =
                                , VL.PmType VL.Nominal
                                , VL.PAxis [ VL.AxTitle "Instrument" ]
                                ]
-            . VL.tooltip [ VL.TName "label"
-                         , VL.TmType VL.Ordinal
-                         ]
+            . VL.tooltips [ [ VL.TName "target"
+                            , VL.TmType VL.Ordinal
+                            , VL.TTitle "Target" ]
+                          , [ VL.TName "exposure"
+                            , VL.TmType VL.Nominal
+                            , VL.TTitle "Exposure time" ]
+                          , [ VL.TName "obsid"
+                            , VL.TmType VL.Ordinal
+                            , VL.TTitle "Observation Id" ]
+                          ]
             . VL.color [ VL.MName "observed"
                        , VL.MmType VL.Nominal
                        , VL.MLegend [ VL.LTitle "Processed"
