@@ -228,11 +228,9 @@ scheduleView RestrictedSchedule {..} =
       
       sel = VL.selection
             . VL.select "pick" VL.Single selOpts
-            {-
             . VL.select "brush" VL.Interval [ VL.Encodings [ VL.ChX ]
-                                            , VL.BindScales
+                                            -- , VL.BindScales
                                             ]
-            -}
 
       noEnc = VL.encoding
               . VL.position VL.X [ VL.PName "start"
@@ -240,6 +238,8 @@ scheduleView RestrictedSchedule {..} =
                                  , VL.PAxis [ VL.AxFormatAsTemporal
                                             , VL.AxNoTitle
                                             ]
+                                 , VL.PScale [ VL.SDomainOpt
+                                               (VL.DSelection "brush") ]
                                  ]
               . VL.position VL.X2 [ VL.PName "end" ]
               . VL.color [ VL.MName "object-type"
@@ -248,12 +248,8 @@ scheduleView RestrictedSchedule {..} =
               . VL.opacity [ VL.MNumber 0.7 ]
               . tooltips
 
-      noSel = VL.selection
-              . VL.select "brush" VL.Interval [ VL.Encodings [ VL.ChX ] ]
-
       noInst = [ VL.mark VL.Bar [ ]
                , noEnc []
-               , noSel []
                , VL.height 40
                , VL.width widthVal
                ]
@@ -270,8 +266,6 @@ scheduleView RestrictedSchedule {..} =
       nowEnc = VL.encoding
                . VL.position VL.X [ VL.PName "time"
                                   , VL.PmType VL.Temporal
-                                  , VL.PScale [ VL.SDomainOpt
-                                                (VL.DSelection "brush") ]
                                   ]
                . VL.tooltip [ VL.TString "Current time" ]
 
