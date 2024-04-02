@@ -136,16 +136,33 @@ scheduleView RestrictedSchedule {..} =
         in base
            <> addTimes (rsoStartTime rso) exptime
 
+      tooltips = VL.tooltips [ [ VL.TName "target"
+                            , VL.TmType VL.Ordinal
+                            , VL.TTitle "Target" ]
+                          , [ VL.TName "object-type"
+                            , VL.TmType VL.Nominal
+                            , VL.TTitle "Classification" ]
+                          , [ VL.TName "exposure"
+                            , VL.TmType VL.Nominal
+                            , VL.TTitle "Exposure time" ]
+                          , [ VL.TName "obsid"
+                            , VL.TmType VL.Ordinal
+                            , VL.TTitle "Observation Id" ]
+                          ]
+
       pick = VL.SelectionName "pick"
+
       enc = VL.encoding
             . VL.position VL.X [ VL.PName "start"
                                , VL.PmType VL.Temporal
                                , VL.PAxis [ VL.AxFormatAsTemporal
-                                          -- I think this is actually drawn
-                                          -- in local units...
-                                          -- , VL.AxTitle "UTC"
+                                            -- I think this is actually drawn
+                                            -- in local units...
+                                            -- , VL.AxTitle "UTC"
                                           , VL.AxNoTitle
                                           ]
+                               , VL.PScale [ VL.SDomainOpt
+                                             (VL.DSelection "brush") ]
                                ]
             . VL.position VL.X2 [ VL.PName "end" ]
             . VL.position VL.Y [ VL.PName "instrument"
@@ -164,16 +181,7 @@ scheduleView RestrictedSchedule {..} =
                          ]
                          [ VL.MString "gray" ]
                        ]
-            . VL.tooltips [ [ VL.TName "target"
-                            , VL.TmType VL.Ordinal
-                            , VL.TTitle "Target" ]
-                          , [ VL.TName "exposure"
-                            , VL.TmType VL.Nominal
-                            , VL.TTitle "Exposure time" ]
-                          , [ VL.TName "obsid"
-                            , VL.TmType VL.Ordinal
-                            , VL.TTitle "Observation Id" ]
-                          ]
+            . tooltips
             . VL.opacity [ VL.MSelectionCondition pick
                            [ VL.MNumber 0.7 ]
                            [ VL.MNumber 0.3 ]
@@ -220,19 +228,50 @@ scheduleView RestrictedSchedule {..} =
       
       sel = VL.selection
             . VL.select "pick" VL.Single selOpts
-            -- TO BE DECIDED
+            {-
             . VL.select "brush" VL.Interval [ VL.Encodings [ VL.ChX ]
                                             , VL.BindScales
                                             ]
+            -}
+
+      noEnc = VL.encoding
+              . VL.position VL.X [ VL.PName "start"
+                                 , VL.PmType VL.Temporal
+                                 , VL.PAxis [ VL.AxFormatAsTemporal
+                                            , VL.AxNoTitle
+                                            ]
+                                 ]
+              . VL.position VL.X2 [ VL.PName "end" ]
+              . VL.color [ VL.MName "object-type"
+                         , VL.MmType VL.Nominal
+                         ]
+              . VL.opacity [ VL.MNumber 0.7 ]
+              . tooltips
+
+      noSel = VL.selection
+              . VL.select "brush" VL.Interval [ VL.Encodings [ VL.ChX ] ]
+
+      noInst = [ VL.mark VL.Bar [ ]
+               , noEnc []
+               , noSel []
+               , VL.height 40
+               , VL.width widthVal
+               ]
 
       tline = [ VL.mark VL.Bar [ VL.MTooltip VL.TTEncoding ]
               , enc []
               , sel []
+              , VL.height 350
+              , VL.width widthVal
               ]
+
+      widthVal = 600
 
       nowEnc = VL.encoding
                . VL.position VL.X [ VL.PName "time"
                                   , VL.PmType VL.Temporal
+                                  , VL.PScale [ VL.SDomainOpt
+                                                (VL.DSelection "brush") ]
                                   ]
                . VL.tooltip [ VL.TString "Current time" ]
 
@@ -245,14 +284,18 @@ scheduleView RestrictedSchedule {..} =
                               ]
             ]
 
-      specs = [tline, now]
+      -- Adding the now layer to the top plot stops it being
+      -- dislayed in the bottom layer! Why?
+      --
+      -- top = [VL.layer (map VL.asSpec [noInst, now])]
+      top = noInst
+
+      bottom = [VL.layer (map VL.asSpec [tline, now])]
 
   in (VL.fromVL . VL.toVegaLite)
      [ VL.title titleText [ VL.TFontSize 18 ]
-     , VL.width 800
-     , VL.height 400
      , sched
-     , VL.layer (map VL.asSpec specs)
+     , VL.vConcat (map VL.asSpec [top, bottom])
      ]
 
 
@@ -293,11 +336,14 @@ relatedView currentTime propTitle sl =
             instrument = iname <> gname
             obsid = fromObsId soObsId
 
+            isPublic = maybe False (<= currentTime) soPublicRelease
+
             base = [ "target" .= fromTargetName target
                    , "exposure" .= showExpTime exptime
                    , "obsid" .= obsid
                    , "instrument" .= instrument
                    , "observed" .= isJust soObservedTime
+                   , "public" .= isPublic
                    -- , "object-type" .= getObjectType target
                    ]
 
@@ -347,9 +393,9 @@ relatedView currentTime propTitle sl =
                             , VL.TmType VL.Ordinal
                             , VL.TTitle "Observation Id" ]
                           ]
-            . VL.color [ VL.MName "observed"
+            . VL.color [ VL.MName "public"
                        , VL.MmType VL.Nominal
-                       , VL.MLegend [ VL.LTitle "Processed"
+                       , VL.MLegend [ VL.LTitle "Data is public"
                                     , VL.LTitleAnchor VL.AMiddle
                                       -- , VL.LOrient VL.LOBottom
                                     , VL.LPadding 10
