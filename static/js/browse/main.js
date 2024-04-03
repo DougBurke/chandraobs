@@ -2136,7 +2136,14 @@ const main = (function() {
 	  main = pane.querySelector(".main");
 
 	  // Clear out old elements
-	  main.querySelectorAll(".timeline").forEach((el) => main.removeChild(el));
+	  main.querySelectorAll(".timeline").forEach((el) =>
+	      main.removeChild(el)
+	  );
+
+	  // This should not happen but ..
+	  main.querySelectorAll(".embed-error").forEach((el) =>
+	      main.removeChild(el)
+	  );
 
 	  // Try to restore memory/resources
 	  relatedResults.forEach((result) => result.finalize());
@@ -2193,8 +2200,14 @@ const main = (function() {
 		  });
 
 	  }).catch((err) => {
-	      div.appendChild(document.createTextNode(err));
+
+	      console.log(`Error from VegaEmbed: ${err}`);
+	      div.appendChild(document.createTextNode("Unable to display the related observations. Sorry!"));
 	      div.setAttribute("class", "embed-error");
+
+	      // Still need this
+	      setRelatedViewText(hideRelatedText, null);
+
 	      pane.style.display = "block";
 	  });
 

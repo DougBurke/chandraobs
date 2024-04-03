@@ -356,6 +356,14 @@ div.server-problem , div.no-current-response , div.lookup-failure {
     -webkit-transform: translate(-50%, -50%);
 }
 
+div.embed-error {
+    background: rgba(218, 112, 214, 1);   /* orchid */
+    color: white;
+    font-size: larger;
+    max-width: 50em;
+    padding: 1em;
+}
+
 div.lookup-success {
     background: rgba(255, 255, 255, 1.0);
     border: 2px solid rgba(255, 255, 255, 0.2);
@@ -408,6 +416,6 @@ div.timeline {
  * Now we re-purpose the elements to be links, make them appear as
  * links
  */
-path[aria-roledescription='bar'] {
+path[aria-roledescription='bar'] , path[aria-roledescription='circle'] {
     cursor: pointer;
 }
