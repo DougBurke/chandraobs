@@ -87,6 +87,7 @@ module Database ( getCurrentObs
                 
                   -- Highly experimental
                 , getTimeline
+                , getSimbadList
 
                 -- , NormSep
                 -- , fromNormSep
@@ -1029,14 +1030,13 @@ updateSchedule now RestrictedSchedule {..} =
 
 -- | Find the SIMBAD records for the input science observations.
 --
-{-
+
 getSimbadList ::
   DbSql m
-  => [Record]  -- ^ records; assumed to be filtered
+  => SortedList a ScienceObs
   -> m (M.Map TargetName SimbadInfo)
-getSimbadList rs = do
-  let getName = either (const Nothing) (Just . soTarget)
-      tnames = nub (mapMaybe getName rs)
+getSimbadList sl = do
+  let tnames = (S.toList . S.fromList . map soTarget . fromSL) sl
 
   mtargs <- project (SmmTargetField, SmmInfoField)
             (SmmTargetField `in_` tnames)
@@ -1047,7 +1047,6 @@ getSimbadList rs = do
 
   pure (M.fromList (catMaybes toMap))
 
--}
 
 getSimbadListRestricted ::
   DbSql m
