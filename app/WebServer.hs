@@ -116,6 +116,7 @@ import Database (NumObs, NumSrc, SIMKey
                 -- , getRelatedObs
                 -- , getObsFromProposal
                 , getSimbadInfo
+                , getSimbadList
                 , getTimeline
 
                   -- , findObsId
@@ -1512,8 +1513,9 @@ webapp cm scache cache = do
       mrel <- liftSQL (getRelated obsid)
       case mrel of
         Just (propTitle, rel) -> do
+          simInfo <- liftSQL (getSimbadList rel)
           cTime <- liftIO getCurrentTime
-          json (Timeline.relatedView cTime propTitle rel)
+          json (Timeline.relatedView cTime propTitle rel simInfo)
 
         Nothing -> next -- no indication of error
 

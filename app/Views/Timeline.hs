@@ -29,6 +29,9 @@ import Types ( RestrictedSchedule(..)
              , Grating(NONE)
              , ChandraTime
              , TimeKS
+             , TargetName
+             , SimbadInfo
+             , SIMCategory
              , smiType
              , fromObsId
              , fromTargetName
@@ -74,6 +77,16 @@ addTimes mstart tks = case mstart of
      _ -> []
 
 
+-- It would be nice to be able to restrict the SIMBAD classification
+-- (e.g. merge related concepts) so that we could be left with of order
+-- 5 classifications.
+--
+getObjectType :: M.Map TargetName SimbadInfo -> TargetName -> SIMCategory
+getObjectType simMap target =
+  let simInfo = M.lookup target simMap
+  in maybe "Unknown" smiType simInfo
+
+
 {-
 
 Explore visualization of the schedule
@@ -103,14 +116,6 @@ scheduleView RestrictedSchedule {..} =
       rows2 = rights rows
       rrToRow = object . rsoToJSON
 
-      -- It would be nice to be able to restrict the SIMBAD classification
-      -- (e.g. merge related concepts) so that we could be left with of order
-      -- 5 classifications.
-      --
-      getObjectType target =
-        let simInfo = M.lookup target rrSimbad
-        in maybe "Unknown" smiType simInfo
-
       -- getCon = getConstellationNameStr . rsoConstellation
 
       rsoToJSON rso =
@@ -129,7 +134,7 @@ scheduleView RestrictedSchedule {..} =
                    , "exposure" .= showExpTime exptime
                    , "obsid" .= obsid
                    , "instrument" .= instrument
-                   , "object-type" .= getObjectType target
+                   , "object-type" .= getObjectType rrSimbad target
                    -- , "constellation" .= getCon rso
                    ]
 
@@ -296,14 +301,15 @@ scheduleView RestrictedSchedule {..} =
 
 
 -- Could send in proposal title
--- We do not care tha the data is sorted
+-- We do not care that the data is sorted
 --
 relatedView ::
   UTCTime
   -> T.Text
   -> SortedList a ScienceObs
+  -> M.Map TargetName SimbadInfo
   -> Value
-relatedView currentTime propTitle sl =
+relatedView currentTime propTitle sl simMap =
   let -- An example date is: 2024-03-23T00:36:21Z".  See
       -- https://d3js.org/d3-time-format#isoParse and note the use of
       -- showTime to make sure we use this format
@@ -338,7 +344,7 @@ relatedView currentTime propTitle sl =
                    , "instrument" .= instrument
                    , "observed" .= isJust soObservedTime
                    , "public" .= isPublic
-                   -- , "object-type" .= getObjectType target
+                   , "object-type" .= getObjectType simMap target
                    ]
 
         in base
@@ -373,16 +379,22 @@ relatedView currentTime propTitle sl =
                                           , VL.AxNoTitle
                                           ]
                                ]
-            . VL.position VL.Y [ VL.PName "instrument"
+            . VL.position VL.Y [ VL.PName "object-type"
                                , VL.PmType VL.Nominal
-                               , VL.PAxis [ VL.AxTitle "Instrument" ]
+                               , VL.PAxis [ VL.AxTitle "Classification" ]
                                ]
             . VL.tooltips [ [ VL.TName "target"
                             , VL.TmType VL.Ordinal
                             , VL.TTitle "Target" ]
+                          , [ VL.TName "object-type"
+                            , VL.TmType VL.Nominal
+                            , VL.TTitle "Classification" ]
                           , [ VL.TName "exposure"
                             , VL.TmType VL.Nominal
                             , VL.TTitle "Exposure time" ]
+                          , [ VL.TName "instrument"
+                            , VL.TmType VL.Nominal
+                            , VL.TTitle "Instrument" ]
                           , [ VL.TName "obsid"
                             , VL.TmType VL.Ordinal
                             , VL.TTitle "Observation Id" ]
@@ -407,6 +419,7 @@ relatedView currentTime propTitle sl =
                          ]
 
       related = [ VL.mark VL.Circle [ VL.MTooltip VL.TTEncoding ]
+                , sched
                 , sel []
                 , enc []
                 ]
@@ -436,12 +449,13 @@ relatedView currentTime propTitle sl =
 
       mnow = if currentTime >= firstTime && currentTime <= lastTime
              then Just now else Nothing
+
+
       specs = [ related ] <> maybeToList mnow
 
   in (VL.fromVL . VL.toVegaLite)
      [ VL.title propTitle [ VL.TFontSize 18 ]
      , VL.width 800
      , VL.height 200
-     , sched
      , VL.layer (map VL.asSpec specs)
      ]
