@@ -3,11 +3,6 @@
 // Experiment with a WWT-based main display
 //
 // TODO:
-//   there should probably only be one spinner "active" at a time, but
-//   if they are located at the same location it probably isn't a problem
-//   (unless the background is transparent or the animation "jumps" when
-//   adding the new one on top of the old one).
-//
 //   Use a consistent naming scheme, as have FOV for the WWT FoV and
 //   for the polygon representing an observation.
 //
@@ -469,21 +464,20 @@ const main = (function() {
 	    return;
 	}
 
-	const spin = spinner.createSpinner();
-	host.appendChild(spin);
+	startSpinner();
 	
         $.ajax({
 	    url: "/api/page/" + obsid,
 	    cache: false,
 	    dataType: "json"
         }).done(function (rsp) {
-	    host.removeChild(spin);
+	    stopSpinner();
 
 	    const pane = makeStatusPane(obsid, idVal, rsp);
 	    host.appendChild(pane);
 
         }).fail(function(xhr, status, e) {
-	    host.removeChild(spin);
+	    stopSpinner();
 
 	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
@@ -498,16 +492,14 @@ const main = (function() {
 	    return;
 	}
 
-	const spin = spinner.createSpinner();
-	host.appendChild(spin);
+	startSpinner();
 
         $.ajax({
             url: "/api/current",
             cache: false,
             dataType: "json"
         }).done(function(rsp) {
-
-	    host.removeChild(spin);
+	    stopSpinner();
 
             if (rsp[0] === 'Success') {
 		showObsId(rsp[1].current.obsid);
@@ -526,7 +518,7 @@ const main = (function() {
 		host.appendChild(div);
             }
         }).fail(function(xhr, status, e) {
-	    host.removeChild(spin);
+	    stopSpinner();
 
 	    console.log("QUERY FAILED: " + status);
             serverGoneByBy();
@@ -1252,8 +1244,7 @@ const main = (function() {
       return;
     }
 
-    const spin = spinner.createSpinner();
-    host.appendChild(spin);
+    startSpinner();
 
     // disable both; note that on success both get re-enabled,
     // which is okay because the user-entered target is still
@@ -1267,23 +1258,23 @@ const main = (function() {
 
     lookup.lookupName(target,
 		      (ra, dec) => {
+			stopSpinner();
 			const zoom = wwt.get_fov();
 			wwt.gotoRaDecZoom(ra, dec, zoom, moveFlag);
-			host.removeChild(spin);
 
 			targetName.removeAttribute('disabled');
 			targetFind.removeAttribute('disabled');
 		      },
-		      (emsg) => reportLookupFailure(host, spin,
+		      (emsg) => reportLookupFailure(host,
 						    targetName, targetFind,
 						    emsg));
   }
 
     // TODO: improve styling
     //
-    function reportLookupFailure(host, spin, targetName, targetFind, msg) {
+    function reportLookupFailure(host, targetName, targetFind, msg) {
 
-	host.removeChild(spin);
+	stopSpinner();
 
 	targetName.removeAttribute('disabled');
 	targetFind.removeAttribute('disabled');
@@ -1663,12 +1654,12 @@ const main = (function() {
 	    return;
 	}
 
-	const spin = spinner.createSpinner();
-	host.appendChild(spin);
+	startSpinner();
 
 	d3.json(url)
 	    .then((data) => {
-	      host.removeChild(spin);
+              stopSpinner();
+
 	      // I was doing something wrong here so explicitly catch it.
 	      // This has been fixed but leave it in.
 	      try {
@@ -1683,9 +1674,11 @@ const main = (function() {
 	      }
 	    })
 	    .catch((e) => {
+		stopSpinner();
+
 		console.log("ERROR: query failed: " + url);
 		console.log(e);
-		host.removeChild(spin);
+
 	    });
     }
 
@@ -1984,8 +1977,7 @@ const main = (function() {
 	  return;
       }
 
-      const spin = spinner.createSpinner();
-      host.appendChild(spin);
+      startSpinner();
 
       // Mark the button as inactive
       tl.disabled = "disabled";
@@ -1997,7 +1989,7 @@ const main = (function() {
 	  cache: false,
 	  dataType: "json"
       }).done((rsp) => {
-	  host.removeChild(spin);
+	  stopSpinner();
 
 	  const div = document.createElement("div");
 	  div.setAttribute("class", "timeline");
@@ -2034,7 +2026,7 @@ const main = (function() {
 	  tl.disabled = false;
 
       }).fail((xhr, status, e) => {
-	  host.removeChild(spin);
+	  stopSpinner();
 
 	  console.log(`Unable to query: ${url}`);
 	  console.log(status);
@@ -2184,8 +2176,7 @@ const main = (function() {
 	  return;
       }
 
-      const spin = spinner.createSpinner();
-      host.appendChild(spin);
+      startSpinner();
 
       // Mark the button as inactive
       disableRelatedView("disabled");
@@ -2197,7 +2188,7 @@ const main = (function() {
 	  cache: false,
 	  dataType: "json"
       }).done((rsp) => {
-	  host.removeChild(spin);
+	  stopSpinner();
 
 	  const div = document.createElement("div");
 	  div.setAttribute("class", "timeline");
@@ -2238,13 +2229,65 @@ const main = (function() {
 	  disableRelatedView(false);
 
       }).fail((xhr, status, e) => {
-	  host.removeChild(spin);
+	  stopSpinner();
 
 	  console.log(`Unable to query: ${url}`);
 	  console.log(status);
 	  serverGoneByBy();
       });
   }
+
+    // Start a spinner action (if there's already one going on this
+    // just bumps the internal count). There is some support for
+    // the spinner count gettnig out of wack; this should not happen
+    // but there may be some error cases where stopSpinner gets
+    // called twice.
+    //
+    var spinnerCount = 0;
+    var spinBlock = null;
+
+    function startSpinner() {
+	const host = getHost();
+	if (host === null) {
+	    // if this has happened then lots of things are wrong
+	    return;
+	}
+
+	if (spinnerCount < 0) {
+	    spinnerCount = 0;  // should not happen
+	    spinBlock = null;
+	}
+
+	spinnerCount += 1;
+	if (spinnerCount > 1) {
+	    return;
+	}
+
+	spinBlock = spinner.createSpinner();
+	host.appendChild(spinBlock);
+    }
+
+    function stopSpinner() {
+	const host = getHost();
+	if (host === null) {
+	    // if this has happened then lots of things are wrong
+	    return;
+	}
+
+	spinnerCount -= 1;
+	if (spinnerCount > 0) {
+	    return;
+	}
+
+	if (spinnerCount < 0) {
+	    spinnerCount = 0;  // should not happen
+	}
+
+	if (spinBlock !== null) {
+	    host.removeChild(spinBlock);
+	    spinBlock = null;
+	}
+    }
 
     return {initialize: initialize,
 	    resize: resize,
