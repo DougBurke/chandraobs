@@ -15,7 +15,9 @@ import qualified Graphics.Vega.VegaLite as VL
 import Data.Aeson (object, toJSONList)
 import Data.Aeson.Types (Value, Pair, (.=))
 import Data.Either (rights)
+-- import Data.Function ((&))
 import Data.Maybe (fromMaybe, isJust, mapMaybe, maybeToList)
+-- import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (UTCTime(..))
 
 import Formatting ((%), sformat)
@@ -46,8 +48,8 @@ import Types ( RestrictedSchedule(..)
              , rsoExposureTime
              , rsoInstrument
              , rsoGrating
-             -- , rsoConstellation
-             -- , getConstellationNameStr
+             , rsoConstellation
+             , getConstellationNameStr
              )
 
 
@@ -97,6 +99,30 @@ removed these objects.
 
 -}
 
+standardTooltips :: VL.BuildEncodingSpecs
+standardTooltips =
+      VL.tooltips [ [ VL.TName "target"
+                    , VL.TmType VL.Ordinal
+                    , VL.TTitle "Target" ]
+                  , [ VL.TName "object-type"
+                    , VL.TmType VL.Nominal
+                    , VL.TTitle "Classification" ]
+                  , [ VL.TName "exposure"
+                    , VL.TmType VL.Nominal
+                    , VL.TTitle "Exposure time" ]
+                  , [ VL.TName "instrument"
+                    , VL.TmType VL.Nominal
+                    , VL.TTitle "Instrument" ]
+                  , [ VL.TName "obsid"
+                    , VL.TmType VL.Ordinal
+                    , VL.TTitle "Observation Id" ]
+                  , [ VL.TName "constellation"
+                    , VL.TmType VL.Ordinal
+                    , VL.TTitle "Constellation"
+                    ]
+                  ]
+
+
 scheduleView :: RestrictedSchedule -> Value
 scheduleView RestrictedSchedule {..} =
   let titleText = "Chandra Schedule"
@@ -116,7 +142,7 @@ scheduleView RestrictedSchedule {..} =
       rows2 = rights rows
       rrToRow = object . rsoToJSON
 
-      -- getCon = getConstellationNameStr . rsoConstellation
+      getCon = getConstellationNameStr . rsoConstellation
 
       rsoToJSON rso =
         let target = rsoTarget rso
@@ -135,25 +161,11 @@ scheduleView RestrictedSchedule {..} =
                    , "obsid" .= obsid
                    , "instrument" .= instrument
                    , "object-type" .= getObjectType rrSimbad target
-                   -- , "constellation" .= getCon rso
+                   , "constellation" .= getCon rso
                    ]
 
         in base
            <> addTimes (rsoStartTime rso) exptime
-
-      tooltips = VL.tooltips [ [ VL.TName "target"
-                            , VL.TmType VL.Ordinal
-                            , VL.TTitle "Target" ]
-                          , [ VL.TName "object-type"
-                            , VL.TmType VL.Nominal
-                            , VL.TTitle "Classification" ]
-                          , [ VL.TName "exposure"
-                            , VL.TmType VL.Nominal
-                            , VL.TTitle "Exposure time" ]
-                          , [ VL.TName "obsid"
-                            , VL.TmType VL.Ordinal
-                            , VL.TTitle "Observation Id" ]
-                          ]
 
       pick = VL.SelectionName "pick"
 
@@ -186,7 +198,7 @@ scheduleView RestrictedSchedule {..} =
                          ]
                          [ VL.MString "gray" ]
                        ]
-            . tooltips
+            . standardTooltips
             . VL.opacity [ VL.MSelectionCondition pick
                            [ VL.MNumber 0.7 ]
                            [ VL.MNumber 0.3 ]
@@ -245,13 +257,14 @@ scheduleView RestrictedSchedule {..} =
                                             ]
                                  , VL.PScale [ VL.SDomainOpt
                                                (VL.DSelection "brush") ]
+                                 -- , VL.PAxis axOpts  -- err, does not seem to work
                                  ]
               . VL.position VL.X2 [ VL.PName "end" ]
               . VL.color [ VL.MName "object-type"
                          , VL.MmType VL.Nominal
                          ]
               . VL.opacity [ VL.MNumber 0.7 ]
-              . tooltips
+              . standardTooltips
 
       noInst = [ VL.mark VL.Bar [ ]
                , noEnc []
@@ -268,9 +281,29 @@ scheduleView RestrictedSchedule {..} =
 
       widthVal = 600
 
+      -- How does the system decide which layer to use to control
+      -- the axis properties? Is it the last one (seems to be here)
+      -- or something more complex?
+      --
+      {-
+      (yearNum, monthOfYear, dayOfMonth) = toGregorian (utctDay rrTime)
+      nowDate = [ VL.DTYear (fromInteger yearNum)
+                , VL.DTMonthNum monthOfYear
+                , VL.DTDate dayOfMonth
+                ]
+      -- ymd = VL.Utc VL.YearMonthDate
+      ymd = VL.TU VL.YearMonthDate
+      axOpts = [ VL.AxDataCondition
+                 (VL.FEqual "value" (VL.DateTime nowDate)
+                  & VL.FilterOpTrans (VL.MTimeUnit ymd))
+                 (VL.CAxGridDash [] [2, 2])
+               ]
+      -}
+
       nowEnc = VL.encoding
                . VL.position VL.X [ VL.PName "time"
                                   , VL.PmType VL.Temporal
+                                  -- , VL.PAxis axOpts
                                   ]
                . VL.tooltip [ VL.TString "Current time" ]
 
@@ -342,9 +375,10 @@ relatedView currentTime propTitle sl simMap =
                    , "exposure" .= showExpTime exptime
                    , "obsid" .= obsid
                    , "instrument" .= instrument
-                   , "observed" .= isJust soObservedTime
+                   , "processed" .= isJust soObservedTime
                    , "public" .= isPublic
                    , "object-type" .= getObjectType simMap target
+                   , "constellation" .= getConstellationNameStr soConstellation
                    ]
 
         in base
@@ -383,22 +417,7 @@ relatedView currentTime propTitle sl simMap =
                                , VL.PmType VL.Nominal
                                , VL.PAxis [ VL.AxTitle "Classification" ]
                                ]
-            . VL.tooltips [ [ VL.TName "target"
-                            , VL.TmType VL.Ordinal
-                            , VL.TTitle "Target" ]
-                          , [ VL.TName "object-type"
-                            , VL.TmType VL.Nominal
-                            , VL.TTitle "Classification" ]
-                          , [ VL.TName "exposure"
-                            , VL.TmType VL.Nominal
-                            , VL.TTitle "Exposure time" ]
-                          , [ VL.TName "instrument"
-                            , VL.TmType VL.Nominal
-                            , VL.TTitle "Instrument" ]
-                          , [ VL.TName "obsid"
-                            , VL.TmType VL.Ordinal
-                            , VL.TTitle "Observation Id" ]
-                          ]
+            . standardTooltips
             . VL.color [ VL.MName "public"
                        , VL.MmType VL.Nominal
                        , VL.MLegend [ VL.LTitle "Data is public"
@@ -449,7 +468,6 @@ relatedView currentTime propTitle sl simMap =
 
       mnow = if currentTime >= firstTime && currentTime <= lastTime
              then Just now else Nothing
-
 
       specs = [ related ] <> maybeToList mnow
 
