@@ -1911,6 +1911,9 @@ const main = (function() {
   var timelineResults = [];
   var relatedResults = [];
 
+  const viewTimelineText = "View Timeline";
+  const hideTimelineText = "Hide Timeline";
+
   function showTimeline() {
 
       const host = getHost();
@@ -1941,7 +1944,7 @@ const main = (function() {
 	  const close = pane.querySelector(".closable");
 	  if (close !== null) {
 	      close.addEventListener('click', () => {
-		  tl.innerText = "View Timeline";
+		  tl.innerText = viewTimelineText;
 
 		  // Remove the timeline elememnt so that we can reclaim
 		  // the resources. Is this processed before or after
@@ -1976,13 +1979,16 @@ const main = (function() {
       // Short circuit the behaviour if we now we just want to hide
       // the banner (this should logically be separate).
       //
-      if (tl.innerText === "Hide Timeline") {
-	  tl.innerText = "View Timeline";
+      if (tl.innerText === hideTimelineText) {
+	  tl.innerText = viewTimelineText;
 	  return;
       }
 
       const spin = spinner.createSpinner();
       host.appendChild(spin);
+
+      // Mark the button as inactive
+      tl.disabled = "disabled";
 
       const ndays = 4;
       const url = "/api/vega-lite/timeline/" + ndays;
@@ -1998,7 +2004,7 @@ const main = (function() {
 	  main.appendChild(div);
 
 	  // We select the SVG renderer so we can post-process the
-	  // utput and make it reactive.
+	  // output and make it reactive.
 	  //
 	  const opt = {renderer: 'svg'};
 	  vegaEmbed(div, rsp, opt).then((result) => {
@@ -2006,8 +2012,6 @@ const main = (function() {
 	      timelineResults.push(result);
 
 	      pane.style.display = "block";
-
-	      tl.innerText = "Hide Timeline";
 
 	      // Find all the elements representing the observations and
 	      // add a "link" so that they select the ObsId. This is done
@@ -2025,6 +2029,9 @@ const main = (function() {
 	      div.setAttribute("class", "embed-error");
 	      pane.style.display = "block";
 	  });
+
+	  tl.innerText = hideTimelineText;
+	  tl.disabled = false;
 
       }).fail((xhr, status, e) => {
 	  host.removeChild(spin);
@@ -2079,6 +2086,23 @@ const main = (function() {
 	}
 
 	return retval;
+    }
+
+    // active and inactive calls are just going to process all related
+    // elements.
+    //
+    // newVal is expected to be "disabled" or false.
+    //
+    function disableRelatedView(newVal) {
+	const buttons = document.querySelectorAll(relatedSel);
+	const nbuttons = buttons.length;
+	if (nbuttons === 0) {
+	    /* not convinced this is likely so do not report to the user */
+	    console.log("ERROR: no related-view button present!");
+	    return;
+	}
+
+	buttons.forEach((el) => el.disabled = newVal);
     }
 
   function showRelated(obsid) {
@@ -2163,6 +2187,9 @@ const main = (function() {
       const spin = spinner.createSpinner();
       host.appendChild(spin);
 
+      // Mark the button as inactive
+      disableRelatedView("disabled");
+
       const ndays = 4;
       const url = "/api/vega-lite/timeline/related/" + obsid;
       $.ajax({
@@ -2186,8 +2213,6 @@ const main = (function() {
 
 	      pane.style.display = "block";
 
-	      setRelatedViewText(hideRelatedText, null);
-
 	      // Find all the elements representing the observations and
 	      // add a "link" so that they select the ObsId. This is done
 	      // by assuming we store the object data within the SVG.
@@ -2205,11 +2230,12 @@ const main = (function() {
 	      div.appendChild(document.createTextNode("Unable to display the related observations. Sorry!"));
 	      div.setAttribute("class", "embed-error");
 
-	      // Still need this
-	      setRelatedViewText(hideRelatedText, null);
-
 	      pane.style.display = "block";
 	  });
+
+	  // Should combine the *RelatedView* routines
+	  setRelatedViewText(hideRelatedText, null);
+	  disableRelatedView(false);
 
       }).fail((xhr, status, e) => {
 	  host.removeChild(spin);
