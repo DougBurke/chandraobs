@@ -67,7 +67,9 @@ import Database.Groundhog.Postgresql (PersistBackend, AutoKey, DefaultKey
                                      , replace
                                      , insertByAll
                                      , orderBy
-                                     , distinctOn)
+                                     , distinctOn
+                                     , countAll
+                                     )
 
 import Formatting (int, sformat)
 
@@ -714,7 +716,7 @@ updateOldRecords mgr sloc (Just ndays) f = do
       changed = filter isChanged (dropWhile isOld noMatchFields)
 
   T.putStrLn ("# Old queries to be redone: " <> slen old)
-  T.putStrLn ("# Changed queries: "          <> slen changed)
+  T.putStrLn ("# Changed queries:          " <> slen changed)
 
   -- TODO: is todo guaranteed to not contain repeated elements?
   let todo = old ++ changed
@@ -749,6 +751,14 @@ updateOldRecords mgr sloc (Just ndays) f = do
         -- do it "properly"
         --
         liftIO getCurrentTime >>= updateLastModified
+
+  let nUnknown1 = length noMatchFields
+  nUnknown2 <- runDb (countAll (undefined :: SimbadNoMatch))
+  unless (nUnknown2 == nUnknown1) $ do
+    T.putStrLn ""
+    T.putStrLn ("# Total number of unknown: "
+                <> showInt nUnknown1 <> " -> " <> showInt nUnknown2)
+
 
 toNM :: SearchResults -> SimbadNoMatch
 toNM (a,b,c) = SimbadNoMatch {
