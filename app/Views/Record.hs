@@ -244,6 +244,7 @@ withTwitterBody cp bdy =
 
 -- | Add a "save chandra" banner before the content.
 --
+{-
 saveChandra :: Html -> Html
 saveChandra =
   let styles = "background-color: orchid; color: white; margin: 0 1em; padding: 0.5em 0; position: sticky; text-align: center; top: 0.5em;"
@@ -253,6 +254,11 @@ saveChandra =
          "A Letter to the Community" <>
          " regarding NASA's plans to decommission Chandra. #SaveChandra")
   in (banner <>)
+-}
+
+saveChandra :: Html -> Html
+saveChandra = P.id
+
 
 -- | Display the main navigation bar.
 mainNavBar :: CurrentPage -> Html
