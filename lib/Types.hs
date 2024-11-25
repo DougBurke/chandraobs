@@ -2314,6 +2314,11 @@ instance Ord SimbadInfo where
 --   Unfortunately I did not include the numeric identifiers above
 --   and I'm too lazy to re-build the database with a new schema.
 --
+--   This has now changed (June 2022) but I haven't looked into the
+--   details yet: see https://simbad.cds.unistra.fr/guide/otypes.htx
+--   which oh-so-helpfully doesn't seem to support queryies or fragments.
+--   Thanks Web 2.0 ....
+--
 
 {-
 00.00.00.0: Unknown            ?       Object of unknown nature

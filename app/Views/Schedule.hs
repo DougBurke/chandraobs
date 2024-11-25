@@ -98,13 +98,7 @@ renderSchedule sched =
         <> ", using the "
         <> extLink StaticHtml "https://en.wikipedia.org/wiki/Aitoff_projection"
         ("Aitoff projection" :: T.Text)
-        <> ". See "
-        <> extLink StaticHtml "http://burro.astr.cwru.edu/"
-        ("Chris Mihos'" :: T.Text)
-        <> " page on "
-        <> extLink StaticHtml "http://burro.cwru.edu/Academics/Astr306/Coords/coords.html"
-        ("Astronomical coordinate systems" :: T.Text)
-        <> " for more information."
+        <> "."
         )
       
   in (toHtml title,

@@ -71,7 +71,7 @@ import Types (ChipStatus(..)
              , Proposal(..)
              , ScienceObs(..)
              , SimbadInfo(..)
-             , fromTimeKS
+             , showExpTime
              , tooTime
              , fromRA, fromDec -- only needed for WWT experiments
              , toCycle
@@ -391,10 +391,11 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
              StaticHtml -> toLink StaticHtml uri soProposal
              DynamicHtml -> skyLink uriFrag soProposal
 
-       -- rely on the ToMarkup instance of TimeKS
+      -- Let's use "nice" times rather than kiloseconds here.
+      --
       expLink = case soObservedTime of
-        Just t -> keyVal "Exposure (observed):" (toHtml t <> " ks")
-        _ -> keyVal "Exposure (approved):" (toHtml soApprovedTime <> " ks")
+        Just t -> keyVal "Exposure (observed):" (toHtml (showExpTime t))
+        _ -> keyVal "Exposure (approved):" (toHtml (showExpTime soApprovedTime))
 
       -- NOTE: can this be cleared up now that I have a better
       -- understanding of the jointwith and exposure-time fields?
@@ -407,9 +408,11 @@ renderObsIdDetails ctx mprop msimbad so@ScienceObs{..} =
       --
       missToLink mission = fromMaybe (toHtml mission)
         (toMission mission >>= fromMissionLongLink ctx)
-                           
+
+      -- Let's use "nice" times.
+      --
       toJ (l,v) = keyVal "Joint with:"
-                  (missToLink l <> " for " <> toHtml (fromTimeKS v) <> " ks")
+                  (missToLink l <> " for " <> toHtml (showExpTime v))
                   
       jvs = getJointObs so
 
