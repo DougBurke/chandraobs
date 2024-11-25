@@ -19,6 +19,11 @@ table#scheduledObs tr.selrow td {
 
 /* plot */
 
+div#map {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 div#map svg {
   background-color: rgba(0, 131, 179, 0.2);
   border-radius: 20px;
