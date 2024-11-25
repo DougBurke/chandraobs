@@ -3,16 +3,18 @@
 
 FROM nixos/nix:latest AS builder
 
+# What is most likely to change, the code or the nix rules?
 RUN mkdir -p /opt/build
 COPY .gitignore /opt/build/
-COPY chandraobs.cabal /opt/build/
-COPY ./Setup.hs /opt/build/
-COPY lib/ /opt/build/lib/
-COPY app/ /opt/build/app/
 
 COPY default.nix /opt/build/
 COPY release.nix /opt/build/
 COPY nix/ /opt/build/nix/
+
+COPY chandraobs.cabal /opt/build/
+COPY ./Setup.hs /opt/build/
+COPY lib/ /opt/build/lib/
+COPY app/ /opt/build/app/
 
 # behold the majesty of old-school nix
 WORKDIR /opt/build
