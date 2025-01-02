@@ -316,6 +316,27 @@ executable listmissingobsids
   else
     buildable:  False
 
+executable listunobservedobsids
+  default-language: Haskell2010
+  main-is:             ListUnobservedObsids.hs
+  hs-source-dirs:      tools/
+
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     , containers
+     , groundhog
+     , groundhog-postgresql
+     , text
+
+  else
+    buildable:  False
+
 executable querysimbad
   default-language: Haskell2010
   main-is:             QuerySimbad.hs
