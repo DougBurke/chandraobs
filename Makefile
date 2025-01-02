@@ -43,6 +43,7 @@ help:
 	@echo "   cabocat     - cabal run queryobsid --ocat"
 	@echo "   cabprob     - cabal run getproposals"
 	@echo "   cabtimeline - cabal run gettimeline"
+	@echo "   cablist     - cabal run listunobservedobsids"
 	@echo "   cabweb      - cabal run webserver"
 	@echo "   cabrepl     - cabal repl"
 	@echo ""
@@ -135,6 +136,13 @@ cabtimeline:
 	@echo "## APP=${APP}"
 	@echo "## DATABASE_URL=${DATABASE_URL}"
 	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} gettimeline
+
+cablist:
+	@echo "### run listunobservedobsids on production db via cabal"
+	@echo "##"
+	@echo "## APP=${APP}"
+	@echo "## DATABASE_URL=${DATABASE_URL}"
+	@DATABASE_URL=${DATABASE_URL} ${CABAL_RUN} listunobservedobsids
 
 cabweb:
 	@echo "### run webserver on production db via cabal"
