@@ -68,8 +68,8 @@ import Views.Render (standardRestrictedSchedulePage
 -- This location has changed over time. It had been
 -- http://cds.u-strasbg.fr/cgi-bin/Otype?X
 --
-simbad_object_types :: Html -> Html
-simbad_object_types desc =
+simbadObjectTypes :: Html -> Html
+simbadObjectTypes desc =
   let url = "https://simbad.cds.unistra.fr/guide/otypes.htx"
   in extLink StaticHtml url desc
 
@@ -200,7 +200,7 @@ renderMatches lbl sched children =
              , childTxt
              , ". The object type is based on the target name created by the "
              , "observer, and is often not sufficient to identify it in "
-             , simbad_object_types "SIMBAD"
+             , simbadObjectTypes "SIMBAD"
              , ", which is why not all observations have a type (it is also "
              , "true that the Chandra field of view is large enough to contain "
              , "more objects than just the observation target!). "
@@ -215,7 +215,7 @@ nameInfo :: H.Html
 nameInfo =
   "The target names set by the proposal writers were used to identify " <>
   "the object types using " <>
-  simbad_object_types "the SIMBAD database"
+  simbadObjectTypes "the SIMBAD database"
   <> ". "
 
 -- | Render the list of object types, and include a link to the "unidentified"
