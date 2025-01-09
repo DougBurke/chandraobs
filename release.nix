@@ -53,6 +53,9 @@ let
       echo "***"
       echo "*** Welcome to chandraobservatory"
       echo "***"
+      echo "*** ghc    `ghc --numeric-version`"
+      echo "*** hlint  `hlint --numeric-version`"
+      echo "***"
     '';
 
   };
