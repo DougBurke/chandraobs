@@ -58,6 +58,25 @@ Seq #  NB  ObsID Constr.          Target                Start        Time   SI  
 901512     23948    0                   GDH13 2022:171:21:11:30.290   5.3 ACIS-I NONE 266.6376 -31.2877 343.66 171.79 103.92 dss pspc rass
  ----      45419               CAL-ER (PER01) 2022:173:05:04:19.472   3.0   --    --  159.0000  48.0000 268.95  58.62  57.82   
 503371 DDT 26441    0              GRB220611A 2022:174:23:57:25.983  15.0 ACIS-S NONE  66.5449 -37.2560 164.02  65.33 123.3
+
+
+latest version (mid 2025) is now:
+
+Seq #  NB  ObsID Constr.          Target                Start        Time   SI   Grat    Active Chips      RA       Dec    Roll   Pitch   Slew   Overlays
+------ --- ----- ------- -------------------- --------------------- ----- ------ ---- ----------------- -------- -------- ------ ------ ------ -------------
+503505     28777    0                SN 1941C 2025:174:00:48:25.719  12.0  HRC-I NONE                   182.3238  29.9275 238.00  79.14 122.22 dss pspc rass
+601662     29667    0                 NGC4951 2025:174:04:32:58.557  22.6 ACIS-S NONE       I3,S2,S3,S4 196.2821  -6.4938 247.47 105.85  40.70 dss pspc rass
+ ----      42328               CAL-ER (PER03) 2025:174:11:21:36.439   3.0   --    --                    268.0000 -23.0000 262.98 176.23  70.86   
+ ----      42327               CAL-ER (PER01) 2025:174:15:00:00.000   1.0   --    --                    271.0000 -28.0000 346.06 175.28  81.95   
+ ----      42326               CAL-ER (PER02) 2025:174:16:30:00.000   3.0   --    --                    109.0000 -22.0000 200.70  48.24 127.15   
+ ----      42325               CAL-ER (PER04) 2025:174:20:30:00.000   1.0   --    --                    131.0000  -7.0000 229.89  48.40  34.94   
+901856     28730    0    [JDW2009] G359.55+0. 2025:174:21:58:16.002  13.5 ACIS-I NONE       I0,I1,I2,I3 265.9833 -29.2319 313.29 171.73 123.72 dss pspc rass
+201663     28003    0                 LHS 475 2025:175:02:25:41.002  14.5  HRC-I NONE                   290.2334 -82.5577  18.58 120.45  67.96 dss pspc rass
+601662     30975    0                 NGC4951 2025:175:07:03:29.729  28.0 ACIS-S NONE       I3,S2,S3,S4 196.2821  -6.4938 247.49 104.81  92.90 dss pspc rass
+
+
+
+
 -}
 
 module Parser (parseSTS
@@ -88,7 +107,8 @@ import Types (ScheduleItem(..)
              , toRA
              , Dec
              , toDec
-             , Instrument, Grating
+             , Instrument
+             , Grating
              , unsafeToObsIdVal
              )
 
@@ -164,8 +184,11 @@ parseTime = do
   pure (intercalate ":" [year, dnum, hour, mins, ss1 ++ "." ++ ss2])
 
 parseReadable :: Read a => Parser a
-parseReadable = do
-  v <- lexeme $ many1 $ satisfy (not . isSpace)
+parseReadable = lexeme parseExplicit
+
+parseExplicit :: Read a => Parser a
+parseExplicit = do
+  v <- many1 $ satisfy (not . isSpace)
   case reads v of
     [(t,"")] -> pure t
     _ -> fail ("Unable to parse as readable: " ++ v)
@@ -215,8 +238,18 @@ parseTitle = manyTill anyChar (try (lookAhead parseTime))
 parseInst :: Parser Instrument
 parseInst = parseReadable
 
+-- As we want to parse the "Active Chips" by just skipping characters,
+-- here we do not want a "lexeme".
+--
+-- parseGrat :: Parser Grating
+-- parseGrat = parseReadable
+
+-- parseGrat :: Parser ()
+-- parseGrat = (string "NONE" <|> string "HETG" <|> string "LETG") >> pure ()
+
 parseGrat :: Parser Grating
-parseGrat = parseReadable
+parseGrat = parseExplicit
+
 
 handleTime :: String -> Double -> (TimeKS, ChandraTime, ChandraTime)
 handleTime start texp =
@@ -224,6 +257,39 @@ handleTime start texp =
       t1 = toCTime start
       t2 = endCTime t1 tks
   in (tks, t1, t2)
+
+
+{-
+
+Active chips, which can be empty. The simplest way is to just skip the
+x characters, but the number of characters depends on the SI mode.
+
+   Time   SI   Grat    Active Chips      RA   
+  ----- ------ ---- ----------------- --------
+   12.0  HRC-I NONE                   182.3238
+   22.6 ACIS-S NONE       I3,S2,S3,S4 196.2821
+    3.0   --    --                    268.0000
+
+So science looks like
+
+    "       I3,S2,S3,S4 "
+    "                   "
+
+which is 19 characters. So for CAL it's 20 characters. However, we
+do not need to care about the CAL version as it is just spaces that
+get eaten up by existing rules.
+
+Note that we do not care about the contents of this field.
+
+This relies on the grating field not being treated as a lexeme.
+
+However, we want to eat up more characters - e.g. if the RA has
+is < 100 degrees.
+
+-}
+ 
+parseActiveChips :: Instrument -> Parser String
+parseActiveChips _ = lexeme (count 19 anyChar)
 
 
 parsePosition :: Parser (RA, Dec, Double)
@@ -257,8 +323,11 @@ obsLine = do
   void parseTitle -- title
   start <- parseTime
   texp <- parseDouble
-  void parseInst -- inst
-  void parseGrat -- grat
+  inst <- parseInst -- inst
+  void parseGrat -- grat; this does not eat up trailing spaces
+
+  chips <- parseActiveChips inst
+  
   (ra, dec, roll) <- parsePosition
   lexeme (void (string "dss pspc rass"))
 
@@ -297,7 +366,8 @@ calLine = do
   start <- parseTime
   texp <- parseDouble
   sep2
-  sep2
+  sep2  -- this will also eat up the empty active-chip section.
+
   (ra, dec, roll) <- parsePosition
   --let title = "CAL-ER (" ++ show obsid ++ ")"
   --pure $ STS Nothing (SpecialObs n) Nothing title start texp Nothing Nothing ra dec roll pitch slew
