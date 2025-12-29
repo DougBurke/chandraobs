@@ -1,5 +1,5 @@
 name:                chandraobs
-version:             0.6.1
+version:             0.7.0
 stability:           experimental
 synopsis:            What is the Chandra Observatory doing?
 license:             PublicDomain
@@ -72,6 +72,7 @@ library
        , heroku == 0.1.*
        , http-types >= 0.8 && < 1.0
        , monad-control == 1.0.*
+       -- , rel8 >= 1.5 && < 1.7
        , scotty >= 0.7 && < 0.13
        , split == 0.2.*
        , text >= 1.0 && < 1.3

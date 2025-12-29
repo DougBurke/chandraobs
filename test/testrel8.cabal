@@ -1,0 +1,100 @@
+name:                testrel8
+version:             0.1.0
+stability:           experimental
+synopsis:            Switch to rel8
+license:             PublicDomain
+author:              Doug Burke
+maintainer:          dburke.gw@gmail.com
+category:            Web
+
+description:
+  Eventually I want a web page describing what the Chandra
+  X-Ray observatory is currently doing, including links to
+  related observations, press releases, the ADS output of
+  the Principal Investigator, a link to the source 
+  viewable in WorldWideTelescope, etc.
+  .
+  At present it is just a technology tester.
+
+homepage:            https://github.com/DougBurke/chandraobs
+
+build-type:          Simple
+
+cabal-version:       2.0
+
+library
+  default-language: Haskell2010
+  hs-source-dirs: lib/
+
+  exposed-modules:
+                  Database
+                  -- Git
+                  -- Instances
+                  -- Sorted
+                  Types
+
+  -- autogen-modules: Git
+
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  build-depends:
+   base >= 4.9 && < 4.22
+   , bytestring >= 0.10 && < 0.13
+   , containers
+   , formatting >= 6.2 && < 7.3
+   , hasql >= 1.6.1.2 && < 1.9
+   , network-uri == 2.6.*
+   , rel8 >= 1.5 && < 1.7
+   , text >= 2.0 && < 2.2
+   , time >= 1.12 && < 1.15
+
+   
+-- -- executable checkobsid
+-- --   default-language: Haskell2010
+-- --   main-is:             CheckObsId.hs
+-- --   hs-source-dirs:      tools/
+-- --   -- other-modules:       Parser
+-- --   --                      OCAT
+-- --                                               
+-- --   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-upda-- -- -- -- tes
+-- --   ghc-options: -Wall -Wincomplete-record-updates
+-- -- 
+-- --   build-depends:
+-- --    base
+-- --    , bytestring >= 0.10 && < 0.13
+-- --    -- , containers
+-- --    , formatting >= 6.2 && < 7.3
+-- --    , hasql >= 1.6.1.2 && < 1.9
+-- --    , network-uri == 2.6.*
+-- --    , rel8 >= 1.5 && < 1.7
+-- --    , text >= 2.0 && < 2.2
+-- --    , time >= 1.12 && < 1.15
+
+
+executable updateschedule
+  default-language: Haskell2010
+  main-is:             UpdateSchedule.hs
+  hs-source-dirs:      tools/
+  other-modules:       OCAT
+                       
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  build-depends:
+   base
+   , bytestring >= 0.10 && < 0.13
+   , containers
+   , formatting >= 6.2 && < 7.3
+   , hasql >= 1.6.1.2 && < 1.9
+   , network-uri == 2.6.*
+   , http-conduit
+   , http-types
+   , process
+   , rel8 >= 1.5 && < 1.7
+   , tagsoup
+   , temporary
+   , testrel8
+   , text >= 2.0 && < 2.2
+   , time >= 1.12 && < 1.15
+   

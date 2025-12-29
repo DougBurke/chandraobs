@@ -43,6 +43,7 @@ let
       pkgs.heroku  # I am very confused
       pkgs.postgresql
       pkgs.git
+      pkgs.curl
     ] ++ pkgs.lib.optionals isDefaultCompiler [
       # pkgs.haskellPackages.haskell-language-server
       myHaskellPackages.haskell-language-server
