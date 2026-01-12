@@ -701,7 +701,8 @@ webapp cm scache cache = do
                 let obshtml = Record.renderStuff DynamicHtml cTime thisObs dbInfo
 
                     mDetails = either (const Nothing) Just
-                               (renderObsIdDetails DynamicHtml mprop msimbad <$> thisObs)
+                               (Just . renderObsIdDetails DynamicHtml mprop msimbad)
+                               thisObs
 
                     -- could add number of observations we know about this proposal
                     showProp (propTitle, propAbs) =

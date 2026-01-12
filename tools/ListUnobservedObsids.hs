@@ -52,7 +52,7 @@ displayScience (ctr, ScienceObs{..}) = do
 
   case soStartTime of
     Just st -> T.putStrLn ("Obs date:      " <> showCTime st)
-    Nothing -> T.putStrLn ("Obs date:      <UNKNOWN>")
+    Nothing -> T.putStrLn "Obs date:      <UNKNOWN>"
 
   -- We do not expect this to be set, so flag it as strange
   case soObservedTime of

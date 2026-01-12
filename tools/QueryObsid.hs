@@ -152,15 +152,11 @@ reportScience ScienceObs{..} mprop msim = do
   T.putStrLn ("Target:        '" <> fromTargetName soTarget <> "'")
   T.putStrLn ("RA:            " <> showRA soRA)
   T.putStrLn ("Dec:           " <> showDec False soDec)
-  case msim of
-    Just sim -> reportSimbad soTarget sim
-    Nothing -> pure ()
+  forM_ msim (reportSimbad soTarget)
     
   T.putStrLn ("Status:        " <> fromObsIdStatus soStatus)
   T.putStrLn ("Proposal:      " <> T.pack (show (fromPropNum soProposal)))
-  case mprop of
-    Just prop -> reportProposal prop
-    Nothing -> pure ()
+  forM_ mprop reportProposal
 
   case soTOO of
     Just too -> T.putStrLn ("TOO:           " <> tooValue too <>

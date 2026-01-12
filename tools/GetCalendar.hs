@@ -168,7 +168,7 @@ findSVGs tags =
                    -- addYear year <>
                    colorbar
 
-  in map svg (zip [1::Int ..] calendars)
+  in zipWith (curry svg) [1::Int ..] calendars
 
 
 -- assumes attribute exists
