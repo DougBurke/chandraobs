@@ -102,16 +102,16 @@ import Parser (parseSTS
               , parseTime
               , handleTime)
 
-import Types (ScheduleItem(..), fromChandraTime)
-import Types (ShortTermTag, ShortTermSchedule(..)
-             , toShortTermTag, fromShortTermTag)
-import Types (NonScienceObs(..), ScienceObs(..)
+import Types (ScheduleItem(..), fromChandraTime
+             , ShortTermTag, ShortTermSchedule(..)
+             , toShortTermTag, fromShortTermTag
+             , NonScienceObs(..), ScienceObs(..)
              , ObsIdVal
              , unsafeToObsIdVal
-             , fromObsId)
-import Types (InvalidObsId(..), Field(..))
-import Types (ObsIdStatus(..), toTargetName)
-import Types (Proposal(propNum))
+             , fromObsId
+             , InvalidObsId(..), Field(..)
+             , ObsIdStatus(..), toTargetName
+             , Proposal(propNum))
 
 -- The assumption is that all pages are accessible from 
 -- baseLoc <> startPage and that they are in reverse
