@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Combine the calendar-??.svg files into calendar.gif
+#
+
+for x in calendar-*svg; do
+  echo ${x%.*}
+  convert $x ${x%.*}.png
+done
+
+echo ""
+convert -layers OptimizePlus -delay 100x100 -loop 0 calendar-*png calendar.gif
+echo "Created: calendar.gif"

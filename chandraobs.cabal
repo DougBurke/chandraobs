@@ -443,6 +443,29 @@ executable gettimeline
     buildable:  False
 
 
+executable getcalendar
+  default-language: Haskell2010
+  main-is:             GetCalendar.hs
+  hs-source-dirs:      tools/
+
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(tools)
+    build-depends:
+     base
+     , bytestring
+     , chandraobs
+     -- , containers
+     , http-conduit
+     , http-types
+     , tagsoup
+     , text
+
+  else
+    buildable:  False
+
+
 -- This isn't working and is it necessary?
 --
 -- data-files:
