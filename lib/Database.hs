@@ -1,225 +1,236 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
-
--- MonoLocalBinds is suggested by ghc 8.2 insertIfUnknown/insertOrReplace.
--- The constraints can't be simplified since Databsae.Groundhog.Instances
--- doesn't export EntityConstr'. Well, maybe they can and I just haven't
--- found the magic sauce.
---
--- New versions of hlint point out that MonoLocalBinds is implied by
--- TypeFamilies, so it has been removed.
 
 -- | Simple database access shims.
 --
---   Many of these are poorly written (e.g. no use of the database
---   or Groundhog API, such as inner joins or primary keys).
---
-module Database ( getCurrentObs
-                , getObsInfo
-                -- , findObsName
-                , getObsId
-                , getRecord
-                , getSchedule
-                , getScheduleDate
-                , getRelated
+module Database ( getConnection
+                , runDb, runDb_, runDb1, runDbMaybe
+                , updateLastModified, updateLastModifiedS
+                , getLastModified, getLastModifiedFixed
 
-                -- , makeSchedule
-                , makeScheduleRestricted
+                --X getCurrentObs
+                --X , getObsInfo
+                --X -- , findObsName
+                --X , getObsId
+                --X , getRecord
+                --X , getSchedule
+                --X , getScheduleDate
+                --X , getRelated
 
-                , getProposal
-                -- , getProposalFromNumber
-                , getProposalObs
-                -- , getRelatedObs
-                -- , getObsFromProposal
-                , getProposalInfo
-                , reportSize
-                , getSimbadInfo
-                , fetchSIMBADType
-                , fetchNoSIMBADType
-                , fetchSIMBADDescendentTypes
-                , fetchJointMission
-                , fetchMissionInfo
-                , fetchObjectTypes
-                , fetchConstellation
-                , fetchConstellationTypes
-                , fetchCategory
-                , fetchCategorySubType
-                , fetchCategoryTypes
-                , fetchCycle
-                , fetchCycles
-                , fetchProposal
-                , fetchInstrument
-                , fetchGrating
-                , fetchIG
-                , fetchInstrumentTypes
-                , fetchGratingTypes
-                , fetchIGTypes
-                , fetchTOOs
-                , fetchTOO
-                , fetchConstraints
-                , fetchConstraint
+                --X -- , makeSchedule
+                --X , makeScheduleRestricted
 
-                , fetchSubArrays
+                --X , getProposal
+                --X -- , getProposalFromNumber
+                --X , getProposalObs
+                --X -- , getRelatedObs
+                --X -- , getObsFromProposal
+                --X , getProposalInfo
+                --X , reportSize
+                --X , getSimbadInfo
+                --X , fetchSIMBADType
+                --X , fetchNoSIMBADType
+                --X , fetchSIMBADDescendentTypes
+                --X , fetchJointMission
+                --X , fetchMissionInfo
+                --X , fetchObjectTypes
+                --X , fetchConstellation
+                --X , fetchConstellationTypes
+                --X , fetchCategory
+                --X , fetchCategorySubType
+                --X , fetchCategoryTypes
+                --X , fetchCycle
+                --X , fetchCycles
+                --X , fetchProposal
+                --X , fetchInstrument
+                --X , fetchGrating
+                --X , fetchIG
+                --X , fetchInstrumentTypes
+                --X , fetchGratingTypes
+                --X , fetchIGTypes
+                --X , fetchTOOs
+                --X , fetchTOO
+                --X , fetchConstraints
+                --X , fetchConstraint
+
+                --X , fetchSubArrays
                   
-                , findNameMatch
-                , findProposalNameMatch
-                , findTarget
-                , findRecord
+                --X , findNameMatch
+                --X , findProposalNameMatch
+                --X , findTarget
+                --X , findRecord
                   
-                , getProposalObjectMapping
+                --X , getProposalObjectMapping
 
-                , getExposureBreakdown
-                , getNumObsPerDay
+                --X , getExposureBreakdown
+                --X , getNumObsPerDay
 
-                -- , getProposalCategoryBreakdown
-                , getProposalTypeBreakdown
-                , getProposalType
+                --X -- , getProposalCategoryBreakdown
+                --X , getProposalTypeBreakdown
+                --X , getProposalType
 
-                  -- Rather experimental
-                , getExposureValues
+                --X   -- Rather experimental
+                --X , getExposureValues
 
-                , fetchExposureRanges
-                , fetchExposureRange
+                --X , fetchExposureRanges
+                --X , fetchExposureRange
                 
-                  -- Highly experimental
-                , getTimeline
-                , getSimbadList
+                --X   -- Highly experimental
+                --X , getTimeline
+                --X , getSimbadList
 
-                -- , NormSep
-                -- , fromNormSep
-                -- , findNearbyObs
-                , findAllObs
+                --X -- , NormSep
+                --X -- , fromNormSep
+                --X -- , findNearbyObs
+                --X , findAllObs
                   
-                , insertScienceObs
-                , insertNonScienceObs
-                , replaceScienceObs
-                , replaceNonScienceObs
-                , insertProposal
+                --X , insertScienceObs
+                --X , insertNonScienceObs
+                --X , replaceScienceObs
+                --X , replaceNonScienceObs
+                --X , insertProposal
 
-                , insertOrReplace
-                , insertIfUnknown
+                --X , insertOrReplace
+                --X , insertIfUnknown
 
-                , maybeSelect
-                , maybeProject
+                --X , maybeSelect
+                --X , maybeProject
                 
-                , updateLastModified
-                , getLastModified
-                , getLastModifiedFixed
-
                 , getInvalidObsIds
-                , addInvalidObsId
+                --X , addInvalidObsId
 
-                , getDataBaseInfo
-                , DBInfo
+                --X , getDataBaseInfo
+                --X , DBInfo
                   
-                , putIO
-                , runDb
-                , dbConnStr
-                -- , discarded
-                -- , archived
+                --X , putIO
+                --X , runDb
+                --X , dbConnStr
+                --X -- , discarded
+                --X -- , archived
                   
-                -- , notDiscarded
-                -- , notArchived
-                -- , notCanceled
+                --X -- , notDiscarded
+                --X -- , notArchived
+                --X -- , notCanceled
 
-                  -- do we really want to expose these?
-                , NumSrc
-                , NumObs
+                --X   -- do we really want to expose these?
+                --X , NumSrc
+                --X , NumObs
                   
-                , SIMKey
-                , keyToPair
+                --X , SIMKey
+                --X , keyToPair
 
-                , updateSchedule
+                --X , updateSchedule
                   
-                  -- * Hack
-                  --
-                  -- This is needed since ObsCat doesn't store the non-science
-                  -- details until after the load has been run. So the data
-                  -- from the ScheduleItem table is used as a stop gap until
-                  -- it can be replaced. Rather than do the right thing and
-                  -- add a field to the NonScienceObs item, I am using the
-                  -- nsName field as an indicator: if set to the token
-                  -- nsInObsCatName then it's been taken from the
-                  -- ObsCat, otherwise it's from the ScheduleItem table
-                  -- (where the field value is taken from the column).
-                  --
-                  -- , nsInObsCatName
-                  , notNsDiscarded
-                  -- , notFromObsCat
-                    
-                  , isValidScienceObs
-                    
-                  , timeDb
+                --X   -- * Hack
+                --X   --
+                --X   -- This is needed since ObsCat doesn't store the non-science
+                --X   -- details until after the load has been run. So the data
+                --X   -- from the ScheduleItem table is used as a stop gap until
+                --X   -- it can be replaced. Rather than do the right thing and
+                --X   -- add a field to the NonScienceObs item, I am using the
+                --X   -- nsName field as an indicator: if set to the token
+                --X   -- nsInObsCatName then it's been taken from the
+                --X   -- ObsCat, otherwise it's from the ScheduleItem table
+                --X   -- (where the field value is taken from the column).
+                --X   --
+                --X   -- , nsInObsCatName
+                --X   , notNsDiscarded
+                --X   -- , notFromObsCat
+
+                --X   , isValidScienceObs
+
+                --X   , timeDb
 
                 ) where
 
-import qualified Data.Map.Strict as M
-import qualified Data.Set as S
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.List.NonEmpty as NE
+--X import qualified Data.Map.Strict as M
+--X import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Data.Vector.Unboxed as V
-import qualified Data.Vector.Algorithms.Intro as VA
+--X import qualified Data.Vector.Unboxed as V
+--X import qualified Data.Vector.Algorithms.Intro as VA
 
-import Control.Arrow (first, second)
-import Control.Monad (filterM, forM, forM_, when)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Hasql.Session as Session
+import qualified Hasql.Connection.Setting.Connection.Param as P
 
-import Data.Char (isSpace, toUpper)
-import Data.Either (partitionEithers)
-import Data.Function (on)
-import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
-import Data.Maybe (catMaybes, fromJust, fromMaybe,
-                   isJust, isNothing, listToMaybe, mapMaybe)
-import Data.Ord (Down(..))
-import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
-                 , diffUTCTime -- debugging
-                 )
+--X import Control.Arrow (first, second)
+--X import Control.Monad (filterM, forM, forM_, when)
+--X import Control.Monad.IO.Class (MonadIO, liftIO)
+--X import Control.Monad.Trans.Control (MonadBaseControl)
 
-import Database.Groundhog.Core (Action, PersistEntity, EntityConstr
-                               , Projection'
-                               , DbDescriptor, RestrictionHolder
-                               , HasSelectOptions
-                               , HasLimit, HFalse
-                               , distinct)
-import Database.Groundhog.Postgresql
+import Control.Monad (guard)
+
+--X import Data.Char (isSpace, toUpper)
+--X import Data.Either (partitionEithers)
+--X import Data.Function (on)
+--X import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
+--X import Data.Maybe (catMaybes, fromJust, fromMaybe,
+--X                    isJust, isNothing, listToMaybe, mapMaybe)
+--X import Data.Ord (Down(..))
+--X import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
+--X                  , diffUTCTime -- debugging
+--X                  )
+
+import Data.Functor.Contravariant ((>$<))
+import Data.List (uncons)
+import Data.Maybe (fromMaybe)
+import Data.Time.Calendar (Day(..))
+import Data.Time.Clock (UTCTime(..))
+
+-- import Formatting hiding (now)
+
+import Hasql.Connection (Connection, acquire)
+import Hasql.Connection.Setting (Setting, connection)
+import Hasql.Connection.Setting.Connection (params)
+
+import Network.URI (URI(..)
+                   , URIAuth(..)
+                   , parseAbsoluteURI
+                   )
+
+import Rel8 ( Statement, Serializable, Expr, Query -- , Result
+            , Delete(..), Insert(..)
+            , OnConflict(..) , Returning(..)
+            , run, run_, run1, runMaybe
+            , delete, insert, select
+            , lit, orderBy, values
+            , each
+            , desc
+            -- , nullsLast
+            )
 
 import System.Environment (lookupEnv)
+import System.Exit (exitFailure)
+import System.IO (stderr)
 
-import Web.Heroku (dbConnParams)
+--X import Web.Heroku (dbConnParams)
 
-import Formatting hiding (now)
+--X import Sorted (SortedList
+--X               , emptySL
+--X               , unsafeToSL
+--X               , toSL
+--X               , fromSL
+--X               , mergeSL
+--X               , StartTimeOrder
+--X               , ExposureTimeOrder)
 
-import Sorted (SortedList
-              , emptySL
-              , unsafeToSL
-              , toSL
-              , fromSL
-              , mergeSL
-              , StartTimeOrder
-              , ExposureTimeOrder)
-import Types
-import Instances ()
+import Types (MetaData(..), metaDataSchema
+             -- , fromMetaData
+             , toMetaData
+             , InvalidObsId, invalidObsIdSchema
+             )
 
--- DbSql is a terrible name; need to change it
-type DbIO m = (MonadIO m, PersistBackend m)
-type DbSql m = (PersistBackend m, SqlDb (Conn m))
-type DbFull m = (PersistBackend m, SqlDb (Conn m), MonadIO m)
-
--- | The time used when no last-modified date can be accessed from
---   the database. Ideally would use the current time, as this seems
---   the safest, but just hard code a simple value (as this should not
---   be used anyware).
---
-dummyLastMod :: UTCTime
-dummyLastMod = UTCTime (ModifiedJulianDay 0) 0
+--X -- DbSql is a terrible name; need to change it
+--X type DbIO m = (MonadIO m, PersistBackend m)
+--X type DbSql m = (PersistBackend m, SqlDb (Conn m))
+--X type DbFull m = (PersistBackend m, SqlDb (Conn m), MonadIO m)
 
 -- nsInObsCatName :: T.Text
 -- nsInObsCatName = "unknown"
+
+{-X
 
 -- Project the fields out of a ScienceObs to form a RestrictedSO
 -- and NonScienceObs to form RestrictedNS (also for use by the
@@ -318,6 +329,8 @@ engineeringTimeline =
     -- could also send the actual time?
   )
 
+X-}
+
 
 -- | What is the logic to the status fields, in particular
 --   unobserved versus scheduled, and does cancelled (or, rather
@@ -346,6 +359,7 @@ notCanceled ::
 notCanceled = SoStatusField /=. Canceled
 -}
 
+{-X
 -- | A valid science observation is one which has a start time.
 --   There should be no observations which have no start time
 --   and are not either discarded or canceled, but do not
@@ -357,7 +371,8 @@ isValidScienceObs ::
 isValidScienceObs =
   Not (isFieldNothing SoStartTimeField) &&.
   (SoStatusField `notIn_` [Discarded, Canceled])
-  
+X-}
+
 {-
 -- | Identify non-science observations that are not from the
 --   ObsCat (i.e. ones that could be queried to see if there
@@ -370,6 +385,7 @@ notFromObsCat ::
 notFromObsCat = (NsNameField /=. nsInObsCatName) &&. notNsDiscarded
 -}
 
+{-X
 -- | Non-science observations that have not been "discarded".
 --
 --   TODO: replace with isValidNonScienceObs, but not clear yet what
@@ -726,6 +742,7 @@ getObsInRange tStart tEnd = do
       res = mergeSL rrecordStartTime (unsafeToSL xs) (unsafeToSL ys)
 
   pure (fromSL res)
+X-}
 
 {-
 getObsInRange ::
@@ -763,7 +780,7 @@ getObsInRange tStart tEnd = do
   pure (fromSL res)
 -}
 
-
+{-X
 -- Assumes the record has a start time.
 timeUnsafe :: RestrictedRecord -> ChandraTime
 timeUnsafe = fromJust . rrecordStartTime
@@ -881,6 +898,7 @@ getScheduleDate day ndays = do
         (current:cs) -> (Just current, reverse cs)
 
   pure sched
+X-}
 
 -- | Creates a schedule structure of the list of observations.
 --
@@ -922,6 +940,7 @@ makeSchedule rs = do
 
 -}
 
+{-X
 -- I am going to assume that the schedule does not contain any
 -- discarded or canceled observations, so we don't need to
 -- send around the status field as well.
@@ -939,11 +958,9 @@ makeScheduleRestricted rs = do
   
   let cleanrs = filter keep (fromSL rs)
 
-      {- 
-      want = (`notElem` [Discarded, Canceled])
-      keep (Left NonScienceObs{..}) = want nsStatus && isJust nsStartTime
-      keep (Right ScienceObs{..}) = want soStatus && isJust soStartTime
-      -}
+      -- want = (`notElem` [Discarded, Canceled])
+      -- keep (Left NonScienceObs{..}) = want nsStatus && isJust nsStartTime
+      -- keep (Right ScienceObs{..}) = want soStatus && isJust soStartTime
 
       keep (Left ns) = isJust (rnsStartTime ns)
       keep (Right so) = isJust (rsoStartTime so)
@@ -1078,6 +1095,7 @@ getSimbadInfo target = do
     Just key -> get key
     Nothing -> pure Nothing
 
+X-}
 
 -- | Return all observations of the given SIMBAD type (excluding
 --   discarded). This restricts to the type only (i.e. no descendents).
@@ -1119,6 +1137,7 @@ fetchSIMBADType stype = do
 
 -}
 
+{-X
 fetchSIMBADType ::
   DbSql m
   => SimbadType 
@@ -1150,7 +1169,7 @@ fetchSIMBADType stype = do
 
     Nothing -> pure Nothing
 
-
+X-}
 
 -- | Identify those observations with no SIMBAD mapping.
 --
@@ -1175,6 +1194,7 @@ fetchNoSIMBADType = do
 
 -}
 
+{-X
 fetchNoSIMBADType :: 
   DbSql m
   => m (SimbadTypeInfo, SortedList StartTimeOrder RestrictedSO)
@@ -1194,6 +1214,7 @@ fetchNoSIMBADType = do
 
   pure ((noSimbadType, noSimbadLabel), out)
 
+X-}
 
 {-
 TODO: should we return the count of number of distinct objects (rather than observations)
@@ -1259,6 +1280,7 @@ fetchSIMBADDescendentTypes parent = do
 
 -}
 
+{-X
 fetchSIMBADDescendentTypes :: 
   DbSql m
   => SimbadType 
@@ -1304,6 +1326,7 @@ fetchSIMBADDescendentTypes parent = do
       
       pure (out, unsafeToSL obs)
 
+X-}
 
 -- | Return all observations that are joint with the given mission.
 {-
@@ -1346,6 +1369,7 @@ fetchJointMission jm = do
 
 -}
 
+{-X
 fetchJointMission :: 
   DbSql m
   => JointMission
@@ -1381,7 +1405,9 @@ fetchJointMission jm = do
 
   pure (unsafeToSL (filter hasMission sobs))
 
+X-}
 
+{-X
 -- | Return basic information on the joint-with observations.
 --
 --   Note that the time fields are a bit confusing, so don't have
@@ -1420,6 +1446,9 @@ fetchObjectTypes = do
       t xs@(x:_) = ((smiType3 x, smiType x), length xs)
   pure (map t srt)
 
+X-}
+
+
 -- | Return observations which match this constellation, excluding
 --   discarded observations.
 --
@@ -1436,6 +1465,7 @@ fetchConstellation con = do
 
 -}
 
+{-X
 fetchConstellation ::
   DbSql m
   => ConShort
@@ -1485,7 +1515,9 @@ fetchConstellationTypes = do
       ts = M.fromListWith addTimeKS ms
   pure (M.toAscList ts)
 
+X-}
 
+{-X
 -- | Note that trying to get "all" returns the empty set.
 --
 fetchCycle ::
@@ -1615,7 +1647,9 @@ getExposureRange flag tlo thi =
                       
   in fetchScienceObsBy cond
   
-  
+X-}
+
+
 -- | Return observations which match this category,
 --   excluding discarded observations.
 --
@@ -1632,6 +1666,7 @@ fetchCategory cat = do
   pure (unsafeToSL sobs)
 -}
 
+{-X
 fetchCategory ::
   DbSql m
   => PropCategory
@@ -1698,6 +1733,9 @@ fetchProposal pn = do
   ms <- fetchScienceObsBy (SoProposalField ==. pn)
   pure (mprop, mabs, ms)
 
+X-}
+
+
 -- | Return all the observations which match this instrument,
 --   excluding discarded.
 --
@@ -1712,11 +1750,14 @@ fetchInstrument inst = do
   pure (unsafeToSL ans)
 -}
 
+{-X
 fetchInstrument ::
   DbSql m
   => Instrument
   -> m (SortedList StartTimeOrder RestrictedSO)
 fetchInstrument inst = fetchScienceObsBy (SoInstrumentField ==. inst)
+X-}
+
 
 -- | Return all the observations which match this grating,
 --   excluding discarded.
@@ -1733,12 +1774,13 @@ fetchGrating grat = do
 
 -}
 
+{-X
 fetchGrating ::
   DbSql m
   => Grating
   -> m (SortedList StartTimeOrder RestrictedSO)
 fetchGrating grat = fetchScienceObsBy (SoGratingField ==. grat)
-
+X-}
 
 -- | Return all the observations which match this instrument and grating,
 --   excluding discarded.
@@ -1756,6 +1798,7 @@ fetchIG (inst, grat) = do
   pure (unsafeToSL ans)
 -}
 
+{-X
 fetchIG ::
   DbSql m
   => (Instrument, Grating)
@@ -1899,7 +1942,9 @@ fetchConstraints = do
       
   pure (M.toAscList ts, noneTime)
 
+X-}
 
+{-X
 getCon ::
   DbDescriptor db
   => Maybe ConstraintKind
@@ -1911,7 +1956,10 @@ getCon Nothing =
 getCon (Just TimeCritical) = SoTimeCriticalField /=. NoConstraint
 getCon (Just Monitor) = SoMonitorField /=. NoConstraint
 getCon (Just Constrained) = SoConstrainedField /=. NoConstraint
-  
+
+X-}
+
+
 -- | Return the schedule for a given constraint.
 --
 {-
@@ -1927,6 +1975,7 @@ fetchConstraint mcs = do
   pure (unsafeToSL ans)
 -}
 
+{-X
 fetchConstraint ::
   DbSql m
   => Maybe ConstraintKind
@@ -2009,6 +2058,9 @@ getRelatedObs propNum obsId =
            &&. isValidScienceObs)
           `orderBy` [Asc SoStartTimeField])
 
+X-}
+
+
 {-
 -- | Return the observations we know about for the given proposal
 --   (that are not discarded). This includes unscheduled observations.
@@ -2024,6 +2076,8 @@ getObsFromProposal propNum =
           `orderBy` [Asc SoStartTimeField])
 
 -}
+
+{-X
 -- | A combination of `getProposal` and `getProposalObs`.
 --
 getProposalInfo ::
@@ -2155,7 +2209,9 @@ findTarget target = do
   -- hopefully there are no repeats in these two lists
   let sobs = mergeSL rsoStartTime direct indirect
   pure (sobs, snames)
+X-}
 
+{-X
 type NumSrc = Int
 type NumObs = Int
 
@@ -2353,7 +2409,9 @@ getTimeline = do
   props <- map snd <$> selectAll
   pure (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
 
+X-}
 
+{-X   check how this compares to other getlastModified type rules
 -- | Grab the last-modified date from the database and include
 --   it in the return value.
 --
@@ -2366,8 +2424,9 @@ addLastMod ::
 addLastMod out = do
   lastMod <- getLastModifiedFixed
   pure (out, lastMod)
+X-}
 
-  
+{-X
 -- | Work out a timeline based on instrument configuration; that is,
 --   start times, exposure lengths, and instruments.
 --
@@ -2435,6 +2494,8 @@ getNumObsPerDay maxDay = do
       days = map (\t -> ((utctDay . fromChandraTime) t, 1)) ctimes
 
   pure (M.fromAscListWith (+) days)
+X-}
+
 
 {-
 -- | Return some hopefully-interesting statistics about the
@@ -2454,7 +2515,7 @@ getProposalCategoryBreakdown = do
 
 -}
 
-
+{-X
 getProposalTypeBreakdown ::
   DbSql m
   => m (M.Map PropType (Int, Int, TimeKS))
@@ -2512,6 +2573,8 @@ getProposalTypeBreakdown = do
   -- type.
   --
   pure (M.map propAdd propMap)
+X-}
+
 
 -- | This does not include discarded observatons.
 {-
@@ -2528,6 +2591,7 @@ getProposalType ptype = do
   pure (unsafeToSL sobs)
 -}
 
+{-X
 getProposalType ::
   DbSql m
   => PropType
@@ -2587,7 +2651,9 @@ getExposureValues = do
 
   pure out
 
+X-}
 
+{-X
 -- **EXPERIMENT**
 --
 -- What are the nearby (spatially coincident) observations?
@@ -2599,6 +2665,9 @@ getExposureValues = do
 --
 
 type Roll = Double
+
+X-}
+
 
 {-
 -- ^ The normalized separation (how far away in units of the search
@@ -2657,7 +2726,7 @@ findNearbyObs obsid0 (ra0,dec0) rmax = do
 
 -}
 
-
+{-X
 -- ^ Return all the "valid" observations so that they can be
 --   drawn as FOVs, along with the date the database was last
 --   updated
@@ -2699,6 +2768,8 @@ getRelated oi = do
       pure (Just (pTitle, unsafeToSL obs))
 
     Nothing -> pure Nothing
+
+X-}
 
 
 {-
@@ -2757,9 +2828,12 @@ sumV3 (a1, a2, a3) (b1, b2, b3) = sum [a1 * b1, a2 * b2, a3 * b3]
 -}
 
 
+{-X
 putIO :: MonadIO m => T.Text -> m ()
 putIO = liftIO . T.putStrLn
+X-}
 
+{-X
 showSize ::
   (DbIO m, PersistEntity v)
   => T.Text
@@ -2810,6 +2884,9 @@ reportSize = do
   putIO (sformat ("Number of rows              : " % int) ntot)
   pure ntot
 
+X-}
+
+{-X
 -- Need to make sure the following match the constraints on the tables found
 -- in Types.hs
 
@@ -2933,26 +3010,7 @@ insertOrReplace cond newVal = do
                    else pure False
     Nothing -> insert_ newVal >> pure True
 
--- | Update the last-modified field with the time.
---
---   Some would say that this should be done by Postgres itself, with
---   triggers, and they'd be right.
---
-updateLastModified :: PersistBackend m => UTCTime -> m ()
-updateLastModified lastMod = do
-  let new = toMetaData lastMod
-  deleteAll (undefined :: MetaData)
-  insert_ new
-  
--- | When was the database last modified.
---
-getLastModified :: PersistBackend m => m (Maybe UTCTime)
-getLastModified =
-  maybeProject MdLastModifiedField (CondEmpty
-                                    `orderBy` [Desc MdLastModifiedField])
-
-getLastModifiedFixed :: PersistBackend m => m UTCTime
-getLastModifiedFixed = fromMaybe dummyLastMod <$> getLastModified
+X-}
 
 
 {-
@@ -2972,8 +3030,11 @@ getLastModifiedFixed = fromMaybe dummyLastMod <$> getLastModified
 --   The return list could be sorted on time (or ObsId) but let's
 --   not bother with that.
 --
-getInvalidObsIds :: PersistBackend m => m [InvalidObsId]
-getInvalidObsIds = map snd <$> selectAll
+getInvalidObsIds :: Query (InvalidObsId Expr)
+getInvalidObsIds = each invalidObsIdSchema
+
+
+{-X
 
 -- | Add an invalid ObsId. The ObsId must not already be marked
 --   as invalid.
@@ -2981,7 +3042,9 @@ getInvalidObsIds = map snd <$> selectAll
 addInvalidObsId :: PersistBackend m => InvalidObsId -> m ()
 addInvalidObsId = insert_
 
+X-}
 
+{-X
 -- | General "size" information on the database. Intended for the
 --   "about" page.
 --
@@ -3009,7 +3072,9 @@ getDataBaseInfo = do
                          
   pure (nscience, nprop, tscience, lastMod)
                      
+X-}
 
+{-X
 -- | Hard-coded connection string for the database connection.
 --
 --   If the DATABASE_URL is available, use that (Heroku-like set up)
@@ -3059,3 +3124,206 @@ timeDb act = do
 
 
 
+X-}
+
+
+-- See also Web.Heroku.
+--
+separateDatabase :: String -> Maybe Setting
+separateDatabase = go
+  where
+    getPort (':':port) = Just port
+    getPort _ = Nothing
+
+    -- this is only in Data.List from base 4.19.0.0, so use
+    -- the example from the documentation, as we expect the
+    -- input to be finite.
+    unsnoc xs = (\(hd, tl) -> (reverse tl, hd)) <$> uncons (reverse xs)
+
+    isColon = (== ':')
+    getUserInfo uinfo =
+      let (user, rest) = break isColon uinfo
+      in do
+        guard (user /= "")
+        (_, rest2) <- uncons rest
+        (password, lastchar) <- unsnoc rest2
+        guard (password /= "")
+        guard (lastchar == '@')
+        pure (user, password)
+
+    getDb path = do
+      (a, b) <- uncons path
+      guard (a == '/')
+      guard (b /= "")
+      pure b
+
+    go env = do
+      uri <- parseAbsoluteURI env
+      
+      guard (uriScheme uri == "postgres:")
+      auth <- uriAuthority uri
+      (user, password) <- getUserInfo (uriUserInfo auth)
+      port <- getPort (uriPort auth)
+      db <- getDb (uriPath uri)
+
+      let hostT = T.pack (uriRegName auth)
+          userT = T.pack user
+          portNum = read port
+          passT = T.pack password
+          dbaseT = T.pack db
+          
+      (pure . connection . params) [ P.host hostT
+                                   , P.user userT
+                                   , P.port portNum
+                                   , P.password passT
+                                   , P.dbname dbaseT
+                                   ]
+      
+
+listify1 :: T.Text -> NE.NonEmpty T.Text
+listify1 = NE.singleton
+
+listify2 :: T.Text -> T.Text -> NE.NonEmpty T.Text
+listify2 a b = a NE.:| [b]
+
+quickError :: NE.NonEmpty T.Text -> IO a
+quickError (f NE.:| rs) = do
+  T.hPutStrLn stderr ("ERROR: " <> f)
+  mapM_ (T.hPutStrLn stderr) rs
+  exitFailure
+
+quickError1 :: T.Text -> IO a
+quickError1 = quickError . listify1
+
+quickError2 :: T.Text -> T.Text -> IO a
+quickError2 a = quickError . listify2 a
+
+
+getSettings :: IO Setting
+getSettings = do
+  murl <- lookupEnv "DATABASE_URL"
+  case murl of
+    Just url -> case separateDatabase url of
+      Just x -> pure x
+      _ -> quickError2 "invalid DATABASE_URL" (T.pack url)
+           
+    _ -> quickError1 "no DATABASE_URL environment variable"
+    
+
+getConnection :: IO Connection
+getConnection = do
+  dbSettings <- getSettings
+  resp <- acquire [dbSettings]
+  case resp of
+    Right conn -> pure conn
+    Left (Just emsg) -> quickError1 (T.pack (B8.unpack emsg))
+    _ -> quickError1 "Unable to connect to database"
+
+
+-- | Run a query and grab the return values.
+--
+runDb ::
+  Serializable exprs a
+  => Connection
+  -> Statement (Query exprs)
+  -> IO [a]
+runDb conn stmt = do
+  res <- Session.run (Session.statement () (run stmt)) conn
+  case res of
+    Right ans -> pure ans
+    Left err -> quickError2 "Database error:" (T.pack (show err))
+
+-- | Run a query and ignore the return values.
+--
+runDb_ ::
+  Connection
+  -> Statement exprs
+  -> IO ()
+runDb_ conn stmt = do
+  res <- Session.run (Session.statement () (run_ stmt)) conn
+  case res of
+    Right ans -> pure ans
+    Left err -> quickError2 "Database error:" (T.pack (show err))
+
+-- | Run a query that returns a single value.
+--
+runDb1 ::
+  Serializable exprs a
+  => Connection
+  -> Statement (Query exprs)
+  -> IO a
+runDb1 conn stmt = do
+  res <- Session.run (Session.statement () (run1 stmt)) conn
+  case res of
+    Right ans -> pure ans
+    Left err -> quickError2 "Database error:" (T.pack (show err))
+
+-- | Run a query that returns either zero or one values.
+--
+runDbMaybe ::
+  Serializable exprs a
+  => Connection
+  -> Statement (Query exprs)
+  -> IO (Maybe a)
+runDbMaybe conn stmt = do
+  res <- Session.run (Session.statement () (runMaybe stmt)) conn
+  case res of
+    Right ans -> pure ans
+    Left err -> quickError2 "Database error:" (T.pack (show err))
+
+---
+
+-- | Update the last-modified field with the time.
+--
+--   Some would say that this should be done by Postgres itself, with
+--   triggers, and they'd be right.
+--
+updateLastModified :: Connection -> UTCTime -> IO ()
+updateLastModified conn lastMod = runDb_ conn (updateLastModifiedS lastMod)
+
+updateLastModifiedS :: UTCTime -> Statement ()
+updateLastModifiedS lastMod =
+  let new = toMetaData lastMod
+
+      del = delete $ Delete
+        { from = metaDataSchema
+        , using = pure ()
+        , deleteWhere = \_ _ -> lit True
+        , returning = NoReturning
+        }
+      ins = insert $ Insert
+        { into = metaDataSchema
+        , rows = values [ lit new ]
+        , onConflict = Abort
+        , returning = NoReturning
+        }
+
+      query = del >> ins
+
+  in query
+
+  
+-- | When was the database last modified.
+--
+getLastModified :: Connection -> IO (Maybe UTCTime)
+getLastModified conn = runDbMaybe conn getLastModifiedS
+
+getLastModifiedS :: Statement (Query (Expr UTCTime))
+getLastModifiedS =
+  let query = fmap mdLastModified
+              $ orderBy (mdLastModified >$< desc)
+              $ each metaDataSchema
+
+  in select query
+
+-- | The time used when no last-modified date can be accessed from
+--   the database. Ideally would use the current time, as this seems
+--   the safest, but just hard code a simple value (as this should not
+--   be used anyware).
+--
+dummyLastMod :: UTCTime
+dummyLastMod = UTCTime (ModifiedJulianDay 0) 0
+
+
+getLastModifiedFixed :: Connection -> IO UTCTime
+getLastModifiedFixed conn = fromMaybe dummyLastMod <$> getLastModified conn

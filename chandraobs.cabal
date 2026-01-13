@@ -24,7 +24,8 @@ cabal-version:       2.0
 
 flag server
   description: build the webserver
-  default: True
+  -- default: True
+  default: False
 
 flag redirectserver
   description: build the redirection webserver
@@ -41,7 +42,7 @@ library
   exposed-modules:
                   Database
                   Git
-                  Instances
+                  -- Instances
                   Sorted
                   Types
 
@@ -50,40 +51,33 @@ library
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(server) || flag(tools)
-    build-depends:
-       -- I need the ToJSON instance for Day, which means 0.10 or higher, but
-       -- 0.10 is now considered "bad", and there appear to be build issues
-       -- for aeson 0.11 before .1.4, so exclude them just in case.
-       --
-       aeson >= 0.11.1.4 && < 2.1
-       , base >= 4.9 && < 5.0
-       , blaze-html >= 0.7 && < 0.10
-       , bytestring == 0.10.*
-       -- scrabbling around trying to get nixtools to work
-       -- and was hoping this might get nix-build to work, but
-       -- alas it does not
-       , Cabal
-       , containers >= 0.4 && < 0.7
-       , formatting >= 6.2 && < 7.2
-       , groundhog >= 0.8 && < 0.13
-       , groundhog-postgresql >= 0.8 && < 0.13
-       , groundhog-th >= 0.8 && < 0.13
-       , heroku == 0.1.*
-       , http-types >= 0.8 && < 1.0
-       , monad-control == 1.0.*
-       -- , rel8 >= 1.5 && < 1.7
-       , scotty >= 0.7 && < 0.13
-       , split == 0.2.*
-       , text >= 1.0 && < 1.3
-       , time >= 1.5 && < 1.10
-       , transformers >= 0.3 && < 0.6
-       , vector >= 0.12 && < 0.13         
-       , vector-algorithms >= 0.8 && < 0.9
-       , zlib == 0.6.*
-
-  else
-    buildable:  False
+  build-depends:
+     --X aeson >= 2.0 && < 2.3
+     base >= 4.9 && < 5.0
+     --X , blaze-html >= 0.7 && < 0.10
+     , bytestring >= 0.10 && < 0.13
+     -- scrabbling around trying to get nixtools to work
+     -- and was hoping this might get nix-build to work, but
+     -- alas it does not
+     -- , Cabal
+     , containers >= 0.4 && < 0.9
+     , formatting >= 6.2 && < 7.3
+     -- rel8 allows 1.8 and 1.9 but they differ enough we just
+     -- pick the newer version
+     , hasql == 1.9.*
+     --X , heroku == 0.1.*
+     --X , http-types >= 0.8 && < 1.0
+     , monad-control == 1.0.*
+     , network-uri == 2.6.*
+     , rel8 >= 1.5 && < 1.7
+     --X , scotty >= 0.7 && < 0.40
+     , split == 0.2.*
+     , text >= 2.0 && < 2.2
+     , time >= 1.5 && < 1.16
+     , transformers >= 0.3 && < 0.7
+     --X , vector >= 0.12 && < 0.14         
+     --X , vector-algorithms >= 0.8 && < 0.10
+     --X , zlib >= 0.6 && < 0.8
 
            
 executable webserver
@@ -133,12 +127,13 @@ executable webserver
        , chandraobs
        , data-default >= 0.5 && < 0.8
        , formatting
-       , groundhog
-       , groundhog-postgresql
+       -- , groundhog
+       -- , groundhog-postgresql
        , http-types
        , hvega >= 0.11 && < 0.13
        , mtl == 2.2.*
        , random >= 1.0 && < 1.3
+       , rel8 >= 1.5 && < 1.7
        , resource-pool == 0.2.*
        , scotty
        , split
