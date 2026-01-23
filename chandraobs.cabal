@@ -35,6 +35,10 @@ flag tools
   description: build the command-line tools
   default: False
 
+flag toolsX
+  description: build the command-line tools (converted to Rel8)
+  default: True
+
 library
   default-language: Haskell2010
   hs-source-dirs: lib/
@@ -66,7 +70,7 @@ library
      -- pick the newer version
      , hasql == 1.9.*
      --X , heroku == 0.1.*
-     --X , http-types >= 0.8 && < 1.0
+     , http-types >= 0.8 && < 1.0
      , monad-control == 1.0.*
      , network-uri == 2.6.*
      , rel8 >= 1.5 && < 1.7
@@ -186,12 +190,12 @@ executable getschedule
      -- TODO: may want to store the ocat output as files
      -- , directory >= 1.2 && < 1.4
      , formatting
-     , groundhog
-     , groundhog-postgresql
+     , hasql
      , http-conduit >= 2.1 && < 2.4
      , http-types
      , parsec == 3.1.*
      , process >= 1.1 && < 1.7
+     , rel8
      , tagsoup >= 0.13 && < 0.15
      , temporary >= 1.1 && < 1.4
      , text
@@ -341,20 +345,21 @@ executable querysimbad
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , bytestring
      , chandraobs
      , containers
      , formatting
-     , groundhog-postgresql
+     , hasql
      , http-conduit
      , http-types
+     , rel8
      , split
      , text
      , time
-     , transformers
+     -- , transformers
 
   else
     buildable:  False
@@ -368,22 +373,41 @@ executable queryobsid
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , bytestring
      , chandraobs
      , containers
      , formatting
-     , groundhog
-     , groundhog-postgresql
+     , hasql
      , http-conduit >= 2.1 && < 2.4
      , http-types
      , process >= 1.1 && < 1.7
+     , rel8
      , tagsoup >= 0.13 && < 0.15
      , temporary >= 1.1 && < 1.4
      , text
      , time
+
+  else
+    buildable:  False
+
+executable exploretelescopes
+  default-language: Haskell2010
+  main-is:             ExploreTelescopes.hs
+  hs-source-dirs:      tools/
+
+  -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  ghc-options: -Wall -Wincomplete-record-updates
+
+  if flag(toolsX)
+    build-depends:
+     base
+     , chandraobs
+     , hasql
+     , rel8
+     , text
 
   else
     buildable:  False
@@ -396,11 +420,11 @@ executable getcurrent
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , chandraobs
-     , groundhog-postgresql
+     , hasql
      , text
      , time
 

@@ -1,19 +1,22 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Types (MetaData(..)
              , fromMetaData, toMetaData
-             , ScienceObs(..), NonScienceObs(..), InvalidObsId(..)
+             , ScienceObs(..), ScienceObsRaw(..)
+             , NonScienceObs(..), InvalidObsId(..)
+             , TelescopeId
              , Sequence
              , unsafeToSequence
              , fromSequence
              , ObsIdStatus(..)
              , fromObsIdStatus, toObsIdStatus
-             , ObsIdVal
+             , ObsIdVal(..)
              , fromObsIdVal
              , toObsIdValStr
              , unsafeToObsIdVal
@@ -24,7 +27,7 @@ module Types (MetaData(..)
              , fromPropNum, toPropNum
              , TOORequest
              , fromTOORequest, toTOORequest
-             , tooTime
+             , tooTime, rtToLabel
              , Telescope
              , fromTelescope, toTelescope
              , ChandraTime
@@ -32,7 +35,7 @@ module Types (MetaData(..)
              , showCTime
              , TargetName
              , fromTargetName, toTargetName
-             , Constraint
+             , Constraint(NoConstraint)
              , fromConstraint, toConstraint
              , Instrument(..)
              , fromInstrument, toInstrument
@@ -52,18 +55,40 @@ module Types (MetaData(..)
              , showExpTime
              , ChipStatus(..)
              , fromChipStatus, toChipStatus
+             , SimbadMatch(..), SimbadNoMatch(..), SimbadInfo(..)
+             , SimbadInfoKey
+             , toSI, siExpr
+             , toSM, smExpr
+             , toSNM, snmExpr
+             , SimbadType, fromSimbadType, toSimbadType
+             , SIMCategory(..), fromSIMCategory
+             
+             , SimbadLoc(..)
+             , simbadBase
+             -- , toSIMBADLink
+             
+             , TelescopeValues(..)
              --
              , metaDataSchema
-             , scienceObsSchema, nonScienceObsSchema, invalidObsIdSchema
+             , scienceObsRawSchema
+             , nonScienceObsSchema, invalidObsIdSchema
              , proposalSchema, proposalAbstractSchema
              , missingProposalAbstractSchema
+             , simbadMatchSchema, simbadNoMatchSchema, simbadInfoSchema
+             , telescopeValuesSchema
+
+             --
+             , _2
+             
              )
   where
 
 import qualified Data.Text as T
 
 import Data.Function (on)
-import Data.Int (Int32, Int64)
+import Data.Int (Int16, Int32, Int64)
+import Data.String (IsString(..))
+import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time.Clock (UTCTime)
 
 import Formatting (Format, (%), (%.), sformat)
@@ -72,12 +97,20 @@ import Formatting.Time (hm, dayName, dayOfMonthS, monthName, year)
 
 import GHC.Generics (Generic)
 
+import Network.HTTP.Types.URI (renderSimpleQuery)
 import Numeric.Natural (Natural)
 
 import Rel8 (Column
             , DBEq, DBOrd, DBType(..)
-            , Name, Rel8able, Result, TableSchema(..)
+            , Expr
+            , Name
+            , Rel8able
+            , Result
+            , TableSchema(..)
+            , lit
+            , nextval
             , parseTypeInformation
+            , unsafeCoerceExpr
             )
 
 import Text.Read (readMaybe)
@@ -303,7 +336,9 @@ instance Eq Dec where
   (==) = isClose atol `on` fromDec
 
 
--- | TODO: how do we handle this now?
+-- | The Telescope abstraction is not greaty because the data does not make it obvious
+--   what the constituents are.
+--
 newtype Telescope = Telescope { fromTelescope :: T.Text }
   deriving newtype (DBEq, DBType, Eq)
 
@@ -352,8 +387,20 @@ fromMetaData :: MetaData Result -> UTCTime
 fromMetaData = mdLastModified
 
 
--- Provide access to a subset of columns.
+-- | Represent the row-mapping for the sorMultiTelObs field.
 --
+newtype TelescopeId = TelescopeId { fromTelescopeId :: Int64 }
+  deriving newtype (DBEq, DBOrd, DBType)
+  deriving (Eq, Ord)
+
+
+-- Since ScienceObs doesn't directly encode the stored data
+-- then we
+--
+-- a) do not create a schema
+-- b) do not paramtrize access with a functor [NOT YET IMPLEMENTED]
+--
+
 data ScienceObs f =
   ScienceObs
   { soSequence :: Column f Sequence
@@ -400,7 +447,7 @@ data ScienceObs f =
   --
   , soMultiTel :: Column f Bool
   , soMultiTelInt :: Column f Double
-  -- , soMultiTelObs :: Column f Telescope     -- used [Telescope] in Groundhog
+  , soMultiTelObs :: Column f [Telescope]
   --
   , soTOO :: Column f (Maybe TOORequest)
   , soRA :: Column f RA
@@ -414,56 +461,121 @@ data ScienceObs f =
   deriving stock (Generic)
   deriving anyclass (Rel8able)
 
-scienceObsSchema :: TableSchema (ScienceObs Name)
-scienceObsSchema = TableSchema
+
+-- Access the data as stored in the database. This is intended to be an internal
+-- representation.
+--
+data ScienceObsRaw f =
+  ScienceObsRaw
+  { sorSequence :: Column f Sequence
+  , sorProposal :: Column f PropNum
+  , sorStatus :: Column f ObsIdStatus
+  , sorObsId :: Column f ObsIdVal
+  , sorTarget :: Column f TargetName
+  --
+  , sorStartTime :: Column f (Maybe ChandraTime)
+  , sorApprovedTime :: Column f TimeKS
+  , sorObservedTime :: Column f (Maybe TimeKS)
+  , sorPublicRelease :: Column f (Maybe UTCTime)
+  --
+  , sorTimeCritical :: Column f Constraint
+  , sorMonitor :: Column f Constraint
+  , sorConstrained :: Column f Constraint
+  --
+  , sorInstrument :: Column f Instrument
+  , sorGrating :: Column f Grating
+  , sorDetector :: Column f (Maybe T.Text)
+  , sorDataMode :: Column f (Maybe T.Text)
+  --
+  , sorACISI0 :: Column f ChipStatus
+  , sorACISI1 :: Column f ChipStatus
+  , sorACISI2 :: Column f ChipStatus
+  , sorACISI3 :: Column f ChipStatus
+  , sorACISS0 :: Column f ChipStatus
+  , sorACISS1 :: Column f ChipStatus
+  , sorACISS2 :: Column f ChipStatus
+  , sorACISS3 :: Column f ChipStatus
+  , sorACISS4 :: Column f ChipStatus
+  , sorACISS5 :: Column f ChipStatus
+  --
+  , sorJointWith :: Column f (Maybe T.Text)
+  , sorJointHST :: Column f (Maybe TimeKS)
+  , sorJointNOAO :: Column f (Maybe TimeKS)
+  , sorJointNRAO :: Column f (Maybe TimeKS)
+  , sorJointRXTE :: Column f (Maybe TimeKS)
+  , sorJointSPITZER :: Column f (Maybe TimeKS)
+  , sorJointSUZAKU :: Column f (Maybe TimeKS)
+  , sorJointXMM :: Column f (Maybe TimeKS)
+  , sorJointSWIFT :: Column f (Maybe TimeKS)
+  , sorJointNUSTAR :: Column f (Maybe TimeKS)
+  --
+  , sorMultiTel :: Column f Bool
+  , sorMultiTelInt :: Column f Double
+  , sorMultiTelObs :: Column f TelescopeId
+  --
+  , sorTOO :: Column f (Maybe TOORequest)
+  , sorRA :: Column f RA
+  , sorDec :: Column f Dec
+  , sorConstellation :: Column f ConShort
+  , sorRoll :: Column f Double
+  --
+  , sorSubArrayStart :: Column f (Maybe Int32)
+  , sorSubArraySize :: Column f (Maybe Int32)
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+
+scienceObsRawSchema :: TableSchema (ScienceObsRaw Name)
+scienceObsRawSchema = TableSchema
   { name = "ScienceObs"
-  , columns = ScienceObs
-    { soSequence = "soSequence"
-    , soProposal = "soProposal"
-    , soStatus = "soStatus"
-    , soObsId = "soObsId"
-    , soTarget = "soTarget"
-    , soStartTime = "soStartTime"  
-    , soApprovedTime = "soApprovedTime"
-    , soObservedTime = "soObservedTime"
-    , soPublicRelease = "soPublicRelease"
-    , soTimeCritical = "soTimeCritical"
-    , soMonitor = "soMonitor"
-    , soConstrained = "soConstrained"
-    , soInstrument = "soInstrument"
-    , soGrating = "soGrating"
-    , soDetector = "soDetector"
-    , soDataMode = "soDataMode"
-    , soACISI0 = "soACISI0"
-    , soACISI1 = "soACISI1"
-    , soACISI2 = "soACISI2"
-    , soACISI3 = "soACISI3"
-    , soACISS0 = "soACISS0"
-    , soACISS1 = "soACISS1"
-    , soACISS2 = "soACISS2"
-    , soACISS3 = "soACISS3"
-    , soACISS4 = "soACISS4"
-    , soACISS5 = "soACISS5"
-    , soJointWith = "soJointWith"
-    , soJointHST = "soJointHST"
-    , soJointNOAO = "soJointNOAO"
-    , soJointNRAO = "soJointNRAO"
-    , soJointRXTE = "soJointRXTE"
-    , soJointSPITZER = "soJointSPITZER"
-    , soJointSUZAKU = "soJointSUZAKU"
-    , soJointXMM = "soJointXMM"
-    , soJointSWIFT = "soJointSWIFT"
-    , soJointNUSTAR = "soJointNUSTAR"
-    , soMultiTel = "soMultiTel"
-    , soMultiTelInt = "soMultiTelInt"
-    -- , soMultiTelObs = "soMultiTelObs"
-    , soTOO = "soTOO"
-    , soRA = "soRA"
-    , soDec = "soDec"
-    , soConstellation = "soConstellation"
-    , soRoll = "soRoll"
-    , soSubArrayStart = "soSubArrayStart"
-    , soSubArraySize = "soSubArraySize"
+  , columns = ScienceObsRaw
+    { sorSequence = "soSequence"
+    , sorProposal = "soProposal"
+    , sorStatus = "soStatus"
+    , sorObsId = "soObsId"
+    , sorTarget = "soTarget"
+    , sorStartTime = "soStartTime"  
+    , sorApprovedTime = "soApprovedTime"
+    , sorObservedTime = "soObservedTime"
+    , sorPublicRelease = "soPublicRelease"
+    , sorTimeCritical = "soTimeCritical"
+    , sorMonitor = "soMonitor"
+    , sorConstrained = "soConstrained"
+    , sorInstrument = "soInstrument"
+    , sorGrating = "soGrating"
+    , sorDetector = "soDetector"
+    , sorDataMode = "soDataMode"
+    , sorACISI0 = "soACISI0"
+    , sorACISI1 = "soACISI1"
+    , sorACISI2 = "soACISI2"
+    , sorACISI3 = "soACISI3"
+    , sorACISS0 = "soACISS0"
+    , sorACISS1 = "soACISS1"
+    , sorACISS2 = "soACISS2"
+    , sorACISS3 = "soACISS3"
+    , sorACISS4 = "soACISS4"
+    , sorACISS5 = "soACISS5"
+    , sorJointWith = "soJointWith"
+    , sorJointHST = "soJointHST"
+    , sorJointNOAO = "soJointNOAO"
+    , sorJointNRAO = "soJointNRAO"
+    , sorJointRXTE = "soJointRXTE"
+    , sorJointSPITZER = "soJointSPITZER"
+    , sorJointSUZAKU = "soJointSUZAKU"
+    , sorJointXMM = "soJointXMM"
+    , sorJointSWIFT = "soJointSWIFT"
+    , sorJointNUSTAR = "soJointNUSTAR"
+    , sorMultiTel = "soMultiTel"
+    , sorMultiTelInt = "soMultiTelInt"
+    , sorMultiTelObs = "soMultiTelObs"
+    , sorTOO = "soTOO"
+    , sorRA = "soRA"
+    , sorDec = "soDec"
+    , sorConstellation = "soConstellation"
+    , sorRoll = "soRoll"
+    , sorSubArrayStart = "soSubArrayStart"
+    , sorSubArraySize = "soSubArraySize"
     }
   }
 
@@ -612,6 +724,26 @@ missingProposalAbstractSchema = TableSchema
   }
 
 
+-- | This was created by groundhog to suppport storing [Telescope].
+--
+data TelescopeValues f = TelescopeValues
+  { tvId :: Column f TelescopeId
+  , tvOrd :: Column f Int16   -- do we need this?
+  , tvValue :: Column f Telescope
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+telescopeValuesSchema :: TableSchema (TelescopeValues Name)
+telescopeValuesSchema = TableSchema
+  { name = "List##Telescope#values"
+  , columns = TelescopeValues
+    { tvId = "id"
+    , tvOrd = "ord"
+    , tvValue = "value"
+    }
+  }
+
 -- | Represent an entry in the schedule; this is
 --   a "catch-all" type that is used as I play around with the
 --   database.
@@ -655,7 +787,7 @@ toObsIdValStr = maybeFromText ObsIdVal validObsIdVal
 
 data ObsIdStatus = 
   Discarded | Canceled | Unobserved | Scheduled | Observed | Archived
-  deriving (DBEq, Eq)
+  deriving (DBEq, DBOrd, Eq)
 
 instance DBType ObsIdStatus where
   typeInformation = parseTypeInformation fromOIS toOIS typeInformation
@@ -685,7 +817,8 @@ fromObsIdStatus Archived = "archived"
 
 
 newtype TargetName = TargetName { fromTargetName :: T.Text }
-  deriving newtype (DBEq, DBType, Eq, Ord)
+  deriving newtype (DBEq, DBType, DBOrd)
+  deriving (Eq, Ord)
 
 toTargetName :: T.Text -> TargetName
 toTargetName = TargetName
@@ -1065,3 +1198,293 @@ instance DBType TOORequest where
         _ -> Left ("Unknown TOO request: '" <> T.unpack t <> "'")
 
       toTR = fromTOORequest
+
+newtype SimbadMatchKey = SimbadMatchKey { fromKey :: Int64 }
+  deriving newtype (DBEq, DBType, Eq, Show)
+  
+newtype SimbadNoMatchKey = SimbadNoMatchKey { fromKey :: Int64 }
+  deriving newtype (DBEq, DBType, Eq, Show)
+  
+newtype SimbadInfoKey = SimbadInfoKey { fromKey :: Int64 }
+  deriving newtype (DBEq, DBType, Eq, Show)
+
+-- | Indicates that there is a SIMBAD match for the
+--   target name.
+--
+data SimbadMatch f = SimbadMatch {
+    smmId :: Column f SimbadMatchKey
+    , smmTarget :: Column f TargetName   -- ^ target name
+    , smmSearchTerm :: Column f T.Text   -- ^ value used for the simbad search
+    , smmInfo :: Column f SimbadInfoKey
+    , smmLastChecked :: Column f UTCTime
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+simbadMatchSchema :: TableSchema (SimbadMatch Name)
+simbadMatchSchema = TableSchema
+  { name = "SimbadMatch"
+  , columns = SimbadMatch
+    { smmId = "id"
+    , smmTarget = "smmTarget"
+    , smmSearchTerm = "smmSearchTerm"
+    , smmInfo = "smmInfo"
+    , smmLastChecked = "smmLastChecked"
+    }
+  }
+
+-- | This fakes the id field, which must be replaced by smExpr before use.
+--
+toSM ::
+  TargetName
+  -> T.Text
+  -> SimbadInfoKey
+  -> UTCTime
+  -> SimbadMatch Result
+toSM tgt sterm info checked =
+  SimbadMatch { smmId = undefined
+              , smmTarget = tgt
+              , smmSearchTerm = sterm
+              , smmInfo = info
+              , smmLastChecked = checked
+              }
+
+-- | Convert a SimbadMatch structure to an expression, creating a
+--   *new* smmId field.
+--
+smExpr :: SimbadMatch Result -> SimbadMatch Expr
+smExpr orig =
+  SimbadMatch { smmId = unsafeCoerceExpr (nextval "SimbadMatch_id_seq")
+              , smmTarget = lit (smmTarget orig)
+              , smmSearchTerm = lit (smmSearchTerm orig)
+              , smmInfo = lit (smmInfo orig)
+              , smmLastChecked = lit (smmLastChecked orig)
+              }
+
+-- | Indicates that there is no SIMBAD match for the
+--   target name.
+--
+data SimbadNoMatch f = SimbadNoMatch {
+    smnId :: Column f SimbadNoMatchKey
+    , smnTarget :: Column f TargetName   -- ^ target name
+    , smnSearchTerm :: Column f T.Text   -- ^ value used for the simbad search
+    , smnLastChecked :: Column f UTCTime
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+simbadNoMatchSchema :: TableSchema (SimbadNoMatch Name)
+simbadNoMatchSchema = TableSchema
+  { name = "SimbadNoMatch"
+  , columns = SimbadNoMatch
+    { smnId = "id"
+    , smnTarget = "smnTarget"
+    , smnSearchTerm = "smnSearchTerm"
+    , smnLastChecked = "smnLastChecked"
+    }
+  }
+
+-- | This fakes the id field, which must be replaced by snmExpr before use.
+--
+toSNM ::
+  TargetName
+  -> T.Text
+  -> UTCTime
+  -> SimbadNoMatch Result
+toSNM tgt sterm checked =
+  SimbadNoMatch { smnId = undefined
+                , smnTarget = tgt
+                , smnSearchTerm = sterm
+                , smnLastChecked = checked
+                }
+
+-- | Convert a SimbadNoMatch structure to an expression, creating a
+--   *new* smnId field.
+--
+snmExpr :: SimbadNoMatch Result -> SimbadNoMatch Expr
+snmExpr orig =
+  SimbadNoMatch { smnId = unsafeCoerceExpr (nextval "SimbadNoMatch_id_seq")
+                , smnTarget = lit (smnTarget orig)
+                , smnSearchTerm = lit (smnSearchTerm orig)
+                , smnLastChecked = lit (smnLastChecked orig)
+                }
+
+{-
+-- | What does SIMBAD know about this object?
+--
+--   At present `SimbadSearch` is a union of `SimbadNoMatch` and
+--   `SimbadMatch`.
+--
+type SimbadSearch = Either SimbadNoMatch SimbadMatch
+-}
+
+
+-- It would have been nice to encode the hierarchy here, so that
+-- a search could be made for all elements that match a particular
+-- level in the hierarchy.
+
+-- | This is the short form of the SIMBAD type. I have enforced the
+--   restriction that this is at most three characters, but of
+--   course there's at least one four-letter match ("Pec?").
+--   For now I am going to ignore this since it appears that
+--   "Pec" is still unique, so internally things should
+--   be okay (unless there's parsing issues as well).
+--
+newtype SimbadType = SimbadType { fromSimbadType :: T.Text }
+  deriving newtype (DBEq, DBType, Eq, Show)
+
+
+-- TODO: need a converter to a URL fragment - e.g. '?' needs protecting!
+--       actually, need to check this, since I have seen it work
+
+-- | This constructor ensures that the type is three letters
+--   or less.
+toSimbadType :: T.Text -> Maybe SimbadType
+toSimbadType s | T.length s > 0 && T.length s < 4 = Just (SimbadType s)
+               | otherwise = Nothing
+
+noSimbadType :: SimbadType
+noSimbadType = SimbadType "000"
+
+
+-- | TODO: Should this be an enumeration?
+--
+--   This is the "long form" of a SIMBAD type.
+newtype SIMCategory = SIMCategory { fromSIMCategory :: T.Text }
+  deriving newtype (DBEq, DBType, Eq, Show)
+
+-- | Identifies those sources for which we have no SIMBAD information.
+noSimbadLabel :: SIMCategory
+noSimbadLabel = SIMCategory "Unidentified"
+
+
+-- | Information on an object identifier, retrieved from SIMBAD.
+--
+--   I originally tried to combine the SIMBAD information with
+--   the observation information, but I have finally decided to
+--   have three structures
+--
+--     - `SimbadInfo` which stores the information from SIMBAD
+--
+--     - `SimbadMatch` which matches a `ScienceObs` to a `SimbadInfo`
+--
+--     - `SimbadNoMatch` which indicates that we have not found a
+--       match when searching SIMBAD.
+--
+data SimbadInfo f = SimbadInfo {
+  smiId :: Column f SimbadInfoKey
+  , smiName :: Column f TargetName
+    -- ^ the primary identifier for the object
+  , smiType3 :: Column f SimbadType
+    -- ^ short form identifier for siType
+  , smiType :: Column f SIMCategory
+    -- ^ the primary type of the object (long form)
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+simbadInfoSchema :: TableSchema (SimbadInfo Name)
+simbadInfoSchema = TableSchema
+  { name = "SimbadInfo"
+  , columns = SimbadInfo
+    { smiId = "id"
+    , smiName = "smiName"
+    , smiType3 = "smiType3"
+    , smiType = "smiType"
+    }
+  }
+    
+-- | This fakes the id field, which must be replaced by siExpr before use.
+--
+toSI ::
+  TargetName
+  -> SimbadType
+  -> SIMCategory
+  -> SimbadInfo Result
+toSI sName sType3 sType =
+  SimbadInfo { smiId = undefined
+             , smiName = sName
+             , smiType3 = sType3
+             , smiType = sType
+             }
+
+-- | Convert a SimbadInfo structure to an expression, creating a
+--   *new* smiId field.
+--
+siExpr :: SimbadInfo Result -> SimbadInfo Expr
+siExpr orig =
+  SimbadInfo { smiId = unsafeCoerceExpr (nextval "SimbadInfo_iq_seq")
+             , smiName = lit (smiName orig)
+             , smiType3 = lit (smiType3 orig)
+             , smiType = lit (smiType orig)
+             }
+
+
+{-X
+-- | Do we consider the two names to be the same?
+--
+--   Strip out all spaces; convert to lower case.
+--
+--   We do not use a simple edit distance comparison here
+--   since we do not want to equate 3C292 and 3C232.
+--
+similarName :: SimbadInfo f -> TargetName -> Bool
+similarName SimbadInfo{..} target =
+  let conv = T.filter (not . isSpace) . T.toLower . fromTargetName
+  in ((==) `on` conv) target smiName
+
+X-}
+
+{-X
+-- | The short and long forms of the type information from SIMBAD.
+type SimbadTypeInfo = (SimbadType, SIMCategory)
+X-}
+
+{-
+-- | The Simbad name is used for ordering.
+--
+--   Why do we need an Ord constraint?
+instance Ord SimbadInfo where
+  compare = compare `on` smiName
+-}
+
+
+-- | Which SIMBAD should be queried (this is in case one is down).
+--
+data SimbadLoc = SimbadCDS | SimbadCfA deriving Eq
+
+simbadBase :: IsString s => SimbadLoc -> s
+simbadBase SimbadCDS = "http://simbad.u-strasbg.fr/simbad/"
+simbadBase SimbadCfA = "http://simbad.harvard.edu/simbad/"
+
+-- | Return a link to the SIMBAD site (Strasbourg) for this object.
+--
+-- TODO: need to protect the link
+toSIMBADLink :: SimbadLoc -> TargetName -> T.Text
+toSIMBADLink sloc name =
+  let qry = [ ("Ident", encodeUtf8 (fromTargetName name))
+            -- , ("NbIdent", "1")
+            -- , ("Radius", "2")
+            -- , ("Radius.unit", "arcmin")
+            -- , ("submit", "submit id")
+            ]
+
+      qryB = renderSimpleQuery True qry
+
+  in decodeUtf8 (simbadBase sloc <> "sim-id" <> qryB)
+
+
+-- Not using lenses for now.
+--
+{-
+_1 :: (a, b, c) -> a
+_1 (f1, _, _) = f1
+-}
+
+_2 :: (a, b, c) -> b
+_2 (_, f2, _) = f2
+
+{-
+_3 :: (a, b, c) -> c
+_3 (_, _, f3) = f3
+-}

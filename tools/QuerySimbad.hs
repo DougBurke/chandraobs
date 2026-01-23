@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Query SIMBAD for observations. This is to
 --
@@ -46,32 +49,36 @@ import qualified Data.Set as S
 import qualified Network.HTTP.Conduit as NHC
 
 import Control.Monad (forM_, unless, when)
-import Control.Monad.IO.Class (MonadIO, liftIO)
 
 import Data.Functor (void)
-import Data.Maybe ({- catMaybes, -} fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Functor.Contravariant ((>$<))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Time (UTCTime, addUTCTime, getCurrentTime)
 
--- Perhaps should import most (all?) of these from Database.Groudhog,
--- but it would require adding groundhog to the stanza for this tool
--- in the cabal file, and I don't want to do that just now.
---
-import Database.Groundhog.Postgresql (PersistBackend, AutoKey, DefaultKey
-                                     , Order(Asc), Cond(CondEmpty)
-                                     , (==.)
-                                     , select
-                                     , project
-                                     , get
-                                     , delete
-                                     , replace
-                                     , insertByAll
-                                     , orderBy
-                                     , distinctOn
-                                     , countAll
-                                     )
+import Rel8 ((==.)
+            , DBOrd, Columns, Context, Name, Transpose, Table, TableSchema
+            , Result, Query, Expr
+            , Delete(..), Returning(..), Insert(..), OnConflict(..)
+            , aggregate
+            , asc
+            , countStar
+            , delete
+            , distinctOnBy
+            , each
+            , in_
+            , insert
+            , lit
+            , litExpr
+            , orderBy
+            , select
+            , showDelete
+            , values
+            )
 
 import Formatting (int, sformat)
+
+import Hasql.Connection (Connection, release)
 
 import Network.HTTP.Types.Header (Header)
 
@@ -82,10 +89,13 @@ import System.IO (hPutStrLn, stderr)
 import Text.Read (readMaybe)
 
 import Database (updateLastModified
-                , maybeSelect
-                , insertIfUnknown
-                , putIO
-                , runDb)
+                , getConnection
+                , getSize
+                , runDb
+                , runDbMaybe
+                , runDb1
+                , runDb_
+                )
 import Types (SimbadMatch(..)
              , SimbadNoMatch(..)
              , SimbadInfo(..)
@@ -93,16 +103,21 @@ import Types (SimbadMatch(..)
              , simbadBase
              , SimbadType
              , toSimbadType
-             , SIMCategory
+             , SIMCategory(..)
+             , SimbadInfoKey
+             , toSI, siExpr
+             , toSM, smExpr
+             , toSNM, snmExpr
              , TargetName
              , fromTargetName
              , toTargetName
+             , sorTarget
+             , scienceObsRawSchema
+             , simbadMatchSchema
+             , simbadNoMatchSchema
+             , simbadInfoSchema
+              --
              , _2
-             , Field(SmnTargetField,
-                     SmnLastCheckedField,
-                     SmmTargetField,
-                     {- SmiNameField, -}
-                     SoTargetField)
              )
 
 userAgent :: Header
@@ -125,41 +140,63 @@ userAgent = ("User-Agent", "chandraobs dburke@cfa.harvard.edu")
 --         needed should be done here.
 --
 insertSimbadInfo ::
-  PersistBackend m
-  => SimbadInfo
-  -> m (AutoKey SimbadInfo, Bool)
-insertSimbadInfo sm = do
-  -- There's only one constraint on SimbadInfo
-  ems <- insertByAll sm
-  case ems of
-    Right newkey -> pure (newkey, False)
-    Left oldkey -> do
-      -- Need to handle the possibility of failure to appease the
-      -- MonadFail pantheon of deities.
-      --
-      let handle oldsm = do
-            -- do we need to update the existing SimbadInfo
-            -- structure?
-            --
-            -- I am assuming that oldkey is still valid after
-            -- the replacement.
-            --
-            when (oldsm /= sm) (replace oldkey sm)
-            pure (oldkey, True)
+  Connection
+  -> SimbadInfo Result
+  -> IO (SimbadInfoKey, Bool)
+insertSimbadInfo conn sm = do
 
-          eval = error "programmer error: no key"
+  -- There's only one constraint on SimbadInfo. Do we have to worry about
+  -- conflicts? With Groundhog the code was written to try and over-write
+  -- if there was a conflict, but this was not well tested and it's not
+  -- clear that the code correctly handled related tables that referenced
+  -- the smiId entry. So for now just fall over.
+  --
+  let ins = Insert { into = simbadInfoSchema
+                   , rows = values [ siExpr sm ]
+                   , onConflict = Abort
+                   , returning = Returning smiId
+            }
 
-      mans <- get oldkey
-      maybe eval handle mans
+  res <- runDbMaybe conn (insert ins)
+  case res of
+    Just idval -> pure (idval, False)
+    _ -> error "Unable to insert SimbadInfo" -- TODO
+    
+
+-- | Returns True if the database was updated.
+--
+--   This originally checked that the smnTargetField was not known,
+--   but now it just checks the full row.
+--
+insertSimbadMatch :: Connection -> SimbadMatch Result -> IO Bool
+insertSimbadMatch conn sm =
+  let ins = Insert { into = simbadMatchSchema
+                   , rows = values [ smExpr sm ]
+                   , onConflict = DoNothing
+                   , returning = Returning smmId
+                   }
+
+  in do
+    vals <- runDb conn (insert ins)
+    pure (not (null vals))
 
 
 -- | Returns True if the database was updated.
-insertSimbadMatch :: PersistBackend m => SimbadMatch -> m Bool
-insertSimbadMatch sm = insertIfUnknown sm (SmmTargetField ==. smmTarget sm)
+--
+--   This originally checked that the smnTargetField was not known,
+--   but now it just checks the full row.
+--
+insertSimbadNoMatch :: Connection -> SimbadNoMatch Result -> IO Bool
+insertSimbadNoMatch conn sm =
+  let ins = Insert { into = simbadNoMatchSchema
+                   , rows = values [ snmExpr sm ]
+                   , onConflict = DoNothing
+                   , returning = Returning smnId
+                   }
 
--- | Returns True if the database was updated.
-insertSimbadNoMatch :: PersistBackend m => SimbadNoMatch -> m Bool
-insertSimbadNoMatch sm = insertIfUnknown sm (SmnTargetField ==. smnTarget sm)
+  in do
+    vals <- runDb conn (insert ins)
+    pure (not (null vals))
 
 
 -- | Try and clean up SIMBAD identifiers:
@@ -372,7 +409,7 @@ querySIMBAD ::
   -> TargetName  -- ^ object name
   -> Int         -- ^ current iteration number
   -> Int         -- ^ Maximum iteration number
-  -> IO (SearchResults, Maybe SimbadInfo)
+  -> IO (SearchResults, Maybe (SimbadInfo Result))
 querySIMBAD _ _ f objname _ _ | isPlanet objname = do
                                   -- special case planets
                                   when f (T.putStrLn (">> Hard-coding planet: " <> fromTargetName objname))
@@ -419,19 +456,15 @@ querySIMBAD mgr sloc f objname cur total = do
   let searchRes = (objname, searchTerm, cTime)
 
   case rval of
-    Just (sName, sType3, sType) -> 
-        let si = SimbadInfo {
-                          smiName = sName
-                        , smiType3 = sType3
-                        , smiType = sType
-                        }
-        in pure (searchRes, Just si)
+    Just (sName, sType3, sType) ->
+      pure (searchRes, Just (toSI sName sType3 sType))
 
     Nothing -> do
       -- TODO: should have displayed the error string so this can be ignored
       T.putStrLn " -- no match found"
       -- >> T.putStrLn " -- response:" >> T.putStrLn body
       pure (searchRes, Nothing)
+
 
 -- | Assume we have a line from SIMBAD using the script interface using the
 --   format given in querySIMBAD.
@@ -443,7 +476,7 @@ parseObject txt =
               (toSimbadType s)
   in case toks of
     [name, otype3, otype, _] ->
-      Just (toTargetName (cleanupName name), toT otype3, otype)
+      Just (toTargetName (cleanupName name), toT otype3, SIMCategory otype)
     _ -> Nothing
 
 slen :: [a] -> T.Text
@@ -485,8 +518,44 @@ groupSorted ((a,b):xs) = go a [b] [] xs
 
 -}
 
-blag :: (MonadIO m) => Bool -> T.Text -> m ()
-blag f = when f . putIO
+
+blag :: Bool -> T.Text -> IO ()
+blag f = when f . T.putStrLn
+
+
+getDistinct :: (Columns (Transpose Expr names) ~ Columns names,
+                Context names ~ Name,
+                Context (Transpose Expr names) ~ Expr,
+                Transpose Name names ~ names,
+                Transpose Name (Transpose Expr names) ~ names,
+                Transpose Expr (Transpose Expr names) ~ Transpose Expr names,
+                Table Expr (Transpose Expr names),
+                Table Name names,
+                DBOrd a) =>
+               TableSchema names
+               -> (Transpose Expr names -> Expr a)
+               -> Query (Expr a)
+getDistinct schema proj =
+            fmap proj
+            $ distinctOnBy proj (proj >$< asc)
+            $ each schema
+            
+
+-- | All the target names (sorted).
+--
+allTargetsQ :: Query (Expr TargetName)
+allTargetsQ = getDistinct scienceObsRawSchema sorTarget
+
+-- | Targets that have a SIMBAD match (sorted).
+--
+matchTargetsQ :: Query (Expr TargetName)
+matchTargetsQ = getDistinct simbadMatchSchema smmTarget
+
+-- | Targets that do not have a SIMBAD match (sorted).
+--
+noMatchTargetsQ :: Query (Expr TargetName)
+noMatchTargetsQ = getDistinct simbadNoMatchSchema smnTarget
+
 
 -- | The flag is @True@ to get debug output from the @querySIMBAD@ calls.
 --   The Maybe argument controls the number of days back to use for
@@ -526,73 +595,84 @@ updateDB sloc mndays f = do
 
   T.putStrLn "# Querying the database"
 
-  let put = liftIO . T.putStrLn
+  conn <- getConnection
+
+  obsTargets <- runDb conn (select allTargetsQ)
+  matchTargets <- runDb conn (select matchTargetsQ)
+  noMatchTargets <- runDb conn (select noMatchTargetsQ)
+
+  -- Do steps A and B - ie identify those fields for which
+  -- we have no Simbad information.
+  --
+  -- The *Targets fields should have no duplicates, but go via
+  -- a set to make it easier to combine.
+  --
+  let allSet = S.fromList obsTargets
+      matchSet = S.fromList matchTargets
+      noMatchSet = S.fromList noMatchTargets
+
+      delMatchSet = matchSet `S.difference` allSet
+      delNoMatchSet = noMatchSet `S.difference` allSet
+
       setLen = showInt . S.size
 
-  unidSet <- runDb $ do
-      obs <- project SoTargetField
-            (CondEmpty `orderBy` [Asc SoTargetField]
-              `distinctOn` SoTargetField)
+  -- these numbers aren't that useful, since the number of
+  -- obsids and targets aren't the same, but leave for now
+  T.putStrLn ("# " <> setLen allSet <> " unique targets / " <>
+              setLen matchSet <> " names " <>
+              setLen noMatchSet <> " no match ")
 
-      matchTargets <- project SmmTargetField CondEmpty
-      noMatchTargets <- project SmnTargetField CondEmpty
+  T.putStrLn ("# - " <> setLen delNoMatchSet <> " no-matches to delete")
+  T.putStrLn ("# - " <> setLen delMatchSet <> " matches to delete")
 
-      -- Do steps A and B - ie identify those fields for which
-      -- we have no Simbad information.
-      --
-      let allSet = S.fromList obs
-          matchSet = S.fromList matchTargets
-          noMatchSet = S.fromList noMatchTargets
+  let deleteEntry label schema elems proj = unless (null elems) $ do
+        let del = Delete { from = schema
+                         , using = pure ()
+                         , deleteWhere = \_ row -> proj row `in_` (fmap litExpr (S.toList elems))
+                         -- , returning = NoReturning
+                         , returning = Returning proj
+                         }
 
-          delMatchSet = matchSet `S.difference` allSet
-          delNoMatchSet = noMatchSet `S.difference` allSet
+        deleted <- runDb conn (delete del)
+        T.putStrLn ("# cleanup: removed " <> T.pack (show (length deleted)) <> " " <> label)
+        when (length deleted /= S.size elems) $
+          T.putStrLn "### WARNING: numbers do not match"
 
-      -- these numbers aren't that useful, since the number of
-      -- obsids and targets aren't the same, but leave for now
-      put ("# " <> setLen allSet <> " unique targets / " <>
-            setLen matchSet <> " names " <>
-            setLen noMatchSet <> " no match ")
+  deleteEntry "no-matches" simbadNoMatchSchema delNoMatchSet smnTarget
+  deleteEntry "matches" simbadMatchSchema delMatchSet smmTarget
 
-      unless (S.null delNoMatchSet) $ do
-        put ("# cleanup: removing " <> setLen delNoMatchSet <> " no-matches")
-        forM_ delNoMatchSet $ \n -> delete (SmnTargetField ==. n)
+  -- How can we clean up the SimbadInfo table? The only real way
+  -- is that if smmTarget is no longer valid then we can delete
+  -- the SimbadMatch and **if no other matches** the associated
+  -- SimBadInfo entry. We have deleted the SimbadMatch entry
+  -- above, but how do we clean out un-referenced items?
+  --
+  -- This is not quick, so only enable when I want to check.
+  -- It has not been updated to use Rel8
+  {-
+  matches :: [SimbadMatch] <- select CondEmpty
+  minfos <- mapM get (smmInfo <$> matches)
+  let infos = catMaybes minfos
 
-      unless (S.null delMatchSet) $ do
-        put ("# cleanup: removing " <> setLen delMatchSet <> " matches")
-        forM_ delMatchSet $ \n -> delete (SmmTargetField ==. n)
+  allInfos <- project SmiNameField CondEmpty
 
-      -- How can we clean up the SimbadInfo table? The only real way
-      -- is that if smmTarget is no longer valid then we can delete
-      -- the SimbadMatch and **if no other matches** the associated
-      -- SimBadInfo entry. We have deleted the SimbadMatch entry
-      -- above, but how do we clean out un-referenced items?
-      --
-      -- This is not quick, so only enable when I want to check
-      {-
-      matches :: [SimbadMatch] <- select CondEmpty
-      minfos <- mapM get (smmInfo <$> matches)
-      let infos = catMaybes minfos
+  let wantSet = S.fromList (map smiName infos)
+      haveSet = S.fromList allInfos
 
-      allInfos <- project SmiNameField CondEmpty
+      delSet = haveSet `S.difference` wantSet
 
-      let wantSet = S.fromList (map smiName infos)
-          haveSet = S.fromList allInfos
+  unless (S.null delSet) $ do
+    put ("# cleanup: removing " <> setLen delSet <> " simbad records")
+    forM_ delSet $ \n -> delete (SmiNameField ==. n)
+  -}
 
-          delSet = haveSet `S.difference` wantSet
+  -- Update the last-modified date if necessary
+  --
+  unless (S.null delNoMatchSet && S.null delMatchSet {- && S.null delSet -}) $
+    getCurrentTime >>= updateLastModified conn
 
-      unless (S.null delSet) $ do
-        put ("# cleanup: removing " <> setLen delSet <> " simbad records")
-        forM_ delSet $ \n -> delete (SmiNameField ==. n)
-      -}
-
-      -- Update the last-modified date if necessary
-      --
-      unless (S.null delNoMatchSet && S.null delMatchSet {- && S.null delSet -}) $
-        liftIO getCurrentTime >>= updateLastModified
-
-      pure (allSet `S.difference` (matchSet `S.union` noMatchSet))
-
-  let nUnid = S.size unidSet
+  let unidSet = allSet `S.difference` (matchSet `S.union` noMatchSet)
+      nUnid = S.size unidSet
 
   -- NOTE: no attempt to cleanup the SimbadInfo table, which is
   --       going to be a bit awkward to do as we remove the SimbadMatch
@@ -609,58 +689,74 @@ updateDB sloc mndays f = do
       (searchRes, minfo) <- querySIMBAD mgr sloc f tgt ctr nUnid
       let tname = _2 searchRes
           tnameT = fromTargetName tname
-      runDb $ do
-        case minfo of
-          Just si -> do
-            blag f (">> inserting SimbadInfo for " <> fromTargetName (smiName si))
-            (key, cleanFlag) <- insertSimbadInfo si
 
-            blag f (">> and SimbadMatch with target=" <> tnameT)
-            void (insertSimbadMatch (toM searchRes key))
+      case minfo of
+        Just si -> do
+          blag f (">> inserting SimbadInfo for " <> fromTargetName (smiName si))
+          (key, cleanFlag) <- insertSimbadInfo conn si
 
-            -- If a SimbadInfo structure already exists (and
-            -- matches si) then cleanFlag will be True (if
-            -- it doesn't match si then there's a run-time
-            -- error, which is not very nice).
-            --
-            -- I have no idea what I meant by the following
-            -- deletion: is this to indicate that a previously
-            -- unknown source is now known, so we need to
-            -- delete the SimbadNoMatch field? I am not 100%
-            -- convinced that smiName si is the correct search
-            -- term for SmnTargetField. In insertSimbadNoMatch,
-            -- the smiName field is set to the first element
-            -- of searchRes, which is the same as tgt. The
-            -- SimbadInfo structure returned by querySIMBAD
-            -- has the smiName field set to cleanupName ran
-            -- on the name returned by SIMBAD. So it's not
-            -- clear that if the description above is correct
-            -- that it's doing what I want.
-            --
-            when cleanFlag $ do
-              -- display what we are deleting, as a check
-              mans <- maybeSelect (SmnTargetField ==. smiName si)
-              case mans of
-                (Just SimbadNoMatch {..}) -> do
-                  let stxt = "Target: <"
-                             <> fromTargetName smnTarget
-                             <> "> search term: <"
-                             <> smnSearchTerm
-                             <> "> at "
-                             <> T.pack (show smnLastChecked)
-                  liftIO (T.putStrLn ("&&&&& deleting " <> stxt))
-                  delete (SmnTargetField ==. smiName si)
+          blag f (">> and SimbadMatch with target=" <> tnameT)
+          inserted <- insertSimbadMatch conn (toM searchRes key)
+          when (inserted) $ 
+              getCurrentTime >>= updateLastModified conn
 
-                Nothing -> pure ()
-      
-          _ -> do
-            blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
-            void (insertSimbadNoMatch (toNM searchRes))
+          -- If a SimbadInfo structure already exists (and
+          -- matches si) then cleanFlag will be True (if
+          -- it doesn't match si then there's a run-time
+          -- error, which is not very nice).
+          --
+          -- I have no idea what I meant by the following
+          -- deletion: is this to indicate that a previously
+          -- unknown source is now known, so we need to
+          -- delete the SimbadNoMatch field? I am not 100%
+          -- convinced that smiName si is the correct search
+          -- term for SmnTargetField. In insertSimbadNoMatch,
+          -- the smiName field is set to the first element
+          -- of searchRes, which is the same as tgt. The
+          -- SimbadInfo structure returned by querySIMBAD
+          -- has the smiName field set to cleanupName ran
+          -- on the name returned by SIMBAD. So it's not
+          -- clear that if the description above is correct
+          -- that it's doing what I want.
+          --
+          {-XXXX to restore
+          when cleanFlag $ do
+            let getTargetQ = do
+              row <- each simbadNoMatchSchema
+              where_ (smnTarget row ==. lit (smiName si))
+              pure row
+              
+            T.putStrLn "### NOTE: is this correct?"
+            -- display what we are deleting, as a check
+            mans <- runDbMaybe conn (query getTargetQ)
+            case mans of
+              (Just SimbadNoMatch {..}) -> do
+                let stxt = "Target: <"
+                           <> fromTargetName smnTarget
+                           <> "> search term: <"
+                           <> smnSearchTerm
+                           <> "> at "
+                           <> T.pack (show smnLastChecked)
 
-        -- Update the last-modified date after each transaction
-        --
-        liftIO getCurrentTime >>= updateLastModified
+                    del = Delete { from = from simbadNoMatchSchema
+                                 , using = pure ()
+                                 , deletWhere \_ row -> smnTargetField row ==. lit (smiName si)
+                                 , returning = NoReturning
+                                 }
+                    
+                T.putStrLn ("&&&&& deleting " <> stxt)
+                runDb con (delete dal)
+                delete (SmnTargetField ==. smiName si)
 
+              Nothing -> pure ()
+          XXX-}
+          
+        _ -> do
+          blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
+          inserted <- insertSimbadNoMatch conn (toNM searchRes)
+          when (inserted) $ 
+              getCurrentTime >>= updateLastModified conn
+        
   {-
   forM_ tgs $ 
     \(tgt, obsids) -> do
@@ -677,23 +773,26 @@ updateDB sloc mndays f = do
   -- for ease of initial implimentation, but should try and
   -- amalgamate where possible.
   --
-  updateOldRecords mgr sloc mndays f
+  case mndays of
+    Just mdays -> updateOldRecords conn mgr sloc mdays f
+    _ -> pure ()
+
+  release conn
 
 
 -- Technically should look for "updated search term" matches
 -- even when ndays == Nothing, but easier to use the same logic.
 --
-updateOldRecords :: NHC.Manager -> SimbadLoc -> Maybe Int -> Bool -> IO ()
-updateOldRecords _ _ Nothing _ = pure ()
-updateOldRecords mgr sloc (Just ndays) f = do
+updateOldRecords :: Connection -> NHC.Manager -> SimbadLoc -> Int -> Bool -> IO ()
+updateOldRecords conn mgr sloc ndays f = do
 
   T.putStrLn "\n"
   T.putStrLn ">>> Searching for old and updated records"
   T.putStrLn (">>>   ndays = " <> showInt ndays)
 
-  noMatchFields <- runDb (select (CondEmpty
-                                  `orderBy`
-                                  [Asc SmnLastCheckedField]))
+  let qry = orderBy (smnLastChecked >$< asc)
+            $ each simbadNoMatchSchema
+  noMatchFields <- runDb conn (select qry)
 
   tNow <- getCurrentTime
   let dTime = -1 * 3600 * 24 * ndays
@@ -709,7 +808,8 @@ updateOldRecords mgr sloc (Just ndays) f = do
       -- old ones are going to be re-queried, we can just limit
       -- the search to "new" cases. The takeWhile and dropWhile
       -- searched could be combined, but I leave that for the
-      -- compiler at the moment.
+      -- compiler at the moment. It is also not clear whether the
+      -- logic here is actually correct ...
       --
       isChanged SimbadNoMatch{..} =
         fromTargetName (cleanTargetName smnTarget) /= smnSearchTerm
@@ -721,59 +821,59 @@ updateOldRecords mgr sloc (Just ndays) f = do
   -- TODO: is todo guaranteed to not contain repeated elements?
   let todo = old ++ changed
       ntodo = length todo
-  
+
   -- This is *very* similar to the previous version
+  --
+  -- NOTE: the changed handling does not appear to work
+  --       (look for "Pluto (134340)").
+  --
   forM_ (zip [1..] todo) $ 
-    \(ctr, SimbadNoMatch{..}) -> do
-      (searchRes, minfo) <- querySIMBAD mgr sloc f smnTarget ctr ntodo
+    \(ctr, smn) -> do
+      T.putStrLn (" [" <> showInt ctr <> "]  target='" <> fromTargetName (smnTarget smn) <> "'")
+      
+      (searchRes, minfo) <- querySIMBAD mgr sloc f (smnTarget smn) ctr ntodo
       let tname = _2 searchRes
           tnameT = fromTargetName tname
-      runDb $ do
-        -- delete the old result; it could be updated but easiest
-        -- at the moment just to create a new one.
-        delete (SmnTargetField ==. smnTarget)
-        case minfo of
-          Just si -> do
-            blag f (">> Adding SimbadInfo for " <> fromTargetName (smiName si))
-            (key, cleanFlag) <- insertSimbadInfo si
-            when cleanFlag
-              (liftIO (T.putStrLn "&&&&&&& errr, need to delete something"))
-            blag f (">> and SimbadMatch with target=" <> tnameT)
-            void (insertSimbadMatch (toM searchRes key))
 
-          _ -> do
-            blag f (">> Updating SimbadNoMatch for target=" <> tnameT)
-            void (insertSimbadNoMatch (toNM searchRes))
+      let del = Delete { from = simbadNoMatchSchema
+                       , using = pure ()
+                       , deleteWhere = \_ row -> smnTarget row ==. lit (smnTarget smn)
+                       , returning = NoReturning
+                       }
+      runDb_ conn (delete del)
 
-        -- Update the last-modified date after each transaction;
-        -- in production this should not matter, as this tool should not
-        -- be running against the production server, but for now
-        -- do it "properly"
-        --
-        liftIO getCurrentTime >>= updateLastModified
+      case minfo of
+        Just si -> do
+          blag f (">> Adding SimbadInfo for " <> fromTargetName (smiName si))
+          (key, cleanFlag) <- insertSimbadInfo conn si
+          
+          when cleanFlag (T.putStrLn "&&&&&&& errr, need to delete something")
+          blag f (">> and SimbadMatch with target=" <> tnameT)
+          void (insertSimbadMatch conn (toM searchRes key))
+
+        _ -> do
+          blag f (">> Updating SimbadNoMatch for target=" <> tnameT)
+          void (insertSimbadNoMatch conn (toNM searchRes))
+
+      -- Try and update the database per change. Is this sensible?
+      getCurrentTime >>= updateLastModified conn
 
   let nUnknown1 = length noMatchFields
-  nUnknown2 <- runDb (countAll (undefined :: SimbadNoMatch))
+      countNoMatch = getSize simbadNoMatchSchema
+      
+  nUnknown2 <- fromIntegral <$> runDb1 conn (select countNoMatch)
+
   unless (nUnknown2 == nUnknown1) $ do
     T.putStrLn ""
     T.putStrLn ("# Total number of unknown: "
                 <> showInt nUnknown1 <> " -> " <> showInt nUnknown2)
 
 
-toNM :: SearchResults -> SimbadNoMatch
-toNM (a,b,c) = SimbadNoMatch {
-                 smnTarget = a 
-               , smnSearchTerm = fromTargetName b
-               , smnLastChecked = c
-               }
+toNM :: SearchResults -> SimbadNoMatch Result
+toNM (a,b,c) = toSNM a (fromTargetName b) c
 
-toM :: SearchResults -> DefaultKey SimbadInfo -> SimbadMatch
-toM (a,b,c) k = SimbadMatch {
-                  smmTarget = a
-                , smmSearchTerm = fromTargetName b
-                , smmInfo = k
-                , smmLastChecked = c
-                }
+toM :: SearchResults -> SimbadInfoKey -> SimbadMatch Result
+toM (a,b,c) k = toSM a (fromTargetName b) k c
 
 
 usage :: IO ()
@@ -811,4 +911,3 @@ main = do
   case parseArgs args of
     Just (sloc, mndays, debug) -> updateDB sloc mndays debug
     _ -> usage
-

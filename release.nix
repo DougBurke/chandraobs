@@ -1,8 +1,8 @@
 # See https://github.com/utdemir/hs-nix-template
 #
-{ compiler ? "ghc8107"
-  , tools ? true
-  , webserver ? true
+{ compiler ? "ghc9103"
+  , tools ? false
+  , webserver ? false
 }:
 
 let
@@ -38,10 +38,12 @@ let
     ];
     buildInputs = [
       pkgs.haskellPackages.cabal-install
+      pkgs.gmp
       pkgs.haskellPackages.hlint
       pkgs.niv
       pkgs.heroku  # I am very confused
       pkgs.postgresql
+      pkgs.postgresql.pg_config
       pkgs.git
       pkgs.curl
     ] ++ pkgs.lib.optionals isDefaultCompiler [

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -20,27 +21,33 @@ import qualified Data.Text.IO as T
 
 import Control.Monad (forM_, unless, when)
 
-import Database.Groundhog.Postgresql ( (==.) )
-       
+import Hasql.Connection (Connection, release)
+
+import Rel8 ( Result
+            , select
+            )
+
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (stderr)
 
-import Database (getSimbadInfo, maybeSelect, runDb)
+import Database (getSimbadInfo, findScience
+                , getConnection, getProposal, getSimbadInfo
+                , runDbMaybe)
 import OCAT (OCAT, dumpScienceObs, isScienceObsE, queryOCAT, ocatToScience)
 import Types ( ObsIdVal
              , ScienceObs(..)
              , Proposal(..)
              , SimbadInfo(..)
              , TargetName
-             , Constraint(NoConstraint)
              , Instrument(ACISI, ACISS)
              , ChipStatus(ChipOff)
-             , fromObsId, toObsIdValStr
+             , Constraint(NoConstraint)
+             , fromObsId64, toObsIdValStr
              , fromTargetName
              , fromObsIdStatus
              , fromPropNum
-             , tooValue, tooTime, rtToLabel
+             , fromTOORequest, tooTime, rtToLabel
              , showRA
              , showDec
              , showCTime
@@ -51,7 +58,8 @@ import Types ( ObsIdVal
              , fromTelescope
              , fromChipStatus
              , fromSimbadType
-             , Field(SoObsIdField, PropNumField))
+             , fromSIMCategory
+             )
 
 
 usage :: IO ()
@@ -77,7 +85,7 @@ main = do
 
 setupQuery :: ObsIdVal -> Bool -> Bool -> IO ()
 setupQuery obsid _ True = do
-  T.putStrLn ("# Querying OCAT for " <> T.pack (show (fromObsId obsid)))
+  T.putStrLn ("# Querying OCAT for " <> T.pack (show (fromObsId64 obsid)))
   res <- queryOCAT [obsid]
   case res of
     Right [(_, Just ocat)] -> reportOCAT ocat
@@ -87,15 +95,18 @@ setupQuery obsid _ True = do
                  >> exitFailure
 
 setupQuery obsid dump _ = do
-  T.putStrLn ("# Querying the database for " <> T.pack (show (fromObsId obsid)))
-  res <- runDb (maybeSelect (SoObsIdField ==. obsid))
+  T.putStrLn ("# Querying the database for " <> T.pack (show (fromObsId64 obsid)))
+  conn <- getConnection
+  res <- runDbMaybe conn (select (findScience obsid))
   case res of
     Nothing -> T.putStrLn "ERROR: no observation was found."
+               >> release conn
                >> exitFailure
     Just obs -> if dump
                 then dumpScienceObs obs
-                else queryObsId obs
-
+                else queryObsId conn obs
+  release conn
+  
 
 reportOCAT :: OCAT -> IO ()
 reportOCAT ocat =
@@ -118,22 +129,22 @@ processScience ocat = do
                  >> exitFailure
                  
 
-queryObsId :: ScienceObs -> IO ()
-queryObsId obs = do
-  mprop <- runDb (maybeSelect (PropNumField ==. soProposal obs))
-  msim <- runDb (getSimbadInfo (soTarget obs))
+queryObsId :: Connection -> ScienceObs Result -> IO ()
+queryObsId conn obs = do
+  mprop <- runDbMaybe conn (select (getProposal obs))
+  msim <- runDbMaybe conn (select (getSimbadInfo (soTarget obs)))
   reportScience obs mprop msim
 
 
-reportSimbad :: TargetName -> SimbadInfo -> IO ()
+reportSimbad :: TargetName -> SimbadInfo Result -> IO ()
 reportSimbad target SimbadInfo{..} = do
   when (smiName /= target) $
     T.putStrLn (" -> '" <> fromTargetName smiName <> "'")
   T.putStrLn ("    " <> fromSimbadType smiType3)
-  T.putStrLn ("    " <> smiType)
+  T.putStrLn ("    " <> fromSIMCategory smiType)
 
 
-reportProposal :: Proposal -> IO ()
+reportProposal :: Proposal Result -> IO ()
 reportProposal Proposal{..} = do
   T.putStrLn (" -> " <> propName)
   T.putStrLn ("    " <> propPI)
@@ -141,14 +152,13 @@ reportProposal Proposal{..} = do
   T.putStrLn ("    " <> propType)
   T.putStrLn ("    " <> propCycle)
 
-
 reportScience ::
-  ScienceObs
-  -> Maybe Proposal
-  -> Maybe SimbadInfo
+  ScienceObs Result
+  -> Maybe (Proposal Result)
+  -> Maybe (SimbadInfo Result)
   -> IO ()
 reportScience ScienceObs{..} mprop msim = do
-  T.putStrLn ("ObsId:         " <> T.pack (show (fromObsId soObsId)))
+  T.putStrLn ("ObsId:         " <> T.pack (show (fromObsId64 soObsId)))
   T.putStrLn ("Target:        '" <> fromTargetName soTarget <> "'")
   T.putStrLn ("RA:            " <> showRA soRA)
   T.putStrLn ("Dec:           " <> showDec False soDec)
@@ -159,7 +169,7 @@ reportScience ScienceObs{..} mprop msim = do
   forM_ mprop reportProposal
 
   case soTOO of
-    Just too -> T.putStrLn ("TOO:           " <> tooValue too <>
+    Just too -> T.putStrLn ("TOO:           " <> fromTOORequest too <>
                             " - " <> rtToLabel (tooTime too))
     Nothing -> pure ()
                             
@@ -189,9 +199,9 @@ reportScience ScienceObs{..} mprop msim = do
 
   when soMultiTel $
     T.putStrLn ("MultiTel:      " <> T.pack (show soMultiTelInt))
-
+  
   forM_ soMultiTelObs $ \tel -> T.putStrLn ("  Other:" <> fromTelescope tel)
-                
+
   case soDetector of
     Just det -> T.putStrLn ("Detector:      " <> det)
     Nothing -> pure ()

@@ -400,3 +400,516 @@ chandraobs=# select count(*) from "SimbadMatch";
 (1 row)
 
 chandraobs=# \d+ "SimbadMatch"
+
+
+## Storing information (the groundhog way)
+
+How are "complex" types stored? In this case the "multi tel" field in ScienceObs
+
+% heroku pg:psql -a chandraobservatory
+..
+
+
+Or
+
+% psql $DATABASE_URL
+
+
+chandraobservatory::DATABASE=> \dt
+                     List of relations
+ Schema |          Name           | Type  |     Owner      
+--------+-------------------------+-------+----------------
+ public | InvalidObsId            | table | u6910amfie4lt0
+ public | List##Telescope         | table | u6910amfie4lt0
+ public | List##Telescope#values  | table | u6910amfie4lt0
+ public | MetaData                | table | u6910amfie4lt0
+ public | MissingProposalAbstract | table | u6910amfie4lt0
+ public | NonScienceObs           | table | u6910amfie4lt0
+ public | Proposal                | table | u6910amfie4lt0
+ public | ProposalAbstract        | table | u6910amfie4lt0
+ public | ScienceObs              | table | u6910amfie4lt0
+ public | ShortTermSchedule       | table | u6910amfie4lt0
+ public | SimbadInfo              | table | u6910amfie4lt0
+ public | SimbadMatch             | table | u6910amfie4lt0
+ public | SimbadNoMatch           | table | u6910amfie4lt0
+
+dak24kljssi6us=> select count (*) from "List##Telescope";
+ count 
+-------
+ 30095
+(1 row)
+
+dak24kljssi6us=> select count (*) from "List##Telescope#values";
+ count 
+-------
+  2005
+(1 row)
+
+dak24kljssi6us=> select * from "List##Telescope" limit 1;
+ id 
+----
+  1
+(1 row)
+
+dak24kljssi6us=> select * from "List##Telescope#values" limit 1;
+ id | ord | value  
+----+-----+--------
+ 22 |   0 | NuSTAR
+(1 row)
+
+
+So ##Telescope looks to be an index into the #values array. Although it is really not
+clear. THe #values field has "id" and "ord", where ord=0, 1, 2 to simulate multi-tel
+fields, but we also have some value fields with multiple telescopes:
+
+dak24kljssi6us=> select distinct value from "List##Telescope#values";
+                            value                            
+-------------------------------------------------------------
+ INTEGRAL, HESS, ATCA
+ XTE, XMM
+ HESS, ATCA
+ NuStar
+ NRAO-GBT
+ vla, kpno
+ CHANDRA, HST, AND FUSE
+ ALMA, TESS, Hubble, Swift, duPont (Las Campanas), Evryscope
+ VLA, NOAO/LCO
+ JWST, Ground
+ Australia Telescope Compact Array
+ Kepler
+ VLA,VLBA
+ HST/STIS
+ INAF, OAR Campo Imperatore, I
+ HST
+ XMM-Newton, Suzaku
+ Ground
+ HST,CXO
+ kpno,vla
+ XMM-Newton and INTEGRAL
+ XMM - an application for Suzaku time has also been made
+ FUSE
+ HST, VLA+VLBA, MERLIN
+ RXTE, Fermi GBM
+ FLWO-ground
+ Ground (VLBA)
+ NRAO (required)
+ HST/WFPC2 (if possible, not critical)
+ VLA (NRAO)
+ XMM-Newton, NuSTAR
+ CARMA
+ NUSTAR
+ VLA, NuSTAR
+ EVLA
+ HST, JVLA
+ VLTI-Gravity
+ NRAO VLA
+ CXO, VLA, HST
+ NRAO/VLA
+ Contemporaneous with proposed HST observation
+ HST, SST, XMM, ASTRO-E2, GALEX, FUSE,CHIPS
+ XMM-Newton, Suzaku, NuStar
+ RXTE
+ XMM
+ JWST, Event Horizon Telescope, NuSTAR
+ EventHorizonTelescope
+ HST, FUSE, GROUND-BASED OPTICAL
+ XRISM
+ HST, CHANDRA, NOAO
+ VLA, OPTICAL
+ radio (will be coordinated on a best-effort basis by PI)
+ NICER
+ VLA, NICER, NUSTAR, Gemini
+ OVRO/CARMA
+ Hitomi
+ ground - FLWO
+ NuSTAR and Effelsberg
+ VLA, VLBA
+ SKINAKAS OBSERVATORY, CRETE, GREECE
+ GROUND, ROSAT, EUVE
+ If possible, radio telescope data will be taken.
+ New Horizons, XMM-Newton, possibly HST
+ Swift, LCO-FTP
+ XMM-Newton, NuStar
+ RXTE, XMM
+ HST/JWST
+ EVN
+ HST and Ground (VLA, mm, mid-IR, optical, and gamma-ray)
+ HST + WHT, MMT, HET AND/OR GEMINI
+ XMM, RXTE, BEPPOSAX
+ Corot
+ HST, GROUND
+ ATCA
+ XMM-Newton,NuStar, Astro-H
+ EVN/e-MERLIN
+ Global VLBI (EVN, VLA, LBA combined)
+ Suzaku
+ CHANDRA, HST/STIS, GROUND FACILITIES
+ STEWARD OBSERVATORY 2.3 M TELESCOPE
+ NRAO VLA (likely Dec 2020-Jan 2021 window)
+ VLA simultaneous within one day
+ HST, NuSTAR
+ NICER, NuSTAR
+ Suzaku, HST
+ NOAO/Gemini-North, NRAO/EVLA
+ HST, FUSE, RXTE, GROUND-BASED
+ Hubble Space Telescope
+ GBT
+ Swift
+ HST, NOAO, VLA, MERLIN
+ HST and VLA
+ VERITAS, Swift, NuSTAR (potentially)
+ INTEGRAL
+ KPNO/4-m
+ Ground-FLWO
+ GROUND
+ AUSTRAILIA TELESCOPE COMPACT ARRAY; OBSERVING EVERY 5 DAYS
+ XMM-Newton, NuSTAR, Chandra
+ MEarth
+ SHANE 120 INCH (LICK OBSERVATORY, UCO)
+ INTEGRAL GAMMA RAY SPACE OBSERVATORY
+ Event Horizon Telescope, NuSTAR (if available)
+ eROSITA  Performance Verification and Calibration Phase
+ Chandra, HST
+ Juno spacecraft
+ VLBA
+ Hubble
+ GROUND (APO)
+ IXPE
+ XTE, GROUND
+ EHT
+ KPNO 4-m
+ Effelsberg Radio Telescope
+ GROUND (HET WHEN POSSIBLE)
+ NuSTAR
+ NusTAR
+ JVLA
+ XMM-NEWTON
+ EVLA, XMM
+ RXTE, Suzaku, Ground
+ NuSTAR, Gemini, JVLA
+ ATCA, NRAO
+ JWST
+ Ground (ATCA)
+ Gran Telescopio Canarias
+ Hubble, VLT/NACO and Gemini/NIRI
+ VLT
+ Event Horizon Telescope, NuSTAR
+ EventHorizonTelescope, NuSTAR
+ Event Horizon Telescope
+ HST, CXO
+ XXM-Newton
+ XTE
+ EVLA, SMARTS 1.3m
+ ESO/Nustar (to be confirmed though)
+ VERITAS, ground-based optical/IR/radio observatories
+ INTEGRAL, RXTE, VLA, RATAN-600, Ryle Telescope, VLBA
+ ALMA, ATCA
+ RXTE, VLA, VLBA
+ GROUND (HOBBY-EBERLY TELESCOPE)
+ NRAO (and see remarks regarding XMM)
+ HET and/or ARC
+ GROUND (VLA)
+ NRAO
+ XMM-Newton, SWIFT
+ GROUND, RXTE
+ HST COS
+ VLA
+ NuSTAR, Keck, VLT, SMA, CSO, CARMA, ALMA, EHT, HESS, ATCA
+ European VLBI Network
+ NOAO: CTIO SMARTS telescope
+ ALMA, Swift, NICER, Evryscope
+ Venus Express
+ VLA, Ground
+ spitzer
+ XMM, INTEGRAL
+ NuSTAR, ATCA, VLT
+ Hobby-Eberly Telescope
+ Spitzer
+ NuSTAR, Gemini, JVLA (or ATCA), NICER
+ HST, FUSE
+ CHIPS, SST
+ IXPE, SMA
+ Gemini/North
+ XMM-Newton
+ JWST, ALMA, NuSTAR
+ NuSTAR, NICER
+ ATCA, VLA, Ground-based (DDT submitted or in the making)
+
+
+It's also not clear how "no value" is encoded.
+
+In groundhog I used
+
+   soMultiTelObs :: [Telescope]
+
+where
+
+newtype Telescope = Telescope { fromTelescope :: T.Text }
+                  deriving Eq
+
+Look at obsid 20021, 25041
+
+So, for obsid 25041 we have the soMultiTel value is an index to List##Telescope,
+which is the id for List##Telescope#value (but as List##Telescope only contains an
+id field there is no obvious need for it).
+
+dak24kljssi6us=> select "soObsId", "soMultiTel", "soMultiTelInt", "soMultiTelObs" from "ScienceObs" where "soMultiTelObs" = 726;
+ soObsId | soMultiTel | soMultiTelInt | soMultiTelObs 
+---------+------------+---------------+---------------
+   20001 | f          |           0.1 |           726
+(1 row)
+
+
+So ObsId 20001 has soMultiTel == False but multiTelInt > 0!
+
+dak24kljssi6us=> select * from "List##Telescope" where id = 726;
+ id  
+-----
+ 726
+(1 row)
+
+dak24kljssi6us=> select * from "List##Telescope#values" where id = 726;
+ id  | ord | value 
+-----+-----+-------
+ 726 |   0 | XMM
+(1 row)
+
+
+So is the database confused?
+
+dak24kljssi6us=> select DISTINCT id from "List##Telescope#values" ORDER BY id;
+
+write out to distinct-id.txt
+
+So, we have soMultiTel = TRUE and soMultiTelInt = 0
+
+dak24kljssi6us=> select count(*) from "ScienceObs" WHERE "soMultiTel" = true and "soMultiTelInt" < 0.01;
+ count 
+-------
+   532
+(1 row)
+
+dak24kljssi6us=> select count(*) from "ScienceObs" WHERE "soMultiTel" = true and "soMultiTelInt" <= 0;
+ count 
+-------
+   532
+(1 row)
+
+dak24kljssi6us=> select DISTINCT "soMultiTelInt" from "ScienceObs" WHERE "soMultiTel" = true ORDER BY "soMultiTelInt";
+ soMultiTelInt 
+---------------
+             0
+          0.04
+          0.05
+           0.1
+          0.12
+         0.167
+          0.17
+           0.2
+          0.25
+           0.3
+          0.35
+       0.41667
+         0.463
+           0.5
+           0.6
+        0.6671
+           0.9
+             1
+...
+            80
+            90
+           100
+           120
+           160
+           168
+           180
+           363
+           364
+(54 rows)
+
+
+dak24kljssi6us=> select DISTINCT "soMultiTelInt" from "ScienceObs" WHERE "soMultiTel" = false ORDER BY "soMultiTelInt";
+ soMultiTelInt 
+---------------
+             0
+          0.02
+           0.1
+          0.25
+          0.29
+           0.5
+             1
+           1.4
+...
+           190
+           220
+           364
+(29 rows)
+
+
+So, is the multiTel stuff just completely borked?
+
+Let's look at the "longest" multitelint fields, which have both True and False.
+
+dak24kljssi6us=> select "soObsId", "soStatus", "soMultiTel", "soMultiTelInt", "soMultiTelObs" from "ScienceObs" WHERE "soMultiTelInt" > 300;
+ soObsId | soStatus | soMultiTel | soMultiTelInt | soMultiTelObs 
+---------+----------+------------+---------------+---------------
+   10718 | archived | t          |           363 |          7193
+   10717 | archived | t          |           363 |          7257
+   10716 | archived | t          |           363 |          7366
+   10715 | archived | t          |           363 |          7376
+   18301 | archived | f          |           364 |         32439
+   18302 | archived | f          |           364 |         32440
+   10719 | archived | t          |           363 |         17909
+   18676 | archived | f          |           364 |         32546
+   18677 | archived | f          |           364 |         32547
+   18678 | archived | f          |           364 |         32548
+   25253 | observed | t          |           364 |         42710
+   27802 | observed | t          |           364 |         42713
+   27803 | observed | t          |           364 |         42719
+(13 rows)
+
+
+AHA: soMultiTelInt should really be "maximum interval" and is related to "something" but it need
+not be multi-telescope.
+
+The table may also include "deleted" entries (all the Listg##Telescope#values ord > 0
+entries, from what I can tell).
+
+dak24kljssi6us=> \d "MetaData"
+                                           Table "public.MetaData"
+     Column     |            Type             | Collation | Nullable |                Default                 
+----------------+-----------------------------+-----------+----------+----------------------------------------
+ id             | bigint                      |           | not null | nextval('"MetaData_id_seq"'::regclass)
+ mdLastModified | timestamp without time zone |           | not null | 
+Indexes:
+    "MetaData_pkey" PRIMARY KEY, btree (id)
+    "MetaDataLastModifiedConstraint" UNIQUE CONSTRAINT, btree ("mdLastModified")
+
+
+
+
+
+
+                                            Table "public.ScienceObs"
+     Column      |            Type             | Collation | Nullable |                 Default                  
+-----------------+-----------------------------+-----------+----------+------------------------------------------
+ id              | bigint                      |           | not null | nextval('"ScienceObs_id_seq"'::regclass)
+ soSequence      | bigint                      |           | not null | 
+ soProposal      | bigint                      |           | not null | 
+ soStatus        | character varying           |           | not null | 
+ soObsId         | bigint                      |           | not null | 
+ soTarget        | character varying           |           | not null | 
+ soStartTime     | timestamp without time zone |           |          | 
+ soApprovedTime  | double precision            |           | not null | 
+ soObservedTime  | double precision            |           |          | 
+ soPublicRelease | timestamp without time zone |           |          | 
+ soTimeCritical  | character varying           |           | not null | 
+ soMonitor       | character varying           |           | not null | 
+ soConstrained   | character varying           |           | not null | 
+ soInstrument    | character varying           |           | not null | 
+ soGrating       | character varying           |           | not null | 
+ soDetector      | character varying           |           |          | 
+ soDataMode      | character varying           |           |          | 
+ soACISI0        | character varying           |           | not null | 
+ soACISI1        | character varying           |           | not null | 
+ soACISI2        | character varying           |           | not null | 
+ soACISI3        | character varying           |           | not null | 
+ soACISS0        | character varying           |           | not null | 
+ soACISS1        | character varying           |           | not null | 
+ soACISS2        | character varying           |           | not null | 
+ soACISS3        | character varying           |           | not null | 
+ soACISS4        | character varying           |           | not null | 
+ soACISS5        | character varying           |           | not null | 
+ soJointWith     | character varying           |           |          | 
+ soJointHST      | double precision            |           |          | 
+ soJointNOAO     | double precision            |           |          | 
+ soJointNRAO     | double precision            |           |          | 
+ soJointRXTE     | double precision            |           |          | 
+ soJointSPITZER  | double precision            |           |          | 
+ soJointSUZAKU   | double precision            |           |          | 
+ soJointXMM      | double precision            |           |          | 
+ soJointSWIFT    | double precision            |           |          | 
+ soJointNUSTAR   | double precision            |           |          | 
+ soMultiTel      | boolean                     |           | not null | 
+ soMultiTelInt   | double precision            |           | not null | 
+ soMultiTelObs   | bigint                      |           | not null | 
+ soTOO           | character varying           |           |          | 
+ soRA            | double precision            |           | not null | 
+ soDec           | double precision            |           | not null | 
+ soConstellation | character varying           |           | not null | 
+ soRoll          | double precision            |           | not null | 
+ soSubArrayStart | bigint                      |           |          | 
+ soSubArraySize  | bigint                      |           |          | 
+Indexes:
+    "ScienceObs_pkey" PRIMARY KEY, btree (id)
+    "ScienceObsIdConstraint" UNIQUE CONSTRAINT, btree ("soObsId")
+Foreign-key constraints:
+    "ScienceObs_soMultiTelObs_fkey" FOREIGN KEY ("soMultiTelObs") REFERENCES "List##Telescope"(id)
+Triggers:
+    "ScienceObs" AFTER DELETE ON "ScienceObs" FOR EACH ROW EXECUTE FUNCTION "ScienceObs"()
+    "ScienceObs#soMultiTelObs" AFTER UPDATE OF "soMultiTelObs" ON "ScienceObs" FOR EACH ROW EXECUTE FUNCTION "ScienceObs#soMultiTelObs"()
+
+dak24kljssi6us=> \d "List##Telescope"
+                             Table "public.List##Telescope"
+ Column |  Type  | Collation | Nullable |                    Default                    
+--------+--------+-----------+----------+-----------------------------------------------
+ id     | bigint |           | not null | nextval('"List##Telescope_id_seq"'::regclass)
+Indexes:
+    "List##Telescope_pkey" PRIMARY KEY, btree (id)
+Referenced by:
+    TABLE ""List##Telescope#values"" CONSTRAINT "List##Telescope#values_id_fkey" FOREIGN KEY (id) REFERENCES "List##Telescope"(id) ON DELETE CASCADE
+    TABLE ""ScienceObs"" CONSTRAINT "ScienceObs_soMultiTelObs_fkey" FOREIGN KEY ("soMultiTelObs") REFERENCES "List##Telescope"(id)
+
+dak24kljssi6us=> \d "List##Telescope#values"
+            Table "public.List##Telescope#values"
+ Column |       Type        | Collation | Nullable | Default 
+--------+-------------------+-----------+----------+---------
+ id     | bigint            |           | not null | 
+ ord    | integer           |           | not null | 
+ value  | character varying |           | not null | 
+Foreign-key constraints:
+    "List##Telescope#values_id_fkey" FOREIGN KEY (id) REFERENCES "List##Telescope"(id) ON DELETE CASCADE
+
+
+
+dak24kljssi6us=> \d "SimbadInfo";
+                                   Table "public.SimbadInfo"
+  Column  |       Type        | Collation | Nullable |                 Default                  
+----------+-------------------+-----------+----------+------------------------------------------
+ id       | bigint            |           | not null | nextval('"SimbadInfo_id_seq"'::regclass)
+ smiName  | character varying |           | not null | 
+ smiType3 | character varying |           | not null | 
+ smiType  | character varying |           | not null | 
+Indexes:
+    "SimbadInfo_pkey" PRIMARY KEY, btree (id)
+    "SimbadInfoConstraint" UNIQUE CONSTRAINT, btree ("smiName")
+Referenced by:
+    TABLE ""SimbadMatch"" CONSTRAINT "SimbadMatch_smmInfo_fkey" FOREIGN KEY ("smmInfo") REFERENCES "SimbadInfo"(id)
+
+dak24kljssi6us=> \d "SimbadMatch";
+                                           Table "public.SimbadMatch"
+     Column     |            Type             | Collation | Nullable |                  Default                  
+----------------+-----------------------------+-----------+----------+-------------------------------------------
+ id             | bigint                      |           | not null | nextval('"SimbadMatch_id_seq"'::regclass)
+ smmTarget      | character varying           |           | not null | 
+ smmSearchTerm  | character varying           |           | not null | 
+ smmInfo        | bigint                      |           | not null | 
+ smmLastChecked | timestamp without time zone |           | not null | 
+Indexes:
+    "SimbadMatch_pkey" PRIMARY KEY, btree (id)
+    "SimbadMatchConstraint" UNIQUE CONSTRAINT, btree ("smmTarget")
+Foreign-key constraints:
+    "SimbadMatch_smmInfo_fkey" FOREIGN KEY ("smmInfo") REFERENCES "SimbadInfo"(id)
+
+dak24kljssi6us=> \d "SimbadNoMatch";
+                                           Table "public.SimbadNoMatch"
+     Column     |            Type             | Collation | Nullable |                   Default                   
+----------------+-----------------------------+-----------+----------+---------------------------------------------
+ id             | bigint                      |           | not null | nextval('"SimbadNoMatch_id_seq"'::regclass)
+ smnTarget      | character varying           |           | not null | 
+ smnSearchTerm  | character varying           |           | not null | 
+ smnLastChecked | timestamp without time zone |           | not null | 
+Indexes:
+    "SimbadNoMatch_pkey" PRIMARY KEY, btree (id)
+    "SimbadNoMatchConstraint" UNIQUE CONSTRAINT, btree ("smnTarget")

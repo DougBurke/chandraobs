@@ -1,6 +1,6 @@
-{ compiler ? "ghc8107"
-  , tools ? true
-  , webserver ? true
+{ compiler ? "ghc9103"
+  , tools ? false
+  , webserver ? false
 }:
 
 (import ./release.nix {

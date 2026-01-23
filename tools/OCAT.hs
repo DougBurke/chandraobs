@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -11,7 +12,7 @@ module OCAT (OCAT
               
             , dumpScienceObs
 
-            , addProposal
+            -- , addProposal
 
               -- need a random-stuff module
             , slen
@@ -161,22 +162,21 @@ import qualified Network.HTTP.Conduit as NHC
 import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 
-import Database.Groundhog (PersistBackend)
-import Database.Groundhog.Postgresql (insert_)
-
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 -- import Data.Text.Encoding (decodeUtf8')
 import Data.Text.Encoding (decodeLatin1)
 import Data.Time (TimeLocale, UTCTime
                  , defaultTimeLocale
-                 , getCurrentTime
+                 -- , getCurrentTime
                  , readSTime)
 
 
 import Formatting (int, sformat)
 
 import Network.HTTP.Types.Header (Header)
+
+import Rel8 (Result)
 
 import System.Environment (getEnv)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
@@ -191,10 +191,10 @@ import Text.HTML.TagSoup (innerText
                          , partitions)
 import Text.Read (readMaybe)
 
-import Database (updateLastModified)
+-- import Database (updateLastModified, getConnection)
 import Types (ObsIdVal
              , unsafeToObsIdVal
-             , fromObsId
+             , fromObsId64
              , ObsIdStatus(..)
              , toObsIdStatus
              , fromObsIdStatus
@@ -223,10 +223,8 @@ import Types (ObsIdVal
              , toDec
              , fromDec
              , showDec
-             , Instrument
-             , toInstrument
-             , Grating
-             , toGrating
+             , Instrument, fromInstrument, toInstrument
+             , Grating, fromGrating, toGrating
              , toTelescope
              , ChipStatus(..)
              , toChipStatus
@@ -237,9 +235,9 @@ import Types (ObsIdVal
              , Constraint
              , toConstraint
              , fromConstraint
-             , ProposalAbstract(..)
-             , MissingProposalAbstract(..)
-             , tooValue
+             -- , ProposalAbstract(..)
+             -- , MissingProposalAbstract(..)
+             , fromTOORequest
              , toTOORequest
              , toTargetName
              , fromTargetName
@@ -265,7 +263,7 @@ readsTime = readSTime True
 -- | What is the URL needed to query the ObsCat?
 getObsCatQuery :: [ObsIdVal] -> String
 getObsCatQuery oids = 
-  let ois = map (show . fromObsId) oids
+  let ois = map (show . fromObsId64) oids
       oitxt = intercalate "," ois
   in "https://cda.cfa.harvard.edu/srservices/ocatDetails.do?obsid="
      <> oitxt <> "&format=text"
@@ -471,7 +469,8 @@ toCE m k = do
                            
     _ -> Left ("empty string (?) key=" <> k <> " val=" <> val)
 
-toProposalE :: OCAT -> Either T.Text Proposal
+
+toProposalE :: OCAT -> Either T.Text (Proposal Result)
 toProposalE m = do
   pNum <- toPropNumE m
   piName <- toTextE m "PI_NAME"
@@ -500,7 +499,7 @@ toPos m = do
   pure (ra, dec, roll)
 
 
-toSOE :: OCAT -> ConShort -> Either T.Text ScienceObs
+toSOE :: OCAT -> ConShort -> Either T.Text (ScienceObs Result)
 toSOE m con = do
 
   isScience <- isScienceObsE m
@@ -664,7 +663,7 @@ toSOE m con = do
 --
 --   Should this send in the ScheduleItem?
 --
-ocatToNonScience :: OCAT -> Either T.Text NonScienceObs
+ocatToNonScience :: OCAT -> Either T.Text (NonScienceObs Result)
 ocatToNonScience m = do
 
   isScience <- isScienceObsE m
@@ -679,7 +678,7 @@ ocatToNonScience m = do
   (ra, dec, roll) <- toPos m
 
   -- TODO: creating the name should be a utility function
-  let target = T.pack ("CAL-ER (" <> show (fromObsId obsid) <> ")")
+  let target = T.pack ("CAL-ER (" <> show (fromObsId64 obsid) <> ")")
       rTime = appExp
 
       -- in previous versions (when there was no status field)
@@ -833,7 +832,7 @@ noDataInOCAT = "No OCAT information for this ObsId"
 
 ocatToScience :: 
   OCAT
-  -> IO (Either T.Text (Proposal, ScienceObs))
+  -> IO (Either T.Text (Proposal Result, ScienceObs Result))
 ocatToScience ocat = 
   let vals = do
         prop <- toProposalE ocat
@@ -927,12 +926,13 @@ addOverlaps f os = do
 
 -}
 
-dumpScienceObs :: ScienceObs -> IO ()
+-- dumpScienceObs :: ScienceObs -> IO ()
+dumpScienceObs :: ScienceObs Result -> IO ()
 dumpScienceObs ScienceObs{..} = do
   T.putStrLn "------ dump"
   print (fromSequence soSequence)
   T.putStrLn (fromObsIdStatus soStatus)
-  print (fromObsId soObsId)
+  print (fromObsId64 soObsId)
   T.putStrLn (fromTargetName soTarget)
   T.putStrLn (maybe "** Observation has no scheduled observation date"
               showCTime soStartTime)
@@ -945,8 +945,8 @@ dumpScienceObs ScienceObs{..} = do
   T.putStrLn (fC "      monitor" soMonitor)
   T.putStrLn (fC "  constrained" soConstrained)
 
-  print soInstrument
-  print soGrating
+  T.putStrLn (fromInstrument soInstrument)
+  T.putStrLn (fromGrating soGrating)
   print soDetector
   print soDataMode
 
@@ -977,7 +977,7 @@ dumpScienceObs ScienceObs{..} = do
   joint "SWIFT" soJointSWIFT
   joint "NUSTAR" soJointNUSTAR
 
-  T.putStrLn (maybe "No TOO constraint" tooValue soTOO)
+  T.putStrLn (maybe "No TOO constraint" fromTOORequest soTOO)
   T.putStrLn (showRA soRA)
   T.putStrLn (showDec False soDec)
   T.putStrLn ("which is in constellation: " <> fromConShort soConstellation)
@@ -988,6 +988,8 @@ dumpScienceObs ScienceObs{..} = do
 
 -- proposal abstracts
 --
+
+{-X
 
 -- | Should this either return the error string?
 --
@@ -1070,6 +1072,7 @@ extractAbstract pnum txt = do
       updateLastModified now
       pure True
 
+X-}
 
 -- It is possible for an abstract to be incomplete - e.g.
 -- missing either or both of the title and abstract. It is considered

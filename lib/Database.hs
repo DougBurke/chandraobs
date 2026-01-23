@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Simple database access shims.
 --
@@ -8,8 +9,10 @@ module Database ( getConnection
                 , updateLastModified, updateLastModifiedS
                 , getLastModified, getLastModifiedFixed
 
+                , findScience
+                
                 --X getCurrentObs
-                --X , getObsInfo
+                -, getObsInfo
                 --X -- , findObsName
                 --X , getObsId
                 --X , getRecord
@@ -20,14 +23,15 @@ module Database ( getConnection
                 --X -- , makeSchedule
                 --X , makeScheduleRestricted
 
-                --X , getProposal
+                , getProposal
                 --X -- , getProposalFromNumber
                 --X , getProposalObs
                 --X -- , getRelatedObs
                 --X -- , getObsFromProposal
                 --X , getProposalInfo
-                --X , reportSize
-                --X , getSimbadInfo
+                , getSize
+                , reportSize
+                , getSimbadInfo
                 --X , fetchSIMBADType
                 --X , fetchNoSIMBADType
                 --X , fetchSIMBADDescendentTypes
@@ -103,8 +107,6 @@ module Database ( getConnection
                 --X , DBInfo
                   
                 --X , putIO
-                --X , runDb
-                --X , dbConnStr
                 --X -- , discarded
                 --X -- , archived
                   
@@ -156,19 +158,15 @@ import qualified Hasql.Session as Session
 import qualified Hasql.Connection.Setting.Connection.Param as P
 
 --X import Control.Arrow (first, second)
---X import Control.Monad (filterM, forM, forM_, when)
---X import Control.Monad.IO.Class (MonadIO, liftIO)
---X import Control.Monad.Trans.Control (MonadBaseControl)
-
-import Control.Monad (guard)
+import Control.Monad ({- filterM, forM, -} forM_, guard {-, when -})
 
 --X import Data.Char (isSpace, toUpper)
 --X import Data.Either (partitionEithers)
 --X import Data.Function (on)
---X import Data.List (foldl', group, groupBy, nub, sortBy, sortOn)
+-- import Data.List ({- foldl', -} group, {- groupBy, nub, sortBy, -} sortOn)
 --X import Data.Maybe (catMaybes, fromJust, fromMaybe,
 --X                    isJust, isNothing, listToMaybe, mapMaybe)
---X import Data.Ord (Down(..))
+-- import Data.Ord (Down(..))
 --X import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
 --X                  , diffUTCTime -- debugging
 --X                  )
@@ -179,7 +177,7 @@ import Data.Maybe (fromMaybe)
 import Data.Time.Calendar (Day(..))
 import Data.Time.Clock (UTCTime(..))
 
--- import Formatting hiding (now)
+import Formatting hiding (now)
 
 import Hasql.Connection (Connection, acquire)
 import Hasql.Connection.Setting (Setting, connection)
@@ -190,16 +188,34 @@ import Network.URI (URI(..)
                    , parseAbsoluteURI
                    )
 
-import Rel8 ( Statement, Serializable, Expr, Query -- , Result
+import Rel8 ( Rel8able
+            , Statement, Serializable, Expr, Query
+            , Result
+            , Column
+            , Name
+            , TableSchema
             , Delete(..), Insert(..)
             , OnConflict(..) , Returning(..)
+            , (==.)
+            , asc
+            , count
+            , where_
             , run, run_, run1, runMaybe
             , delete, insert, select
-            , lit, orderBy, values
+            , lit
+            , values
             , each
             , desc
+            , manyExpr
+            , aggregate
+            , aggregate1
+            , countStar
+            , groupBy
+            , orderBy
             -- , nullsLast
             )
+
+import Data.Int (Int64)
 
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
@@ -220,6 +236,20 @@ import Types (MetaData(..), metaDataSchema
              -- , fromMetaData
              , toMetaData
              , InvalidObsId, invalidObsIdSchema
+             , ScienceObs(..)
+             , ScienceObsRaw(..), scienceObsRawSchema
+             , NonScienceObs(..), nonScienceObsSchema
+             , SimbadInfo(..), simbadInfoSchema
+             , SimbadMatch(..), simbadMatchSchema
+             , simbadNoMatchSchema
+             , Proposal(..), proposalSchema
+             , TelescopeValues(..), telescopeValuesSchema
+             , ObsIdVal
+             , ObsIdStatus(..)
+             , TargetName
+             , PropNum
+             , Telescope, TelescopeId
+             , fromObsIdStatus
              )
 
 --X -- DbSql is a terrible name; need to change it
@@ -443,18 +473,22 @@ identifyHelper px py ord mx my =
       oy = py <$> my
   in if ord ox oy then Right <$> mx else Left <$> my
 
+X-}
+
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
 --   finished or running. It will not be a discarded observation,
 --   one with no scheduled time, or labelled as canceled.
 --
 findRecord ::
-  DbSql m
-  => UTCTime
-  -> m (Maybe Record)
-findRecord t = do
+  Connection
+  -> UTCTime
+  -> IO (Maybe Record)
+findRecord conn t = do
   let tval = Just (toChandraTime t)
 
+???
+  
   mScience <- maybeSelect (((SoStartTimeField <=. tval)
                             &&. isValidScienceObs)
                            `orderBy` [Desc SoStartTimeField])
@@ -463,6 +497,8 @@ findRecord t = do
                               `orderBy` [Desc NsStartTimeField])
                  
   pure (identifyLatestRecord mScience mNonScience)
+
+{-X
 
 findRecordRestricted ::
   DbSql m
@@ -528,18 +564,103 @@ maybeProject out cond = listToMaybe <$> project out (cond `limitTo` 1)
 findNonScience :: PersistBackend m => ObsIdVal -> m (Maybe NonScienceObs)
 findNonScience oi = maybeSelect (NsObsIdField ==. oi)
 
+X-}
+
+
+-- Identify the telescope(s) for the given row number.
+-- It is not clear if we still need to support the "list" of
+-- Telescope values.
+--
+findTelescope :: Expr TelescopeId -> Query (Expr Telescope)
+findTelescope rowNum = do
+  tele <- each telescopeValuesSchema
+  where_ (tvId tele ==. rowNum)
+  pure (tvValue tele)
+
+
 -- | This will return a discarded or unscheduled observation.
-findScience :: PersistBackend m => ObsIdVal -> m (Maybe ScienceObs)
-findScience oi = maybeSelect (SoObsIdField ==. oi)
+--
+--   There is some complexity in the handling of the soMultiTelObs field which is
+--   stored in Haskell as [Telescope].
+--
+findScience :: ObsIdVal -> Query (ScienceObs Expr)
+findScience oi = do
+  sor <- each scienceObsRawSchema
+  where_ (sorObsId sor ==. lit oi)
+  teles <- manyExpr (findTelescope (sorMultiTelObs sor))
+
+  pure (hydrateScienceObs sor teles)
+
+
+hydrateScienceObs :: ScienceObsRaw f -> Column f [Telescope] -> ScienceObs f
+hydrateScienceObs raw teles =
+  ScienceObs
+  { soSequence = sorSequence raw
+  , soProposal = sorProposal raw
+  , soStatus = sorStatus raw
+  , soObsId = sorObsId raw
+  , soTarget = sorTarget raw
+  --
+  , soStartTime = sorStartTime raw
+  , soApprovedTime = sorApprovedTime raw
+  , soObservedTime = sorObservedTime raw
+  , soPublicRelease = sorPublicRelease raw
+  --
+  , soTimeCritical = sorTimeCritical raw
+  , soMonitor = sorMonitor raw
+  , soConstrained = sorConstrained raw
+  --
+  , soInstrument = sorInstrument raw
+  , soGrating = sorGrating raw
+  , soDetector = sorDetector raw
+  , soDataMode = sorDataMode raw
+  --
+  , soACISI0 = sorACISI0 raw
+  , soACISI1 = sorACISI1 raw
+  , soACISI2 = sorACISI2 raw
+  , soACISI3 = sorACISI3 raw
+  , soACISS0 = sorACISS0 raw
+  , soACISS1 = sorACISS1 raw
+  , soACISS2 = sorACISS2 raw
+  , soACISS3 = sorACISS3 raw
+  , soACISS4 = sorACISS4 raw
+  , soACISS5 = sorACISS5 raw
+  --
+  , soJointWith = sorJointWith raw
+  , soJointHST = sorJointHST raw
+  , soJointNOAO = sorJointNOAO raw
+  , soJointNRAO = sorJointNRAO raw
+  , soJointRXTE = sorJointRXTE raw
+  , soJointSPITZER = sorJointSPITZER raw
+  , soJointSUZAKU = sorJointSUZAKU raw
+  , soJointXMM = sorJointXMM raw
+  , soJointSWIFT = sorJointSWIFT raw
+  , soJointNUSTAR = sorJointNUSTAR raw
+  --
+  , soMultiTel = sorMultiTel raw
+  , soMultiTelInt = sorMultiTelInt raw
+  , soMultiTelObs = teles
+  --
+  , soTOO = sorTOO raw
+  , soRA = sorRA raw
+  , soDec = sorDec raw
+  , soConstellation = sorConstellation raw
+  , soRoll = sorRoll raw
+  --
+  , soSubArrayStart = sorSubArrayStart raw
+  , soSubArraySize = sorSubArraySize raw
+  }
+  
 
 -- | Return the current observation (ignoring discarded observations,
 --   but in this case it is unlikely that the database will have been
 --   updated with the discard information in time, or unscheduled
 --   observations).
 --
-getCurrentObs :: DbFull m => m (Maybe Record)
-getCurrentObs = liftIO getCurrentTime >>= findRecord
+getCurrentObs :: Connection -> IO (Maybe Record)
+getCurrentObs conn = liftIO getCurrentTime >>= findRecord conn
 
+{-X
 -- | Return the first observation to start after the given time,
 --   excluding discarded and unscheduled observations. The input observation
 --   is assumed NOT to be discarded.
@@ -593,6 +714,7 @@ getPrevObs oid mt = do
   
   pure (identifyLatestRecord mScience mNonScience)
   
+X-}
 
 -- | Find the current observation and the previous/next ones.
 --
@@ -610,10 +732,10 @@ getPrevObs oid mt = do
 --         code could be running, but need to think about it.
 --
 getObsInfo ::
-  DbFull m
-  => m (Maybe ObsInfo)
-getObsInfo = do
-  mobs <- getCurrentObs
+  Connection
+  -> IO (Maybe ObsInfo)
+getObsInfo conn = do
+  mobs <- getCurrentObs conn
   case mobs of
     Just obs -> Just <$> extractObsInfo obs
     Nothing -> pure Nothing
@@ -639,6 +761,8 @@ extractObsInfo obs = do
       mprev <- getPrevObs obsid startTime
       mnext <- getNextObs obsid startTime
       pure (ObsInfo obs mprev mnext)
+
+{-X
 
 -- | Return information on the given observation, including
 --   preceeding and following observations.
@@ -1082,20 +1206,23 @@ getSimbadListRestricted rs = do
 
   pure (M.fromList (catMaybes toMap))
 
+X-}
+
 
 -- | Do we have any SIMBAD information about the target?
 --
+--   Use runDbMaybe
+--
 getSimbadInfo :: 
-  PersistBackend m
-  => TargetName   -- target name (not the actual SIMBAD search term)
-  -> m (Maybe SimbadInfo)
+  TargetName   -- target name (not the actual SIMBAD search term)
+  -> Query (SimbadInfo Expr)
 getSimbadInfo target = do
-  mkey <- maybeProject SmmInfoField (SmmTargetField ==. target)
-  case mkey of
-    Just key -> get key
-    Nothing -> pure Nothing
-
-X-}
+  smm <- each simbadMatchSchema
+  where_ (smmTarget smm ==. lit target)
+  si <- each simbadInfoSchema
+  where_ (smiId si ==. smmInfo smm)
+  pure si
+  
 
 -- | Return all observations of the given SIMBAD type (excluding
 --   discarded). This restricts to the type only (i.e. no descendents).
@@ -1483,6 +1610,10 @@ fetchScienceObsBy dbcond =
   in unsafeToSL <$> project restrictedScience cond
   
 
+X-}
+
+{-X
+
 -- TODO: use the database to do this computation?
 
 -- | Given a sorted list of values, return the counts of these values,
@@ -1496,6 +1627,9 @@ countUp xs =
       ys = zip ids cts
   in sortOn (Down . snd) ys
 
+X-}
+
+{-X
 
 -- | Return count of the constellations.
 --   Discarded observations are excluded.
@@ -2014,19 +2148,26 @@ fetchSubArrays = do
       
   pure (M.toAscList sums, fullTime)
 
+X-}
+
 
 -- | Return the proposal information for the observation if:
 --   a) it's a science observation, and b) we have it.
 --   even if the observation was discarded.
 --
-getProposal :: PersistBackend m => ScienceObs -> m (Maybe Proposal)
+getProposal :: ScienceObs Result -> Query (Proposal Expr)  -- can this be a Maybe?
 getProposal ScienceObs{..} = getProposalFromNumber soProposal
 
 -- | Return the proposal information if we have it.
 --
-getProposalFromNumber :: PersistBackend m => PropNum -> m (Maybe Proposal)
-getProposalFromNumber propNum = maybeSelect (PropNumField ==. propNum)
+getProposalFromNumber :: PropNum -> Query (Proposal Expr)  -- can this be a Maybe?
+getProposalFromNumber proposalNum = do
+  prop <- each proposalSchema
+  where_ (propNum prop ==. lit proposalNum)
+  pure prop
 
+
+{-X
 -- | Find all the other observations in the proposal. This does not return
 --   discarded observations, but will return matches if the input observation
 --   was discarded. It will return unscheduled observations.
@@ -2090,16 +2231,22 @@ getProposalInfo (Right so) = do
   matches <- getProposalObs so
   pure (mproposal, matches)
 
+X-}
+
+
 -- | Report on the observational status of the science observations.
 --   The values are ordered in descending order of the counts (the list
 --   of options is assumed to be small).
 --
 --   This INCLUDES discarded and unscheduled observations.
 --
-findObsStatusTypes :: PersistBackend m => m [(ObsIdStatus, Int)]
+findObsStatusTypes :: Query (Expr ObsIdStatus, Expr Int64)
 findObsStatusTypes =
-  countUp <$> project SoStatusField (CondEmpty `orderBy` [Asc SoStatusField])
+  aggregate1 (liftA2 (,) groupBy count)
+             (sorStatus <$> each scienceObsRawSchema)
 
+
+{-X
 
 -- | Try supporting "name matching". This is complicated by the fact
 --   that there are both the target names (soTarget) and the
@@ -2698,7 +2845,7 @@ findNearbyObs ::
   --   given center.
   --
 findNearbyObs obsid0 (ra0,dec0) rmax = do
-  let fields = (SoRAField, SoDecField, SoRollField, SoInstrumentField
+  let fields = (SoRAField, SoDecField, SToRollField, SoInstrumentField
                , SoTargetField, SoObsIdField, SoStatusField)
 
       -- could add a simple ra/dec box to reduce the data returned by
@@ -2828,63 +2975,70 @@ sumV3 (a1, a2, a3) (b1, b2, b3) = sum [a1 * b1, a2 * b2, a3 * b3]
 -}
 
 
-{-X
-putIO :: MonadIO m => T.Text -> m ()
-putIO = liftIO . T.putStrLn
-X-}
-
-{-X
 showSize ::
-  (DbIO m, PersistEntity v)
-  => T.Text
-  -> v
-  -> m Int
-showSize l t = do
-  n <- countAll t
-  putIO (sformat ("Number of " % stext % " : " % int) l n)
+  Rel8able f
+  => Connection
+  -> T.Text
+  -> TableSchema (f Name)
+  -> IO Int64
+showSize conn lbl schema = do
+  n <- runDb1 conn (select (getSize schema))
+  T.putStrLn (sformat ("Number of " % stext % " : " % int) lbl n)
   pure n
+
+
+-- | What is the size of the table?
+--
+getSize ::
+  Rel8able f
+  => TableSchema (f Name)
+  -> Query (Expr Int64)
+getSize = aggregate countStar . each
+
 
 -- | Quick on-screen summary of the database size.
 --
---   THIS HAS NOT BEEN FULLY UPDATED
-reportSize :: DbIO m => m Int
-reportSize = do
+reportSize :: Connection -> IO Int64
+reportSize conn = do
   -- n1 <- showSize "scheduled items  " (undefined :: ScheduleItem)
-  n2 <- showSize "science obs      " (undefined :: ScienceObs)
-  n3 <- showSize "non-science obs  " (undefined :: NonScienceObs)
-  n4 <- showSize "proposals        " (undefined :: Proposal)
-  n5 <- showSize "SIMBAD match     " (undefined :: SimbadMatch)
-  n6 <- showSize "SIMBAD no match  " (undefined :: SimbadNoMatch)
-  n7 <- showSize "SIMBAD info      " (undefined :: SimbadInfo)
+  n2 <- showSize conn "science obs      " scienceObsRawSchema
+  n3 <- showSize conn "non-science obs  " nonScienceObsSchema
+  n4 <- showSize conn "proposals        " proposalSchema
+  n5 <- showSize conn "SIMBAD match     " simbadMatchSchema
+  n6 <- showSize conn "SIMBAD no match  " simbadNoMatchSchema
+  n7 <- showSize conn "SIMBAD info      " simbadInfoSchema
   -- n8 <- showSize "overlap obs      " (undefined :: OverlapObs)
 
   let n1 = 0 -- TODO: remove this
       n8 = 0
       
-  nbad <- showSize "invalid obsids   " (undefined :: InvalidObsId)
+  nbad <- showSize conn "invalid obsids   " invalidObsIdSchema
 
   -- break down the status field of the observations
-  putIO ""
-  ns <- findObsStatusTypes
+  T.putStrLn ""
+  ns <- runDb conn (select findObsStatusTypes)
   let field = right 10 ' '
   forM_ ns (\(status, n) ->
-             let txt = fromObsIdStatus status
-             in putIO (sformat ("  status=" % field % "  : " % int) txt n))
-  putIO (sformat (" -> total = " % int) (sum (map snd ns)))
-  putIO ""
-
+              let txt = fromObsIdStatus status
+              in T.putStrLn (sformat ("  status=" % field % "  : " % int) txt n))
+  T.putStrLn (sformat (" -> total = " % int) (sum (map snd ns)))
+  T.putStrLn ""
+  
   -- non-science breakdown
-  -- ns1 <- count notFromObsCat
-  -- putIO (sformat ("  non-science (not from obscat) = " % int) ns1)
-  ns2 <- count (Not notNsDiscarded)
-  putIO (sformat ("  non-science discarded         = " % int) ns2)
+  --
+  let countNSDiscards = aggregate countStar (do
+                                                row <- each nonScienceObsSchema
+                                                where_ (nsStatus row ==. lit Discarded)
+                                                pure row)
+  ns2 <- runDb1 conn (select countNSDiscards)
+  T.putStrLn (sformat ("  non-science discarded         = " % int) ns2)
   
   let ntot = sum [n1, n2, n3, n4, n5, n6, n7, n8, nbad]
-  putIO ""
-  putIO (sformat ("Number of rows              : " % int) ntot)
+  T.putStrLn ""
+  T.putStrLn (sformat ("Number of rows              : " % int) ntot)
+
   pure ntot
 
-X-}
 
 {-X
 -- Need to make sure the following match the constraints on the tables found
@@ -3094,19 +3248,6 @@ dbConnStr = do
 
     Just _ -> toStr <$> dbConnParams
 
-
--- | Run an action against the database. This includes a call to
---   `handleMigration` before the action is run.
---
---   It now supports access to the production database (in earlier
---   versions it was hard-wired to only use a local database).
---
-runDb ::
-  (MonadBaseControl IO m, MonadIO m)
-  => Action Postgresql a -> m a
-runDb act = do
-  connStr <- liftIO dbConnStr
-  withPostgresqlConn connStr (runDbConn (handleMigration >> act))
 
 -- Return the time the db call took (including migration and setting
 -- up/closing the connection) in seconds.

@@ -15,12 +15,17 @@ import qualified Data.Text.IO as T
 
 import Data.Time (getCurrentTime)
 
+import Hasql.Connection (Connection, release)
+
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (stderr)
 
-import Database (getObsInfo, reportSize, runDb)
-import Types (ObsInfo(..))
+import Database (getConnection
+                , getObsInfo
+                , reportSize
+                , runDb)
+-- import Types (ObsInfo(..))
 
 
 usage :: IO ()
@@ -42,11 +47,15 @@ queryDB :: IO ()
 queryDB = do
   now <- getCurrentTime
   T.putStrLn ("The current time is: " <> T.pack (show now))
-  res <- runDb (reportSize >> getObsInfo)
+  conn <- getConnection
+  _ <- reportSize conn
+  res <- runDb conn getObsInfo
   case res of
     Nothing -> T.putStrLn "ERROR: no observation was found."
     Just oi -> reportOI oi
 
+  release conn
+  
 
 reportOI :: ObsInfo -> IO ()
 reportOI oi = do
