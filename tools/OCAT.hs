@@ -12,7 +12,7 @@ module OCAT (OCAT
               
             , dumpScienceObs
 
-            -- , addProposal
+            , addProposal
 
               -- need a random-stuff module
             , slen
@@ -159,6 +159,8 @@ import qualified Data.Text.IO as T
 
 import qualified Network.HTTP.Conduit as NHC
 
+import qualified Rel8
+
 import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 
@@ -168,15 +170,18 @@ import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Text.Encoding (decodeLatin1)
 import Data.Time (TimeLocale, UTCTime
                  , defaultTimeLocale
-                 -- , getCurrentTime
+                 , getCurrentTime
                  , readSTime)
 
 
 import Formatting (int, sformat)
 
+import Hasql.Connection (Connection)
+
 import Network.HTTP.Types.Header (Header)
 
-import Rel8 (Result)
+import Rel8 (Result, Insert(..)
+            , lit)
 
 import System.Environment (getEnv)
 import System.Exit (ExitCode(ExitSuccess), exitFailure)
@@ -191,7 +196,8 @@ import Text.HTML.TagSoup (innerText
                          , partitions)
 import Text.Read (readMaybe)
 
--- import Database (updateLastModified, getConnection)
+import Database (updateLastModifiedS
+                , runDb_)
 import Types (ObsIdVal
              , unsafeToObsIdVal
              , fromObsId64
@@ -235,12 +241,15 @@ import Types (ObsIdVal
              , Constraint
              , toConstraint
              , fromConstraint
-             -- , ProposalAbstract(..)
-             -- , MissingProposalAbstract(..)
+             , ProposalAbstract(..)
+             , MissingProposalAbstract(..)
              , fromTOORequest
              , toTOORequest
              , toTargetName
              , fromTargetName
+             --
+             , proposalAbstractSchema
+             , missingProposalAbstractSchema
              )
 
 userAgent :: Header
@@ -989,8 +998,6 @@ dumpScienceObs ScienceObs{..} = do
 -- proposal abstracts
 --
 
-{-X
-
 -- | Should this either return the error string?
 --
 --   The proposal is added to the "unable to query proposal"
@@ -1000,12 +1007,12 @@ dumpScienceObs ScienceObs{..} = do
 --   if this is a sensible assumption.
 --
 addProposal ::
-  PersistBackend m
-  => PropNum
+  Connection
+  -> PropNum
   -- ^ This proposal should not exist in the database
-  -> m Bool
+  -> IO Bool
   -- ^ True if the proposal was added
-addProposal pnum = do
+addProposal conn pnum = do
   
   let req = NHC.parseRequest_ baseLoc
       baseLoc = "https://cda.cfa.harvard.edu/srservices/propAbstract.do"
@@ -1022,9 +1029,9 @@ addProposal pnum = do
 
       errPrint = liftIO . T.hPutStrLn stderr
   
-  rsp <- liftIO (getTextFromOCAT req1)
+  rsp <- getTextFromOCAT req1
   case rsp of
-    Right ans -> extractAbstract pnum ans
+    Right ans -> extractAbstract conn pnum ans
         
     Left emsg -> do
       errPrint ("Problem querying propNum: "
@@ -1037,15 +1044,15 @@ addProposal pnum = do
 -- it will error out if they do not.
 --
 extractAbstract ::
-  PersistBackend m
-  => PropNum
+  Connection
+  -> PropNum
   -> T.Text
   -- ^ Assumed to be the HTML response
-  -> m Bool
+  -> IO Bool
   -- ^ True if the proposal was added to the database
-extractAbstract pnum txt = do
-  let printErr = liftIO . T.hPutStrLn stderr
-  now <- liftIO getCurrentTime
+extractAbstract conn pnum txt = do
+  let printErr = T.hPutStrLn stderr
+  now <- getCurrentTime
   case findAbstract pnum txt of
     Left emsg -> do
       printErr ("Failed for " <> showInt (fromPropNum pnum))
@@ -1056,9 +1063,15 @@ extractAbstract pnum txt = do
             , mpReason = emsg
             , mpChecked = now
             }
-      
-      insert_ missingAbs
-      updateLastModified now
+
+          ins = Rel8.insert $ Insert
+            { into = missingProposalAbstractSchema
+            , rows = Rel8.values [ lit missingAbs ]
+            , onConflict = Rel8.Abort
+            , returning = Rel8.NoReturning
+            }
+
+      runDb_ conn (ins >> updateLastModifiedS now)
       pure False
 
     Right (absTitle, absText) -> do
@@ -1068,11 +1081,16 @@ extractAbstract pnum txt = do
             , paAbstract = absText
             }
 
-      insert_ newAbs
-      updateLastModified now
+          ins = Rel8.insert $ Insert
+            { into = proposalAbstractSchema
+            , rows = Rel8.values [ lit newAbs ]
+            , onConflict = Rel8.Abort
+            , returning = Rel8.NoReturning
+            }
+            
+      runDb_ conn (ins >> updateLastModifiedS now)
       pure True
 
-X-}
 
 -- It is possible for an abstract to be incomplete - e.g.
 -- missing either or both of the title and abstract. It is considered
@@ -1127,5 +1145,3 @@ findAbstract pnum txt = do
                                
   maybe (Left "Invalid proposal number") checkNum
     (readMaybe (T.unpack number))
-
-

@@ -440,18 +440,18 @@ executable getproposals
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , bytestring
      , chandraobs
      , containers
      , formatting
-     , groundhog
-     , groundhog-postgresql
+     , hasql
      , http-conduit
      , http-types
      , process
+     , rel8
      , tagsoup
      , temporary
      , text

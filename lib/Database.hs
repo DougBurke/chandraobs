@@ -158,7 +158,7 @@ import qualified Data.Text.IO as T
 import qualified Hasql.Session as Session
 import qualified Hasql.Connection.Setting.Connection.Param as P
 
-import qualified Rel8 as Rel8
+import qualified Rel8
 
 --X import Control.Arrow (first, second)
 import Control.Monad ({- filterM, forM, -} forM_, guard {-, when -})
@@ -195,7 +195,6 @@ import Network.URI (URI(..)
 import Rel8 ( Rel8able
             , Statement, Serializable, Expr, Query
             , Result
-            , Column
             , Name
             , TableSchema
             , Delete(..), Insert(..)
@@ -253,13 +252,8 @@ import Types (MetaData(..), metaDataSchema
              , fromObsIdStatus
              , ChandraTime
              , toChandraTime
-             , fromChandraTime
+             -- , fromChandraTime
              )
-
---X -- DbSql is a terrible name; need to change it
---X type DbIO m = (MonadIO m, PersistBackend m)
---X type DbSql m = (PersistBackend m, SqlDb (Conn m))
---X type DbFull m = (PersistBackend m, SqlDb (Conn m), MonadIO m)
 
 -- nsInObsCatName :: T.Text
 -- nsInObsCatName = "unknown"
@@ -501,17 +495,15 @@ findRecord conn t = do
       queryScience = do
         row <- Rel8.limit 1
           $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.desc)
-          $ (each scienceObsRawSchema
+          $ each scienceObsRawSchema
              >>= Rel8.filter (\r -> (sorStartTime r <=. lit tval) &&. isValidScienceObsRaw r)
-            )
         hydrateScienceObs row
       
       queryNonScience =
         Rel8.limit 1
         $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.desc)
-        $ (each nonScienceObsSchema
+        $ each nonScienceObsSchema
           >>= Rel8.filter (\r -> (nsStartTime r <=. lit tval) &&. notNsDiscarded r)
-          )
   
   mScience <- runDbMaybe conn (select queryScience)
   mNonScience <- runDbMaybe conn (select queryNonScience)
@@ -747,23 +739,21 @@ getNextObs conn oid mt = do
   let queryScience = do
         row <- Rel8.limit 1
           $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.asc)
-          $ (each scienceObsRawSchema
+          $ each scienceObsRawSchema
              >>= Rel8.filter (\r ->
                                 sorStartTime r >. lit mt &&.
                                 sorObsId r /=. lit oid &&.
                                 isValidScienceObsRaw r)
-            )
         hydrateScienceObs row
       
       queryNonScience =
         Rel8.limit 1
         $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.asc)
-        $ (each nonScienceObsSchema
+        $ each nonScienceObsSchema
           >>= Rel8.filter (\r ->
                              nsStartTime r >. lit mt &&.
                              nsObsId r /=. lit oid &&.
                              notNsDiscarded r)
-          )
   
   mScience <- runDbMaybe conn (select queryScience)
   mNonScience <- runDbMaybe conn (select queryNonScience)
@@ -787,23 +777,21 @@ getPrevObs conn oid mt = do
   let queryScience = do
         row <- Rel8.limit 1
           $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.desc)
-          $ (each scienceObsRawSchema
-             >>= Rel8.filter (\r ->
+          $ each scienceObsRawSchema
+            >>= Rel8.filter (\r ->
                                 sorStartTime r <. lit mt &&.
                                 sorObsId r /=. lit oid &&.
                                 isValidScienceObsRaw r)
-            )
         hydrateScienceObs row
       
       queryNonScience =
         Rel8.limit 1
         $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.desc)
-        $ (each nonScienceObsSchema
+        $ each nonScienceObsSchema
           >>= Rel8.filter (\r ->
                              nsStartTime r <. lit mt &&.
                              nsObsId r /=. lit oid &&.
                              notNsDiscarded r)
-          )
   
   mScience <- runDbMaybe conn (select queryScience)
   mNonScience <- runDbMaybe conn (select queryNonScience)

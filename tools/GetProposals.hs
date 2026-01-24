@@ -43,11 +43,11 @@ module Main (main) where
 import qualified Data.Set as S
 import qualified Data.Text.IO as T
 
+import qualified Rel8
+
 import Control.Monad (forM_)
 
-import Database.Groundhog.Postgresql (Cond(CondEmpty), Order(Asc)
-                                     , orderBy
-                                     , project)
+import Hasql.Connection (Connection, release)
 
 import Numeric.Natural
 
@@ -57,10 +57,15 @@ import System.IO (hPutStrLn, stderr)
 
 import Text.Read (readMaybe)
 
-import Database (runDb)
+import Database (getConnection, runDb)
 import Types (PropNum
               , fromPropNum
-              , Field(PaNumField, PropNumField, MpNumField)
+              , paNum
+              , propNum
+              , mpNum
+              , proposalAbstractSchema
+              , proposalSchema
+              , missingProposalAbstractSchema
               )
 
 import OCAT (addProposal, showInt)
@@ -75,25 +80,24 @@ usage progName = do
 -- What are the missing proposals?
 --
 missingProposals ::
-  Natural
+  Connection
+  -> Natural
   -- ^ Maximum number of proposals to return
   -> IO [PropNum]
   -- ^ This is ordered by proposal number, but is for the
   --   highest proposal numbers present.
-missingProposals nmax = do
+missingProposals conn nmax = do
 
-  let dbAct = do
-        -- paNum and propNum are unique, so no need to worry about
-        -- duplicates in these queries
-        propHave <- let p = PaNumField
-                    in project p (CondEmpty `orderBy` [Asc p])
-        propAll <- let p = PropNumField
-                   in project p (CondEmpty `orderBy` [Asc p])
-        propNoData <- let p = MpNumField
-                      in project p (CondEmpty `orderBy` [Asc p])
-        pure (propAll, propHave, propNoData)
+  -- paNum and propNum are unique, so no need to worry about
+  -- duplicates in these queries
+  let get schema proj = Rel8.orderBy Rel8.asc (proj <$> Rel8.each schema)
+      propHave = get proposalAbstractSchema paNum
+      propAll = get proposalSchema propNum
+      propNoData = get missingProposalAbstractSchema mpNum
 
-  (pAll, pHave, pNoData) <- runDb dbAct
+  pAll <- runDb conn (Rel8.select propAll)
+  pHave <- runDb conn (Rel8.select propHave)
+  pNoData <- runDb conn (Rel8.select propNoData)
   
   -- let Set sort this out
   let sAll = S.fromDistinctAscList pAll
@@ -117,14 +121,15 @@ This only works with a local database
 runSearch :: Natural -> IO ()
 runSearch nmax = do
 
-  props <- missingProposals nmax
+  conn <- getConnection
+  props <- missingProposals conn nmax
   let nprops = length props
   if nprops == 0
     then T.putStrLn "There are no missing proposals."
     else do
       T.putStrLn ("Found " <> showInt nprops <> " missing proposals")
 
-      flags <- mapM (runDb . addProposal) props
+      flags <- mapM (addProposal conn) props
       let nfound = length (filter id flags)
 
       if nfound == nprops
@@ -134,6 +139,8 @@ runSearch nmax = do
           let missing = filter (not . fst) (zip flags props)
           forM_ missing (T.putStrLn . ("    " <>) .
                          showInt . fromPropNum . snd)
+
+  release conn
 
 
 main :: IO ()

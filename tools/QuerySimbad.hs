@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
@@ -628,7 +627,7 @@ updateDB sloc mndays f = do
   let deleteEntry label schema elems proj = unless (null elems) $ do
         let del = Delete { from = schema
                          , using = pure ()
-                         , deleteWhere = \_ row -> proj row `in_` (fmap litExpr (S.toList elems))
+                         , deleteWhere = \_ row -> proj row `in_` fmap litExpr (S.toList elems)
                          -- , returning = NoReturning
                          , returning = Returning proj
                          }
@@ -795,7 +794,7 @@ updateOldRecords conn mgr sloc ndays f = do
   noMatchFields <- runDb conn (select qry)
 
   tNow <- getCurrentTime
-  let dTime = -1 * 3600 * 24 * ndays
+  let dTime = (-1) * 3600 * 24 * ndays
       tOld = addUTCTime (fromIntegral dTime) tNow 
       isOld SimbadNoMatch{..} = smnLastChecked <= tOld
       old = takeWhile isOld noMatchFields

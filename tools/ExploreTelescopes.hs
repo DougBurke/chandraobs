@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE RecordWildCards #-}
 
 -- Can we understand how the soMultiTelObs field has been encoded?
 --
@@ -63,14 +61,14 @@ usage = do
 main :: IO ()
 main = do
   args <- getArgs
-  unless (null args) $ usage
+  unless (null args) usage
   conn <- getConnection
   withTel <- findTelescopes conn
   withOutTel <- findNoTelescopes conn
   release conn
 
   T.putStrLn "# Telescopes"
-  forM_ (withTel) $ \(obsid, tels) -> do
+  forM_ withTel $ \(obsid, tels) -> do
 
     let otxt = T.pack (show (fromObsIdVal obsid))
         showNum = T.pack . show
@@ -85,7 +83,7 @@ main = do
       T.putStrLn ("  " <> fromTelescope tel)
 
   T.putStrLn "\n# No Telescopes"
-  forM_ (withOutTel) $ \obsid ->
+  forM_ withOutTel $ \obsid ->
     let otxt = T.pack (show (fromObsIdVal obsid))
     in T.putStrLn ("ObsId: " <> otxt)
   
