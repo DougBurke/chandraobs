@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -11,8 +12,8 @@ module Database ( getConnection
 
                 , findScience
                 
-                --X getCurrentObs
-                -, getObsInfo
+                , getCurrentObs
+                , getObsInfo
                 --X -- , findObsName
                 --X , getObsId
                 --X , getRecord
@@ -62,7 +63,7 @@ module Database ( getConnection
                 --X , findNameMatch
                 --X , findProposalNameMatch
                 --X , findTarget
-                --X , findRecord
+                , findRecord
                   
                 --X , getProposalObjectMapping
 
@@ -157,6 +158,8 @@ import qualified Data.Text.IO as T
 import qualified Hasql.Session as Session
 import qualified Hasql.Connection.Setting.Connection.Param as P
 
+import qualified Rel8 as Rel8
+
 --X import Control.Arrow (first, second)
 import Control.Monad ({- filterM, forM, -} forM_, guard {-, when -})
 
@@ -167,6 +170,7 @@ import Control.Monad ({- filterM, forM, -} forM_, guard {-, when -})
 --X import Data.Maybe (catMaybes, fromJust, fromMaybe,
 --X                    isJust, isNothing, listToMaybe, mapMaybe)
 -- import Data.Ord (Down(..))
+import Data.Time (getCurrentTime)
 --X import Data.Time (UTCTime(..), Day(..), addDays, addUTCTime, getCurrentTime
 --X                  , diffUTCTime -- debugging
 --X                  )
@@ -197,22 +201,15 @@ import Rel8 ( Rel8able
             , Delete(..), Insert(..)
             , OnConflict(..) , Returning(..)
             , (==.)
-            , asc
-            , count
-            , where_
-            , run, run_, run1, runMaybe
-            , delete, insert, select
-            , lit
-            , values
+            , (/=.)
+            , (<=.)
+            , (>.)
+            , (<.)
+            , (&&.)
             , each
-            , desc
-            , manyExpr
-            , aggregate
-            , aggregate1
-            , countStar
-            , groupBy
-            , orderBy
-            -- , nullsLast
+            , lit
+            , select
+            , run, run_, run1, runMaybe
             )
 
 import Data.Int (Int64)
@@ -239,6 +236,9 @@ import Types (MetaData(..), metaDataSchema
              , ScienceObs(..)
              , ScienceObsRaw(..), scienceObsRawSchema
              , NonScienceObs(..), nonScienceObsSchema
+             , Record
+             , recordObsId
+             , recordStartTime
              , SimbadInfo(..), simbadInfoSchema
              , SimbadMatch(..), simbadMatchSchema
              , simbadNoMatchSchema
@@ -246,10 +246,14 @@ import Types (MetaData(..), metaDataSchema
              , TelescopeValues(..), telescopeValuesSchema
              , ObsIdVal
              , ObsIdStatus(..)
+             , ObsInfo(..)
              , TargetName
              , PropNum
              , Telescope, TelescopeId
              , fromObsIdStatus
+             , ChandraTime
+             , toChandraTime
+             , fromChandraTime
              )
 
 --X -- DbSql is a terrible name; need to change it
@@ -389,19 +393,17 @@ notCanceled ::
 notCanceled = SoStatusField /=. Canceled
 -}
 
-{-X
+
 -- | A valid science observation is one which has a start time.
 --   There should be no observations which have no start time
 --   and are not either discarded or canceled, but do not
 --   rely on that for now.
 --
-isValidScienceObs ::
-  (DbDescriptor db, SqlDb db)
-  => Cond db (RestrictionHolder ScienceObs ScienceObsConstructor)
-isValidScienceObs =
-  Not (isFieldNothing SoStartTimeField) &&.
-  (SoStatusField `notIn_` [Discarded, Canceled])
-X-}
+isValidScienceObsRaw :: ScienceObsRaw Expr -> Expr Bool
+isValidScienceObsRaw ScienceObsRaw {..} =
+  Rel8.isNonNull sorStartTime &&.
+  Rel8.not_ (sorStatus `Rel8.in_` [lit Discarded, lit Canceled])
+
 
 {-
 -- | Identify non-science observations that are not from the
@@ -415,15 +417,13 @@ notFromObsCat ::
 notFromObsCat = (NsNameField /=. nsInObsCatName) &&. notNsDiscarded
 -}
 
-{-X
 -- | Non-science observations that have not been "discarded".
 --
 --   TODO: replace with isValidNonScienceObs, but not clear yet what
 --         that is
-notNsDiscarded ::
-  DbDescriptor db
-  => Cond db (RestrictionHolder NonScienceObs NonScienceObsConstructor)
-notNsDiscarded = NsStatusField /=. Discarded
+notNsDiscarded :: NonScienceObs Expr -> Expr Bool
+notNsDiscarded row = nsStatus row /=. lit Discarded
+
 
 -- | Given two possible observations (one science, one engineering),
 --   identify which is the latest (has the largest start time) or earliest.
@@ -433,10 +433,12 @@ notNsDiscarded = NsStatusField /=. Discarded
 --   If there are no valid observations, return Nothing.
 --
 identifyLatestRecord ::
-  Maybe ScienceObs
-  -> Maybe NonScienceObs
+  Maybe (ScienceObs Result)
+  -> Maybe (NonScienceObs Result)
   -> Maybe Record
 identifyLatestRecord = identifyHelper soStartTime nsStartTime (>)
+
+{-X
 
 identifyLatestRestrictedRecord ::
   Maybe RestrictedSO
@@ -444,11 +446,14 @@ identifyLatestRestrictedRecord ::
   -> Maybe RestrictedRecord
 identifyLatestRestrictedRecord = identifyHelper rsoStartTime rnsStartTime (>)
 
+X-}
+
 identifyEarliestRecord ::
-  Maybe ScienceObs
-  -> Maybe NonScienceObs
+  Maybe (ScienceObs Result)
+  -> Maybe (NonScienceObs Result)
   -> Maybe Record
 identifyEarliestRecord = identifyHelper soStartTime nsStartTime (<)
+
 
 -- I wonder if this could be simplified by just using the Maybe Ord
 -- instance (ie do not need to special case the options)? Does
@@ -468,12 +473,18 @@ identifyHelper _ _ _ Nothing Nothing = Nothing
 identifyHelper _ _ _ (Just x) Nothing = Just (Right x)
 identifyHelper _ _ _ Nothing (Just y) = Just (Left y)
 identifyHelper px py ord mx my =
-  -- rely on Ord instance of Maybe for the comparison
+  -- DBOrd does not have instances for Maybe, so handle this directly.
   let ox = px <$> mx
       oy = py <$> my
   in if ord ox oy then Right <$> mx else Left <$> my
-
-X-}
+  
+{-      
+  in case (ox, oy) of
+    (Just ax, Just ay) -> if ord ax ay then Right <$> mx else Left <$> my
+    (Just ax, _) -> Right <$> mx
+    (_, Just ay) -> Left <$> my
+    _ -> Nothing
+-}
 
 -- | Return the last observation (science or non-science) to be
 --   scheduled before the requested time. The observation can be
@@ -487,18 +498,74 @@ findRecord ::
 findRecord conn t = do
   let tval = Just (toChandraTime t)
 
-???
+      queryScience = do
+        row <- Rel8.limit 1
+          $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.desc)
+          $ (each scienceObsRawSchema
+             >>= Rel8.filter (\r -> (sorStartTime r <=. lit tval) &&. isValidScienceObsRaw r)
+            )
+        hydrateScienceObs row
+      
+      queryNonScience =
+        Rel8.limit 1
+        $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.desc)
+        $ (each nonScienceObsSchema
+          >>= Rel8.filter (\r -> (nsStartTime r <=. lit tval) &&. notNsDiscarded r)
+          )
   
-  mScience <- maybeSelect (((SoStartTimeField <=. tval)
-                            &&. isValidScienceObs)
-                           `orderBy` [Desc SoStartTimeField])
-  mNonScience <- maybeSelect (((NsStartTimeField <=. tval)
-                                &&. notNsDiscarded)
-                              `orderBy` [Desc NsStartTimeField])
-                 
+  mScience <- runDbMaybe conn (select queryScience)
+  mNonScience <- runDbMaybe conn (select queryNonScience)
   pure (identifyLatestRecord mScience mNonScience)
 
 {-X
+
+ghci> ans <- runDb conn $ select $ Rel8.orderBy (Rel8.nullsLast Rel8.desc) (each nonScienceObsSchema >>= pure . nsStartTime >>= Rel8.filter Rel8.isNonNull)
+ghci> :t ans
+ans :: [Maybe Types.ChandraTime]
+
+ghci> ans <- runDb conn $ select $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.desc) (each nonScienceObsSchema >>= Rel8.filter (Rel8.isNonNull . nsStartTime))
+<interactive>:56:1: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘ans’ shadows the existing binding
+      defined at <interactive>:49:1
+
+ghci> :t ans
+ans :: [NonScienceObs Result]
+
+ghci> ans <- runDb conn $ select $ Rel8.limit 1 $ Rel8.orderBy (Rel8.nullsLast Rel8.desc) (each nonScienceObsSchema >>= pure . nsStartTime >>= Rel8.filter Rel8.isNonNull)
+<interactive>:58:1: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘ans’ shadows the existing binding
+      defined at <interactive>:56:1
+
+ghci> length ans
+1
+ghci> :t ans
+ans :: [Maybe Types.ChandraTime]
+ghci> fromChandraTime . fromJust <$> ans
+[2026-01-25 11:31:40.492 UTC]
+
+
+ghci> ans <- runDb conn $ select $ Rel8.orderBy (Rel8.nullsFirst Rel8.desc) (each nonScienceObsSchema >>= pure . nsStartTime)
+ghci> Data.Maybe.isNothing $ head ans
+True
+ghci> Data.Maybe.isNothing $ last ans
+False
+
+ghci> ans <- runDb conn $ select $ Rel8.orderBy (Rel8.nullsLast Rel8.desc) $ (each nonScienceObsSchema >>= pure . nsStartTime >>= Rel8.filter (\row -> row <=. lit (Just tval)))
+ghci> length ans
+12530
+ghci> :t ans
+ans :: [Maybe Types.ChandraTime]
+ghci> fromChandraTime . fromJust $ head ans
+2026-01-23 19:00:00 UTC
+
+vs with no time filter
+
+ghci> ans2 <- runDb conn $ select $ Rel8.orderBy (Rel8.nullsLast Rel8.desc) $ (each nonScienceObsSchema >>= pure . nsStartTime)
+ghci> length ans2
+12534
+ghci> fromChandraTime . fromJust $ head ans2
+2026-01-25 11:31:40.492 UTC
+
 
 findRecordRestricted ::
   DbSql m
@@ -574,7 +641,7 @@ X-}
 findTelescope :: Expr TelescopeId -> Query (Expr Telescope)
 findTelescope rowNum = do
   tele <- each telescopeValuesSchema
-  where_ (tvId tele ==. rowNum)
+  Rel8.where_ (tvId tele ==. rowNum)
   pure (tvValue tele)
 
 
@@ -586,70 +653,70 @@ findTelescope rowNum = do
 findScience :: ObsIdVal -> Query (ScienceObs Expr)
 findScience oi = do
   sor <- each scienceObsRawSchema
-  where_ (sorObsId sor ==. lit oi)
-  teles <- manyExpr (findTelescope (sorMultiTelObs sor))
-
-  pure (hydrateScienceObs sor teles)
+  Rel8.where_ (sorObsId sor ==. lit oi)
+  hydrateScienceObs sor
 
 
-hydrateScienceObs :: ScienceObsRaw f -> Column f [Telescope] -> ScienceObs f
-hydrateScienceObs raw teles =
-  ScienceObs
-  { soSequence = sorSequence raw
-  , soProposal = sorProposal raw
-  , soStatus = sorStatus raw
-  , soObsId = sorObsId raw
-  , soTarget = sorTarget raw
-  --
-  , soStartTime = sorStartTime raw
-  , soApprovedTime = sorApprovedTime raw
-  , soObservedTime = sorObservedTime raw
-  , soPublicRelease = sorPublicRelease raw
-  --
-  , soTimeCritical = sorTimeCritical raw
-  , soMonitor = sorMonitor raw
-  , soConstrained = sorConstrained raw
-  --
-  , soInstrument = sorInstrument raw
-  , soGrating = sorGrating raw
-  , soDetector = sorDetector raw
-  , soDataMode = sorDataMode raw
-  --
-  , soACISI0 = sorACISI0 raw
-  , soACISI1 = sorACISI1 raw
-  , soACISI2 = sorACISI2 raw
-  , soACISI3 = sorACISI3 raw
-  , soACISS0 = sorACISS0 raw
-  , soACISS1 = sorACISS1 raw
-  , soACISS2 = sorACISS2 raw
-  , soACISS3 = sorACISS3 raw
-  , soACISS4 = sorACISS4 raw
-  , soACISS5 = sorACISS5 raw
-  --
-  , soJointWith = sorJointWith raw
-  , soJointHST = sorJointHST raw
-  , soJointNOAO = sorJointNOAO raw
-  , soJointNRAO = sorJointNRAO raw
-  , soJointRXTE = sorJointRXTE raw
-  , soJointSPITZER = sorJointSPITZER raw
-  , soJointSUZAKU = sorJointSUZAKU raw
-  , soJointXMM = sorJointXMM raw
-  , soJointSWIFT = sorJointSWIFT raw
-  , soJointNUSTAR = sorJointNUSTAR raw
-  --
-  , soMultiTel = sorMultiTel raw
-  , soMultiTelInt = sorMultiTelInt raw
-  , soMultiTelObs = teles
-  --
-  , soTOO = sorTOO raw
-  , soRA = sorRA raw
-  , soDec = sorDec raw
-  , soConstellation = sorConstellation raw
-  , soRoll = sorRoll raw
-  --
-  , soSubArrayStart = sorSubArrayStart raw
-  , soSubArraySize = sorSubArraySize raw
-  }
+hydrateScienceObs :: ScienceObsRaw Expr -> Query (ScienceObs Expr)
+hydrateScienceObs sor =
+  do
+    teles <- Rel8.manyExpr (findTelescope (sorMultiTelObs sor))
+    pure (ScienceObs
+          { soSequence = sorSequence sor
+          , soProposal = sorProposal sor
+          , soStatus = sorStatus sor
+          , soObsId = sorObsId sor
+          , soTarget = sorTarget sor
+          --
+          , soStartTime = sorStartTime sor
+          , soApprovedTime = sorApprovedTime sor
+          , soObservedTime = sorObservedTime sor
+          , soPublicRelease = sorPublicRelease sor
+          --
+          , soTimeCritical = sorTimeCritical sor
+          , soMonitor = sorMonitor sor
+          , soConstrained = sorConstrained sor
+          --
+          , soInstrument = sorInstrument sor
+          , soGrating = sorGrating sor
+          , soDetector = sorDetector sor
+          , soDataMode = sorDataMode sor
+          --
+          , soACISI0 = sorACISI0 sor
+          , soACISI1 = sorACISI1 sor
+          , soACISI2 = sorACISI2 sor
+          , soACISI3 = sorACISI3 sor
+          , soACISS0 = sorACISS0 sor
+          , soACISS1 = sorACISS1 sor
+          , soACISS2 = sorACISS2 sor
+          , soACISS3 = sorACISS3 sor
+          , soACISS4 = sorACISS4 sor
+          , soACISS5 = sorACISS5 sor
+          --
+          , soJointWith = sorJointWith sor
+          , soJointHST = sorJointHST sor
+          , soJointNOAO = sorJointNOAO sor
+          , soJointNRAO = sorJointNRAO sor
+          , soJointRXTE = sorJointRXTE sor
+          , soJointSPITZER = sorJointSPITZER sor
+          , soJointSUZAKU = sorJointSUZAKU sor
+          , soJointXMM = sorJointXMM sor
+          , soJointSWIFT = sorJointSWIFT sor
+          , soJointNUSTAR = sorJointNUSTAR sor
+          --
+          , soMultiTel = sorMultiTel sor
+          , soMultiTelInt = sorMultiTelInt sor
+          , soMultiTelObs = teles
+          --
+          , soTOO = sorTOO sor
+          , soRA = sorRA sor
+          , soDec = sorDec sor
+          , soConstellation = sorConstellation sor
+          , soRoll = sorRoll sor
+          --
+          , soSubArrayStart = sorSubArrayStart sor
+          , soSubArraySize = sorSubArraySize sor
+          })
   
 
 -- | Return the current observation (ignoring discarded observations,
@@ -658,9 +725,9 @@ hydrateScienceObs raw teles =
 --   observations).
 --
 getCurrentObs :: Connection -> IO (Maybe Record)
-getCurrentObs conn = liftIO getCurrentTime >>= findRecord conn
+getCurrentObs conn = getCurrentTime >>= findRecord conn
 
-{-X
+
 -- | Return the first observation to start after the given time,
 --   excluding discarded and unscheduled observations. The input observation
 --   is assumed NOT to be discarded.
@@ -670,22 +737,36 @@ getCurrentObs conn = liftIO getCurrentTime >>= findRecord conn
 --   explicit check.
 --
 getNextObs ::
-  DbSql m
-  => ObsIdVal
+  Connection
+  -> ObsIdVal
   -> Maybe ChandraTime
-  -> m (Maybe Record)
-getNextObs _ Nothing = pure Nothing
-getNextObs oid mt = do
+  -> IO (Maybe Record)
+getNextObs _ _ Nothing = pure Nothing
+getNextObs conn oid mt = do
 
-  mScience <- maybeSelect (((SoStartTimeField >. mt)
-                            &&. (SoObsIdField /=. oid)
-                            &&. isValidScienceObs)
-                           `orderBy` [Asc SoStartTimeField])
-  mNonScience <- maybeSelect (((NsStartTimeField >. mt)
-                               &&. (NsObsIdField /=. oid)
-                               &&. notNsDiscarded)
-                              `orderBy` [Asc NsStartTimeField])
+  let queryScience = do
+        row <- Rel8.limit 1
+          $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.asc)
+          $ (each scienceObsRawSchema
+             >>= Rel8.filter (\r ->
+                                sorStartTime r >. lit mt &&.
+                                sorObsId r /=. lit oid &&.
+                                isValidScienceObsRaw r)
+            )
+        hydrateScienceObs row
+      
+      queryNonScience =
+        Rel8.limit 1
+        $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.asc)
+        $ (each nonScienceObsSchema
+          >>= Rel8.filter (\r ->
+                             nsStartTime r >. lit mt &&.
+                             nsObsId r /=. lit oid &&.
+                             notNsDiscarded r)
+          )
   
+  mScience <- runDbMaybe conn (select queryScience)
+  mNonScience <- runDbMaybe conn (select queryNonScience)
   pure (identifyEarliestRecord mScience mNonScience)
 
 
@@ -696,25 +777,38 @@ getNextObs oid mt = do
 --   See the discussion for `getNextObs`.
 --
 getPrevObs ::
-  DbSql m
-  => ObsIdVal
+  Connection
+  -> ObsIdVal
   -> Maybe ChandraTime
-  -> m (Maybe Record)
-getPrevObs _ Nothing = pure Nothing
-getPrevObs oid mt = do
+  -> IO (Maybe Record)
+getPrevObs _ _ Nothing = pure Nothing
+getPrevObs conn oid mt = do
 
-  mScience <- maybeSelect (((SoStartTimeField <. mt)
-                            &&. (SoObsIdField /=. oid)
-                            &&. isValidScienceObs)
-                           `orderBy` [Desc SoStartTimeField])
-  mNonScience <- maybeSelect (((NsStartTimeField <. mt)
-                               &&. (NsObsIdField /=. oid)
-                               &&. notNsDiscarded)
-                              `orderBy` [Desc NsStartTimeField])
+  let queryScience = do
+        row <- Rel8.limit 1
+          $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.desc)
+          $ (each scienceObsRawSchema
+             >>= Rel8.filter (\r ->
+                                sorStartTime r <. lit mt &&.
+                                sorObsId r /=. lit oid &&.
+                                isValidScienceObsRaw r)
+            )
+        hydrateScienceObs row
+      
+      queryNonScience =
+        Rel8.limit 1
+        $ Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.desc)
+        $ (each nonScienceObsSchema
+          >>= Rel8.filter (\r ->
+                             nsStartTime r <. lit mt &&.
+                             nsObsId r /=. lit oid &&.
+                             notNsDiscarded r)
+          )
   
+  mScience <- runDbMaybe conn (select queryScience)
+  mNonScience <- runDbMaybe conn (select queryNonScience)
   pure (identifyLatestRecord mScience mNonScience)
   
-X-}
 
 -- | Find the current observation and the previous/next ones.
 --
@@ -731,36 +825,51 @@ X-}
 --         updated with the relevant information until after this
 --         code could be running, but need to think about it.
 --
+
 getObsInfo ::
   Connection
   -> IO (Maybe ObsInfo)
 getObsInfo conn = do
   mobs <- getCurrentObs conn
   case mobs of
-    Just obs -> Just <$> extractObsInfo obs
+    Just obs -> Just <$> extractObsInfo conn obs
     Nothing -> pure Nothing
 
 -- | Given an observation, extract the previous and next observations.
 --
-extractObsInfo :: DbSql m => Record -> m ObsInfo
-extractObsInfo obs = do
+extractObsInfo :: Connection -> Record -> IO ObsInfo
+extractObsInfo conn obs = do
   let obsid = recordObsId obs
       startTime = recordStartTime obs
+
+      selectScience = 
+        each scienceObsRawSchema
+        >>= Rel8.filter (\r -> sorObsId r ==. lit obsid &&.
+                               Rel8.not_ (isValidScienceObsRaw r))
+
+      selectNS =
+        each nonScienceObsSchema
+        >>= Rel8.filter (\r -> nsObsId r ==. lit obsid &&.
+                               nsStatus r ==. lit Discarded)
+        
+      countS = Rel8.aggregate Rel8.countStar selectScience
+      countNS = Rel8.aggregate Rel8.countStar selectNS
 
   -- is this an "invalid" observation, in which case it doesn't
   -- have next/previous fields?
   --
   n <- case obs of
-    Right _ -> count (SoObsIdField ==. obsid &&. Not isValidScienceObs)
-    Left _ -> count (NsObsIdField ==. obsid &&.
-                     NsStatusField ==. Discarded)
-  
+    Right _ -> runDb1 conn (select countS)
+    Left _ -> runDb1 conn (select countNS)
+
   if n /= 0
     then pure (ObsInfo obs Nothing Nothing)
     else do
-      mprev <- getPrevObs obsid startTime
-      mnext <- getNextObs obsid startTime
+      mprev <- getPrevObs conn obsid startTime
+      mnext <- getNextObs conn obsid startTime
       pure (ObsInfo obs mprev mnext)
+
+
 
 {-X
 
@@ -1218,9 +1327,9 @@ getSimbadInfo ::
   -> Query (SimbadInfo Expr)
 getSimbadInfo target = do
   smm <- each simbadMatchSchema
-  where_ (smmTarget smm ==. lit target)
+  Rel8.where_ (smmTarget smm ==. lit target)
   si <- each simbadInfoSchema
-  where_ (smiId si ==. smmInfo smm)
+  Rel8.where_ (smiId si ==. smmInfo smm)
   pure si
   
 
@@ -2163,7 +2272,7 @@ getProposal ScienceObs{..} = getProposalFromNumber soProposal
 getProposalFromNumber :: PropNum -> Query (Proposal Expr)  -- can this be a Maybe?
 getProposalFromNumber proposalNum = do
   prop <- each proposalSchema
-  where_ (propNum prop ==. lit proposalNum)
+  Rel8.where_ (propNum prop ==. lit proposalNum)
   pure prop
 
 
@@ -2242,8 +2351,8 @@ X-}
 --
 findObsStatusTypes :: Query (Expr ObsIdStatus, Expr Int64)
 findObsStatusTypes =
-  aggregate1 (liftA2 (,) groupBy count)
-             (sorStatus <$> each scienceObsRawSchema)
+  Rel8.aggregate1 (liftA2 (,) Rel8.groupBy Rel8.count)
+                  (sorStatus <$> each scienceObsRawSchema)
 
 
 {-X
@@ -2993,7 +3102,7 @@ getSize ::
   Rel8able f
   => TableSchema (f Name)
   -> Query (Expr Int64)
-getSize = aggregate countStar . each
+getSize = Rel8.aggregate Rel8.countStar . each
 
 
 -- | Quick on-screen summary of the database size.
@@ -3026,10 +3135,12 @@ reportSize conn = do
   
   -- non-science breakdown
   --
-  let countNSDiscards = aggregate countStar (do
-                                                row <- each nonScienceObsSchema
-                                                where_ (nsStatus row ==. lit Discarded)
-                                                pure row)
+  let countNSDiscards = Rel8.aggregate Rel8.countStar getNS
+      getNS = do
+        row <- each nonScienceObsSchema
+        Rel8.where_ (nsStatus row ==. lit Discarded)
+        pure row
+        
   ns2 <- runDb1 conn (select countNSDiscards)
   T.putStrLn (sformat ("  non-science discarded         = " % int) ns2)
   
@@ -3426,15 +3537,15 @@ updateLastModifiedS :: UTCTime -> Statement ()
 updateLastModifiedS lastMod =
   let new = toMetaData lastMod
 
-      del = delete $ Delete
+      del = Rel8.delete $ Delete
         { from = metaDataSchema
         , using = pure ()
         , deleteWhere = \_ _ -> lit True
         , returning = NoReturning
         }
-      ins = insert $ Insert
+      ins = Rel8.insert $ Insert
         { into = metaDataSchema
-        , rows = values [ lit new ]
+        , rows = Rel8.values [ lit new ]
         , onConflict = Abort
         , returning = NoReturning
         }
@@ -3452,7 +3563,7 @@ getLastModified conn = runDbMaybe conn getLastModifiedS
 getLastModifiedS :: Statement (Query (Expr UTCTime))
 getLastModifiedS =
   let query = fmap mdLastModified
-              $ orderBy (mdLastModified >$< desc)
+              $ Rel8.orderBy (mdLastModified >$< Rel8.desc)
               $ each metaDataSchema
 
   in select query

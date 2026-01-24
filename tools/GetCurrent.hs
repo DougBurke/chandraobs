@@ -15,7 +15,7 @@ import qualified Data.Text.IO as T
 
 import Data.Time (getCurrentTime)
 
-import Hasql.Connection (Connection, release)
+import Hasql.Connection (release)
 
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
@@ -23,9 +23,8 @@ import System.IO (stderr)
 
 import Database (getConnection
                 , getObsInfo
-                , reportSize
-                , runDb)
--- import Types (ObsInfo(..))
+                , reportSize)
+import Types (ObsInfo(..))
 
 
 usage :: IO ()
@@ -49,7 +48,7 @@ queryDB = do
   T.putStrLn ("The current time is: " <> T.pack (show now))
   conn <- getConnection
   _ <- reportSize conn
-  res <- runDb conn getObsInfo
+  res <- getObsInfo conn
   case res of
     Nothing -> T.putStrLn "ERROR: no observation was found."
     Just oi -> reportOI oi

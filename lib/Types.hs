@@ -4,12 +4,22 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Types (MetaData(..)
              , fromMetaData, toMetaData
              , ScienceObs(..), ScienceObsRaw(..)
              , NonScienceObs(..), InvalidObsId(..)
+             --
+             , Record
+             , recordObsId
+             , recordStartTime
+             , recordEndTime
+             , recordTime
+             , recordTarget
+             , ObsInfo(..)
+             --
              , TelescopeId
              , Sequence
              , unsafeToSequence
@@ -32,6 +42,7 @@ module Types (MetaData(..)
              , fromTelescope, toTelescope
              , ChandraTime
              , toChandraTime
+             , fromChandraTime
              , showCTime
              , TargetName
              , fromTargetName, toTargetName
@@ -87,9 +98,10 @@ import qualified Data.Text as T
 
 import Data.Function (on)
 import Data.Int (Int16, Int32, Int64)
+import Data.Maybe (fromMaybe)
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Data.Time.Clock (UTCTime)
+import Data.Time.Clock (UTCTime, addUTCTime)
 
 import Formatting (Format, (%), (%.), sformat)
 import Formatting.Formatters (char, left, fixed, int, stext)
@@ -174,6 +186,21 @@ showCTime ct =
              " " % monthName <> " " % year
 
   in sformat (tfmt % " (UTC)") utc
+
+
+-- | Helper function for displaying start times.
+--
+showStartTime :: Maybe ChandraTime -> T.Text
+showStartTime (Just ct) = "at " <> showCTime ct
+showStartTime Nothing   = "unscheduled"
+
+
+endCTime :: ChandraTime -> TimeKS -> ChandraTime
+endCTime (ChandraTime start) (TimeKS elen) =
+  let nsec = 1000 * elen
+      delta = (fromRational . toRational) nsec
+  in ChandraTime (addUTCTime delta start)
+
 
 -- | Represent a value in kiloseconds.
 --
@@ -461,6 +488,19 @@ data ScienceObs f =
   deriving stock (Generic)
   deriving anyclass (Rel8able)
 
+-- | This is for debug purposes.
+instance f ~ Result => Show (ScienceObs f) where
+  show ScienceObs{..} = 
+    "Science: " <> show (fromObsIdVal soObsId)
+    <> " " <> T.unpack (fromTargetName soTarget)
+    <> " with "
+    <> show soInstrument
+    <> "+"
+    <> show soGrating
+    <> " for " <> show (fromTimeKS soApprovedTime)
+    <> " ks " <> T.unpack (showStartTime soStartTime)
+    <> " " <> T.unpack (fromObsIdStatus soStatus)
+
 
 -- Access the data as stored in the database. This is intended to be an internal
 -- representation.
@@ -591,6 +631,14 @@ data NonScienceObs f = NonScienceObs
   }
   deriving stock (Generic)
   deriving anyclass (Rel8able)
+
+-- | This is for debug purposes.
+instance f ~ Result => Show (NonScienceObs f) where
+  show NonScienceObs{..} = 
+    "CAL: " <> show (fromObsIdVal nsObsId)
+    <> "(" <> T.unpack (fromObsIdStatus nsStatus)
+    <> ") for " <> show (fromTimeKS nsTime)
+    <> " ks " <> T.unpack (showStartTime nsStartTime)
 
 
 nonScienceObsSchema :: TableSchema (NonScienceObs Name)
@@ -750,6 +798,37 @@ telescopeValuesSchema = TableSchema
 --
 type Record = Either (NonScienceObs Result) (ScienceObs Result)
 
+-- hacks for quickly converting old code; however, the idea of
+-- a Record has stuck around for a while, so it may need to stay
+
+recordObsId :: Record -> ObsIdVal
+recordObsId = either nsObsId soObsId
+
+recordTarget :: Record-> TargetName
+recordTarget = either nsTarget soTarget
+
+recordStartTime :: Record -> Maybe ChandraTime
+recordStartTime = either nsStartTime soStartTime
+
+recordEndTime :: Record -> Maybe ChandraTime
+recordEndTime r =
+  let stime = recordStartTime r
+      duration = recordTime r
+  in flip endCTime duration <$> stime
+
+-- Use the actual time if we have it, otherwise the approved time
+recordTime :: Record -> TimeKS
+recordTime = either nsTime (\ScienceObs{..} -> fromMaybe soApprovedTime soObservedTime)
+
+
+-- | I just want a simple way of passing around 
+--   useful information about an observation.
+data ObsInfo = ObsInfo {
+  oiCurrentObs :: Record
+  , oiPrevObs  :: Maybe Record
+  , oiNextObs  :: Maybe Record
+  }
+
 
 -- | Represent a Chandra sequence number.
 newtype Sequence = Sequence { fromSequence64 :: Int64 } 
@@ -828,7 +907,7 @@ toTargetName = TargetName
 --   The Ord constraint is useful when creating tables but has no
 --   real semantic meaning.
 data Instrument = ACISI | ACISS | HRCI | HRCS 
-  deriving (DBEq, DBOrd, Eq, Ord)
+  deriving (DBEq, DBOrd, Eq, Ord, Show)
 
 instance DBType Instrument where
   typeInformation = parseTypeInformation fromI toI typeInformation
@@ -865,7 +944,7 @@ toInstrument _ = Nothing
 --   real semantic meaning.
 --
 data Grating = LETG | HETG | NONE 
-  deriving (DBEq, Eq)
+  deriving (DBEq, Eq, Show)
 
 instance DBType Grating where
   typeInformation = parseTypeInformation fromG toG typeInformation
@@ -958,7 +1037,7 @@ fromChipStatus ChipOpt5 = "O5"
 --
 --   See <http://www.astro.wisc.edu/~dolan/constellations/constellation_list.html>.
 newtype ConLong = ConLong { fromConLong :: T.Text }
-  deriving Eq
+  deriving (Eq)
 
 {-
 -- | There is no validation done on the input.
@@ -1200,13 +1279,13 @@ instance DBType TOORequest where
       toTR = fromTOORequest
 
 newtype SimbadMatchKey = SimbadMatchKey { fromKey :: Int64 }
-  deriving newtype (DBEq, DBType, Eq, Show)
+  deriving newtype (DBEq, DBType, Eq)
   
 newtype SimbadNoMatchKey = SimbadNoMatchKey { fromKey :: Int64 }
-  deriving newtype (DBEq, DBType, Eq, Show)
+  deriving newtype (DBEq, DBType, Eq)
   
 newtype SimbadInfoKey = SimbadInfoKey { fromKey :: Int64 }
-  deriving newtype (DBEq, DBType, Eq, Show)
+  deriving newtype (DBEq, DBType, Eq)
 
 -- | Indicates that there is a SIMBAD match for the
 --   target name.
@@ -1331,7 +1410,7 @@ type SimbadSearch = Either SimbadNoMatch SimbadMatch
 --   be okay (unless there's parsing issues as well).
 --
 newtype SimbadType = SimbadType { fromSimbadType :: T.Text }
-  deriving newtype (DBEq, DBType, Eq, Show)
+  deriving newtype (DBEq, DBType, Eq)
 
 
 -- TODO: need a converter to a URL fragment - e.g. '?' needs protecting!
@@ -1351,7 +1430,7 @@ noSimbadType = SimbadType "000"
 --
 --   This is the "long form" of a SIMBAD type.
 newtype SIMCategory = SIMCategory { fromSIMCategory :: T.Text }
-  deriving newtype (DBEq, DBType, Eq, Show)
+  deriving newtype (DBEq, DBType, Eq)
 
 -- | Identifies those sources for which we have no SIMBAD information.
 noSimbadLabel :: SIMCategory
