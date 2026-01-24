@@ -16,50 +16,57 @@ module Main (main) where
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
+import qualified Rel8
+
 import Control.Monad (forM_)
 
-import Database.Groundhog (Order(Asc), select)
-import Database.Groundhog.Postgresql (orderBy, notIn_)
+import Data.Functor.Contravariant ((>$<))
 
+import Hasql.Connection (release)
+
+import Rel8 ((&&.), (/=.))
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (stderr)
 
-import Database (runDb)
+import Database (getConnection
+                , runDb)
 
-import Types (ScienceObs(..)
+import Types (ScienceObsRaw(..)
              , ObsIdStatus(Observed, Archived)
-             , Field(SoStatusField, SoObsIdField)
-             , fromObsId
+             , fromObsId64
              , fromTargetName
              , showRA
              , showDec
              , fromObsIdStatus
              , showCTime
              , showExpTime
+             , scienceObsRawSchema
              )     
 
 
-displayScience :: (Int, ScienceObs) -> IO ()
-displayScience (ctr, ScienceObs{..}) = do
-  let conv = T.pack . show
-  T.putStrLn ("# " <> conv ctr)
-  T.putStrLn ("ObsId:         " <> conv(fromObsId soObsId))
-  T.putStrLn ("Target:        '" <> fromTargetName soTarget <> "'")
-  T.putStrLn ("RA:            " <> showRA soRA)
-  T.putStrLn ("Dec:           " <> showDec False soDec)
-  T.putStrLn ("Status:        " <> fromObsIdStatus soStatus)
+-- As we do not include the "multi-tel" / telescope information we can
+-- stick with the Raw version.
+--
+displayScience :: (Int, ScienceObsRaw Rel8.Result) -> IO ()
+displayScience (ctr, ScienceObsRaw{..}) = do
+  T.putStrLn ("# " <> (T.pack . show) ctr)
+  T.putStrLn ("ObsId:         " <> (T.pack . show . fromObsId64) sorObsId)
+  T.putStrLn ("Target:        '" <> fromTargetName sorTarget <> "'")
+  T.putStrLn ("RA:            " <> showRA sorRA)
+  T.putStrLn ("Dec:           " <> showDec False sorDec)
+  T.putStrLn ("Status:        " <> fromObsIdStatus sorStatus)
 
-  case soStartTime of
+  case sorStartTime of
     Just st -> T.putStrLn ("Obs date:      " <> showCTime st)
     Nothing -> T.putStrLn "Obs date:      <UNKNOWN>"
 
   -- We do not expect this to be set, so flag it as strange
-  case soObservedTime of
+  case sorObservedTime of
     Just ot -> T.putStrLn ("**Actual time: " <> showExpTime ot)
     Nothing -> pure ()
     
-  T.putStrLn ("Approved:      " <> showExpTime soApprovedTime)
+  T.putStrLn ("Approved:      " <> showExpTime sorApprovedTime)
 
   T.putStrLn "------------"
 
@@ -67,11 +74,18 @@ displayScience (ctr, ScienceObs{..}) = do
              
 listUnobservedScience :: IO ()
 listUnobservedScience =
-  let getScience = select ((SoStatusField `notIn_` [Observed, Archived])
-                           `orderBy` [Asc SoObsIdField])
-
+  let getScience =
+        Rel8.orderBy (sorObsId >$< Rel8.asc)
+        $ Rel8.each scienceObsRawSchema
+        >>= Rel8.filter (\r ->
+                           let val = sorStatus r
+                           in val /=. Rel8.lit Observed
+                              &&. val /=. Rel8.lit Archived)
+        
   in do
-    xs <- runDb getScience
+    conn <- getConnection
+    xs <- runDb conn (Rel8.select getScience)
+    release conn
     putStrLn ("# Found " <> show (length xs) <> " science entries")
     forM_ (zip [1..] xs) displayScience
 
