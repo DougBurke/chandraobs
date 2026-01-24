@@ -303,14 +303,14 @@ executable listmissingobsids
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , bytestring
      , chandraobs
      , containers
-     , groundhog
-     -- , groundhog-postgresql
+     , hasql
+     , rel8
      , text
 
   else

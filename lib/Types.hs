@@ -852,7 +852,7 @@ fromObsIdVal = fromIntegral . fromObsId64
 
 -- | No validation!
 --
-unsafeToObsIdVal :: Int -> ObsIdVal
+unsafeToObsIdVal :: Integral a => a -> ObsIdVal
 unsafeToObsIdVal = ObsIdVal . fromIntegral
 
 -- I assume that 0 is valid

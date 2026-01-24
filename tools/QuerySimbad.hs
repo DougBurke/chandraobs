@@ -59,9 +59,7 @@ import Rel8 ((==.)
             , DBOrd, Columns, Context, Name, Transpose, Table, TableSchema
             , Result, Query, Expr
             , Delete(..), Returning(..), Insert(..), OnConflict(..)
-            , aggregate
             , asc
-            , countStar
             , delete
             , distinctOnBy
             , each
@@ -71,7 +69,6 @@ import Rel8 ((==.)
             , litExpr
             , orderBy
             , select
-            , showDelete
             , values
             )
 
