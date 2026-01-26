@@ -206,6 +206,7 @@ import Types (ObsIdVal
              , fromObsIdStatus
              , ScienceObs(..)
              , NonScienceObs(..)
+             , invalidNonScienceKey
              , Sequence
              , unsafeToSequence
              , fromSequence
@@ -694,8 +695,9 @@ ocatToNonScience m = do
       -- the nsName field was used to encode the status.
       --
                                                        
-  pure NonScienceObs {
-    nsStatus = status
+  pure NonScienceObs
+    { nsId = invalidNonScienceKey
+    , nsStatus = status
     -- , nsName = name
     , nsObsId = obsid
     , nsTarget = toTargetName target

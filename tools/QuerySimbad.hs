@@ -694,7 +694,7 @@ updateDB sloc mndays f = do
 
           blag f (">> and SimbadMatch with target=" <> tnameT)
           inserted <- insertSimbadMatch conn (toM searchRes key)
-          when (inserted) $ 
+          when inserted $ 
               getCurrentTime >>= updateLastModified conn
 
           -- If a SimbadInfo structure already exists (and
@@ -751,7 +751,7 @@ updateDB sloc mndays f = do
         _ -> do
           blag f (">> Inserting SimbadNoMatch for target=" <> tnameT)
           inserted <- insertSimbadNoMatch conn (toNM searchRes)
-          when (inserted) $ 
+          when inserted $ 
               getCurrentTime >>= updateLastModified conn
         
   {-

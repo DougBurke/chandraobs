@@ -88,12 +88,13 @@ module Database ( getConnection
                 --X -- , fromNormSep
                 --X -- , findNearbyObs
                 --X , findAllObs
-                  
-                --X , insertScienceObs
+
+                , addScienceObsS
+                , insertScienceObs
                 --X , insertNonScienceObs
                 --X , replaceScienceObs
                 --X , replaceNonScienceObs
-                --X , insertProposal
+                , insertProposal
 
                 --X , insertOrReplace
                 --X , insertIfUnknown
@@ -140,6 +141,7 @@ module Database ( getConnection
                 --X   , notNsDiscarded
                 --X   -- , notFromObsCat
 
+                , hydrateScienceObsQ
                 , isValidScienceObsRaw
 
                 --X   , timeDb
@@ -243,7 +245,8 @@ import Types (MetaData(..), metaDataSchema
              , SimbadMatch(..), simbadMatchSchema
              , simbadNoMatchSchema
              , Proposal(..), proposalSchema
-             , TelescopeValues(..), telescopeValuesSchema
+             , ListTelescope(..), listTelescopeSchema
+             , ListTelescopeValues(..), listTelescopeValuesSchema
              , ObsIdVal
              , ObsIdStatus(..)
              , ObsInfo(..)
@@ -257,6 +260,7 @@ import Types (MetaData(..), metaDataSchema
              --
              , ScienceTimeline
              , EngineeringTimeline
+
              , hydrateScienceTimeline
              , hydrateEngineeringTimeline
              )
@@ -598,7 +602,7 @@ X-}
 --
 findTelescope :: Expr TelescopeId -> Query (Expr Telescope)
 findTelescope rowNum = do
-  tele <- each telescopeValuesSchema
+  tele <- each listTelescopeValuesSchema
   Rel8.where_ (tvId tele ==. rowNum)
   pure (tvValue tele)
 
@@ -3108,9 +3112,137 @@ reportSize conn = do
   pure ntot
 
 
-{-X
 -- Need to make sure the following match the constraints on the tables found
 -- in Types.hs
+
+{-
+dehydrateScienceObs ::
+  ScienceObs Result
+  -> TelescopeId
+  -> ScienceObsRaw Expr
+-}
+dehydrateScienceObs ScienceObs {..} telId =
+  ScienceObsRaw
+  { sorSequence = lit soSequence
+  , sorProposal = lit soProposal
+  , sorStatus = lit soStatus
+  , sorObsId = lit soObsId
+  , sorTarget = lit soTarget
+  --
+  , sorStartTime = lit soStartTime
+  , sorApprovedTime = lit soApprovedTime
+  , sorObservedTime = lit soObservedTime
+  , sorPublicRelease = lit soPublicRelease
+  --
+  , sorTimeCritical = lit soTimeCritical
+  , sorMonitor = lit soMonitor
+  , sorConstrained = lit soConstrained
+  --
+  , sorInstrument = lit soInstrument
+  , sorGrating = lit soGrating
+  , sorDetector = lit soDetector
+  , sorDataMode = lit soDataMode
+  --
+  , sorACISI0 = lit soACISI0
+  , sorACISI1 = lit soACISI1
+  , sorACISI2 = lit soACISI2
+  , sorACISI3 = lit soACISI3
+  , sorACISS0 = lit soACISS0
+  , sorACISS1 = lit soACISS1
+  , sorACISS2 = lit soACISS2
+  , sorACISS3 = lit soACISS3
+  , sorACISS4 = lit soACISS4
+  , sorACISS5 = lit soACISS5
+  --
+  , sorJointWith = lit soJointWith
+  , sorJointHST = lit soJointHST
+  , sorJointNOAO = lit soJointNOAO
+  , sorJointNRAO = lit soJointNRAO
+  , sorJointRXTE = lit soJointRXTE
+  , sorJointSPITZER = lit soJointSPITZER
+  , sorJointSUZAKU = lit soJointSUZAKU
+  , sorJointXMM = lit soJointXMM
+  , sorJointSWIFT = lit soJointSWIFT
+  , sorJointNUSTAR = lit soJointNUSTAR
+  --
+  , sorMultiTel = lit soMultiTel
+  , sorMultiTelInt = lit soMultiTelInt
+  , sorMultiTelObs = telId
+  --
+  , sorTOO = lit soTOO
+  , sorRA = lit soRA
+  , sorDec = lit soDec
+  , sorConstellation = lit soConstellation
+  , sorRoll = lit soRoll
+  --
+  , sorSubArrayStart = lit soSubArrayStart
+  , sorSubArraySize = lit soSubArraySize
+  }
+
+
+
+-- | Deal with the groundhog handling of multi-telescope fields,
+--   which involve an identifier in the List##Telescope table
+--   which indexes into one-or-more List##Tellescope#values
+--   fields.
+--
+--   However, it's not clear whether we make much use of this, as
+--   onlu a few telescopes are split, with many being stored as
+--   a single comma-separated value.
+--
+addScienceObsS :: ScienceObs Result -> Statement ()
+addScienceObsS so =
+  let soraw = dehydrateScienceObs so 
+      telNames = soMultiTelObs so
+
+      tel = ListTelescope
+            { tId = Rel8.unsafeCoerceExpr
+                    (Rel8.nextval "List##Telescope_id_seq")
+            }
+
+      mkTelName telId ctr telName = ListTelescopeValues
+                                    { tvId = telId
+                                    , tvOrd = lit ctr
+                                    , tvValue = lit telName
+                                    }
+
+      -- Add a new identifier for the telescopes. Should there
+      -- be a simple "has no telescopes" entry? 
+      insT = Rel8.insert $ Insert
+             { into = listTelescopeSchema
+             , rows = Rel8.values [ tel ]
+             , onConflict = Abort
+             , returning = Returning tId
+             }
+
+      -- Store the telescopes with this identifier
+      insTV telId = Rel8.insert $ Insert
+                    { into = listTelescopeValuesSchema
+                    , rows = do
+                        val <- telId
+                        -- TODO: is this correct?
+                        Rel8.values (zipWith (mkTelName val) [0..] telNames)
+                    , onConflict = Abort
+                    , returning = NoReturning
+                    }
+
+      -- Add the ScienceObs referencing these telescopes
+      insS telId = Rel8.insert $ Insert
+                   { into = scienceObsRawSchema
+                   , rows = do
+                       val <- telId
+                       pure (soraw val)
+                   , onConflict = Abort
+                   , returning = NoReturning
+                   }
+
+      qry = do
+        telId <- insT
+        insTV telId
+        insS telId
+        
+  in qry
+
 
 -- | Checks that the Science observation is not known about before
 --   inserting it.
@@ -3122,10 +3254,22 @@ reportSize conn = do
 --   table.
 --
 insertScienceObs ::
-  PersistBackend m
-  => ScienceObs
-  -> m Bool  -- ^ True if the observation was added to the database
-insertScienceObs s = insertIfUnknown s (SoObsIdField ==. soObsId s)
+  Connection
+  -> ScienceObs Result  -- NOTE: not ScienceObsRaw
+  -> IO Bool  -- ^ True if the observation was added to the database
+insertScienceObs conn so = do
+
+  -- Should this check if the details need updating?
+  found <- runDbMaybe conn (select (findScience (soObsId so)))
+  case found of
+    Just _ -> pure False
+
+    Nothing -> do
+      runDb_ conn (addScienceObsS so)
+      pure True
+
+
+{-X
 
 -- | Checks that the observation is not known about before
 --   inserting it.
@@ -3173,15 +3317,39 @@ replaceScienceObs ::
   -- ^ If the observation was added/replaced.
 replaceScienceObs s = insertOrReplace (SoObsIdField ==. soObsId s) s
 
+X-}
+
+
 -- | Checks that the proposal is not known about before inserting it.
 --
 --   If it already exists in the database the new value is ignored;
 --   there is no check to make sure that the details match.
 insertProposal ::
-  PersistBackend m
-  => Proposal
-  -> m Bool  -- ^ True if the proposal was added to the database
-insertProposal p = insertIfUnknown p (PropNumField ==. propNum p)
+  Connection
+  -> Proposal Result
+  -> IO Bool  -- ^ True if the proposal was added to the database
+insertProposal conn p = do
+
+  let findProp = getProposalFromNumber (propNum p)
+  found <- runDbMaybe conn (select findProp)
+  case found of
+    Just _ -> pure False
+
+    Nothing -> do
+      runDb_ conn (addProposalS p)
+      pure True
+
+
+addProposalS :: Proposal Result -> Statement ()
+addProposalS p = Rel8.insert $ Insert
+                 { into = proposalSchema
+                 , rows = Rel8.values [ lit p ]
+                 , onConflict = Abort
+                 , returning = NoReturning
+                 }
+
+  
+{-
 
 -- | If there is no entity that matches the condition then
 --   insert the item.

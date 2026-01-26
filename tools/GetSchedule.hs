@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 
 --
@@ -47,33 +48,30 @@ import qualified Text.Parsec.Pos as PP
 
 import qualified Network.HTTP.Conduit as NHC
 
+import qualified Rel8
+
 import Control.Applicative ((<|>))
 import Control.Monad (forM, forM_, void, when)
-import Control.Monad.IO.Class (liftIO)
 
 import Data.Either (partitionEithers)
 import Data.Foldable (toList)
+import Data.Functor.Contravariant ((>$<))
 import Data.List (isPrefixOf)
 import Data.Maybe (catMaybes, fromJust)
 import Data.Sequence ((|>), (><))
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time (UTCTime, getCurrentTime)
 
-import Database.Groundhog (PersistBackend
-                          , (&&.)
-                          , (==.)
-                          , count
-                          , delete
-                          , project
-                          , select
-                          , selectAll)
-import Database.Groundhog.Postgresql (SqlDb
-                                     , Cond(CondEmpty)
-                                     , Conn
-                                     , Order(Desc)
-                                     , in_, insert_, orderBy)
+import Hasql.Connection (Connection, release)
 
 import Numeric.Natural
+
+import Rel8 ( (==.)
+            , (&&.)
+            , Result
+            , each
+            , lit
+            )
 
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
@@ -88,9 +86,19 @@ import Text.HTML.TagSoup (Tag(..)
 import Text.Parsec ((<?>), parse, spaces, try)
 import Text.Read (readMaybe)
 
-import Database (runDb, getInvalidObsIds, updateLastModified
-                 , insertProposal
-                 , maybeProject)
+import Database ( getConnection
+                , runDb
+                , runDbMaybe
+                , runDb_
+                , runDb1
+                , getInvalidObsIds
+                , updateLastModifiedS
+                , insertScienceObs
+                , insertProposal
+                --
+                , addScienceObsS
+                , hydrateScienceObsQ
+                )
 import OCAT (OCAT, isScienceObsE, noDataInOCAT
             , queryOCAT, ocatToScience, ocatToNonScience
             , addProposal
@@ -103,15 +111,30 @@ import Parser (parseSTS
               , handleTime)
 
 import Types (ScheduleItem(..), fromChandraTime
-             , ShortTermTag, ShortTermSchedule(..)
+             , ShortTermTag
              , toShortTermTag, fromShortTermTag
-             , NonScienceObs(..), ScienceObs(..)
+             , ShortTermSchedule(..)
+             , NonScienceObs(..)
+             , ScienceObs(..)
+             , ScienceObsRaw(..)
              , ObsIdVal
              , unsafeToObsIdVal
-             , fromObsId
-             , InvalidObsId(..), Field(..)
-             , ObsIdStatus(..), toTargetName
-             , Proposal(propNum))
+             , fromObsIdVal
+             , InvalidObsId(..)
+             , ObsIdStatus(..)
+             , Proposal(propNum)
+             , ProposalAbstract(paNum)
+             --
+             , nonScienceExpr
+             , invalidObsIdExpr
+             , schedToNonScienceExpr
+             --
+             , shortTermScheduleSchema
+             , scienceObsRawSchema
+             , nonScienceObsSchema
+             , invalidObsIdSchema
+             , proposalAbstractSchema
+             )
 
 -- The assumption is that all pages are accessible from 
 -- baseLoc <> startPage and that they are in reverse
@@ -182,12 +205,15 @@ downloadScheduleList = do
   let tags = parseTags txt
 
       ctxt = " BEGIN LIST " :: T.Text
-      ps = head (partitions (TagComment ctxt ~==) tags)
 
-      pages = extractPages ps
-      allPages = pages >< hardcodedScheduleList
-      
-  pure allPages
+  case partitions (TagComment ctxt ~==) tags of
+    (ps:_) -> let pages = extractPages ps
+                  allPages = pages >< hardcodedScheduleList
+
+              in pure allPages
+
+    [] -> error "Unable to find TAG"
+
 
 -- | Download the given schedule. The return value is the text
 --   representation of the content (so no tags have been stripped).
@@ -521,6 +547,7 @@ getRowText tagname tags =
       
   in go tags Nothing Seq.empty
 
+
 data NumCols = Col11 | Col12 | Col13 | Col14
   deriving Eq
 
@@ -590,7 +617,7 @@ processRow colOpt tags =
         Col12 -> 12
         Col13 -> 13
         Col14 -> 14
-        
+
       -- Fortunately the first 10 columns are the same (at least for the
       -- columns we use).
       --
@@ -601,7 +628,7 @@ processRow colOpt tags =
       qparse p = parse (lexeme p) "<manual parsing>" . T.unpack
 
       getsi = do
-       obsid <- qparse (parseReadable <?> "obsid") obsidStr
+       obsid :: Int <- qparse (parseReadable <?> "obsid") obsidStr
        start <- qparse (parseTime <?> "time") startStr
        texp <- qparse (parseReadable <?> "duration") durStr
        ra <- qparse (try (parseRAStr <?> "RA sexagesimal")
@@ -690,121 +717,145 @@ removeHeader txt =
 -- | Record that this short-term schedule page has been processed.
 --
 addShortTermTag ::
-  PersistBackend m
-  => UTCTime
+  Connection
+  -> UTCTime
   -> ShortTermTag
   -> Maybe T.Text
   -- ^ The error text from decoding the page
-  -> m ()
-addShortTermTag time tag mErr =
-  let store = ShortTermSchedule {
-        stsTag = tag
-        , stsChecked = time
-        , stsErrorOnParse = mErr }
-      
-  in insert_ store >> updateLastModified time
+  -> IO ()
+addShortTermTag conn time tag mErr =
+  let store = ShortTermSchedule
+              { stsId = Rel8.unsafeCoerceExpr
+                        (Rel8.nextval "ShortTermSchedule_id_seq")
+              , stsTag = lit tag
+              , stsChecked = lit time
+              , stsErrorOnParse = lit mErr }
+
+      insert = Rel8.insert $ Rel8.Insert
+               { into = shortTermScheduleSchema
+               , rows = Rel8.values [ store ]
+               , onConflict = Rel8.Abort
+               , returning = Rel8.NoReturning
+               }
+        
+  in runDb_ conn (insert >> updateLastModifiedS time)
 
 
 -- | Add an invalid obsid, i.e. one for which there's no data
 --   in the OCAT.
 --
 addInvalidObsId ::
-  PersistBackend m
-  => UTCTime
+  Connection
+  -> UTCTime
   -> ObsIdVal
   -> T.Text
-  -> m Bool
+  -> IO Bool
   -- Always returns False
-addInvalidObsId t obsid errMsg =
-  liftIO (putStrLn ("Error with " <> show (fromObsId obsid) <> ":"
-                    <> T.unpack errMsg))
-  >> insert_ InvalidObsId { ioObsId = obsid
-                          , ioChecked = t
-                          , ioMessage = errMsg }
-  >> pure False
+addInvalidObsId conn t obsid errMsg = do
+  putStrLn ("Error with " <> show (fromObsIdVal obsid) <> ":"
+             <> T.unpack errMsg)
+
+  let insert = Rel8.insert $ Rel8.Insert
+        { into = invalidObsIdSchema
+        , rows = Rel8.values [ invalidObsIdExpr obsid t errMsg ]
+        , onConflict = Rel8.Abort
+        , returning = Rel8.NoReturning
+        }
+    
+  runDb_ conn insert
+  pure False
 
        
 -- | Add an ObsId. If the data can not be parsed it ends up
 --   being added as an invalid obsid instead.
 --
 addObsId ::
-  PersistBackend m
-  => UTCTime
+  Connection
+  -> UTCTime
   -> ObsIdVal
   -- The ObsId of the OCAT response
   -> ScheduleItem
   -- The corresponding short-term schedule item; this is used to fill in
   -- the NonScienceObs field if the OCAT response is lacking
   -> OCAT
-  -> m Bool
+  -> IO Bool
   -- Returns False on error
-addObsId t obsid sts ocat =
+addObsId conn t obsid sts ocat =
   case isScienceObsE ocat of
-    Left emsg -> addInvalidObsId t obsid emsg
+    Left emsg -> addInvalidObsId conn t obsid emsg
     Right f -> if f
-               then addScienceObs t obsid ocat
-               else addNonScienceObs t obsid sts ocat
+               then addScienceObs conn t obsid ocat
+               else addNonScienceObs conn t obsid sts ocat
 
        
 -- | Add a science observation.
 --
 addScienceObs ::
-  PersistBackend m
-  => UTCTime
+  Connection
+  -> UTCTime
   -> ObsIdVal
   -> OCAT
-  -> m Bool
+  -> IO Bool
   -- ^ Returns False if there was an error.
-addScienceObs t obsid ocat = do
-  ansE <- liftIO (ocatToScience ocat)
+addScienceObs conn t obsid ocat = do
+  ansE <- ocatToScience ocat
   case ansE of
-    Left emsg -> addInvalidObsId t obsid emsg
+    Left emsg -> addInvalidObsId conn t obsid emsg
     Right (prop, sObs) -> do
-      void (insertProposal prop)  -- may already exist
-      insertScience sObs
+      void (insertProposal conn prop)  -- may already exist
+      insertScience conn sObs
       let pnum = propNum prop
-      nprop <- count (PaNumField ==. pnum)
+
+          findProp = each proposalAbstractSchema
+                     >>= Rel8.filter (\r -> paNum r ==. lit pnum)
+          cnt = Rel8.aggregate Rel8.countStar findProp
+          
+      nprop <- runDb1 conn (Rel8.select cnt)
       if nprop == 0
-        then addProposal pnum
+        then addProposal conn pnum
         else pure True
-                 
+
+
+put :: T.Text -> IO ()
+put = T.putStrLn
+
 
 -- | In most cases the obsid should not be known about, but there
 --   is some window that allows an existing obsid to be queried
 --   here. This happened with obsid 6432 which is marked as
 --   discarded. So why is it being queried again?
 --
-
--- insertScience = insert_
-
 insertScience ::
-  PersistBackend m
-  => ScienceObs
-  -> m ()
-insertScience obs = do
+  Connection
+  -> ScienceObs Result
+  -> IO ()
+insertScience conn obs = do
   let obsId = soObsId obs
-      match = SoObsIdField ==. obsId
+      otxt = showInt (fromObsIdVal obsId)
 
-      otxt = showInt (fromObsId obsId)
-      put = liftIO . T.putStrLn
-      putE = liftIO . T.hPutStrLn stderr
-      
-  ms <- select match
+      match = each scienceObsRawSchema
+              >>= Rel8.filter (\r -> sorObsId r ==. lit obsId)
+              >>= hydrateScienceObsQ
+
+      del = Rel8.delete $ Rel8.Delete
+        { from = scienceObsRawSchema
+        , using = pure ()
+        , deleteWhere = \_ row -> sorObsId row ==. lit obsId
+        , returning = Rel8.NoReturning
+        }
+
+  ms <- runDbMaybe conn (Rel8.select match)
   case ms of
-    [] -> insert_ obs
+    Nothing -> void (insertScienceObs conn obs)
     
-    [old] -> if old == obs
-             then put ("Already know about ObsId: " <> otxt)
-             else do
-               put ("Replacing ObsId: " <> otxt)
-               put (" Old: " <> T.pack (show old))
-               put (" New: " <> T.pack (show obs))
-               delete match
-               insert_ obs
-               
-    _ -> putE ("SHOULD NOT BE POSSIBLE: multiple ObsIds found for " <> otxt)
-         >> putE "EXITING AS A PRECAUTION..."
-         >> liftIO exitFailure
+    Just old -> if old == obs
+                then put ("Already know about ObsId: " <> otxt)
+                else do
+      put ("Replacing ObsId: " <> otxt)
+      put (" Old: " <> T.pack (show old))
+      put (" New: " <> T.pack (show obs))
+
+      runDb_ conn (del >> addScienceObsS obs)
 
 
 -- | Add a non-science observation.
@@ -822,54 +873,56 @@ insertScience obs = do
 --     this assumes that obsid is not already in the database.
 --
 addNonScienceObs ::
-  PersistBackend m
-  => UTCTime
+  Connection
+  -> UTCTime
   -> ObsIdVal
   -> ScheduleItem
   -> OCAT
-  -> m Bool
+  -> IO Bool
   -- ^ Returns False if there was an error.
-addNonScienceObs t obsid ScheduleItem{..} ocat = 
+addNonScienceObs conn t obsid ScheduleItem{..} ocat = 
   case ocatToNonScience ocat of
-    Left emsg -> addInvalidObsId t obsid emsg
+    Left emsg -> addInvalidObsId conn t obsid emsg
 
     Right nsObs -> do
       -- what values can we take from the short-term schedule?
       -- for now just take the start time, but it is **UNCLEAR**
       -- what really should be going on here.
       --
-      case nsStartTime nsObs of
-        Nothing -> insert_ (nsObs {nsStartTime = Just siStart})
-        _ -> insert_ nsObs
 
+      let nsObs_ = case nsStartTime nsObs of
+            Nothing -> nsObs {nsStartTime = Just siStart}
+            _ -> nsObs
+
+          insert = Rel8.insert $ Rel8.Insert
+            { into = nonScienceObsSchema
+            , rows = Rel8.values [ nonScienceExpr nsObs_ ]
+            , onConflict = Rel8.Abort
+            , returning = Rel8.NoReturning
+            }
+
+      runDb_ conn insert
       pure True
            
 
-  
 -- | This is expected to be an "unobserved" non-science observation,
 --   i.e. one for which we do not expect an OCAT response.
 --
 addNonScienceObsManual ::
-  PersistBackend m
-  => ScheduleItem
-  -> m Bool
+  Connection
+  -> ScheduleItem
+  -> IO Bool
   -- ^ Returns False if there was an error.
-addNonScienceObsManual ScheduleItem{..} = 
-  let nsObs = NonScienceObs
-              { nsStatus = Unobserved
-              , nsObsId = siObsId
-              , nsTarget = toTargetName name
-              , nsStartTime = Just siStart
-              , nsTime = siDuration
-              , nsRa = siRA
-              , nsDec = siDec
-              , nsRoll = siRoll
-              }
+addNonScienceObsManual conn si =
+  let insert = Rel8.insert $ Rel8.Insert
+        { into = nonScienceObsSchema
+        , rows = Rel8.values [ schedToNonScienceExpr si ]
+        , onConflict = Rel8.Abort
+        , returning = Rel8.NoReturning
+        }
 
-      name = "CAL-ER (" <> showInt (fromObsId siObsId) <> ")"
-              
-  in insert_ nsObs
-     >> pure True
+  in runDb_ conn insert >> pure True
+
 
 -- | This queries the archive for these records, adds them to the
 --   database, and updates the knowledge of what schedules have
@@ -878,17 +931,16 @@ addNonScienceObsManual ScheduleItem{..} =
 --   TODO: should this query SimBad as well?
 --
 addToSchedule ::
-  (PersistBackend m, SqlDb (Conn m))
-  => UTCTime
+  Connection
+  -> UTCTime
   -> ShortTermTag
   -> [ScheduleItem]
-  -> m (Int, Int)
+  -> IO (Int, Int)
   -- ^ The number of failed and successful requests.
-addToSchedule time tag xs = do
-  let put = liftIO . T.putStrLn
+addToSchedule conn time tag xs = do
   put ("# Success reading " <> fromShortTermTag tag)
 
-  wantedItems <- findUnknownObs xs
+  wantedItems <- findUnknownObs conn xs
 
   let norig = length xs
       nwant = length wantedItems
@@ -917,20 +969,20 @@ addToSchedule time tag xs = do
       addTodo =
         when (ntodo > 0) $ do
           put ("# todo processing " <> stodo <> " of " <> sorig <> " records")
-          forM_ todoNonScience addNonScienceObsManual
+          forM_ todoNonScience (addNonScienceObsManual conn)
 
       -- assume that if addRest is called that it will have something to do
       addRest = do
         put ("# std  processing " <> srest <> " of " <> sorig <> " records")
         let stsMap = M.fromList (map (\si -> (siObsId si, si)) rest)
   
-        ocatsE <- liftIO (queryOCAT (M.keys stsMap))
+        ocatsE <- queryOCAT (M.keys stsMap)
 
         case ocatsE of
           Right ocats -> do
             okay <- forM (zip [1..] ocats) $ \(i, (obsid, mocat)) ->
               let hdr = "# [" <> showInt i <> "/" <> srest <> "] " <>
-                        showInt (fromObsId obsid) <> " "
+                        showInt (fromObsIdVal obsid) <> " "
 
                   -- we are guaranteed that this partial function is safe
                   -- (until I rewrite this code ...)
@@ -938,12 +990,12 @@ addToSchedule time tag xs = do
                   
               in case mocat of
                 Just ocat -> put (hdr <> "found")
-                             >> addObsId time obsid sts ocat
+                             >> addObsId conn time obsid sts ocat
 
                 -- This could record a non-science obs as invalid, but
                 -- not clear what the best approach is here
                 Nothing -> put (hdr <> "NO DATA")
-                           >> addInvalidObsId time obsid noDataInOCAT
+                           >> addInvalidObsId conn time obsid noDataInOCAT
 
             let ngood = length (filter id okay)
                 nbad = length (filter not okay)
@@ -951,13 +1003,13 @@ addToSchedule time tag xs = do
             when (nbad > 0) $
                put ("## There were " <> showInt nbad <> " problems")
             
-            addShortTermTag time tag Nothing
+            addShortTermTag conn time tag Nothing
             pure (nbad, ngood)
 
-          Left emsg -> addShortTermTag time tag (Just emsg)
+          Left emsg -> addShortTermTag conn time tag (Just emsg)
                        >> pure (nrest, 0)
 
-      nothingWanted = addShortTermTag time tag Nothing
+      nothingWanted = addShortTermTag conn time tag Nothing
   
   -- do we have any records to parse?
   if nwant > 0
@@ -968,7 +1020,7 @@ addToSchedule time tag xs = do
     else nothingWanted >>
          pure (0, 0)
 
-    
+
 -- | Return those items that need querying from OCAT.
 --
 --   It looks like it might be useful to preserve the knowledge whether
@@ -976,19 +1028,19 @@ addToSchedule time tag xs = do
 --   is why the return is [ScheduleItem] and not [ObsIdVal].
 --
 findUnknownObs ::
-  (PersistBackend m, SqlDb (Conn m))
-  => [ScheduleItem]
+  Connection
+  -> [ScheduleItem]
   -- ^ The set of observations we are interested in. It is assumed that
   --   this is a "small" number (value intentionally not defined).
-  -> m [ScheduleItem]
+  -> IO [ScheduleItem]
   -- ^ The observations to query
-findUnknownObs todo = do
-
+findUnknownObs conn todo = do
   -- remove any "invalid" obsids
-  invalids <- fmap ioObsId <$> getInvalidObsIds
+  invalids <- runDb conn (Rel8.select (ioObsId <$> getInvalidObsIds))
   let invalidSet = Set.fromList invalids
   
-      todo1 = filter (\ScheduleItem{..} -> siObsId `Set.notMember` invalidSet)
+      todo1 = filter
+              (\ScheduleItem{..} -> siObsId `Set.notMember` invalidSet)
               todo
 
       getInfo ScheduleItem{..} =
@@ -1010,12 +1062,18 @@ findUnknownObs todo = do
   -- Note that some observations can be marked as "observed" and never
   -- "promoted" to archived.
   --
-  let scField = SoObsIdField `in_` sc &&.
-                SoStatusField `in_` [Archived, Observed]
-      nsField = NsObsIdField `in_` ns
-      
-  scObs <- project SoObsIdField scField
-  nsObs <- project NsObsIdField nsField
+  let scField = each scienceObsRawSchema
+                >>= Rel8.filter (\r ->
+                                   sorStatus r `Rel8.in_` [ lit Archived
+                                                          , lit Observed ]
+                                   &&.
+                                   sorObsId r `Rel8.in_` (fmap lit sc)
+                                )
+      nsField = each nonScienceObsSchema
+                >>= Rel8.filter (\r -> nsObsId r `Rel8.in_` (fmap lit ns))
+                                   
+  scObs <- runDb conn (Rel8.select (sorObsId <$> scField))
+  nsObs <- runDb conn (Rel8.select (nsObsId <$> nsField))
 
   -- remove the obsids we do not want to query; use todo1 since this
   -- has already filtered out any unknown obsids
@@ -1028,32 +1086,34 @@ findUnknownObs todo = do
 
 
 updateScheduleFromPage ::
-  (PersistBackend m, SqlDb (Conn m))
-  => UTCTime
+  Connection
+  -> UTCTime
   -- ^ Time to add to the database to indicate the page was
   --   processed (approximate)
   -> Seq.Seq (ShortTermTag, T.Text)
   -- ^ The latest version of the short-term schedule (in
   --   descending order, so the first entry is the latest)
-  -> m (Maybe (Int, Int))
+  -> IO (Maybe (Int, Int))
   -- ^ The number of failed and successful ObsId downloads,
   --   or `Nothing` when there are no pages to download.
   --
-updateScheduleFromPage tNow schedList = do
+updateScheduleFromPage conn tNow schedList = do
+
+  let getSched = each shortTermScheduleSchema
+  schedInfo <- runDb conn (Rel8.select getSched)
   
-  schedInfo <- map snd <$> selectAll
   let todo = toList (wanted 1 stsTag schedInfo fst schedList)
-      printErr = liftIO . T.hPutStrLn stderr
+      printErr = T.hPutStrLn stderr
 
   case todo of
     [] -> pure Nothing
     
     [tagInfo] -> do
       let tag = fst tagInfo
-      liftIO (T.putStrLn ("###   page : " <> fromShortTermTag tag))
-      res <- liftIO (downloadSchedulePage tagInfo)
+      T.putStrLn ("###   page : " <> fromShortTermTag tag)
+      res <- downloadSchedulePage tagInfo
       case toSchedule res of
-        Right sts -> Just `fmap` addToSchedule tNow tag sts
+        Right sts -> Just `fmap` addToSchedule conn tNow tag sts
 
         Left pe -> do
           let emsg = T.pack (show pe)
@@ -1066,13 +1126,13 @@ updateScheduleFromPage tNow schedList = do
           -- mark pages we just can't parse yet as bad; this actually
           -- may be a better solution that continuing.
           printErr "# For now, halting execution"
-          liftIO exitFailure
+          exitFailure
 
     _ -> do
       -- this is a programmer error
       printErr ("ERROR: expected 1, found " <>
                 showInt (length todo) <> " pages")
-      liftIO exitFailure
+      exitFailure
 
 
 -- What is the last schedule page that was processed (not necessarily
@@ -1080,11 +1140,16 @@ updateScheduleFromPage tNow schedList = do
 --
 -- This ignores the "Error" field in the short-term-schedule page
 --
-reportLastSchedule :: IO ()
-reportLastSchedule = do
-  mtag <- runDb (maybeProject StsTagField
-                  (CondEmpty `orderBy` [Desc StsCheckedField]))
-                                                          
+reportLastSchedule :: Connection -> IO ()
+reportLastSchedule conn = do
+
+  let getLastTag =
+        Rel8.limit 1
+        $ fmap stsTag
+        $ Rel8.orderBy (stsChecked >$< Rel8.desc)
+        $ each shortTermScheduleSchema
+
+  mtag <- runDbMaybe conn (Rel8.select getLastTag)
   case mtag of
     Just tag -> T.putStrLn ("# Last schedule added to database: "
                             <> fromShortTermTag tag)
@@ -1101,13 +1166,16 @@ run ::
   Natural  -- ^ The maximum number of schedule pages to process.
   -> IO ()
 run nmax = do
+
+  conn <- getConnection
+
   -- report the last version before trying to access the web site so that
   -- we check the DB connection works, and so that we can be told what
   -- the last schedule is even if there's a problem downloading the
   -- latest version.
   --
-  reportLastSchedule
-  
+  reportLastSchedule conn
+
   schedList <- downloadScheduleList
   when (Seq.null schedList)
     (hPutStrLn stderr "No pages read in!" >> exitFailure)
@@ -1125,7 +1193,7 @@ run nmax = do
       queryNextSched i = do
         T.putStrLn ("## page " <> showInt i <> " of " <> showInt ntot)
         tNow <- getCurrentTime
-        runDb (updateScheduleFromPage tNow schedList)
+        updateScheduleFromPage conn tNow schedList
 
       -- The order of the results does not matter here, so
       -- they are returned in the reverse order to the way
@@ -1158,6 +1226,8 @@ run nmax = do
   when (nbad > 0) (T.putStrLn ("There were " <> showInt nbad <>
                                " error cases") >> exitFailure)
   
+  release conn
+  
 
 usage :: IO ()
 usage = do
@@ -1165,6 +1235,7 @@ usage = do
   T.hPutStrLn stderr ("Usage: " <> pName <> " [n]")
   T.hPutStrLn stderr "\n       n defaults to 2"
   exitFailure
+
   
 main :: IO ()
 main = do

@@ -181,7 +181,7 @@ executable getschedule
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , bytestring
@@ -492,7 +492,7 @@ executable getcalendar
   -- ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
   ghc-options: -Wall -Wincomplete-record-updates
 
-  if flag(tools)
+  if flag(toolsX)
     build-depends:
      base
      , bytestring

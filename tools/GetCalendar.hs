@@ -152,6 +152,8 @@ findSVGs tags =
         
       calendars = reverse (partitions (want "year") tags)
 
+      -- This is currently unused
+      {-
       addYear year = [TagOpen "g" [("transform", "translate(10,10)")],
                       TagOpen "text" [("x", "0"),
                                       ("y", "0"),
@@ -162,6 +164,7 @@ findSVGs tags =
                       TagText ("Year " <> T.pack (show year)),
                       TagClose "text",
                       TagClose "g"]
+      -}
 
       extra year = css <>
                    -- for now do not show the year marker

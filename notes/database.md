@@ -913,3 +913,45 @@ dak24kljssi6us=> \d "SimbadNoMatch";
 Indexes:
     "SimbadNoMatch_pkey" PRIMARY KEY, btree (id)
     "SimbadNoMatchConstraint" UNIQUE CONSTRAINT, btree ("smnTarget")
+
+dak24kljssi6us=> \d "ShortTermSchedule"
+                                            Table "public.ShortTermSchedule"
+     Column      |            Type             | Collation | Nullable |                     Default                     
+-----------------+-----------------------------+-----------+----------+-------------------------------------------------
+ id              | bigint                      |           | not null | nextval('"ShortTermSchedule_id_seq"'::regclass)
+ stsTag          | character varying           |           | not null | 
+ stsChecked      | timestamp without time zone |           | not null | 
+ stsErrorOnParse | character varying           |           |          | 
+Indexes:
+    "ShortTermSchedule_pkey" PRIMARY KEY, btree (id)
+    "ShortTermScheduleTagConstraint" UNIQUE CONSTRAINT, btree ("stsTag")
+
+dak24kljssi6us=> \d "NonScienceObs";
+                                          Table "public.NonScienceObs"
+   Column    |            Type             | Collation | Nullable |                   Default                   
+-------------+-----------------------------+-----------+----------+---------------------------------------------
+ id          | bigint                      |           | not null | nextval('"NonScienceObs_id_seq"'::regclass)
+ nsStatus    | character varying           |           | not null | 
+ nsObsId     | bigint                      |           | not null | 
+ nsTarget    | character varying           |           | not null | 
+ nsStartTime | timestamp without time zone |           |          | 
+ nsTime      | double precision            |           | not null | 
+ nsRa        | double precision            |           | not null | 
+ nsDec       | double precision            |           | not null | 
+ nsRoll      | double precision            |           | not null | 
+Indexes:
+    "NonScienceObs_pkey" PRIMARY KEY, btree (id)
+    "NonScienceObsIdConstraint" UNIQUE CONSTRAINT, btree ("nsObsId")
+
+dak24kljssi6us=> \d "InvalidObsId"
+                                         Table "public.InvalidObsId"
+  Column   |            Type             | Collation | Nullable |                  Default                   
+-----------+-----------------------------+-----------+----------+--------------------------------------------
+ id        | bigint                      |           | not null | nextval('"InvalidObsId_id_seq"'::regclass)
+ ioObsId   | bigint                      |           | not null | 
+ ioChecked | timestamp without time zone |           | not null | 
+ ioMessage | character varying           |           | not null | 
+Indexes:
+    "InvalidObsId_pkey" PRIMARY KEY, btree (id)
+    "InvalidObsIdConstraint" UNIQUE CONSTRAINT, btree ("ioObsId")
+

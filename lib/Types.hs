@@ -42,6 +42,10 @@ module Types (MetaData(..)
              , PropNum
              , PropCategory
              , fromPropNum, toPropNum
+
+             -- , NonSciencekey
+             , invalidNonScienceKey
+
              , TOORequest
              , fromTOORequest, toTOORequest
              , tooTime, rtToLabel
@@ -51,6 +55,8 @@ module Types (MetaData(..)
              , toChandraTime
              , fromChandraTime
              , showCTime
+             , toCTime
+             , endCTime
              , TargetName
              , fromTargetName, toTargetName
              , Constraint(NoConstraint)
@@ -84,8 +90,19 @@ module Types (MetaData(..)
              , SimbadLoc(..)
              , simbadBase
              -- , toSIMBADLink
+
+             , nonScienceExpr
+             , schedToNonScienceExpr
+             -- , scienceExpr
+             , invalidObsIdExpr
              
-             , TelescopeValues(..)
+             , ScheduleItem(..)
+             , ShortTermSchedule(..)
+             , ShortTermTag, fromShortTermTag, toShortTermTag
+
+             , ListTelescope(..)
+             , ListTelescopeValues(..)
+             
              --
              , metaDataSchema
              , scienceObsRawSchema
@@ -93,7 +110,9 @@ module Types (MetaData(..)
              , proposalSchema, proposalAbstractSchema
              , missingProposalAbstractSchema
              , simbadMatchSchema, simbadNoMatchSchema, simbadInfoSchema
-             , telescopeValuesSchema
+             , listTelescopeSchema
+             , listTelescopeValuesSchema
+             , shortTermScheduleSchema
 
              --
              , _2
@@ -103,11 +122,14 @@ module Types (MetaData(..)
 
 import qualified Data.Text as T
 
+import Control.Arrow (first)
+
 import Data.Function (on)
 import Data.Int (Int16, Int32, Int64)
 import Data.Maybe (fromMaybe)
 import Data.String (IsString(..))
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
+import Data.Time (TimeLocale, defaultTimeLocale, parseTimeOrError)
 import Data.Time.Clock (UTCTime, addUTCTime)
 
 import Formatting (Format, (%), (%.), sformat)
@@ -159,6 +181,30 @@ inRange ::
 inRange lo hi v = (lo <= v) && (v <= hi)
 
 
+{-
+This is based on 'Read Color' instance of RWH, page 142, chapter 6
+but hacked to allow a list of strings that map to the same token.
+-}
+
+tryParse :: [(a, [String])] -> String -> [(a, String)]
+tryParse [] _ = []
+tryParse ((result, attempts):xs) value =
+    -- the assumption here is that there should be only one match; we
+    -- could take the first one if there are multiple matches?
+    if length res == 1
+    then res
+    else tryParse xs value
+        where
+          res = [(result, drop (length attempt) value) |
+                 attempt <- attempts, take (length attempt) value == attempt]
+
+
+readsPrecF :: (Read a) => (a -> b) -> Int -> ReadS b
+readsPrecF f i s = 
+    let xs = readsPrec i s
+    in map (first f) xs
+
+
 -- | A wrapper around `UTCTime` so that we can use our
 --   own `ToMarkup` and `ToValue` instances.
 --
@@ -168,6 +214,29 @@ newtype ChandraTime = ChandraTime { fromChandraTime :: UTCTime }
 
 toChandraTime :: UTCTime -> ChandraTime
 toChandraTime = ChandraTime
+
+
+-- make it easy to compile on different systems for now
+readTime :: TimeLocale -> String -> String -> UTCTime
+readTime = parseTimeOrError True
+
+
+-- | Convert values like "2014:132:03:08:49.668"
+-- to a time. This is
+--
+--  year number : day number : hh : mm : ss.sss
+--
+-- in UTC (I guess)
+--
+-- For now assume all inputs are valid. Hopefully the DOY
+-- values are all zero-padded to three characters and
+-- start at 1.
+--
+-- This will cause an exception if the input string is
+-- incorrectly formatted.
+--
+toCTime :: String -> ChandraTime
+toCTime = ChandraTime . readTime defaultTimeLocale "%Y:%j:%T%Q"
 
 -- | Create a \"nice\" display of the time:
 --   \"HH:MM Day, DN Month, Year (UTC)\", where Day and Month
@@ -291,6 +360,11 @@ showExpTime (TimeKS tks) =
 newtype RA = RA { fromRA :: Double } 
   deriving newtype (DBType, DBEq)
 
+-- TODO: validate ra as 0 to 360
+instance Read RA where
+  readsPrec = readsPrecF RA
+
+
 -- | Currently no validation.
 --
 toRA :: Double -> RA
@@ -322,6 +396,11 @@ showRA ra =
 
 newtype Dec = Dec { fromDec :: Double } 
   deriving newtype (DBType, DBEq)
+
+-- TODO: validate dec as -90 to 90
+instance Read Dec where
+  readsPrec = readsPrecF Dec
+
 
 -- | Currently no validation.
 --
@@ -508,6 +587,57 @@ instance f ~ Result => Show (ScienceObs f) where
     <> " ks " <> T.unpack (showStartTime soStartTime)
     <> " " <> T.unpack (fromObsIdStatus soStatus)
 
+-- Can this not be automated?
+--
+instance f ~ Result => Eq (ScienceObs f) where
+  so1 == so2 =
+    (soSequence so1 == soSequence so2)
+    && (soProposal so1 == soProposal so2)
+    && (soStatus so1 == soStatus so2)
+    && (soObsId so1 == soObsId so2)
+    && (soTarget so1 == soTarget so2)
+    && (soStartTime so1 == soStartTime so2)
+    && (soApprovedTime so1 == soApprovedTime so2)
+    && (soObservedTime so1 == soObservedTime so2)
+    && (soPublicRelease so1 == soPublicRelease so2)
+    && (soTimeCritical so1 == soTimeCritical so2)
+    && (soMonitor so1 == soMonitor so2)
+    && (soConstrained so1 == soConstrained so2)
+    && (soInstrument so1 == soInstrument so2)
+    && (soGrating so1 == soGrating so2)
+    && (soDetector so1 == soDetector so2)
+    && (soDataMode so1 == soDataMode so2)
+    && (soACISI0 so1 == soACISI0 so2)
+    && (soACISI1 so1 == soACISI1 so2)
+    && (soACISI2 so1 == soACISI2 so2)
+    && (soACISI3 so1 == soACISI3 so2)
+    && (soACISS0 so1 == soACISS0 so2)
+    && (soACISS1 so1 == soACISS1 so2)
+    && (soACISS2 so1 == soACISS2 so2)
+    && (soACISS3 so1 == soACISS3 so2)
+    && (soACISS4 so1 == soACISS4 so2)
+    && (soACISS5 so1 == soACISS5 so2)
+    && (soJointWith so1 == soJointWith so2)
+    && (soJointHST so1 == soJointHST so2)
+    && (soJointNOAO so1 == soJointNOAO so2)
+    && (soJointNRAO so1 == soJointNRAO so2)
+    && (soJointRXTE so1 == soJointRXTE so2)
+    && (soJointSPITZER so1 == soJointSPITZER so2)
+    && (soJointSUZAKU so1 == soJointSUZAKU so2)
+    && (soJointXMM so1 == soJointXMM so2)
+    && (soJointSWIFT so1 == soJointSWIFT so2)
+    && (soJointNUSTAR so1 == soJointNUSTAR so2)
+    && (soMultiTel so1 == soMultiTel so2)
+    && (soMultiTelInt so1 == soMultiTelInt so2)
+    && (soMultiTelObs so1 == soMultiTelObs so2)
+    && (soTOO so1 == soTOO so2)
+    && (soRA so1 == soRA so2)
+    && (soDec so1 == soDec so2)
+    && (soConstellation so1 == soConstellation so2)
+    && (soRoll so1 == soRoll so2)
+    && (soSubArrayStart so1 == soSubArrayStart so2)
+    && (soSubArraySize so1 == soSubArraySize so2)
+
 
 -- Access the data as stored in the database. This is intended to be an internal
 -- representation.
@@ -626,8 +756,39 @@ scienceObsRawSchema = TableSchema
     }
   }
 
+
+{- TODO: do we need this???
+
+-- | Not quite like the other "convert to an expression" routines.
+--
+scienceExpr :: ScheduleItem -> ScienceObsRaw Expr ???
+scienceExpr ScheduleItem{..} =
+  let name = "CAL-ER (" <> showInt (fromObsId siObsId) <> ")"
+  in NonScienceObs
+     { nsId = unsafeCoerceExpr (nextval "NonScienceObs_id_seq")
+     , nsStatus = lit Unobserved
+     , nsObsId = lit siObsId
+     , nsTarget = lit (toTargetName name)
+     , nsStartTime = lit (Just siStart)
+     , nsTime = lit siDuration
+     , nsRa = lit siRA
+     , nsDec = lit siDec
+     , nsRoll = lit siRoll
+     }
+
+-}
+
+
+newtype NonScienceKey = NonScienceKey { fromKey :: Int64 }
+  deriving newtype (DBEq, DBType, Eq)
+
+invalidNonScienceKey :: NonScienceKey
+invalidNonScienceKey = NonScienceKey 0
+
+
 data NonScienceObs f = NonScienceObs
-  { nsStatus :: Column f ObsIdStatus
+  { nsId :: Column f NonScienceKey
+  , nsStatus :: Column f ObsIdStatus
   , nsObsId :: Column f ObsIdVal
   , nsTarget :: Column f TargetName
   , nsStartTime :: Column f (Maybe ChandraTime)
@@ -652,7 +813,8 @@ nonScienceObsSchema :: TableSchema (NonScienceObs Name)
 nonScienceObsSchema = TableSchema
   { name = "NonScienceObs"
   , columns = NonScienceObs
-    { nsStatus = "nsStatus"
+    { nsId = "id"
+    , nsStatus = "nsStatus"
     , nsObsId = "nsObsId"
     , nsTarget = "nsTarget"
     , nsStartTime = "nsStartTime"
@@ -664,22 +826,76 @@ nonScienceObsSchema = TableSchema
   }
 
 
+-- | Convert a Non-science observation into something that can be inserted
+--   into the database.
+--
+nonScienceExpr :: NonScienceObs Result -> NonScienceObs Expr
+nonScienceExpr NonScienceObs{..} =
+  NonScienceObs
+  { nsId = unsafeCoerceExpr (nextval "NonScienceObs_id_seq")
+  , nsStatus = lit nsStatus
+  , nsObsId = lit nsObsId
+  , nsTarget = lit nsTarget
+  , nsStartTime = lit nsStartTime
+  , nsTime = lit nsTime
+  , nsRa = lit nsRa
+  , nsDec = lit nsDec
+  , nsRoll = lit nsRoll
+  }
+
+  
+-- | Not quite like the other "convert to an expression" routines.
+--
+schedToNonScienceExpr :: ScheduleItem -> NonScienceObs Expr
+schedToNonScienceExpr ScheduleItem{..} =
+  let name = "CAL-ER (" <> T.pack (show (fromObsIdVal siObsId)) <> ")"
+  in NonScienceObs
+     { nsId = unsafeCoerceExpr (nextval "NonScienceObs_id_seq")
+     , nsStatus = lit Unobserved
+     , nsObsId = lit siObsId
+     , nsTarget = lit (toTargetName name)
+     , nsStartTime = lit (Just siStart)
+     , nsTime = lit siDuration
+     , nsRa = lit siRA
+     , nsDec = lit siDec
+     , nsRoll = lit siRoll
+     }
+
+
+newtype InvalidObsIdKey = InvalidObsIdKey { fromKey :: Int64 }
+  deriving newtype (DBEq, DBType, Eq)
+
 data InvalidObsId f = InvalidObsId
-  { ioObsId :: Column f ObsIdVal     -- ^ The ObsId in question
+  { ioId :: Column f InvalidObsIdKey
+  , ioObsId :: Column f ObsIdVal   -- ^ The ObsId in question
   , ioChecked :: Column f UTCTime  -- ^ The approximate time this was checked
   , ioMessage :: Column f T.Text   -- ^ reason it's "bad"
   }
   deriving stock (Generic)
   deriving anyclass (Rel8able)
 
+
 invalidObsIdSchema :: TableSchema (InvalidObsId Name)
 invalidObsIdSchema = TableSchema
   { name = "InvalidObsId"
   , columns = InvalidObsId
-    { ioObsId = "ioObsId"
+    { ioId = "id"
+    , ioObsId = "ioObsId"
     , ioChecked = "ioChecked"
     , ioMessage = "ioMessage"
     }
+  }
+
+invalidObsIdExpr ::
+  ObsIdVal
+  -> UTCTime
+  -> T.Text
+  -> InvalidObsId Expr
+invalidObsIdExpr obsid t errMsg = InvalidObsId
+  { ioId = unsafeCoerceExpr (nextval "InvalidObsId_id_seq")
+  , ioObsId = lit obsid
+  , ioChecked = lit t
+  , ioMessage = lit errMsg
   }
 
 
@@ -844,18 +1060,32 @@ missingProposalAbstractSchema = TableSchema
 
 -- | This was created by groundhog to suppport storing [Telescope].
 --
-data TelescopeValues f = TelescopeValues
+data ListTelescope f = ListTelescope
+  { tId :: Column f TelescopeId
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+data ListTelescopeValues f = ListTelescopeValues
   { tvId :: Column f TelescopeId
-  , tvOrd :: Column f Int16   -- do we need this?
+  , tvOrd :: Column f Int16  -- not many fields set this to > 0
   , tvValue :: Column f Telescope
   }
   deriving stock (Generic)
   deriving anyclass (Rel8able)
 
-telescopeValuesSchema :: TableSchema (TelescopeValues Name)
-telescopeValuesSchema = TableSchema
+listTelescopeSchema :: TableSchema (ListTelescope Name)
+listTelescopeSchema = TableSchema
+  { name = "List##Telescope"
+  , columns = ListTelescope
+    { tId = "id"
+    }
+  }
+
+listTelescopeValuesSchema :: TableSchema (ListTelescopeValues Name)
+listTelescopeValuesSchema = TableSchema
   { name = "List##Telescope#values"
-  , columns = TelescopeValues
+  , columns = ListTelescopeValues
     { tvId = "id"
     , tvOrd = "ord"
     , tvValue = "value"
@@ -988,6 +1218,14 @@ instance DBType Instrument where
 
       toI = fromInstrument
 
+instance Read Instrument where
+  readsPrec _ =
+    tryParse [ (ACISS, ["ACIS-S", "ACISS"])
+             , (ACISI, ["ACIS-I", "ACISI"])
+             , (HRCI, ["HRC-I", "HRCI"])
+             , (HRCS, ["HRC-S", "HRCS"])
+             ]
+
 fromInstrument :: Instrument -> T.Text
 fromInstrument ACISI = "ACIS-I"
 fromInstrument ACISS = "ACIS-S"
@@ -1014,7 +1252,7 @@ toInstrument _ = Nothing
 --   real semantic meaning.
 --
 data Grating = LETG | HETG | NONE 
-  deriving (DBEq, Eq, Show)
+  deriving (DBEq, Eq, Show, Read)
 
 instance DBType Grating where
   typeInformation = parseTypeInformation fromG toG typeInformation
@@ -1266,6 +1504,21 @@ constellationMap =
 data TOORequestTime =
   Immediate | Quick | Intermediate | Slow
   deriving (Eq, Ord)
+
+{-  XXX
+  deriving (Eq, Ord, DBEq, DBOrd)
+
+instance DBType TOORequestTime where
+  typeInformation = parseTypeInformation from to typeInformation
+    where
+      from t = case labelToRT t of
+        Just v -> Right v
+        _ -> Left ("Unknown request time: '" <> T.unpack t <> "'")
+
+      to = rtToLabel
+
+XXX -}
+
 
 rtToLabel :: TOORequestTime -> T.Text
 rtToLabel Immediate = "Immediate"
@@ -1627,6 +1880,82 @@ toSIMBADLink sloc name =
 
   in decodeUtf8 (simbadBase sloc <> "sim-id" <> qryB)
 
+
+-- Tags
+
+-- | A short-term schedule is identified by a tag - e.g.
+--   "DEC2312A".
+--
+--   There is no validation on the value used as the tag
+--   since the format has changed over time; the following
+--   have all been used "06AUG16A", "APR2002A", "FEB0402".
+--
+newtype ShortTermTag = ShortTermTag { fromShortTermTag :: T.Text }
+  deriving (Eq, Ord)
+  deriving newtype (DBEq, DBOrd, DBType)
+
+
+-- | This strips out leading and trailing white space, which
+--   appears to be unnescessary but left in, just in case.
+--
+toShortTermTag :: T.Text -> ShortTermTag
+toShortTermTag = ShortTermTag . T.toUpper . T.strip
+
+
+newtype ShortTermScheduleId = ShortTermScheduleId { fromShortTermScheduleId :: Int64 }
+  deriving newtype (DBEq, DBOrd, DBType)
+  deriving (Eq, Ord)
+
+
+-- | The short-term schedules for which we have data.
+--
+data ShortTermSchedule f = ShortTermSchedule {
+  stsId :: Column f ShortTermScheduleId
+  , stsTag :: Column f ShortTermTag
+  -- ^ The identifier for the schedule.
+  , stsChecked :: Column f UTCTime
+  -- ^ The time the schedule was queried
+  , stsErrorOnParse :: Column f (Maybe T.Text)
+  -- ^ Was there a problem parsing data.? The intention is to
+  --   have a way to say "don't re-try this schedule", although
+  --   it is not yet clear if it is really needed.
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+
+shortTermScheduleSchema :: TableSchema (ShortTermSchedule Name)
+shortTermScheduleSchema = TableSchema
+  { name = "ShortTermSchedule"
+  , columns = ShortTermSchedule
+    { stsId = "id"
+    , stsTag = "stsTag"
+    , stsChecked = "stsChecked"
+    , stsErrorOnParse = "stsErrorOnParse"
+    }
+  }
+
+
+-- | A scheduled observation (may be in the past, present, or future).
+--
+--   The information is taken from <http://cxc.cfa.harvard.edu/target_lists/stscheds/>,
+--   and contains information we store elsewhere.
+--
+--   We use this to represent the data we get from the Short-Term
+--   schedule pages, but it no longer goes into the database.
+--
+data ScheduleItem = ScheduleItem {
+    siObsId :: ObsIdVal
+    , siScienceObs :: Bool
+    , siStart :: ChandraTime
+    -- , siEnd :: ChandraTime     -- approx end time
+    , siDuration :: TimeKS
+    , siRA :: RA
+    , siDec :: Dec
+    , siRoll :: Double
+    }
+  -- deriving (Eq, Show)
+  deriving Eq
 
 -- Not using lenses for now.
 --

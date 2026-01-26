@@ -163,12 +163,14 @@ parseTime = do
   spaces
   pure (intercalate ":" [year, dnum, hour, mins, ss1 ++ "." ++ ss2])
 
+
 parseReadable :: Read a => Parser a
 parseReadable = do
   v <- lexeme $ many1 $ satisfy (not . isSpace)
   case reads v of
     [(t,"")] -> pure t
     _ -> fail ("Unable to parse as readable: " ++ v)
+
 
 parseDouble :: Parser Double
 parseDouble = parseReadable
@@ -311,9 +313,11 @@ calLine = do
       -- 'take 5' above).
       --
       obsid =
-        if isDigit (head obsidOrName)
-        then strToInt obsidOrName
-        else strToInt nameOrObsId
+        case obsidOrName of
+          x:_ -> if isDigit x
+                 then strToInt obsidOrName
+                 else strToInt nameOrObsId
+          [] -> error "unable to decode obsIdOrName field"
   
       si = ScheduleItem {
         siObsId = unsafeToObsIdVal obsid

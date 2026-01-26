@@ -63,8 +63,8 @@ findMissing start end = do
 
       get schema proj =
         Rel8.each schema
-        >>= pure . proj
         >>= Rel8.filter (\r -> r >=. Rel8.lit start &&. r <=. Rel8.lit end)
+            . proj
 
   conn <- getConnection
   sobs <- runDb conn $ Rel8.select (get scienceObsRawSchema sorObsId)

@@ -45,9 +45,9 @@ import Types ( ObsIdVal
              , fromTelescope
              , TelescopeId
              , ScienceObsRaw(..)
-             , TelescopeValues(..)
+             , ListTelescopeValues(..)
              , scienceObsRawSchema
-             , telescopeValuesSchema
+             , listTelescopeValuesSchema
              )
 
 
@@ -98,7 +98,7 @@ telescopes = do
 
 findTelescope :: Expr TelescopeId -> Query (Expr Telescope)
 findTelescope rowNum = do
-  tele <- each telescopeValuesSchema
+  tele <- each listTelescopeValuesSchema
   where_ (tvId tele ==. rowNum)
   pure (tvValue tele)
 
