@@ -80,8 +80,8 @@ module Database ( getConnection
                 --X , fetchExposureRanges
                 --X , fetchExposureRange
                 
-                --X   -- Highly experimental
-                --X , getTimeline
+                -- Highly experimental
+                , getTimeline
                 --X , getSimbadList
 
                 --X -- , NormSep
@@ -140,7 +140,7 @@ module Database ( getConnection
                 --X   , notNsDiscarded
                 --X   -- , notFromObsCat
 
-                --X   , isValidScienceObs
+                , isValidScienceObsRaw
 
                 --X   , timeDb
 
@@ -148,7 +148,7 @@ module Database ( getConnection
 
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.List.NonEmpty as NE
---X import qualified Data.Map.Strict as M
+import qualified Data.Map.Strict as M
 --X import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -219,14 +219,15 @@ import System.IO (stderr)
 
 --X import Web.Heroku (dbConnParams)
 
---X import Sorted (SortedList
---X               , emptySL
---X               , unsafeToSL
---X               , toSL
---X               , fromSL
---X               , mergeSL
---X               , StartTimeOrder
---X               , ExposureTimeOrder)
+import Sorted (SortedList
+              -- , emptySL
+              , unsafeToSL
+              -- , toSL
+              -- , fromSL
+              -- , mergeSL
+              , StartTimeOrder
+              -- , ExposureTimeOrder
+              )
 
 import Types (MetaData(..), metaDataSchema
              -- , fromMetaData
@@ -253,6 +254,11 @@ import Types (MetaData(..), metaDataSchema
              , ChandraTime
              , toChandraTime
              -- , fromChandraTime
+             --
+             , ScienceTimeline
+             , EngineeringTimeline
+             , hydrateScienceTimeline
+             , hydrateEngineeringTimeline
              )
 
 -- nsInObsCatName :: T.Text
@@ -316,48 +322,8 @@ restrictedNonScience =
   , NsDecField)
 
 
-scienceTimeline ::
-  (SF ObsIdVal
-  , SF PropNum
-  , SF TargetName
-  , SF (Maybe ChandraTime)
-  , SF (Maybe UTCTime)
-  , SF TimeKS
-  , SF (Maybe TimeKS)
-  , SF Instrument
-  , SF Grating
-  , SF (Maybe T.Text)
-  , SF (Maybe TOORequest)
-  , SF ConShort)
-scienceTimeline =
-  (SoObsIdField
-  , SoProposalField
-  , SoTargetField
-  , SoStartTimeField
-  , SoPublicReleaseField
-  , SoApprovedTimeField
-  , SoObservedTimeField
-  , SoInstrumentField
-  , SoGratingField
-  , SoDataModeField
-  , SoTOOField
-  , SoConstellationField)
-
-
-engineeringTimeline ::
-  (NF ObsIdVal
-  , NF TargetName
-  , NF (Maybe ChandraTime)
-  , NF TimeKS)
-engineeringTimeline =
-  (NsObsIdField
-  , NsTargetField
-  , NsStartTimeField
-  , NsTimeField
-    -- could also send the actual time?
-  )
-
 X-}
+
 
 
 -- | What is the logic to the status fields, in particular
@@ -496,8 +462,8 @@ findRecord conn t = do
         row <- Rel8.limit 1
           $ Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.desc)
           $ each scienceObsRawSchema
-             >>= Rel8.filter (\r -> (sorStartTime r <=. lit tval) &&. isValidScienceObsRaw r)
-        hydrateScienceObs row
+            >>= Rel8.filter (\r -> (sorStartTime r <=. lit tval) &&. isValidScienceObsRaw r)
+        hydrateScienceObsQ row
       
       queryNonScience =
         Rel8.limit 1
@@ -646,11 +612,11 @@ findScience :: ObsIdVal -> Query (ScienceObs Expr)
 findScience oi = do
   sor <- each scienceObsRawSchema
   Rel8.where_ (sorObsId sor ==. lit oi)
-  hydrateScienceObs sor
+  hydrateScienceObsQ sor
 
 
-hydrateScienceObs :: ScienceObsRaw Expr -> Query (ScienceObs Expr)
-hydrateScienceObs sor =
+hydrateScienceObsQ :: ScienceObsRaw Expr -> Query (ScienceObs Expr)
+hydrateScienceObsQ sor =
   do
     teles <- Rel8.manyExpr (findTelescope (sorMultiTelObs sor))
     pure (ScienceObs
@@ -744,7 +710,7 @@ getNextObs conn oid mt = do
                                 sorStartTime r >. lit mt &&.
                                 sorObsId r /=. lit oid &&.
                                 isValidScienceObsRaw r)
-        hydrateScienceObs row
+        hydrateScienceObsQ row
       
       queryNonScience =
         Rel8.limit 1
@@ -782,7 +748,7 @@ getPrevObs conn oid mt = do
                                 sorStartTime r <. lit mt &&.
                                 sorObsId r /=. lit oid &&.
                                 isValidScienceObsRaw r)
-        hydrateScienceObs row
+        hydrateScienceObsQ row
       
       queryNonScience =
         Rel8.limit 1
@@ -2587,7 +2553,10 @@ getProposalObjectMapping = do
   --    { exposureTime: ..., numberSources: ..., numberObs: ...}
   --
   addLastMod obsMap
-  
+
+X-}
+
+
 -- | Work out a timeline of the data.
 --
 --   It looks like there are some non-science observations that
@@ -2604,56 +2573,56 @@ getProposalObjectMapping = do
 --   Should be cleaned up *in* the database.
 --
 getTimeline ::
-  DbSql m
-  => m (SortedList StartTimeOrder ScienceTimeline,
-        SortedList StartTimeOrder EngineeringTimeline,
-        M.Map TargetName SimbadInfo,
-        [Proposal])
-getTimeline = do
+  Connection
+  -> IO (SortedList StartTimeOrder (ScienceTimeline Result),
+         SortedList StartTimeOrder (EngineeringTimeline Result),
+          M.Map TargetName (SimbadInfo Result),
+          [Proposal Result])
+getTimeline conn = do
 
-  lastMod <- toChandraTime <$> getLastModifiedFixed
+  lastMod <- toChandraTime <$> getLastModifiedFixed conn
+
+  let getS = do
+        raw <- Rel8.orderBy (sorStartTime >$< Rel8.nullsLast Rel8.asc)
+               $ each scienceObsRawSchema
+                 >>= Rel8.filter isValidScienceObsRaw
+        pure (hydrateScienceTimeline raw)
+
+      wantNS NonScienceObs{..} = 
+        Rel8.isNonNull nsStartTime &&.
+        nsStatus /=. lit Discarded &&.
+        nsStatus /=. lit Canceled &&.
+        nsStartTime >. lit (Just lastMod)
+        
+      getNS = do
+        raw <- Rel8.orderBy (nsStartTime >$< Rel8.nullsLast Rel8.asc)
+               $ each nonScienceObsSchema
+                 >>= Rel8.filter wantNS
+        pure (hydrateEngineeringTimeline raw)
+
+      findMatches = each simbadMatchSchema
+                    >>= \SimbadMatch{..} -> pure (smmTarget, smmInfo)
+      getKey key = each simbadInfoSchema
+                   >>= Rel8.filter (\r -> smiId r ==. key)
+      getMatches = do
+        (name, key) <- findMatches
+        si <- getKey key
+        pure (name, si)
+
+      getProps = each proposalSchema
+
+  obs <- runDb conn (select getS)
+  ns <- runDb conn (select getNS)
+  simbadInfo <- runDb conn (select getMatches)
+  props <- runDb conn (select getProps)
+
+  let obsL = unsafeToSL obs
+      nsL = unsafeToSL ns
+
+      simbadMap = M.fromList simbadInfo
+
+  pure (obsL, nsL, simbadMap, props)
   
-  obs <- project scienceTimeline
-         (isValidScienceObs `orderBy` [Asc SoStartTimeField])
-
-  ns <- project engineeringTimeline
-        ((Not (isFieldNothing NsStartTimeField) &&.
-          (NsStatusField /=. Discarded) &&.
-          (NsStatusField /=. Canceled) &&.
-          (NsStartTimeField >. Just lastMod))
-         `orderBy` [Asc NsStartTimeField])
-
-  -- SIMBAD info: the returned information is enough to create
-  -- a map from the soTargetname field of a Science Obs and
-  -- the SIMBAD information. Note that there are expected to be
-  -- multiple matches to the same SIMBAD source (e.g. with different
-  -- names), but I am just going to use a simple mapping for now.
-  --
-  -- The key returned by selectAll does not have an ord instance,
-  -- which means my simple plan of using this as a key in a map
-  -- falls over without some work.
-  --
-  -- So for now looping over each record and querying for the
-  -- answer, which is not sensible!
-  --
-  matchInfo <- project (SmmTargetField, SmmInfoField) CondEmpty
-  simbadInfo <- forM matchInfo (\(name, key) -> do
-                                   msi <- get key
-                                   -- MonadFail changes in ghc 8.6 pointed
-                                   -- out assumption that this could never
-                                   -- fail; it still has that assumption
-                                   -- but is now more explicit about it
-                                   case msi of
-                                     Just si -> pure (name, si)
-                                     Nothing -> error "programming error: unexpected key")
-
-  -- TODO: should simbadMap be evaluated?
-  let simbadMap = M.fromList simbadInfo
-
-  props <- map snd <$> selectAll
-  pure (unsafeToSL obs, unsafeToSL ns, simbadMap, props)
-
-X-}
 
 {-X   check how this compares to other getlastModified type rules
 -- | Grab the last-modified date from the database and include

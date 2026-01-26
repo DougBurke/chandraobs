@@ -99,7 +99,8 @@ import Types (SimbadMatch(..)
              , simbadBase
              , SimbadType
              , toSimbadType
-             , SIMCategory(..)
+             , SIMCategory
+             , toSIMCategory
              , SimbadInfoKey
              , toSI, siExpr
              , toSM, smExpr
@@ -472,7 +473,7 @@ parseObject txt =
               (toSimbadType s)
   in case toks of
     [name, otype3, otype, _] ->
-      Just (toTargetName (cleanupName name), toT otype3, SIMCategory otype)
+      Just (toTargetName (cleanupName name), toT otype3, toSIMCategory otype)
     _ -> Nothing
 
 slen :: [a] -> T.Text

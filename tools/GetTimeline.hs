@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 --
 -- Usage:
@@ -20,6 +21,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Formatting as F
 
+import qualified Rel8
+
 import Control.Monad (forM_, unless)
 
 import Data.List (sort)
@@ -30,18 +33,23 @@ import Data.Time ( UTCTime(..)
                  , timeToTimeOfDay
                  , toModifiedJulianDay)
 
-import Database.Groundhog (PersistBackend, Conn, project)
-import Database.Groundhog.Postgresql (SqlDb)
+import Hasql.Connection (release)
+
+import Rel8 (Query, Expr, Result)
 
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
 import System.IO (stderr)
 
-import Database (getTimeline, runDb, isValidScienceObs)
+import Database (getTimeline
+                , isValidScienceObsRaw
+                , getConnection
+                , runDb
+                 )
 
 import Sorted (fromSL)
-import Types ( Field(SoObsIdField, SoRAField, SoDecField)
-             , ScienceTimeline
+import Types ( ScienceObsRaw(..)
+             , ScienceTimeline(..)
              , ObsIdVal, RA, Dec
              , SimbadInfo(smiType3)
              , TargetName
@@ -50,11 +58,14 @@ import Types ( Field(SoObsIdField, SoRAField, SoDecField)
              , fromChandraTime
              , fromGrating
              , fromInstrument
-             , fromObsId
+             , fromObsId64
              , fromSimbadType
              , fromTargetName
              , fromTimeKS
-             , fromRA, fromDec
+             , fromRA
+             , fromDec
+             --
+             , scienceObsRawSchema
              )
 
 
@@ -85,27 +96,27 @@ report = T.putStrLn . T.intercalate "\t"
 
 -- the timeline doesn't include ra,dec - which we need...
 --
-getPos ::
-  (PersistBackend m, SqlDb (Conn m))
-  => m [(ObsIdVal, RA, Dec)]
-getPos = project (SoObsIdField, SoRAField, SoDecField) isValidScienceObs
+getPos :: Query (Expr ObsIdVal, Expr RA, Expr Dec)
+getPos =
+  Rel8.each scienceObsRawSchema
+  >>= Rel8.filter isValidScienceObsRaw
+  >>= \ScienceObsRaw{..} -> pure (sorObsId, sorRA, sorDec)
 
 
 dumpScience ::
-  M.Map TargetName SimbadInfo
-  -> M.Map PropNum Proposal
+  M.Map TargetName (SimbadInfo Result)
+  -> M.Map PropNum (Proposal Result)
   -> M.Map PropCategory Int
   -> M.Map ObsIdVal (RA, Dec)
-  -> ScienceTimeline
+  -> ScienceTimeline Result
   -> IO ()
 dumpScience simbadMap proposalMap catMap posMap so =
-  let (obsidVal, propnum, targetName, mStartTime, _,
-       approvedTime, mObservedTime, instrument, grating, _, _, _) = so
+  let ScienceTimeline{..} = so
 
-      obsLen = fromTimeKS (fromMaybe approvedTime mObservedTime)
+      obsLen = fromTimeKS (fromMaybe stApprovedTime stObservedTime)
 
-      si = maybe "n/a" (fromSimbadType . smiType3) (M.lookup targetName simbadMap)
-      cat = case M.lookup propnum proposalMap of
+      si = maybe "n/a" (fromSimbadType . smiType3) (M.lookup stTarget simbadMap)
+      cat = case M.lookup stProposal proposalMap of
         Just p -> maybe "-1" showInt (M.lookup (propCategory p) catMap)
         Nothing -> "-1"
       
@@ -113,22 +124,22 @@ dumpScience simbadMap proposalMap catMap posMap so =
       -- so I don't know why I have it as a Maybe (perhaps it is
       -- used in multiple contexts?)
       --
-      startTime = maybe "0.0" (showUTCTime . fromChandraTime) mStartTime
+      startTime = maybe "0.0" (showUTCTime . fromChandraTime) stStartTime
 
       -- assume this exists
-      pos = maybe (-1.0, -100.0) gp (M.lookup obsidVal posMap)
+      pos = maybe (-1.0, -100.0) gp (M.lookup stObsId posMap)
       gp (ra, dec) = (fromRA ra, fromDec dec)
       
-      cols = [ showInt (fromObsId obsidVal)
+      cols = [ showInt (fromObsId64 stObsId)
              , showFloat (fst pos)
              , showFloat (snd pos)
              , startTime
              , showFloat obsLen
-             , fromInstrument instrument
-             , fromGrating grating
+             , fromInstrument stInstrument
+             , fromGrating stGrating
              , cat
              , si
-             , fromTargetName targetName
+             , fromTargetName stTarget
              ]
       
   in report cols
@@ -136,17 +147,15 @@ dumpScience simbadMap proposalMap catMap posMap so =
 
 dumpTimeline :: IO ()
 dumpTimeline = do
-  dbData <- runDb (do
-                      posInfo <- getPos
-                      (sciences, _, simbadMap, proposals) <- getTimeline
-                      pure (posInfo, sciences, simbadMap, proposals)
-                  )
+
+  conn <- getConnection
+  posInfo <- runDb conn (Rel8.select getPos)
+  (sciences, _, simbadMap, proposals) <- getTimeline conn
+  release conn
 
   report ["obsid", "ra", "dec", "start", "obslen_ks", "instrument", "grating", "category", "simbad", "target"]
   
-  let (posInfo, sciences, simbadMap, proposals) = dbData
-  
-      proposalMap = M.fromList (map (\p -> (propNum p, p)) proposals)
+  let proposalMap = M.fromList (map (\p -> (propNum p, p)) proposals)
       posMap = M.fromList (map (\(k, r, d) -> (k, (r, d))) posInfo)
 
       -- convert proposal category into an enumeration

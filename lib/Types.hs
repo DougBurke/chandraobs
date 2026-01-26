@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Types (MetaData(..)
              , fromMetaData, toMetaData
@@ -19,6 +20,11 @@ module Types (MetaData(..)
              , recordTime
              , recordTarget
              , ObsInfo(..)
+             --
+             , ScienceTimeline(..)
+             , EngineeringTimeline
+             , hydrateScienceTimeline
+             , hydrateEngineeringTimeline
              --
              , TelescopeId
              , Sequence
@@ -34,6 +40,7 @@ module Types (MetaData(..)
              , ProposalAbstract(..)
              , MissingProposalAbstract(..)
              , PropNum
+             , PropCategory
              , fromPropNum, toPropNum
              , TOORequest
              , fromTOORequest, toTOORequest
@@ -72,7 +79,7 @@ module Types (MetaData(..)
              , toSM, smExpr
              , toSNM, snmExpr
              , SimbadType, fromSimbadType, toSimbadType
-             , SIMCategory(..), fromSIMCategory
+             , SIMCategory, fromSIMCategory, toSIMCategory
              
              , SimbadLoc(..)
              , simbadBase
@@ -675,6 +682,69 @@ invalidObsIdSchema = TableSchema
     }
   }
 
+
+--
+
+-- | Return just the data that is needed for the timeline.
+--
+-- Note that ScienceTimeline and RestrictedSO are similar, but
+-- not the same.
+--
+data ScienceTimeline f = ScienceTimeline
+  { stObsId :: Column f ObsIdVal
+  , stProposal :: Column f PropNum
+  , stTarget :: Column f TargetName
+  , stStartTime :: Column f (Maybe ChandraTime)
+  , stPublicRelease :: Column f (Maybe UTCTime)
+  , stApprovedTime :: Column f TimeKS
+  , stObservedTime :: Column f (Maybe TimeKS)
+  , stInstrument :: Column f Instrument
+  , stGrating :: Column f Grating
+  , stDataMode :: Column f (Maybe T.Text)
+  , stTOO :: Column f (Maybe TOORequest)
+  , stConstellation :: Column f ConShort
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+
+data EngineeringTimeline f = EngineeringTimeline
+  { etObsId :: Column f ObsIdVal
+  , etTarget :: Column f TargetName
+  , etStartTime :: Column f (Maybe ChandraTime)
+  , etTime :: Column f TimeKS
+  }
+  deriving stock (Generic)
+  deriving anyclass (Rel8able)
+
+
+hydrateScienceTimeline :: ScienceObsRaw f -> ScienceTimeline f
+hydrateScienceTimeline ScienceObsRaw{..} =
+  ScienceTimeline
+  { stObsId = sorObsId
+  , stProposal = sorProposal
+  , stTarget = sorTarget
+  , stStartTime = sorStartTime
+  , stPublicRelease = sorPublicRelease
+  , stApprovedTime = sorApprovedTime
+  , stObservedTime = sorObservedTime
+  , stInstrument = sorInstrument
+  , stGrating = sorGrating
+  , stDataMode = sorDataMode
+  , stTOO = sorTOO
+  , stConstellation = sorConstellation
+  }
+
+hydrateEngineeringTimeline :: NonScienceObs f -> EngineeringTimeline f
+hydrateEngineeringTimeline NonScienceObs{..} =
+  EngineeringTimeline
+  { etObsId = nsObsId
+  , etTarget = nsTarget
+  , etStartTime = nsStartTime
+  , etTime = nsTime
+  }
+
+--
   
 data ProposalAbstract f = ProposalAbstract
   { paNum :: Column f PropNum
@@ -1431,6 +1501,11 @@ noSimbadType = SimbadType "000"
 --   This is the "long form" of a SIMBAD type.
 newtype SIMCategory = SIMCategory { fromSIMCategory :: T.Text }
   deriving newtype (DBEq, DBType, Eq)
+
+-- | There is currently no validation of the category label.
+--
+toSIMCategory :: T.Text -> SIMCategory
+toSIMCategory = SIMCategory
 
 -- | Identifies those sources for which we have no SIMBAD information.
 noSimbadLabel :: SIMCategory
