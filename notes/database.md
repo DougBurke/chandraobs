@@ -955,3 +955,78 @@ Indexes:
     "InvalidObsId_pkey" PRIMARY KEY, btree (id)
     "InvalidObsIdConstraint" UNIQUE CONSTRAINT, btree ("ioObsId")
 
+dak24kljssi6us=> \d "Proposal";
+                                     Table "public.Proposal"
+    Column    |       Type        | Collation | Nullable |                Default                 
+--------------+-------------------+-----------+----------+----------------------------------------
+ id           | bigint            |           | not null | nextval('"Proposal_id_seq"'::regclass)
+ propNum      | bigint            |           | not null | 
+ propName     | character varying |           | not null | 
+ propPI       | character varying |           | not null | 
+ propCategory | character varying |           | not null | 
+ propType     | character varying |           | not null | 
+ propCycle    | character varying |           | not null | 
+Indexes:
+    "Proposal_pkey" PRIMARY KEY, btree (id)
+    "PropConstraint" UNIQUE CONSTRAINT, btree ("propNum")
+
+
+dak24kljssi6us=> \d "ScienceObs";
+                                            Table "public.ScienceObs"
+     Column      |            Type             | Collation | Nullable |                 Default                  
+-----------------+-----------------------------+-----------+----------+------------------------------------------
+ id              | bigint                      |           | not null | nextval('"ScienceObs_id_seq"'::regclass)
+ soSequence      | bigint                      |           | not null | 
+ soProposal      | bigint                      |           | not null | 
+ soStatus        | character varying           |           | not null | 
+ soObsId         | bigint                      |           | not null | 
+ soTarget        | character varying           |           | not null | 
+ soStartTime     | timestamp without time zone |           |          | 
+ soApprovedTime  | double precision            |           | not null | 
+ soObservedTime  | double precision            |           |          | 
+ soPublicRelease | timestamp without time zone |           |          | 
+ soTimeCritical  | character varying           |           | not null | 
+ soMonitor       | character varying           |           | not null | 
+ soConstrained   | character varying           |           | not null | 
+ soInstrument    | character varying           |           | not null | 
+ soGrating       | character varying           |           | not null | 
+ soDetector      | character varying           |           |          | 
+ soDataMode      | character varying           |           |          | 
+ soACISI0        | character varying           |           | not null | 
+ soACISI1        | character varying           |           | not null | 
+ soACISI2        | character varying           |           | not null | 
+ soACISI3        | character varying           |           | not null | 
+ soACISS0        | character varying           |           | not null | 
+ soACISS1        | character varying           |           | not null | 
+ soACISS2        | character varying           |           | not null | 
+ soACISS3        | character varying           |           | not null | 
+ soACISS4        | character varying           |           | not null | 
+ soACISS5        | character varying           |           | not null | 
+ soJointWith     | character varying           |           |          | 
+ soJointHST      | double precision            |           |          | 
+ soJointNOAO     | double precision            |           |          | 
+ soJointNRAO     | double precision            |           |          | 
+ soJointRXTE     | double precision            |           |          | 
+ soJointSPITZER  | double precision            |           |          | 
+ soJointSUZAKU   | double precision            |           |          | 
+ soJointXMM      | double precision            |           |          | 
+ soJointSWIFT    | double precision            |           |          | 
+ soJointNUSTAR   | double precision            |           |          | 
+ soMultiTel      | boolean                     |           | not null | 
+ soMultiTelInt   | double precision            |           | not null | 
+ soMultiTelObs   | bigint                      |           | not null | 
+ soTOO           | character varying           |           |          | 
+ soRA            | double precision            |           | not null | 
+ soDec           | double precision            |           | not null | 
+ soConstellation | character varying           |           | not null | 
+ soRoll          | double precision            |           | not null | 
+ soSubArrayStart | bigint                      |           |          | 
+ soSubArraySize  | bigint                      |           |          | 
+Indexes:
+    "ScienceObs_pkey" PRIMARY KEY, btree (id)
+    "ScienceObsIdConstraint" UNIQUE CONSTRAINT, btree ("soObsId")
+Foreign-key constraints:
+    "ScienceObs_soMultiTelObs_fkey" FOREIGN KEY ("soMultiTelObs") REFERENCES "List##Telescope"(id)
+Triggers:
+    "ScienceObs" AFTER DELETE ON "ScienceObs" FOR EACH ROW EXECUTE FUNCTION "ScienceObs"()
+    "ScienceObs#soMultiTelObs" AFTER UPDATE OF "soMultiTelObs" ON "ScienceObs" FOR EACH ROW EXECUTE FUNCTION "ScienceObs#soMultiTelObs"()

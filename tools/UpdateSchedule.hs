@@ -33,24 +33,20 @@ module Main (main) where
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
+import qualified Rel8
+
 import Control.Monad (unless, void, when)
-import Control.Monad.IO.Class (liftIO)
 
 import Data.Time (getCurrentTime)
 
-import Database.Groundhog (PersistBackend, Cond(Not), Order(Desc)
-                          , (&&.)
-                          , (==.), (<.) -- (/=.), (||.), (>=.)
-                          , delete
-                          , isFieldNothing
-                          , limitTo
-                          , orderBy
-                          , select)
-import Database.Groundhog.Core (Action, PersistEntity)
-import Database.Groundhog.Postgresql (Postgresql, SqlDb, Conn,
-                                      count, in_, insert_)
-
 import Formatting (int, sformat)
+
+import Rel8 ( (==.)
+            , (&&.)
+            , Result
+            , each
+            , lit
+            )
 
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitFailure)
@@ -76,6 +72,7 @@ import Types (ChandraTime, ScienceObs(..), NonScienceObs(..)
 showInt :: Int -> T.Text
 showInt = sformat int
 
+{-XXX
 
 -- | What science and non-science observations are there?
 --
@@ -264,6 +261,9 @@ updateNonScience =
       del obsid = delete (NsObsIdField ==. obsid)
   in updateObsIds "Engineering" nsObsId fromOCAT del
 
+XXX-}
+
+
 -- | Extract any new schedule information and add it to the
 --   system.
 --
@@ -274,6 +274,9 @@ updateSchedule ::
   Int
   -- ^ Maximum number of non-science or science objects
   -> IO ()
+updateSchedule nmax = undefined
+
+{-XXX
 updateSchedule nmax = do
 
   -- How about using a limit of only observations newer
@@ -306,102 +309,124 @@ updateSchedule nmax = do
   -- if it isn't shown on error
   T.putStrLn ("Query started at: " <> showCTime tnow)
 
+XXX-}
+
 
 -- | It is an error if this obsid is not in the InvalidObsId table.
 updateObsId ::
-  ObsIdVal
+  Connection
+  -> ObsIdVal
   -- ^ ObsId to query
   -> IO ()
-updateObsId oi = do
-  T.putStrLn ("Updating ObsId: " <> showInt (fromObsId oi))
-  n <- runDb (count (IoObsIdField ==. oi))
+updateObsId conn oi = do
+  let obsT = showInt (fromObsIdVal oi)
+  T.putStrLn ("Updating ObsId: " <> obsT)
+
+  let find1 = each invalidObsIdSchema
+              >>= Rel8.filter (\r -> ioObsId r ==. lit oi)
+      cnt1 = Rel8.aggregate Rel8.countStr find1
+
+      find2 = each scienceobsRawSchema
+              >>= Rel8.filter (\r -> sorObsId r ==. lit oi)
+      cnt2 = Rel8.aggregate Rel8.countStr find2
+
+      find3 = each nonScienceobsSchema
+              >>= Rel8.filter (\r -> nsObsId r ==. lit oi)
+      cnt3 = Rel8.aggregate Rel8.countStr find3
+             
+  n <- runDb1 conn (Rel8.select cnt1)
   when (n == 0)
     (do
-        let msg = "Error: Obsid is not in the invalid table: " <>
-                  showInt (fromObsId oi)
+        let msg = "Error: Obsid is not in the invalid table: " <> obsT
         T.hPutStrLn stderr msg
         exitFailure)
 
-  ns <- runDb (count (SoObsIdField ==. oi))
+  ns <- runDb1 conn (Rel8.select cnt2)
   unless (ns == 0)
     (do
-        let msg = "Error: Science Obsid is already known about :" <>
-                  showInt (fromObsId oi)
+        let msg = "Error: Science Obsid is already known about :" <> obsT
         T.hPutStrLn stderr msg
         exitFailure)
     
-  ne <- runDb (count (NsObsIdField ==. oi))
+  ne <- runDb1 conn (Rel8.select cnt2)
   unless (ne == 0)
     (do
-        let msg = "Error: Engineering Obsid is already known about :" <>
-                  showInt (fromObsId oi)
+        let msg = "Error: Engineering Obsid is already known about :" <> obsT
         T.hPutStrLn stderr msg
         exitFailure)
 
   -- do we assume engineering or science?
   ocat <- queryOCAT [oi]
   case ocat of
-    Right omap -> processObsId oi omap
+    Right omap -> processObsId conn oi omap
     Left emsg -> T.hPutStrLn stderr emsg
                  >> exitFailure
           
 
 -- What is the difference between returning [] and [(xxx, Nothing)] ?
 --
-processObsId :: ObsIdVal -> OCATMap -> IO ()
-processObsId oi [(oiv, Just ocat)] | oi == oiv = 
+processObsId :: Connection -> ObsIdVal -> OCATMap -> IO ()
+processObsId conn oi [(oiv, Just ocat)] | oi == oiv = 
   -- check for the type, since this key should always exist
   -- rather than a more permissive "try science, then try
   -- engineering" approach
   case isScienceObsE ocat of
     Left emsg -> T.hPutStrLn stderr emsg >> exitFailure
     Right flag -> if flag
-                  then processScience oi ocat
-                  else processEngineering oi ocat
+                  then processScience conn oi ocat
+                  else processEngineering conn oi ocat
 
   
-processObsId _ [(_, Just _)] = do
+processObsId _ _ [(_, Just _)] = do
   -- do not expect this to fire so don't do match
   T.hPutStrLn stderr "UNEXPECTED: ObsIds do not match"
   T.hPutStrLn stderr "Database is NOT updated."
   exitFailure
         
-processObsId _ [(_, Nothing)] = do
+processObsId _ _ [(_, Nothing)] = do
   T.hPutStrLn stderr "Unable to parse OCAT response"
   T.hPutStrLn stderr "Database is NOT updated."
   exitFailure
 
-processObsId _ [] = do
+processObsId _ _ [] = do
   T.hPutStrLn stderr "No data retrieved from OCAT query."
   T.hPutStrLn stderr "Database is NOT updated."
   exitFailure
 
 -- This should not happen, so don't bother dealing with it
-processObsId _ (_:_) = do
+processObsId _ _ (_:_) = do
   T.hPutStrLn stderr "Errr, multiple responses to OCAT query."
   T.hPutStrLn stderr "Database is NOT updated."
   exitFailure
 
 
-processScience :: ObsIdVal -> OCAT -> IO ()
-processScience oi ocat = 
+processScience :: Connection -> ObsIdVal -> OCAT -> IO ()
+processScience conn oi ocat = 
   let act now sobs prop = do
-        delete (IoObsIdField ==. oi)
+        del
         -- do not check if the observation is already known about
         -- because it shouldn't, relying on the DB constraint to
         -- let us know if something is wrong (or has changed in the
         -- database).
-        insert_ sobs
-        flag <- insertProposal prop
+        addScienceObsS sobs
+
+        flag <- addProposalS prop
         updateLastModified now
         pure flag
+
+      del = Rel8.delete $ Rel8.Delete
+            { from = invalidScienceObsSchema
+            , using = pure ()
+            , deleteWhere = \_ row -> ioObsId row ==. lit oi
+            , returning = Rel8.NoReturning
+            }
 
   in do
      ans <- ocatToScience ocat
      case ans of
        Right (prop, sobs) -> do
          now <- getCurrentTime
-         flag <- runDb (act now sobs prop)
+         flag <- runDb1 conn (act now sobs prop)
          T.putStrLn "Added science observation"
          when flag (T.putStrLn ("Also added proposal " <>
                                 showInt (fromPropNum (propNum prop))))
@@ -416,8 +441,8 @@ processScience oi ocat =
 -- the short-term schedule, so can add in the expected start time
 -- from that (if it is missing)
 --
-processEngineering :: ObsIdVal -> OCAT -> IO ()
-processEngineering oi ocat =
+processEngineering :: Connection -> ObsIdVal -> OCAT -> IO ()
+processEngineering conn oi ocat =
   let act now ns = do
         delete (IoObsIdField ==. oi)
         -- do not check if the observation is already known about
@@ -438,6 +463,7 @@ processEngineering oi ocat =
       runDb (act now ns)
       T.putStrLn "Added engineering observation"
   
+XXX-}
 
 
 usage :: IO ()
@@ -454,4 +480,3 @@ main = do
     [] -> updateSchedule 50 -- could be configureable
     [i] | Just oi <- toObsIdValStr (T.pack i) -> updateObsId oi
     _ -> usage
-  

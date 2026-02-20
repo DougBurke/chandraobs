@@ -245,6 +245,7 @@ import Types (MetaData(..), metaDataSchema
              , SimbadMatch(..), simbadMatchSchema
              , simbadNoMatchSchema
              , Proposal(..), proposalSchema
+             , ProposalKey
              , ListTelescope(..), listTelescopeSchema
              , ListTelescopeValues(..), listTelescopeValuesSchema
              , ObsIdVal
@@ -3123,7 +3124,8 @@ dehydrateScienceObs ::
 -}
 dehydrateScienceObs ScienceObs {..} telId =
   ScienceObsRaw
-  { sorSequence = lit soSequence
+  { sorKey = Rel8.unsafeCoerceExpr (Rel8.nextval "ScienceObs_id_seq")
+  , sorSequence = lit soSequence
   , sorProposal = lit soProposal
   , sorStatus = lit soStatus
   , sorObsId = lit soObsId
@@ -3340,12 +3342,14 @@ insertProposal conn p = do
       pure True
 
 
-addProposalS :: Proposal Result -> Statement ()
-addProposalS p = Rel8.insert $ Insert
+-- TODO: need to replace the propId field?????
+
+addProposalS :: Proposal Result -> Statement ProposalKey
+addProposalS p = Rel8.insert $ Rel8.Insert
                  { into = proposalSchema
                  , rows = Rel8.values [ lit p ]
                  , onConflict = Abort
-                 , returning = NoReturning
+                 , returning = Returning propKey
                  }
 
   

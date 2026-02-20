@@ -39,12 +39,14 @@ module Types (MetaData(..)
              , Proposal(..)
              , ProposalAbstract(..)
              , MissingProposalAbstract(..)
+             , ProposalKey
              , PropNum
              , PropCategory
              , fromPropNum, toPropNum
 
              -- , NonSciencekey
              , invalidNonScienceKey
+             , invalidProposalKey
 
              , TOORequest
              , fromTOORequest, toTOORequest
@@ -639,12 +641,21 @@ instance f ~ Result => Eq (ScienceObs f) where
     && (soSubArraySize so1 == soSubArraySize so2)
 
 
+newtype ScienceObsKey = ScienceObsKey { fromScienceObsKey :: Int64 }
+  deriving newtype (DBEq, DBOrd, DBType)
+  deriving (Eq, Ord)
+
+invalidScienceObsKey :: ScienceObsKey
+invalidScienceObsKey = ScienceObsKey 0
+
+
 -- Access the data as stored in the database. This is intended to be an internal
 -- representation.
 --
 data ScienceObsRaw f =
   ScienceObsRaw
-  { sorSequence :: Column f Sequence
+  { sorKey :: Column f ScienceObsKey
+  , sorSequence :: Column f Sequence
   , sorProposal :: Column f PropNum
   , sorStatus :: Column f ObsIdStatus
   , sorObsId :: Column f ObsIdVal
@@ -707,7 +718,8 @@ scienceObsRawSchema :: TableSchema (ScienceObsRaw Name)
 scienceObsRawSchema = TableSchema
   { name = "ScienceObs"
   , columns = ScienceObsRaw
-    { sorSequence = "soSequence"
+    { sorKey = "id"
+    , sorSequence = "soSequence"
     , sorProposal = "soProposal"
     , sorStatus = "soStatus"
     , sorObsId = "soObsId"
@@ -986,6 +998,16 @@ proposalAbstractSchema = TableSchema
 type PropCategory = T.Text
 
 
+-- | Identify the proposal.
+--
+newtype ProposalKey = ProposalKey { fromProposalKey :: Int64 }
+  deriving newtype (DBEq, DBOrd, DBType)
+  deriving (Eq, Ord)
+
+invalidProposalKey :: ProposalKey
+invalidProposalKey = ProposalKey 0
+
+
 -- | Store information on a proposal, obtained from the OCAT.
 --
 --   This does *not* contain the abstract, as this requires a
@@ -993,7 +1015,8 @@ type PropCategory = T.Text
 --   For now the abstract is stored in a separate table.
 --
 data Proposal f = Proposal
-  { propNum :: Column f PropNum
+  { propKey :: Column f ProposalKey
+  , propNum :: Column f PropNum
   , propName :: Column f T.Text
   , propPI :: Column f T.Text
   , propCategory :: Column f PropCategory
@@ -1020,7 +1043,8 @@ proposalSchema :: TableSchema (Proposal Name)
 proposalSchema = TableSchema
   { name = "Proposal"
   , columns = Proposal
-    { propNum = "propNum"
+    { propKey = "id"
+    , propNum = "propNum"
     , propName = "propName"
     , propPI = "propPI"
     , propCategory = "propCategory"
